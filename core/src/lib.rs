@@ -177,13 +177,8 @@ impl StereoSample {
     pub const MAX: StereoSample = StereoSample(Sample::MAX, Sample::MAX);
     pub const MIN: StereoSample = StereoSample(Sample::MIN, Sample::MIN);
 
-    pub fn new_from_f64(left: SampleType, right: SampleType) -> Self {
-        Self(Sample(left), Sample(right))
-    }
-
-    // TODO: is this necessary? Wouldn't a fluent Rust coder use .into()?
-    pub fn new_from_single_f64(value: SampleType) -> Self {
-        Self::new_from_f64(value, value)
+    fn new(left: Sample, right: Sample) -> Self {
+        Self(left, right)
     }
 
     // This method should be used only for testing. TODO: get rid of this. Now
@@ -453,7 +448,10 @@ impl Dca {
         let input_sample: f64 = input_sample.0 * self.gain.value();
         let left_pan: f64 = 1.0 - 0.25 * (self.pan.value() + 1.0).powi(2);
         let right_pan: f64 = 1.0 - (0.5 * self.pan.value() - 0.5).powi(2);
-        StereoSample::new_from_f64(left_pan * input_sample, right_pan * input_sample)
+        StereoSample::new(
+            (left_pan * input_sample).into(),
+            (right_pan * input_sample).into(),
+        )
     }
 
     pub fn gain(&self) -> RangedF64<0, 1> {
@@ -692,7 +690,7 @@ mod tests {
         assert_eq!(Sample::from(StereoSample::MAX), Sample::MAX);
 
         assert_eq!(
-            Sample::from(StereoSample::new_from_f64(1.0, 0.0)),
+            Sample::from(StereoSample::new(1.0.into(), 0.0.into())),
             Sample::from(0.5)
         );
     }
@@ -788,24 +786,24 @@ mod tests {
             pan: BipolarNormal::zero(),
         });
         const VALUE_IN: Sample = Sample(0.5);
-        const VALUE: f64 = 0.5;
+        const VALUE: Sample = Sample(0.5);
         assert_eq!(
             dca.transform_audio_to_stereo(VALUE_IN),
-            StereoSample::new_from_f64(VALUE * 0.75, VALUE * 0.75),
+            StereoSample::new(VALUE * 0.75, VALUE * 0.75),
             "Pan center should give 75% equally to each channel"
         );
 
         dca.set_pan(BipolarNormal::new(-1.0));
         assert_eq!(
             dca.transform_audio_to_stereo(VALUE_IN),
-            StereoSample::new_from_f64(VALUE, 0.0),
+            StereoSample::new(VALUE, 0.0.into()),
             "Pan left should give 100% to left channel"
         );
 
         dca.set_pan(BipolarNormal::new(1.0));
         assert_eq!(
             dca.transform_audio_to_stereo(VALUE_IN),
-            StereoSample::new_from_f64(0.0, VALUE),
+            StereoSample::new(0.0.into(), VALUE),
             "Pan right should give 100% to right channel"
         );
     }

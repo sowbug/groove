@@ -1188,18 +1188,18 @@ pub mod tests {
 
         assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
         o.gather_audio(&mut samples);
-        assert!(samples[0].almost_equals(StereoSample::new_from_single_f64(0.1)));
+        assert!(samples[0].almost_equals(StereoSample::from(0.1)));
 
         assert!(o.disconnect_from_main_mixer(level_1_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_2_uid).is_ok());
         o.gather_audio(&mut samples);
-        assert!(samples[0].almost_equals(StereoSample::new_from_single_f64(0.2)));
+        assert!(samples[0].almost_equals(StereoSample::from(0.2)));
 
         assert!(o.unpatch_all().is_ok());
         assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_2_uid).is_ok());
         o.gather_audio(&mut samples);
-        assert!(samples[0].almost_equals(StereoSample::new_from_single_f64(0.1 + 0.2)));
+        assert!(samples[0].almost_equals(StereoSample::from(0.1 + 0.2)));
     }
 
     #[test]
@@ -1235,7 +1235,7 @@ pub mod tests {
         // Just the single-level instrument; should get that.
         assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
         o.gather_audio(&mut samples);
-        assert!(samples[0].almost_equals(StereoSample::new_from_single_f64(0.1)));
+        assert!(samples[0].almost_equals(StereoSample::from(0.1)));
 
         // Gain alone; that's weird, but it shouldn't explode.
         assert!(o.disconnect_from_main_mixer(level_1_uid).is_ok());
@@ -1247,7 +1247,7 @@ pub mod tests {
         assert!(o.disconnect_from_main_mixer(gain_1_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
         o.gather_audio(&mut samples);
-        assert!(samples[0].almost_equals(StereoSample::new_from_single_f64(0.1)));
+        assert!(samples[0].almost_equals(StereoSample::from(0.1)));
 
         // Instrument to gain should result in (instrument x gain).
         assert!(o.unpatch_all().is_ok());
@@ -1255,15 +1255,13 @@ pub mod tests {
             .patch_chain_to_main_mixer(&[level_1_uid, gain_1_uid])
             .is_ok());
         o.gather_audio(&mut samples);
-        assert!(samples[0].almost_equals(StereoSample::new_from_single_f64(0.1 * 0.5)));
+        assert!(samples[0].almost_equals(StereoSample::from(0.1 * 0.5)));
 
         assert!(o.connect_to_main_mixer(level_2_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_3_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_4_uid).is_ok());
         o.gather_audio(&mut samples);
-        assert!(samples[0].almost_equals(StereoSample::new_from_single_f64(
-            0.1 * 0.5 + 0.2 + 0.3 + 0.4
-        )));
+        assert!(samples[0].almost_equals(StereoSample::from(0.1 * 0.5 + 0.2 + 0.3 + 0.4)));
 
         // Same thing, but inverted order.
         assert!(o.unpatch_all().is_ok());
@@ -1274,9 +1272,7 @@ pub mod tests {
             .patch_chain_to_main_mixer(&[level_1_uid, gain_1_uid])
             .is_ok());
         o.gather_audio(&mut samples);
-        assert!(samples[0].almost_equals(StereoSample::new_from_single_f64(
-            0.1 * 0.5 + 0.2 + 0.3 + 0.4
-        )));
+        assert!(samples[0].almost_equals(StereoSample::from(0.1 * 0.5 + 0.2 + 0.3 + 0.4)));
     }
 
     #[test]
@@ -1321,7 +1317,7 @@ pub mod tests {
         let mut samples: [StereoSample; 1] = Default::default();
         o.gather_audio(&mut samples);
         let sample_chain_1 = samples[0];
-        assert!(sample_chain_1.almost_equals(StereoSample::new_from_single_f64(0.1 * 0.2 * 0.4)));
+        assert!(sample_chain_1.almost_equals(StereoSample::from(0.1 * 0.2 * 0.4)));
 
         // Second chain.
         assert!(o.unpatch_all().is_ok());
@@ -1330,7 +1326,7 @@ pub mod tests {
             .is_ok());
         o.gather_audio(&mut samples);
         let sample_chain_2 = samples[0];
-        assert!(sample_chain_2.almost_equals(StereoSample::new_from_single_f64(0.3 * 0.6)));
+        assert!(sample_chain_2.almost_equals(StereoSample::from(0.3 * 0.6)));
 
         // Third.
         assert!(o.unpatch_all().is_ok());
@@ -1339,14 +1335,14 @@ pub mod tests {
             .is_ok());
         o.gather_audio(&mut samples);
         let sample_chain_3 = samples[0];
-        assert_eq!(sample_chain_3, StereoSample::new_from_single_f64(0.5 * 0.8));
+        assert_eq!(sample_chain_3, StereoSample::from(0.5 * 0.8));
 
         // Fourth.
         assert!(o.unpatch_all().is_ok());
         assert!(o.patch_chain_to_main_mixer(&[drum_1_uid]).is_ok());
         o.gather_audio(&mut samples);
         let sample_chain_4 = samples[0];
-        assert!(sample_chain_4.almost_equals(StereoSample::new_from_single_f64(0.7)));
+        assert!(sample_chain_4.almost_equals(StereoSample::from(0.7)));
 
         // Now start over and successively add. This is first and second chains together.
         assert!(o.unpatch_all().is_ok());
@@ -1400,9 +1396,7 @@ pub mod tests {
         assert!(o.patch(instrument_3_uid, effect_1_uid).is_ok());
         let mut samples: [StereoSample; 1] = Default::default();
         o.gather_audio(&mut samples);
-        assert!(
-            samples[0].almost_equals(StereoSample::new_from_single_f64(0.1 + 0.5 * (0.3 + 0.5)))
-        );
+        assert!(samples[0].almost_equals(StereoSample::from(0.1 + 0.5 * (0.3 + 0.5))));
     }
 
     #[test]
