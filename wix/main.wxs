@@ -104,7 +104,7 @@
               <File Id='exe1' Name='groove-gui.exe' DiskId='1' Source='$(var.CargoTargetBinDir)\groove-gui.exe' KeyPath='yes'/>
             </Component>
             <Component Id='binary2' Guid='*'>
-              <File Id='exe1' Name='groove-egui.exe' DiskId='1' Source='$(var.CargoTargetBinDir)\groove-egui.exe' KeyPath='yes'/>
+              <File Id='exe2' Name='groove-egui.exe' DiskId='1' Source='$(var.CargoTargetBinDir)\groove-egui.exe' KeyPath='yes'/>
             </Component>
           </Directory>
           <Directory Id='Assets' Name='assets' FileSource='assets'>
