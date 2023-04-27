@@ -26,8 +26,6 @@ use std::{
 };
 use strum::IntoEnumIterator;
 
-//mod stream;
-
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
@@ -37,11 +35,11 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "Audio Prototype (egui)",
         options,
-        Box::new(|_cc| Box::<AudioPrototype2>::default()),
+        Box::new(|_cc| Box::<GrooveApp>::default()),
     )
 }
 
-struct AudioPrototype2 {
+struct GrooveApp {
     orchestrator: Arc<Mutex<Orchestrator>>,
     bpm: ParameterType,
     sample_rate: Arc<Mutex<usize>>,
@@ -51,7 +49,7 @@ struct AudioPrototype2 {
 
     tree: Tree,
 }
-impl Default for AudioPrototype2 {
+impl Default for GrooveApp {
     fn default() -> Self {
         let clock_settings = ClockNano::default();
         let audio_stream_service = AudioStreamService::new();
@@ -77,7 +75,7 @@ impl Default for AudioPrototype2 {
     }
 }
 
-impl eframe::App for AudioPrototype2 {
+impl eframe::App for GrooveApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if let Ok(o) = self.orchestrator.lock() {
             self.bpm = o.bpm();
@@ -117,7 +115,7 @@ impl eframe::App for AudioPrototype2 {
         ctx.request_repaint();
     }
 }
-impl AudioPrototype2 {
+impl GrooveApp {
     fn start_audio_stream(
         orchestrator_clone: Arc<Mutex<Orchestrator>>,
         audio_stream_service: AudioStreamService,
