@@ -23,6 +23,7 @@ jobs:
         run: |
           sudo apt -qq update
           sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev gcc
+          sudo apt -y install libclang-dev libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
         if: startsWith(matrix.os, 'ubuntu')
 
       - name: Install latest Rust nightly
@@ -71,11 +72,12 @@ jobs:
           path: |
             target/${{ matrix.target }}/release/groove-cli*
             target/${{ matrix.target }}/release/groove-gui*
+            target/${{ matrix.target }}/release/groove-egui*
             perf-output.txt
       - name: Upload binaries
         uses: taiki-e/upload-rust-binary-action@v1
         with:
-          bin: groove-gui,groove-cli
+          bin: groove-gui,groove-egui,groove-cli
           include: README.md,LICENSE.txt,assets,projects
           leading_dir: true
           archive: groove-$tag-$target
@@ -127,9 +129,10 @@ jobs:
           path: |
             target/${{ matrix.target }}/release/groove-cli*
             target/${{ matrix.target }}/release/groove-gui*
+            target/${{ matrix.target }}/release/groove-egui*
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
-          bin: groove-gui,groove-cli
+          bin: groove-gui,groove-egui,groove-cli
           include: README.md,LICENSE.txt,assets,projects
           target: ${{ matrix.target }}
           leading_dir: true

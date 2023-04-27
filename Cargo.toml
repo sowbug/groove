@@ -97,16 +97,22 @@ lto = true
 codegen-units = 1
 panic = "abort"
 
+# https://doc.rust-lang.org/cargo/commands/cargo-build.html
+# 
+# "Binaries are skipped if they have required-features that are missing"
+#
+# We want all the binaries to build on a plain `cargo build --workspace`. That's
+# why default features includes both framework features.
 [features]
-default = ["serialization"]
-visualization = ["dep:plotters", "dep:spectrum-analyzer"]
+default = ["serialization", "egui-framework", "iced-framework"]
+egui-framework = ["groove-egui", "eframe"]
+iced-framework = ["iced", "iced_audio", "iced_aw", "iced_native"]
 serialization = [
     "serde",
     "groove-core/serialization",
     "groove-entities/serialization"
 ]
-egui-framework = ["groove-egui", "eframe"]
-iced-framework = [ "iced", "iced_audio", "iced_aw", "iced_native"]
+visualization = ["dep:plotters", "dep:spectrum-analyzer"]
 
 [package.metadata.cross.target.aarch64-unknown-linux-gnu]
 pre-build = [
@@ -138,7 +144,8 @@ assets = [
     ["target/release/groove-gui", "usr/bin/", "755"],
     ["LICENSE.txt", "usr/share/doc/groove/LICENSE.txt", "644"],
     ["README.md", "usr/share/doc/groove/README.md", "644"],
-    ["assets/os/Groove.desktop", "usr/share/applications/", "644"],
+    ["assets/os/groove-iced.desktop", "usr/share/applications/", "644"],
+    ["assets/os/groove-egui.desktop", "usr/share/applications/", "644"],
     ["assets/patches/**/*.yaml", "usr/share/groove/patches/", "644"],
     ["assets/samples/**/*.wav", "usr/share/groove/samples/", "644"],
     ["projects/**/*.yaml", "usr/share/groove/projects/", "644"],
