@@ -5,10 +5,7 @@
 use anyhow::Ok;
 use clap::Parser;
 use groove::{
-    app_version,
-    audio::send_performance_to_output_device,
-    util::{PathType, Paths},
-    {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
+    app_version, {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
 };
 use groove_core::{
     time::{ClockNano, TimeSignature},
@@ -17,6 +14,7 @@ use groove_core::{
 };
 use groove_orchestration::{helpers::IOHelper, Orchestrator};
 use groove_settings::SongSettings;
+use groove_utils::{PathType, Paths};
 use regex::Regex;
 use std::{path::PathBuf, time::Instant};
 
@@ -154,7 +152,7 @@ fn main() -> anyhow::Result<()> {
                 &PathBuf::from(output_filename.to_string()),
             )?;
         } else {
-            send_performance_to_output_device(&performance)?;
+            //  send_performance_to_output_device(&performance)?;
         }
     }
     Ok(())

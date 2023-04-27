@@ -1,3 +1,5 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use app_dirs2::{AppDataType, AppInfo};
 use std::{
     env::{current_dir, current_exe},

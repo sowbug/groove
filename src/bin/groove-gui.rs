@@ -4,15 +4,9 @@
 
 #![windows_subsystem = "windows"]
 
-mod gui;
-
 use crossbeam::queue::ArrayQueue;
 use groove::{
-    subscriptions::{
-        EngineEvent, EngineInput, EngineSubscription, MidiHandlerEvent, MidiHandlerInput,
-        MidiPortDescriptor, MidiSubscription,
-    },
-    Orchestrator, {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
+    app_version, Orchestrator, {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
 };
 use groove_core::{
     time::{Clock, ClockNano, TimeSignature},
@@ -20,12 +14,16 @@ use groove_core::{
     Sample, StereoSample, SAMPLE_BUFFER_SIZE,
 };
 use groove_entities::EntityMessage;
-use groove_orchestration::messages::{GrooveEvent, GrooveInput};
-use gui::{
-    persistence::{self, LoadError, OpenError, Preferences, SaveError},
-    views::{ControlBar, ControlBarEvent, View, ViewMessage},
-    GuiStuff,
+use groove_iced::{
+    gui::{
+        persistence::{load_project, LoadError, OpenError, Preferences, SaveError, export_to_wav, open_dialog, export_to_mp3},
+        views::{ControlBar, ControlBarEvent, View, ViewMessage}, GuiStuff,
+    },
+    subscriptions::{
+        EngineEvent, EngineInput, MidiHandlerEvent, MidiHandlerInput, MidiPortDescriptor, MidiSubscription, EngineSubscription,
+    },
 };
+use groove_orchestration::messages::{GrooveEvent, GrooveInput};
 use iced::{
     alignment, executor,
     theme::Theme,
@@ -126,7 +124,7 @@ impl Default for GrooveApp {
             theme: Default::default(),
             state: Default::default(),
             should_exit: Default::default(),
-            control_bar: ControlBar::new_with(Clock::new_with(clock_params)),
+            control_bar: ControlBar::new_with(app_version(), Clock::new_with(clock_params)),
             views: View::new(),
             show_settings: Default::default(),
             project_title: None,
@@ -241,7 +239,7 @@ impl Application for GrooveApp {
                     if let Some(path) = path {
                         if let Some(path) = path.to_str() {
                             return Command::perform(
-                                persistence::load_project(path.into()),
+                                load_project(path.into()),
                                 AppMessage::ProjectFileLoaded,
                             );
                         }
@@ -395,7 +393,7 @@ impl GrooveApp {
                 self.skip_to_start();
                 self.post_to_engine(EngineInput::PauseAudio);
                 return Some(Command::perform(
-                    persistence::open_dialog(),
+                    open_dialog(),
                     AppMessage::OpenDialogComplete,
                 ));
             }
@@ -412,7 +410,7 @@ impl GrooveApp {
                     self.stop_playback();
                     self.skip_to_start();
                     return Some(Command::perform(
-                        persistence::export_to_wav(performance),
+                        export_to_wav(performance),
                         AppMessage::ExportComplete,
                     ));
                 }
@@ -424,7 +422,7 @@ impl GrooveApp {
                     self.stop_playback();
                     self.skip_to_start();
                     return Some(Command::perform(
-                        persistence::export_to_mp3(performance),
+                        export_to_mp3(performance),
                         AppMessage::ExportComplete,
                     ));
                 }
@@ -446,7 +444,7 @@ impl GrooveApp {
                 if self.preferences.should_reload_last_project {
                     if let Some(filename) = &self.preferences.last_project_filename {
                         return Some(Command::perform(
-                            persistence::load_project(filename.into()),
+                            load_project(filename.into()),
                             AppMessage::ProjectFileLoaded,
                         ));
                     }
@@ -620,7 +618,7 @@ impl GrooveApp {
                 self.midi_input_port_active.clone(),
                 MidiHandlerInput::SelectMidiInput,
             )
-            .font(gui::SMALL_FONT)
+            .font(groove_iced::gui::SMALL_FONT)
             .width(iced::Length::FillPortion(3))
         ];
 
@@ -631,7 +629,7 @@ impl GrooveApp {
                 self.midi_output_port_active.clone(),
                 MidiHandlerInput::SelectMidiOutput,
             )
-            .font(gui::SMALL_FONT)
+            .font(groove_iced::gui::SMALL_FONT)
             .width(iced::Length::FillPortion(3))
         ];
         let port_menus =
@@ -651,12 +649,13 @@ impl GrooveApp {
         self.should_exit = true;
 
         Some(Command::perform(
-            Preferences::save_prefs(Preferences {
+            Preferences {
                 selected_midi_input: self.preferences.selected_midi_input.clone(),
                 selected_midi_output: self.preferences.selected_midi_output.clone(),
                 should_reload_last_project: self.preferences.should_reload_last_project,
                 last_project_filename: self.preferences.last_project_filename.clone(),
-            }),
+            }
+            .save_prefs(),
             AppMessage::PrefsSaved,
         ))
     }

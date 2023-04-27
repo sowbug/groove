@@ -1,11 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use groove::{
-    util::{PathType, Paths},
-    Orchestrator,
-};
-use groove_orchestration::{helpers::IOHelper, Performance};
+use groove_orchestration::{helpers::IOHelper, Orchestrator, Performance};
 use groove_settings::SongSettings;
+use groove_utils::{PathType, Paths};
 use native_dialog::FileDialog;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -60,7 +57,7 @@ impl Preferences {
         serde_json::from_str(&contents).map_err(|_| LoadError::Format)
     }
 
-    pub(crate) async fn save_prefs(self) -> Result<(), SaveError> {
+    pub async fn save_prefs(self) -> Result<(), SaveError> {
         use async_std::prelude::*;
 
         let json = serde_json::to_string_pretty(&self).map_err(|_| SaveError::Format)?;
@@ -94,7 +91,7 @@ impl Preferences {
 }
 }
 
-pub(crate) async fn open_dialog() -> Result<Option<PathBuf>, OpenError> {
+pub async fn open_dialog() -> Result<Option<PathBuf>, OpenError> {
     match FileDialog::new()
         .add_filter("YAML", &["yml", "yaml"])
         .add_filter("Groove Projects", &["nsn"])
@@ -139,7 +136,7 @@ pub(crate) async fn open_dialog() -> Result<Option<PathBuf>, OpenError> {
     }
 }
 
-pub(crate) async fn export_to_wav(performance: Performance) -> Result<(), SaveError> {
+pub async fn export_to_wav(performance: Performance) -> Result<(), SaveError> {
     if let Ok(Some(path)) = FileDialog::new()
         .set_filename("output.wav")
         .show_save_single_file()
@@ -162,7 +159,7 @@ pub(crate) async fn export_to_wav(performance: Performance) -> Result<(), SaveEr
     Err(SaveError::Write)
 }
 
-pub(crate) async fn export_to_mp3(performance: Performance) -> Result<(), SaveError> {
+pub async fn export_to_mp3(performance: Performance) -> Result<(), SaveError> {
     if let Ok(Some(path)) = FileDialog::new()
         .set_filename("output.mp3")
         .show_save_single_file()
@@ -175,7 +172,7 @@ pub(crate) async fn export_to_mp3(performance: Performance) -> Result<(), SaveEr
     Err(SaveError::Write)
 }
 
-pub(crate) async fn load_project(filename: PathBuf) -> Result<(Orchestrator, String), LoadError> {
+pub async fn load_project(filename: PathBuf) -> Result<(Orchestrator, String), LoadError> {
     use async_std::prelude::*;
 
     if let Some(filename) = filename.to_str() {

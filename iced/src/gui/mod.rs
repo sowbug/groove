@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-pub(crate) mod persistence;
-pub(crate) mod views;
+pub mod persistence;
+pub mod views;
 
 use groove_core::{generators::EnvelopeNano, Sample, StereoSample};
 use iced::{

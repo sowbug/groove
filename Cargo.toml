@@ -8,29 +8,42 @@ edition = "2021"
 readme = "README.md"
 description = "A DAW (digital audio workstation) engine."
 license = "Copyright (c) 2023 Mike Tsao. All rights reserved."
+default-run = "groove-egui"
 
 [dependencies]
 anyhow = "1.0.12"
-app_dirs2 = "2.5.5"
 async-std = "1.0"
 clap = { version = "4.0", features = ["derive"] }
 convert_case = "0.6.0"
-cpal = "0.15.0"
+cpal = "0.15.2"
 crossbeam = "0.8"
+crossbeam-channel = "0.5"
+crossbeam-utils = "0.8.15"
 dipstick = "0.9.0"
+eframe = { version = "0.21.3", optional = true }
 enum-primitive-derive = "0.2.2"
+env_logger = "0.10"
+groove-audio = { path = "audio" }
 groove-core = { path = "core", features = ["serialization"] }
+groove-egui = { path = "egui", optional = true }
 groove-entities = { path = "entities", features = ["serialization"] }
+groove-iced = { path = "iced" }
 groove-macros = { path = "macros" }
+groove-midi = { path = "midi" }
 groove-orchestration = { path = "orchestration" }
 groove-proc-macros = { path = "proc-macros" }
 groove-settings = { path = "settings" }
 groove-toys = { path = "toys", features = ["serialization"] }
+groove-utils = { path = "utils" }
 hound = "3.5"
-iced = { version = "0.8.0", features = ["smol", "canvas", "svg"] }
-iced_aw = { version = "0.4.1", features = ["card", "badge"] }
-iced_audio = "0.11.0"
-iced_native = "0.9.1"
+iced = { version = "0.8.0", features = [
+    "smol",
+    "canvas",
+    "svg"
+], optional = true }
+iced_audio = { version = "0.11.0", optional = true }
+iced_aw = { version = "0.4.1", features = ["card", "badge"], optional = true }
+iced_native = { version = "0.9.1", optional = true }
 midir = "0.8.0"
 midly = "0.5.3"
 more-asserts = "0.3.1"
@@ -49,22 +62,30 @@ strum_macros = "0.24.2"
 
 [workspace]
 members = [
+    "audio",
     "core",
+    "egui",
     "entities",
+    "iced",
     "macros",
+    "midi",
     "orchestration",
     "proc-macros",
     "settings",
-    "toys"
+    "toys",
+    "utils",
 ]
 
 [[bin]]
 name = "groove-cli"
-path = "src/bin/cli.rs"
 
 [[bin]]
 name = "groove-gui"
-path = "src/bin/app.rs"
+required-features = ["iced-framework"]
+
+[[bin]]
+name = "groove-egui"
+required-features = ["egui-framework"]
 
 [lib]
 name = "groove"
@@ -84,6 +105,8 @@ serialization = [
     "groove-core/serialization",
     "groove-entities/serialization"
 ]
+egui-framework = ["groove-egui", "eframe"]
+iced-framework = [ "iced", "iced_audio", "iced_aw", "iced_native"]
 
 [package.metadata.cross.target.aarch64-unknown-linux-gnu]
 pre-build = [
@@ -111,6 +134,7 @@ assets = [
     # to cross-compile or use custom CARGO_TARGET_DIR. The target dir paths will
     # be automatically corrected." https://github.com/kornelski/cargo-deb
     ["target/release/groove-cli", "usr/bin/", "755"],
+    ["target/release/groove-egui", "usr/bin/", "755"],
     ["target/release/groove-gui", "usr/bin/", "755"],
     ["LICENSE.txt", "usr/share/doc/groove/LICENSE.txt", "644"],
     ["README.md", "usr/share/doc/groove/README.md", "644"],

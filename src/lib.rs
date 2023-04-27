@@ -90,14 +90,7 @@
 //! }
 //! ```
 
-/// Helps send audio to the outside world.
-pub mod audio;
-/// Contains Iced [Subscriptions](iced_native::subscription::Subscription) for
-/// working with this crate.
-pub mod subscriptions;
 pub use groove_orchestration::{Entity, Orchestrator};
-/// Contains path-building utilities.
-pub mod util;
 
 use groove_core::ParameterType;
 
@@ -126,10 +119,10 @@ pub fn app_version() -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use crate::util::{PathType, Paths};
     use groove_core::{util::tests::TestOnlyPaths, StereoSample, SAMPLE_BUFFER_SIZE};
     use groove_orchestration::helpers::IOHelper;
     use groove_settings::SongSettings;
+    use groove_utils::{PathType, Paths};
     use std::{fs::File, io::prelude::*, path::PathBuf, time::Instant};
 
     #[ignore = "Figure out how to tell Paths to use cwd as the installation directory"]

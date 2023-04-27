@@ -50,12 +50,32 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "GUI",
+      "name": "egui App",
+      "cargo": {
+          "args": [
+              "build",
+              "--bin=groove-egui",
+              "--package=groove",
+              "--features=egui-framework"
+          ],
+          "filter": {
+              "name": "groove-egui",
+              "kind": "bin"
+          }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+  },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Iced App",
       "cargo": {
         "args": [
           "build",
           "--bin=groove-gui",
-          "--package=groove"
+          "--package=groove",
+          "--features=iced-framework"
         ],
         "filter": {
           "name": "groove-gui",
@@ -354,5 +374,5 @@
       ],
       "cwd": "${workspaceFolder}"
     },
-  ]
+]
 }

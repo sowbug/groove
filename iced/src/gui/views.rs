@@ -4,7 +4,7 @@ use super::{
     GuiStuff, IconType, Icons, LARGE_FONT, LARGE_FONT_SIZE, NUMBERS_FONT, NUMBERS_FONT_SIZE,
     SMALL_FONT, SMALL_FONT_SIZE,
 };
-use groove::{app_version, Orchestrator};
+//use groove::{app_version, Orchestrator};
 use groove_core::{
     time::{Clock, ClockMessage, ClockNano, TimeSignature},
     traits::{HasUid, MessageBounds},
@@ -43,7 +43,9 @@ use groove_entities::{
     },
     EntityMessage,
 };
-use groove_orchestration::{messages::ControlLink, Entity, EntityNano, OtherEntityMessage};
+use groove_orchestration::{
+    messages::ControlLink, Entity, EntityNano, Orchestrator, OtherEntityMessage,
+};
 use groove_proc_macros::Views;
 use groove_toys::{
     DebugSynth, DebugSynthMessage, DebugSynthNano, ToyAudioSource, ToyAudioSourceMessage,
@@ -71,7 +73,7 @@ use strum::EnumCount;
 use strum_macros::{EnumCount as EnumCountMacro, FromRepr, IntoStaticStr};
 
 #[derive(Clone, Debug, Default, PartialEq)]
-pub(crate) enum EntityViewState {
+pub enum EntityViewState {
     #[default]
     Collapsed,
     Expanded,
@@ -79,7 +81,7 @@ pub(crate) enum EntityViewState {
 
 #[derive(Debug)]
 #[deprecated]
-pub(crate) struct EntityView {
+pub struct EntityView {
     entity_view_states: FxHashMap<usize, EntityViewState>,
     entity_enabled_states: FxHashMap<usize, bool>,
     entity_audio_outputs: FxHashMap<usize, StereoSample>,
@@ -94,15 +96,15 @@ impl Default for EntityView {
     }
 }
 impl EntityView {
-    pub(crate) fn set_entity_view_state(&mut self, uid: usize, new_state: EntityViewState) {
+    pub fn set_entity_view_state(&mut self, uid: usize, new_state: EntityViewState) {
         self.entity_view_states.insert(uid, new_state);
     }
 
-    pub(crate) fn set_entity_enabled_state(&mut self, uid: usize, enabled: bool) {
+    pub fn set_entity_enabled_state(&mut self, uid: usize, enabled: bool) {
         self.entity_enabled_states.insert(uid, enabled);
     }
 
-    pub(crate) fn reset(&mut self) {
+    pub fn reset(&mut self) {
         self.entity_view_states.clear();
     }
 
@@ -178,20 +180,20 @@ impl EntityView {
         ])
         .into()
     }
-    pub(crate) fn update_audio_outputs(&mut self, uid: &usize, sample: &StereoSample) {
+    pub fn update_audio_outputs(&mut self, uid: &usize, sample: &StereoSample) {
         self.entity_audio_outputs.insert(*uid, *sample);
     }
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum ControlBarInput {
+pub enum ControlBarInput {
     SetClock(usize),
     SetBpm(f64),
     SetTimeSignature(TimeSignature),
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum ControlBarEvent {
+pub enum ControlBarEvent {
     Play,
     Stop,
     SkipToStart,
@@ -204,13 +206,15 @@ pub(crate) enum ControlBarEvent {
 }
 
 #[derive(Debug)]
-pub(crate) struct ControlBar {
+pub struct ControlBar {
+    app_version: String,
     clock: Clock,
     audio_buffer_fullness: Normal,
 }
 impl ControlBar {
-    pub fn new_with(clock: Clock) -> Self {
+    pub fn new_with(app_version: &str, clock: Clock) -> Self {
         Self {
+            app_version: app_version.to_string(),
             clock,
             audio_buffer_fullness: Default::default(),
         }
@@ -245,7 +249,7 @@ impl ControlBar {
         self.clock.seek(frames);
     }
 
-    pub(crate) fn tick_batch(&mut self, count: usize) {
+    pub fn tick_batch(&mut self, count: usize) {
         self.clock.tick_batch(count);
     }
 
@@ -360,7 +364,8 @@ impl ControlBar {
         let export_mp3_button = Icons::button_icon(IconType::ExportMp3); /* disabled for now .on_press(ControlBarMessage::ExportMp3) */
         let settings_button =
             Icons::button_icon(IconType::Settings).on_press(ControlBarEvent::ToggleSettings);
-        let app_version = container(text(app_version())).align_x(alignment::Horizontal::Right);
+        let app_version =
+            container(text(self.app_version.clone())).align_x(alignment::Horizontal::Right);
 
         container(
             Row::new()
@@ -378,7 +383,7 @@ impl ControlBar {
         self.audio_buffer_fullness = audio_buffer_fullness;
     }
 
-    pub(crate) fn set_sample_rate(&mut self, sample_rate: usize) {
+    pub fn set_sample_rate(&mut self, sample_rate: usize) {
         self.clock.set_sample_rate(sample_rate);
     }
 }
@@ -551,7 +556,7 @@ impl EntityStore {
 }
 
 #[derive(Debug)]
-pub(crate) struct AudioLane {
+pub struct AudioLane {
     pub name: String,
     pub items: Vec<usize>,
 }
@@ -1042,7 +1047,7 @@ impl Viewable for WelshSynth {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) enum ViewMessage {
+pub enum ViewMessage {
     NextView,
     OtherEntityMessage(usize, OtherEntityMessage),
     MouseIn(usize),
@@ -1058,7 +1063,7 @@ pub(crate) enum ViewMessage {
 }
 
 #[derive(Clone, Copy, Debug, Default, EnumCountMacro, FromRepr, IntoStaticStr)]
-pub(crate) enum ViewView {
+pub enum ViewView {
     AudioLanes,
     #[default]
     Automation,
@@ -1066,7 +1071,7 @@ pub(crate) enum ViewView {
 }
 
 #[derive(Debug)]
-pub(crate) struct View {
+pub struct View {
     current_view: ViewView,
     is_dragging: bool,
     source_uid: usize,
@@ -1080,13 +1085,13 @@ pub(crate) struct View {
 }
 
 impl View {
-    pub(crate) const LABEL_FONT_SIZE: u16 = 14;
+    pub const LABEL_FONT_SIZE: u16 = 14;
 
-    pub(crate) const ITEM_OUTER_PADDING: u16 = 16;
-    pub(crate) const ITEM_PADDING: u16 = 8;
-    pub(crate) const ITEM_WIDTH: Length = Length::Fixed(48.0);
+    pub const ITEM_OUTER_PADDING: u16 = 16;
+    pub const ITEM_PADDING: u16 = 8;
+    pub const ITEM_WIDTH: Length = Length::Fixed(48.0);
 
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             current_view: Default::default(),
             //  entity_store: Default::default(),
@@ -1102,7 +1107,7 @@ impl View {
         }
     }
 
-    pub(crate) fn clear(&mut self) {
+    pub fn clear(&mut self) {
         eprintln!("Clearing...");
         // self.controller_uids.clear();
         // self.controllable_uids.clear();
@@ -1110,7 +1115,7 @@ impl View {
         // self.connections.clear();
     }
 
-    pub(crate) fn view<'a>(&self, orchestrator: &'a Orchestrator) -> Element<'a, ViewMessage> {
+    pub fn view<'a>(&self, orchestrator: &'a Orchestrator) -> Element<'a, ViewMessage> {
         Card::new(
             Text::new(<&str>::from(self.current_view)),
             match self.current_view {
@@ -1463,7 +1468,7 @@ impl View {
     //     container(overall_view.push(view_column).push(mixer)).into()
     // }
 
-    pub(crate) fn update(
+    pub fn update(
         &mut self,
         orchestrator: &mut Orchestrator,
         message: ViewMessage,
@@ -1567,11 +1572,11 @@ impl View {
     //     self.entity_store.entities.insert(uid, Box::new(item));
     // }
 
-    // pub(crate) fn add_control_link(&mut self, link: ControlLink) {
+    // pub fn add_control_link(&mut self, link: ControlLink) {
     //     self.connections.insert(link);
     // }
 
-    // pub(crate) fn remove_control_link(&mut self, link: ControlLink) {
+    // pub fn remove_control_link(&mut self, link: ControlLink) {
     //     self.connections.remove(&link);
     // }
 }
