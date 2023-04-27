@@ -110,6 +110,11 @@ impl eframe::App for AudioPrototype2 {
                 o.show(ui);
             }
         });
+
+        // TODO: this is how to keep redrawing when the system doesn't otherwise
+        // know that a repaint is needed. This is fine for now, but it's
+        // expensive, and we should be smarter about it.
+        ctx.request_repaint();
     }
 }
 impl AudioPrototype2 {
