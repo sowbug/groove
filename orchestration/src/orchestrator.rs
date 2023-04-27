@@ -545,15 +545,16 @@ impl Orchestrator {
             }))),
             Self::BEAT_SEQUENCER_UVID,
         );
-        // See https://github.com/sowbug/groove/issues/127. This is clunky
-        r.metronome_uid = r.add_with_uvid(
-            Entity::Metronome(Box::new(Metronome::new_with(MetronomeNano {
-                bpm: r.bpm(),
-            }))),
-            Self::METRONOME_UVID,
-        );
-        let _ = r.connect_to_main_mixer(r.metronome_uid);
-
+        if false {
+            // See https://github.com/sowbug/groove/issues/127. This is clunky
+            r.metronome_uid = r.add_with_uvid(
+                Entity::Metronome(Box::new(Metronome::new_with(MetronomeNano {
+                    bpm: r.bpm(),
+                }))),
+                Self::METRONOME_UVID,
+            );
+            let _ = r.connect_to_main_mixer(r.metronome_uid);
+        }
         r
     }
 
