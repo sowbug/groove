@@ -16,11 +16,16 @@ use groove_core::{
 use groove_entities::EntityMessage;
 use groove_iced::{
     gui::{
-        persistence::{load_project, LoadError, OpenError, Preferences, SaveError, export_to_wav, open_dialog, export_to_mp3},
-        views::{ControlBar, ControlBarEvent, View, ViewMessage}, GuiStuff,
+        persistence::{
+            export_to_mp3, export_to_wav, load_project, open_dialog, LoadError, OpenError,
+            Preferences, SaveError,
+        },
+        views::{ControlBar, ControlBarEvent, View, ViewMessage},
+        GuiStuff,
     },
     subscriptions::{
-        EngineEvent, EngineInput, MidiHandlerEvent, MidiHandlerInput, MidiPortDescriptor, MidiSubscription, EngineSubscription,
+        EngineEvent, EngineInput, EngineSubscription, MidiHandlerEvent, MidiHandlerInput,
+        MidiPortDescriptor, MidiSubscription,
     },
 };
 use groove_orchestration::messages::{GrooveEvent, GrooveInput};
