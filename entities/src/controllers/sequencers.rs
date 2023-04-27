@@ -23,6 +23,9 @@ use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, I
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "egui-framework")]
+use {eframe::egui, groove_core::traits::Shows};
+
 pub(crate) type BeatEventsMap = BTreeMultiMap<PerfectTimeUnit, (MidiChannel, MidiMessage)>;
 
 /// [Sequencer] produces MIDI according to a programmed sequence. Its unit of
@@ -246,6 +249,12 @@ impl TicksWithMessages for Sequencer {
         } else {
             (Some(v), tick_count)
         }
+    }
+}
+#[cfg(feature = "egui-framework")]
+impl Shows for Sequencer {
+    fn show(&mut self, ui: &mut egui::Ui) {
+        ui.label("Coming soon!");
     }
 }
 

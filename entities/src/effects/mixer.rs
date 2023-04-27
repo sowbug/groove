@@ -6,12 +6,16 @@ use groove_core::{
 };
 use groove_proc_macros::{Nano, Uid};
 use std::str::FromStr;
-
 use strum::EnumCount;
 use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "egui-framework")]
+use eframe::egui;
+#[cfg(feature = "egui-framework")]
+use groove_core::traits::Shows;
 
 #[derive(Debug, Default, Nano, Uid)]
 pub struct Mixer {
@@ -43,6 +47,13 @@ impl Mixer {
             MixerMessage::Mixer(s) => *self = Self::new_with(s),
             _ => self.derived_update(message),
         }
+    }
+}
+
+#[cfg(feature = "egui-framework")]
+impl Shows for Mixer {
+    fn show(&mut self, ui: &mut egui::Ui) {
+        ui.label("I don't have anything!");
     }
 }
 

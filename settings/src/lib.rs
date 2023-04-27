@@ -21,12 +21,8 @@ use self::{
     effects::EffectSettings,
     instruments::InstrumentSettings,
 };
-use groove_core::{
-    time::{BeatValue, Clock, ClockNano, PerfectTimeUnit, TimeSignature},
-    ParameterType,
-};
+use groove_core::time::{BeatValue, PerfectTimeUnit, TimeSignature};
 use groove_entities::controllers::{Note, Pattern};
-use groove_orchestration::Orchestrator;
 use serde::{Deserialize, Serialize};
 use strum_macros::FromRepr;
 

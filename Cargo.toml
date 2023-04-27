@@ -98,14 +98,20 @@ codegen-units = 1
 panic = "abort"
 
 # https://doc.rust-lang.org/cargo/commands/cargo-build.html
-# 
+#
 # "Binaries are skipped if they have required-features that are missing"
 #
 # We want all the binaries to build on a plain `cargo build --workspace`. That's
 # why default features includes both framework features.
 [features]
 default = ["serialization", "egui-framework", "iced-framework"]
-egui-framework = ["groove-egui", "eframe"]
+egui-framework = [
+    "groove-egui",
+    "eframe",
+    "groove-core/egui-framework",
+    "groove-entities/egui-framework",
+    "groove-orchestration/egui-framework"
+]
 iced-framework = ["iced", "iced_audio", "iced_aw", "iced_native"]
 serialization = [
     "serde",

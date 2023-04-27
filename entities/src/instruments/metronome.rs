@@ -15,6 +15,11 @@ use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, I
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "egui-framework")]
+use eframe::egui;
+#[cfg(feature = "egui-framework")]
+use groove_core::traits::Shows;
+
 #[derive(Debug, Nano, Uid)]
 pub struct Metronome {
     #[nano]
@@ -40,7 +45,7 @@ impl Generates<StereoSample> for Metronome {
         }
     }
 
-    fn batch_values(&mut self, values: &mut [StereoSample]) {
+    fn batch_values(&mut self, _values: &mut [StereoSample]) {
         todo!("write a way to batch BipolarNormal to StereoSample")
     }
 }
@@ -118,5 +123,18 @@ impl Metronome {
 
     pub fn set_bpm(&mut self, bpm: ParameterType) {
         self.clock.set_bpm(bpm);
+    }
+}
+
+#[cfg(feature = "egui-framework")]
+impl Shows for Metronome {
+    fn show(&mut self, ui: &mut egui::Ui) {
+        ui.label(format!("BPM: {:0.1}", self.bpm()));
+        ui.label(format!(
+            "Time Signature: {}/{}",
+            self.clock().time_signature().top,
+            self.clock().time_signature().bottom
+        ));
+        ui.label(if self.is_playing() { "X" } else { " " });
     }
 }

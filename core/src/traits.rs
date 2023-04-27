@@ -4,6 +4,9 @@ pub use crate::midi::HandlesMidi;
 
 use crate::{midi::u7, Normal, Sample, StereoSample};
 
+#[cfg(feature = "egui-framework")]
+use eframe::egui;
+
 pub trait MessageBounds: std::fmt::Debug + Send {}
 
 /// An IsController controls things in the system that implement Controllable.
@@ -244,6 +247,11 @@ pub trait Performs {
 /// construct Voices, and then handle all the MIDI events properly for them.
 pub trait IsVoice<V>: Generates<V> + PlaysNotes + Send {}
 pub trait IsStereoSampleVoice: IsVoice<StereoSample> {}
+
+#[cfg(feature = "egui-framework")]
+pub trait Shows {
+    fn show(&mut self, ui: &mut egui::Ui);
+}
 
 #[cfg(test)]
 pub(crate) mod tests {

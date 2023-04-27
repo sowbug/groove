@@ -56,7 +56,7 @@
               "build",
               "--bin=groove-egui",
               "--package=groove",
-              "--features=egui-framework"
+              "--features=egui-framework",
           ],
           "filter": {
               "name": "groove-egui",
