@@ -33,7 +33,8 @@ pub struct AudioStreamService {
     input_sender: Sender<AudioInterfaceInput>,
     event_receiver: Receiver<AudioInterfaceEvent>,
 
-    handler: JoinHandle<()>, // The AudioStream thread
+    #[allow(dead_code)]
+    handler: JoinHandle<()>,
 }
 impl Default for AudioStreamService {
     fn default() -> Self {

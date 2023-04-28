@@ -24,12 +24,6 @@ use groove_proc_macros::Uid;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::io::{self, Write};
 
-#[cfg(feature = "egui-framework")]
-use {
-    eframe::egui::{self, CollapsingHeader},
-    groove_core::traits::Shows,
-};
-
 #[cfg(feature = "metrics")]
 use {dipstick::InputScope, metrics::DipstickWrapper};
 
@@ -912,20 +906,26 @@ impl Resets for Orchestrator {
     }
 }
 #[cfg(feature = "egui-framework")]
-impl Shows for Orchestrator {
-    fn show(&mut self, ui: &mut egui::Ui) {
-        ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-            let uids: Vec<usize> = self.entity_iter().map(|(uid, _entity)| *uid).collect();
+mod gui {
+    use crate::{entities::Entity, Orchestrator};
+    use eframe::{
+        egui::{CollapsingHeader, Frame, Ui, Layout},
+        epaint::Color32, emath::Align,
+    };
+    use groove_core::traits::gui::Shows;
 
-            #[allow(unused_variables)] // for all the (e) in the match
-            for uid in uids {
-                let entity = self.get_mut(uid).unwrap();
-                CollapsingHeader::new(entity.as_has_uid().name())
-                    .default_open(true)
-                    .show(ui, |ui| {
-                        egui::Frame::none()
-                            .fill(egui::Color32::DARK_GRAY)
-                            .show(ui, |ui| {
+    impl Shows for Orchestrator {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
+                let uids: Vec<usize> = self.entity_iter().map(|(uid, _entity)| *uid).collect();
+
+                #[allow(unused_variables)] // for all the (e) in the match
+                for uid in uids {
+                    let entity = self.get_mut(uid).unwrap();
+                    CollapsingHeader::new(entity.as_has_uid().name())
+                        .default_open(true)
+                        .show(ui, |ui| {
+                            Frame::none().fill(Color32::DARK_GRAY).show(ui, |ui| {
                                 ui.vertical(|ui| match entity {
                                     Entity::Arpeggiator(e) => {
                                         ui.label(entity.as_has_uid().name());
@@ -1046,9 +1046,10 @@ impl Shows for Orchestrator {
                                     }
                                 })
                             });
-                    });
-            }
-        });
+                        });
+                }
+            });
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use eframe::egui::{CollapsingHeader, RichText, Ui};
-use groove_core::traits::Shows;
+use groove_core::traits::gui::Shows;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Action {

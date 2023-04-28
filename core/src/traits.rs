@@ -4,9 +4,6 @@ pub use crate::midi::HandlesMidi;
 
 use crate::{midi::u7, Normal, Sample, StereoSample};
 
-#[cfg(feature = "egui-framework")]
-use eframe::egui;
-
 pub trait MessageBounds: std::fmt::Debug + Send {}
 
 /// An IsController controls things in the system that implement Controllable.
@@ -248,18 +245,20 @@ pub trait Performs {
 pub trait IsVoice<V>: Generates<V> + PlaysNotes + Send {}
 pub trait IsStereoSampleVoice: IsVoice<StereoSample> {}
 
-/// Implements egui content inside a Window or SidePanel.
 #[cfg(feature = "egui-framework")]
-pub trait Shows {
-    fn show(&mut self, ui: &mut egui::Ui);
-}
+pub mod gui {
+    use eframe::egui::{Context, Ui};
 
-/// Implements a top-level egui Window.
-#[cfg(feature = "egui-framework")]
-pub trait ShowsTopLevel {
-    fn show(&mut self, ctx: &egui::Context);
-}
+    /// Implements egui content inside a Window or SidePanel.
+    pub trait Shows {
+        fn show(&mut self, ui: &mut Ui);
+    }
 
+    /// Implements a top-level egui Window.
+    pub trait ShowsTopLevel {
+        fn show(&mut self, ctx: &Context);
+    }
+}
 #[cfg(test)]
 pub(crate) mod tests {
     use super::Ticks;

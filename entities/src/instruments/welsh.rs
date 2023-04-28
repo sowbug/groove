@@ -2,7 +2,6 @@
 
 use crate::effects::{BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbNano};
 use core::fmt::Debug;
-use eframe::egui::Slider;
 use groove_core::{
     generators::{Envelope, EnvelopeNano, Oscillator, OscillatorNano},
     instruments::Synthesizer,
@@ -21,9 +20,6 @@ use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, I
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
-
-#[cfg(feature = "egui-framework")]
-use {eframe::egui, groove_core::traits::Shows};
 
 #[derive(Clone, Copy, Debug, Default, EnumCountMacro, FromRepr, PartialEq)]
 #[cfg_attr(
@@ -482,23 +478,28 @@ impl WelshSynth {
 }
 
 #[cfg(feature = "egui-framework")]
-impl Shows for WelshSynth {
-    fn show(&mut self, ui: &mut egui::Ui) {
-        let mut pan = self.pan().value();
-        if ui
-            .add(
-                Slider::new(&mut pan, BipolarNormal::range())
-                    .text("Pan")
-                    .max_decimals(1),
-            )
-            .changed()
-        {
-            self.set_pan(pan.into());
-        };
-        Envelope::new_with(self.envelope().clone()).show(ui);
+mod gui {
+    use super::WelshSynth;
+    use eframe::egui::{Slider, Ui};
+    use groove_core::{generators::Envelope, traits::gui::Shows, BipolarNormal};
+
+    impl Shows for WelshSynth {
+        fn show(&mut self, ui: &mut Ui) {
+            let mut pan = self.pan().value();
+            if ui
+                .add(
+                    Slider::new(&mut pan, BipolarNormal::range())
+                        .text("Pan")
+                        .max_decimals(1),
+                )
+                .changed()
+            {
+                self.set_pan(pan.into());
+            };
+            Envelope::new_with(self.envelope().clone()).show(ui);
+        }
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;

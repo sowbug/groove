@@ -2,7 +2,6 @@
 
 use crate::messages::EntityMessage;
 use core::fmt::Debug;
-use eframe::egui::{ComboBox, Slider};
 use groove_core::{
     generators::{Oscillator, OscillatorNano, Waveform},
     midi::HandlesMidi,
@@ -13,9 +12,6 @@ use groove_proc_macros::{Nano, Uid};
 use std::{ops::RangeInclusive, str::FromStr};
 use strum::EnumCount;
 use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
-
-#[cfg(feature = "egui-framework")]
-use {eframe::egui, groove_core::traits::Shows, strum::IntoEnumIterator};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -113,26 +109,35 @@ impl LfoController {
 }
 
 #[cfg(feature = "egui-framework")]
-impl Shows for LfoController {
-    fn show(&mut self, ui: &mut egui::Ui) {
-        let mut frequency = self.frequency().value();
-        let mut waveform = self.waveform();
-        if ui
-            .add(Slider::new(&mut frequency, LfoController::frequency_range()).text("Frequency"))
-            .changed()
-        {
-            self.set_frequency(frequency.into());
-        };
-        ComboBox::new(ui.next_auto_id(), "Waveform")
-            .selected_text(waveform.to_string())
-            .show_ui(ui, |ui| {
-                for w in Waveform::iter() {
-                    ui.selectable_value(&mut waveform, w, w.to_string());
-                }
-            });
-        if waveform != self.waveform() {
-            eprintln!("changed {} {}", self.waveform(), waveform);
-            self.set_waveform(waveform);
+mod gui {
+    use super::LfoController;
+    use eframe::egui::{ComboBox, Slider, Ui};
+    use groove_core::{generators::Waveform, traits::gui::Shows};
+    use strum::IntoEnumIterator;
+
+    impl Shows for LfoController {
+        fn show(&mut self, ui: &mut Ui) {
+            let mut frequency = self.frequency().value();
+            let mut waveform = self.waveform();
+            if ui
+                .add(
+                    Slider::new(&mut frequency, LfoController::frequency_range()).text("Frequency"),
+                )
+                .changed()
+            {
+                self.set_frequency(frequency.into());
+            };
+            ComboBox::new(ui.next_auto_id(), "Waveform")
+                .selected_text(waveform.to_string())
+                .show_ui(ui, |ui| {
+                    for w in Waveform::iter() {
+                        ui.selectable_value(&mut waveform, w, w.to_string());
+                    }
+                });
+            if waveform != self.waveform() {
+                eprintln!("changed {} {}", self.waveform(), waveform);
+                self.set_waveform(waveform);
+            }
         }
     }
 }

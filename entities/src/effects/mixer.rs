@@ -12,11 +12,6 @@ use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, I
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "egui-framework")]
-use eframe::egui;
-#[cfg(feature = "egui-framework")]
-use groove_core::traits::Shows;
-
 #[derive(Debug, Default, Nano, Uid)]
 pub struct Mixer {
     uid: usize,
@@ -51,9 +46,15 @@ impl Mixer {
 }
 
 #[cfg(feature = "egui-framework")]
-impl Shows for Mixer {
-    fn show(&mut self, ui: &mut egui::Ui) {
-        ui.label("I don't have anything!");
+mod gui {
+    use super::Mixer;
+    use eframe::egui::Ui;
+    use groove_core::traits::gui::Shows;
+
+    impl Shows for Mixer {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label("I don't have anything!");
+        }
     }
 }
 

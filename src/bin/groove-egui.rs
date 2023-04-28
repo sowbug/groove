@@ -8,7 +8,10 @@ use eframe::egui::{self, CollapsingHeader};
 use groove::egui_widgets::{AudioPanel, ControlBar, MidiPanel, ThingBrowser};
 use groove_core::{
     time::ClockNano,
-    traits::{Resets, Shows, ShowsTopLevel},
+    traits::{
+        gui::{Shows, ShowsTopLevel},
+        Resets,
+    },
 };
 use groove_orchestration::Orchestrator;
 use groove_settings::SongSettings;

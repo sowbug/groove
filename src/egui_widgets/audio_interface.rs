@@ -4,7 +4,7 @@ use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{self, Window};
 use groove_audio::{AudioInterfaceEvent, AudioInterfaceInput, AudioQueue, AudioStreamService};
 use groove_core::{
-    traits::{Resets, ShowsTopLevel},
+    traits::{gui::ShowsTopLevel, Resets},
     StereoSample, SAMPLE_BUFFER_SIZE,
 };
 use groove_orchestration::Orchestrator;

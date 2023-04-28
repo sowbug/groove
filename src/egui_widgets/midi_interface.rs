@@ -2,7 +2,7 @@
 
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{self, ComboBox, Window};
-use groove_core::traits::ShowsTopLevel;
+use groove_core::traits::gui::ShowsTopLevel;
 use groove_midi::{
     MidiInterfaceEvent, MidiInterfaceInput, MidiInterfaceService, MidiPortDescriptor,
 };

@@ -15,11 +15,6 @@ use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, I
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "egui-framework")]
-use eframe::egui;
-#[cfg(feature = "egui-framework")]
-use groove_core::traits::Shows;
-
 #[derive(Debug, Nano, Uid)]
 pub struct Metronome {
     #[nano]
@@ -127,14 +122,20 @@ impl Metronome {
 }
 
 #[cfg(feature = "egui-framework")]
-impl Shows for Metronome {
-    fn show(&mut self, ui: &mut egui::Ui) {
-        ui.label(format!("BPM: {:0.1}", self.bpm()));
-        ui.label(format!(
-            "Time Signature: {}/{}",
-            self.clock().time_signature().top,
-            self.clock().time_signature().bottom
-        ));
-        ui.label(if self.is_playing() { "X" } else { " " });
+mod gui {
+    use super::Metronome;
+    use eframe::egui::Ui;
+    use groove_core::traits::gui::Shows;
+
+    impl Shows for Metronome {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(format!("BPM: {:0.1}", self.bpm()));
+            ui.label(format!(
+                "Time Signature: {}/{}",
+                self.clock().time_signature().top,
+                self.clock().time_signature().bottom
+            ));
+            ui.label(if self.is_playing() { "X" } else { " " });
+        }
     }
 }
