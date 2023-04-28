@@ -1,3 +1,7 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
+//! TODO
+
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     FromSample, Sample, SizedSample, Stream, SupportedStreamConfig,
@@ -26,9 +30,14 @@ pub type AudioQueue = Arc<ArrayQueue<StereoSample>>;
 
 pub struct AudioStreamService {
     input_sender: Sender<AudioInterfaceInput>,
-    event_receiver: Receiver<AudioInterfaceEvent>, // AudioStream events
+    event_receiver: Receiver<AudioInterfaceEvent>,
 
     handler: JoinHandle<()>, // The AudioStream thread
+}
+impl Default for AudioStreamService {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 impl AudioStreamService {
     pub fn new() -> Self {

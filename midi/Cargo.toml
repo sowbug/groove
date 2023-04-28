@@ -2,3 +2,12 @@
 name = "groove-midi"
 version = "0.1.0"
 edition = "2021"
+
+[dependencies]
+anyhow = "1.0.12"
+crossbeam = "0.8"
+crossbeam-channel = "0.5"
+crossbeam-utils = "0.8.15"
+groove-core = { path = "../core" }
+midir = "0.8.0"
+midly = "0.5.3"

@@ -4,19 +4,23 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use crossbeam_channel::Sender;
-use eframe::egui::{self, CollapsingHeader, DragValue, RichText, Ui};
+use crossbeam_channel::{Receiver, Sender};
+use eframe::egui::{self, CollapsingHeader, ComboBox, DragValue, RichText, Ui};
 use groove_audio::{AudioInterfaceEvent, AudioInterfaceInput, AudioQueue, AudioStreamService};
 use groove_core::{
     time::ClockNano,
     traits::{Performs, Resets, Shows},
     ParameterType, StereoSample, SAMPLE_BUFFER_SIZE,
 };
+use groove_midi::{
+    MidiInterfaceEvent, MidiInterfaceInput, MidiInterfaceService, MidiPortDescriptor,
+};
 use groove_orchestration::Orchestrator;
 use groove_settings::SongSettings;
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex, MutexGuard},
+    time::Instant,
 };
 
 fn main() -> Result<(), eframe::Error> {
@@ -39,24 +43,29 @@ struct GrooveApp {
 
     #[allow(dead_code)]
     audio_stream_sender: Sender<AudioInterfaceInput>,
+
     control_bar: ControlBar,
+    midi_panel: MidiPanel,
 
     tree: Tree,
 }
 impl Default for GrooveApp {
     fn default() -> Self {
         let clock_settings = ClockNano::default();
-        let audio_stream_service = AudioStreamService::new();
-        let audio_stream_sender = audio_stream_service.sender().clone();
+
         let orchestrator = Arc::new(Mutex::new(Orchestrator::new_with(clock_settings)));
-        let orchestrator_clone = Arc::clone(&orchestrator);
+        let audio_stream_service = AudioStreamService::default();
+        let audio_stream_sender = audio_stream_service.sender().clone();
+
         const SAMPLE_RATE: usize = 44100;
         let sample_rate = Arc::new(Mutex::new(SAMPLE_RATE));
+
         Self::start_audio_stream(
-            orchestrator_clone,
+            Arc::clone(&orchestrator),
             audio_stream_service,
             Arc::clone(&sample_rate),
         );
+
         Self {
             bpm: Default::default(),
             orchestrator,
@@ -64,6 +73,7 @@ impl Default for GrooveApp {
             sample_rate,
             audio_stream_sender,
             control_bar: ControlBar::default(),
+            midi_panel: MidiPanel::new_with(),
             tree: Tree::demo(),
         }
     }
@@ -100,6 +110,7 @@ impl eframe::App for GrooveApp {
         center.show(ctx, |ui| {
             if let Ok(mut o) = self.orchestrator.lock() {
                 o.show(ui);
+                self.midi_panel.show(ui);
             }
         });
 
@@ -111,12 +122,12 @@ impl eframe::App for GrooveApp {
 }
 impl GrooveApp {
     fn start_audio_stream(
-        orchestrator_clone: Arc<Mutex<Orchestrator>>,
+        orchestrator: Arc<Mutex<Orchestrator>>,
         audio_stream_service: AudioStreamService,
         sample_rate_clone: Arc<Mutex<usize>>,
     ) {
         std::thread::spawn(move || {
-            let orchestrator = orchestrator_clone;
+            let orchestrator = orchestrator;
             let mut queue_opt = None;
             loop {
                 if let Ok(event) = audio_stream_service.receiver().recv() {
@@ -286,5 +297,156 @@ impl Tree {
         }
 
         Action::Keep
+    }
+}
+
+#[derive(Debug)]
+struct MidiPanel {
+    sender: Sender<MidiInterfaceInput>,
+
+    inputs: Arc<Mutex<Vec<MidiPortDescriptor>>>,
+    selected_input: Arc<Mutex<Option<MidiPortDescriptor>>>,
+    outputs: Arc<Mutex<Vec<MidiPortDescriptor>>>,
+    selected_output: Arc<Mutex<Option<MidiPortDescriptor>>>,
+
+    last_input_instant: Arc<Mutex<Instant>>,
+    last_output_instant: Instant,
+}
+impl MidiPanel {
+    pub(crate) fn new_with() -> Self {
+        let midi_interface_service = MidiInterfaceService::default();
+        let sender = midi_interface_service.sender().clone();
+
+        let r = Self {
+            sender,
+
+            inputs: Default::default(),
+            selected_input: Default::default(),
+
+            outputs: Default::default(),
+            selected_output: Default::default(),
+
+            last_input_instant: Arc::new(Mutex::new(Instant::now())),
+            last_output_instant: Instant::now(),
+        };
+        r.start_midi_interface(midi_interface_service.receiver().clone());
+        r
+    }
+
+    pub(crate) fn send(&mut self, input: MidiInterfaceInput) {
+        if let MidiInterfaceInput::Midi(..) = input {
+            self.last_output_instant = Instant::now();
+        }
+
+        let _ = self.sender.send(input);
+    }
+
+    fn start_midi_interface(&self, receiver: Receiver<MidiInterfaceEvent>) {
+        let sender = self.sender.clone();
+        let inputs = Arc::clone(&self.inputs);
+        let selected_input = Arc::clone(&self.selected_input);
+        let outputs = Arc::clone(&self.outputs);
+        let selected_output = Arc::clone(&self.selected_output);
+        let last_input_instant = Arc::clone(&self.last_input_instant);
+        std::thread::spawn(move || loop {
+            if let Ok(event) = receiver.recv() {
+                match event {
+                    groove_midi::MidiInterfaceEvent::Ready(_) => todo!(),
+                    groove_midi::MidiInterfaceEvent::InputPorts(ports) => {
+                        if let Ok(mut inputs) = inputs.lock() {
+                            *inputs = ports.clone();
+                        }
+                    }
+                    groove_midi::MidiInterfaceEvent::InputPortSelected(port) => {
+                        if let Ok(mut selected_input) = selected_input.lock() {
+                            *selected_input = port;
+                        }
+                    }
+                    groove_midi::MidiInterfaceEvent::OutputPorts(ports) => {
+                        if let Ok(mut outputs) = outputs.lock() {
+                            *outputs = ports.clone();
+                        }
+                    }
+                    groove_midi::MidiInterfaceEvent::OutputPortSelected(port) => {
+                        if let Ok(mut selected_output) = selected_output.lock() {
+                            *selected_output = port;
+                        }
+                    }
+                    groove_midi::MidiInterfaceEvent::Midi(channel, message) => {
+                        if let Ok(mut last_input_instant) = last_input_instant.lock() {
+                            *last_input_instant = Instant::now();
+                        }
+                    }
+                    groove_midi::MidiInterfaceEvent::Quit => break,
+                }
+            }
+        });
+    }
+
+    fn inputs(&self) -> &Mutex<Vec<MidiPortDescriptor>> {
+        self.inputs.as_ref()
+    }
+
+    fn outputs(&self) -> &Mutex<Vec<MidiPortDescriptor>> {
+        self.outputs.as_ref()
+    }
+}
+impl Shows for MidiPanel {
+    fn show(&mut self, ui: &mut egui::Ui) {
+        let now = Instant::now();
+        let last_input_instant = *self.last_input_instant.lock().unwrap();
+        let input_was_recent = (now - last_input_instant).as_millis() < 250;
+        let output_was_recent = (now - self.last_output_instant).as_millis() < 250;
+
+        if let Ok(ports) = &self.inputs().lock() {
+            let mut cb = ComboBox::from_label("MIDI in");
+            let (mut selected_index, _selected_text) =
+                if let Some(selected) = &(*self.selected_input.lock().unwrap()) {
+                    cb = cb.selected_text(selected.name());
+                    (selected.index(), selected.name())
+                } else {
+                    (0, "None")
+                };
+            cb.show_ui(ui, |ui| {
+                for port in ports.iter() {
+                    if ui
+                        .selectable_value(&mut selected_index, port.index(), port.name())
+                        .changed()
+                    {
+                        let _ = self
+                            .sender
+                            .send(MidiInterfaceInput::SelectMidiInput(port.clone()));
+                    }
+                }
+            });
+        }
+        ui.end_row();
+
+        if let Ok(ports) = &self.outputs().lock() {
+            let mut cb = ComboBox::from_label("MIDI out");
+            let (mut selected_index, _selected_text) =
+                if let Some(selected) = &(*self.selected_output.lock().unwrap()) {
+                    cb = cb.selected_text(selected.name());
+                    (selected.index(), selected.name())
+                } else {
+                    (0, "None")
+                };
+            cb.show_ui(ui, |ui| {
+                for port in ports.iter() {
+                    if ui
+                        .selectable_value(&mut selected_index, port.index(), port.name())
+                        .changed()
+                    {
+                        let _ = self
+                            .sender
+                            .send(MidiInterfaceInput::SelectMidiOutput(port.clone()));
+                    }
+                }
+            });
+        }
+        ui.end_row();
+
+        ui.label(if input_was_recent { "⬅" } else { " " });
+        ui.label(if output_was_recent { "➡" } else { " " });
     }
 }
