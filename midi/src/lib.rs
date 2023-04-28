@@ -243,7 +243,7 @@ impl MidiInputHandler {
 
             // We need to clone our copy because we don't want the thread holding
             // onto a self reference.
-            let mut sender_clone = self.sender.clone();
+            let sender_clone = self.sender.clone();
 
             // I don't know how this take() works when we've already gotten the
             // mutable midi at the top of this block. Maybe it's because we

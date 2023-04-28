@@ -94,6 +94,9 @@ pub use groove_orchestration::{Entity, Orchestrator};
 
 use groove_core::ParameterType;
 
+/// Widgets for egui
+pub mod egui_widgets;
+
 // TODO: these should be #[cfg(test)] because nobody should be assuming these
 // values
 
