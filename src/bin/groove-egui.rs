@@ -15,8 +15,9 @@ use groove_core::{
 };
 use groove_orchestration::Orchestrator;
 use groove_settings::SongSettings;
+use groove_utils::Paths;
 use std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
 
@@ -53,7 +54,7 @@ impl Default for GrooveApp {
             control_bar: ControlBar::default(),
             audio_panel: AudioPanel::new_with(Arc::clone(&orchestrator)),
             midi_panel: MidiPanel::new_with(),
-            thing_browser: ThingBrowser::demo(),
+            thing_browser: ThingBrowser::scan_everything(),
         }
     }
 }
@@ -79,7 +80,7 @@ impl eframe::App for GrooveApp {
             }
         });
         left.show(ctx, |ui| {
-            CollapsingHeader::new("File browser")
+            CollapsingHeader::new("Assets")
                 .default_open(true)
                 .show(ui, |ui| self.thing_browser.show(ui));
         });

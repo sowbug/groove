@@ -141,7 +141,7 @@ pub async fn load_project(filename: PathBuf) -> Result<(Orchestrator, String), L
     use async_std::prelude::*;
 
     if let Some(filename) = filename.to_str() {
-        let mut path = Paths::projects_path(PathType::Global);
+        let mut path = Paths::projects_path(&PathType::Global);
         path.push(filename);
 
         let mut contents = String::new();
@@ -153,7 +153,8 @@ pub async fn load_project(filename: PathBuf) -> Result<(Orchestrator, String), L
             .map_err(|_| LoadError::File)?;
 
         if let Ok(settings) = serde_yaml::from_str::<SongSettings>(contents.as_str()) {
-            if let Ok(instance) = settings.instantiate(&Paths::assets_path(PathType::Global), false)
+            if let Ok(instance) =
+                settings.instantiate(&Paths::assets_path(&PathType::Global), false)
             {
                 return Ok((instance, filename.to_string()));
             }

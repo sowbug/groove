@@ -5,6 +5,7 @@ use std::{
     env::{current_dir, current_exe},
     path::PathBuf,
 };
+use strum_macros::{EnumIter, IntoStaticStr};
 
 const APP_INFO: AppInfo = AppInfo {
     name: "Groove",
@@ -12,6 +13,8 @@ const APP_INFO: AppInfo = AppInfo {
 };
 
 /// How to load resources
+
+#[derive(Debug, EnumIter, IntoStaticStr)]
 pub enum PathType {
     /// The current working directory is root.
     Dev,
@@ -44,7 +47,7 @@ impl Paths {
     }
 
     /// Returns the directory containing assets installed with the application.
-    pub fn assets_path(path_type: PathType) -> PathBuf {
+    pub fn assets_path(path_type: &PathType) -> PathBuf {
         match path_type {
             PathType::Dev => Self::cwd().join("assets"),
             PathType::User => app_dirs2::get_app_root(AppDataType::UserData, &APP_INFO).unwrap(),
@@ -59,21 +62,21 @@ impl Paths {
     }
 
     /// Returns the directory containing projects installed with the application.
-    pub fn projects_path(path_type: PathType) -> PathBuf {
+    pub fn projects_path(path_type: &PathType) -> PathBuf {
         let mut path = Self::assets_path(path_type);
         path.push(Self::PROJECTS);
         path
     }
 
     /// Returns the directory containing patches installed with the application.
-    pub fn patches_path(path_type: PathType) -> PathBuf {
+    pub fn patches_path(path_type: &PathType) -> PathBuf {
         let mut path = Self::assets_path(path_type);
         path.push(Self::PATCHES);
         path
     }
 
     /// Returns the directory containing samples installed with the application.
-    pub fn samples_path(path_type: PathType) -> PathBuf {
+    pub fn samples_path(path_type: &PathType) -> PathBuf {
         let mut path = Self::assets_path(path_type);
         path.push(Self::SAMPLES);
         path

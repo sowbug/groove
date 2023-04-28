@@ -909,8 +909,9 @@ impl Resets for Orchestrator {
 mod gui {
     use crate::{entities::Entity, Orchestrator};
     use eframe::{
-        egui::{CollapsingHeader, Frame, Ui, Layout},
-        epaint::Color32, emath::Align,
+        egui::{CollapsingHeader, Frame, Layout, Ui},
+        emath::Align,
+        epaint::Color32,
     };
     use groove_core::traits::gui::Shows;
 

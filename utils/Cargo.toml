@@ -8,3 +8,5 @@ edition = "2021"
 [dependencies]
 app_dirs2 = "2.5.5"
 async-std = "1.0"
+strum = "0.24.1"
+strum_macros = "0.24.2"
