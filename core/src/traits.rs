@@ -248,9 +248,16 @@ pub trait Performs {
 pub trait IsVoice<V>: Generates<V> + PlaysNotes + Send {}
 pub trait IsStereoSampleVoice: IsVoice<StereoSample> {}
 
+/// Implements egui content inside a Window or SidePanel.
 #[cfg(feature = "egui-framework")]
 pub trait Shows {
     fn show(&mut self, ui: &mut egui::Ui);
+}
+
+/// Implements a top-level egui Window.
+#[cfg(feature = "egui-framework")]
+pub trait ShowsTopLevel {
+    fn show(&mut self, ctx: &egui::Context);
 }
 
 #[cfg(test)]

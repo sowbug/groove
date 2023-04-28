@@ -20,7 +20,8 @@ pub enum AudioInterfaceInput {
 
 #[derive(Clone, Debug)]
 pub enum AudioInterfaceEvent {
-    Reset(usize, AudioQueue),
+    /// Sample rate, channel count, queue for pushing audio samples
+    Reset(usize, u16, AudioQueue),
     NeedsAudio(Instant, usize),
     Quit,
 }
@@ -154,6 +155,12 @@ impl AudioStream {
         config.sample_rate.0 as usize
     }
 
+    /// Returns the channel count of the current audio stream.
+    pub fn channel_count(&self) -> u16 {
+        let config: &cpal::StreamConfig = &self.config.clone().into();
+        config.channels
+    }
+
     /// Tells the audio stream to stop playing audio (which means it will also
     /// stop consuming samples from the queue).
     pub fn play(&self) {
@@ -274,6 +281,7 @@ impl AudioStream {
     fn send_reset(&self) {
         let _ = self.sender.send(AudioInterfaceEvent::Reset(
             self.sample_rate(),
+            self.channel_count(),
             Arc::clone(&self.queue),
         ));
     }

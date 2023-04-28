@@ -6,9 +6,8 @@
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use groove_core::midi::{u4, LiveEvent, MidiChannel, MidiMessage};
-//use groove_orchestration::messages::Response;
 use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
-use std::{fmt::Debug, sync::mpsc, thread::JoinHandle};
+use std::{fmt::Debug, thread::JoinHandle};
 
 /// The client sends requests to the MIDI interface through [MidiInterfaceInput] messages.
 #[derive(Clone, Debug)]
@@ -37,10 +36,10 @@ pub enum MidiInterfaceInput {
 /// messages.
 #[derive(Clone, Debug)]
 pub enum MidiInterfaceEvent {
-    /// The service has successfully started. It sends this event first. It
-    /// contains a message channel allowing further requests from the client to
-    /// the MIDI engine.
-    Ready(mpsc::Sender<MidiInterfaceInput>),
+    /// The service has successfully started. It sends this event first. It's
+    /// not important to wait for this event, because anything sent on the input
+    /// channel will queue up until the service is ready to handle it..
+    Ready,
 
     /// The MIDI input ports have been updated.
     InputPorts(Vec<MidiPortDescriptor>),
@@ -68,6 +67,7 @@ pub struct MidiInterfaceService {
     input_sender: Sender<MidiInterfaceInput>,
     event_receiver: Receiver<MidiInterfaceEvent>,
 
+    #[allow(dead_code)]
     handler: JoinHandle<()>,
 }
 impl Default for MidiInterfaceService {
@@ -84,8 +84,9 @@ impl MidiInterfaceService {
         let (event_sender, event_receiver) = unbounded();
 
         let handler = std::thread::spawn(move || {
-            let mut midi_interface = MidiInterface::new_with(event_sender);
+            let mut midi_interface = MidiInterface::new_with(event_sender.clone());
             let _ = midi_interface.start();
+            let _ = event_sender.send(MidiInterfaceEvent::Ready);
 
             loop {
                 if let Ok(input) = input_receiver.recv() {
