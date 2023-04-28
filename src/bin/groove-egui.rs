@@ -4,22 +4,14 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use eframe::egui::{self, CollapsingHeader};
+use eframe::egui::{self};
 use groove::egui_widgets::{AudioPanel, ControlBar, MidiPanel, ThingBrowser};
 use groove_core::{
     time::ClockNano,
-    traits::{
-        gui::{Shows, ShowsTopLevel},
-        Resets,
-    },
+    traits::gui::{Shows, ShowsTopLevel},
 };
 use groove_orchestration::Orchestrator;
-use groove_settings::SongSettings;
-use groove_utils::Paths;
-use std::{
-    path::{Path, PathBuf},
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 fn main() -> Result<(), eframe::Error> {
     env_logger::init();
@@ -75,14 +67,9 @@ impl eframe::App for GrooveApp {
             if let Ok(o) = self.orchestrator.lock() {
                 ui.label(format!("clock: {:?}", o.clock()));
             }
-            if ui.button("load").clicked() {
-                self.handle_load();
-            }
         });
         left.show(ctx, |ui| {
-            CollapsingHeader::new("Assets")
-                .default_open(true)
-                .show(ui, |ui| self.thing_browser.show(ui));
+            self.thing_browser.show(ui, Arc::clone(&self.orchestrator));
         });
         center.show(ctx, |ui| {
             if let Ok(mut o) = self.orchestrator.lock() {
@@ -96,26 +83,5 @@ impl eframe::App for GrooveApp {
         // know that a repaint is needed. This is fine for now, but it's
         // expensive, and we should be smarter about it.
         ctx.request_repaint();
-    }
-}
-impl GrooveApp {
-    fn handle_load(&mut self) {
-        let filename = "/home/miket/src/groove/projects/demos/controllers/stereo-automation.yaml";
-        match SongSettings::new_from_yaml_file(filename) {
-            Ok(s) => {
-                let pb = PathBuf::from("/home/miket/src/groove/assets");
-                match s.instantiate(&pb, false) {
-                    Ok(instance) => {
-                        if let Ok(mut o) = self.orchestrator.lock() {
-                            let sample_rate = o.sample_rate();
-                            *o = instance;
-                            o.reset(sample_rate);
-                        }
-                    }
-                    Err(err) => eprintln!("instantiate: {}", err),
-                }
-            }
-            Err(err) => eprintln!("new_from_yaml: {}", err),
-        }
     }
 }

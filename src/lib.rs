@@ -136,7 +136,7 @@ mod tests {
         let song_settings = SongSettings::new_from_yaml(yaml.as_str())
             .unwrap_or_else(|err| panic!("parsing settings failed: {:?}", err));
         let mut orchestrator = song_settings
-            .instantiate(&Paths::assets_path(PathType::Dev), false)
+            .instantiate(&Paths::assets_path(&PathType::Dev), false)
             .unwrap_or_else(|err| panic!("instantiation failed: {:?}", err));
         let mut sample_buffer = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
         if let Ok(samples) = orchestrator.run(&mut sample_buffer) {
@@ -164,7 +164,7 @@ mod tests {
         let song_settings = SongSettings::new_from_yaml(yaml.as_str())
             .unwrap_or_else(|err| panic!("parsing settings failed: {:?}", err));
         let mut orchestrator = song_settings
-            .instantiate(&Paths::assets_path(PathType::Dev), false)
+            .instantiate(&Paths::assets_path(&PathType::Dev), false)
             .unwrap_or_else(|err| panic!("instantiation failed: {:?}", err));
 
         let start_instant = Instant::now();
@@ -204,7 +204,7 @@ usec/frame : {:.2?} (goal <{:.2?})",
             .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
         let song_settings = SongSettings::new_from_yaml(yaml.as_str())
             .unwrap_or_else(|err| panic!("parsing settings failed: {:?}", err));
-        let r = song_settings.instantiate(&Paths::assets_path(PathType::Dev), false);
+        let r = song_settings.instantiate(&Paths::assets_path(&PathType::Dev), false);
         assert_eq!(
             r.unwrap_err().to_string(),
             "Input device doesn't transform audio and can't be patched from output device"

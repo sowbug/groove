@@ -924,6 +924,7 @@ mod gui {
                 for uid in uids {
                     let entity = self.get_mut(uid).unwrap();
                     CollapsingHeader::new(entity.as_has_uid().name())
+                        .id_source(ui.next_auto_id())
                         .default_open(true)
                         .show(ui, |ui| {
                             Frame::none().fill(Color32::DARK_GRAY).show(ui, |ui| {

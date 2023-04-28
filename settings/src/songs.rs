@@ -12,7 +12,7 @@ use groove_entities::controllers::{
 use groove_orchestration::{Entity, Orchestrator};
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 
 type PatchCable = Vec<DeviceId>; // first is source, last is sink
 
@@ -64,9 +64,8 @@ impl SongSettings {
         }
     }
 
-    // TODO: this should take a PathBuf so it's easier to tell YAML from filenames
-    pub fn new_from_yaml_file(filename: &str) -> anyhow::Result<Self> {
-        Self::new_from_yaml(std::fs::read_to_string(filename)?.as_str())
+    pub fn new_from_yaml_file(path: &Path) -> anyhow::Result<Self> {
+        Self::new_from_yaml(std::fs::read_to_string(path)?.as_str())
     }
 
     pub fn new_from_yaml(yaml: &str) -> anyhow::Result<Self> {
