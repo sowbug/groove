@@ -12,7 +12,7 @@ use groove_entities::controllers::{
 use groove_orchestration::{Entity, Orchestrator};
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 
 type PatchCable = Vec<DeviceId>; // first is source, last is sink
 
