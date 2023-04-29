@@ -125,7 +125,7 @@ impl ShowsTopLevel for MidiPanel {
                         cb = cb.selected_text(selected.name());
                         (selected.index(), selected.name())
                     } else {
-                        (0, "None")
+                        (usize::MAX, "None")
                     };
                 cb.show_ui(ui, |ui| {
                     for port in ports.iter() {
@@ -149,7 +149,7 @@ impl ShowsTopLevel for MidiPanel {
                         cb = cb.selected_text(selected.name());
                         (selected.index(), selected.name())
                     } else {
-                        (0, "None")
+                        (usize::MAX, "None")
                     };
                 cb.show_ui(ui, |ui| {
                     for port in ports.iter() {
