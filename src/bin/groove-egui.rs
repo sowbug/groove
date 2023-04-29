@@ -5,11 +5,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use eframe::egui::{self};
+use egui_extras::StripBuilder;
 use groove::egui_widgets::{AudioPanel, ControlBar, MidiPanel, ThingBrowser};
-use groove_core::{
-    time::ClockNano,
-    traits::gui::{Shows, ShowsTopLevel},
-};
+use groove_core::{time::ClockNano, traits::gui::Shows};
 use groove_orchestration::Orchestrator;
 use std::sync::{Arc, Mutex};
 
@@ -56,6 +54,7 @@ impl eframe::App for GrooveApp {
         let top = egui::TopBottomPanel::top("control-bar");
         let bottom = egui::TopBottomPanel::bottom("orchestrator");
         let left = egui::SidePanel::left("left-sidebar");
+        let right = egui::SidePanel::right("right-sidebar");
         let center = egui::CentralPanel::default();
 
         top.show(ctx, |ui| {
@@ -71,12 +70,20 @@ impl eframe::App for GrooveApp {
         left.show(ctx, |ui| {
             self.thing_browser.show(ui, Arc::clone(&self.orchestrator));
         });
+        right.show(ctx, |ui| {
+            // Just experimenting
+            StripBuilder::new(ui)
+                .size(egui_extras::Size::exact(80.0))
+                .size(egui_extras::Size::exact(50.0))
+                .vertical(|mut strip| {
+                    strip.cell(|ui| self.midi_panel.show(ui));
+                    strip.cell(|ui| self.audio_panel.show(ui))
+                })
+        });
         center.show(ctx, |ui| {
             if let Ok(mut o) = self.orchestrator.lock() {
                 o.show(ui);
             }
-            self.midi_panel.show(ctx);
-            self.audio_panel.show(ctx);
         });
 
         // TODO: this is how to keep redrawing when the system doesn't otherwise

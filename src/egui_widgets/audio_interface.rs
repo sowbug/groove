@@ -1,10 +1,10 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use crossbeam_channel::{Receiver, Sender};
-use eframe::egui::{self, Window};
+use eframe::egui::{self, CollapsingHeader};
 use groove_audio::{AudioInterfaceEvent, AudioInterfaceInput, AudioQueue, AudioStreamService};
 use groove_core::{
-    traits::{gui::ShowsTopLevel, Resets},
+    traits::{gui::Shows, Resets},
     StereoSample, SAMPLE_BUFFER_SIZE,
 };
 use groove_orchestration::Orchestrator;
@@ -121,13 +121,15 @@ impl AudioPanel {
         }
     }
 }
-impl ShowsTopLevel for AudioPanel {
-    fn show(&mut self, ctx: &egui::Context) {
-        Window::new("Audio").default_open(true).show(ctx, |ui| {
-            if let Ok(Some(config)) = self.config.lock().as_deref() {
-                ui.label(format!("Sample rate: {}", config.sample_rate()));
-                ui.label(format!("Channels: {}", config.channel_count()));
-            }
-        });
+impl Shows for AudioPanel {
+    fn show(&mut self, ui: &mut egui::Ui) {
+        CollapsingHeader::new("Audio")
+            .default_open(true)
+            .show(ui, |ui| {
+                if let Ok(Some(config)) = self.config.lock().as_deref() {
+                    ui.label(format!("Sample rate: {}", config.sample_rate()));
+                    ui.label(format!("Channels: {}", config.channel_count()));
+                }
+            });
     }
 }

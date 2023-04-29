@@ -21,6 +21,7 @@ crossbeam-channel = "0.5"
 crossbeam-utils = "0.8.15"
 dipstick = "0.9.0"
 eframe = { version = "0.21.3", optional = true }
+egui_extras = { version = "0.21.0", optional = true }
 enum-primitive-derive = "0.2.2"
 env_logger = "0.10"
 groove-audio = { path = "audio" }
@@ -107,6 +108,7 @@ panic = "abort"
 default = ["serialization", "egui-framework", "groove-midi", "iced-framework"]
 egui-framework = [
     "eframe",
+    "egui_extras",
     "groove-core/egui-framework",
     "groove-egui",
     "groove-entities/egui-framework",

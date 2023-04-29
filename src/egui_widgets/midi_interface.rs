@@ -1,8 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use crossbeam_channel::{Receiver, Sender};
-use eframe::egui::{self, ComboBox, Window};
-use groove_core::traits::gui::ShowsTopLevel;
+use eframe::egui::{self, CollapsingHeader, ComboBox};
+use groove_core::traits::gui::Shows;
 use groove_midi::{
     MidiInterfaceEvent, MidiInterfaceInput, MidiInterfaceService, MidiPortDescriptor,
 };
@@ -110,64 +110,68 @@ impl MidiPanel {
         self.outputs.as_ref()
     }
 }
-impl ShowsTopLevel for MidiPanel {
-    fn show(&mut self, ctx: &egui::Context) {
-        Window::new("MIDI").default_open(true).show(ctx, |ui| {
-            let now = Instant::now();
-            let last_input_instant = *self.last_input_instant.lock().unwrap();
-            let input_was_recent = (now - last_input_instant).as_millis() < 250;
-            let output_was_recent = (now - self.last_output_instant).as_millis() < 250;
+impl Shows for MidiPanel {
+    fn show(&mut self, ui: &mut egui::Ui) {
+        CollapsingHeader::new("MIDI")
+            .default_open(true)
+            .show(ui, |ui| {
+                let now = Instant::now();
+                let last_input_instant = *self.last_input_instant.lock().unwrap();
+                let input_was_recent = (now - last_input_instant).as_millis() < 250;
+                let output_was_recent = (now - self.last_output_instant).as_millis() < 250;
 
-            if let Ok(ports) = &self.inputs().lock() {
-                let mut cb = ComboBox::from_label("MIDI in");
-                let (mut selected_index, _selected_text) =
-                    if let Some(selected) = &(*self.selected_input.lock().unwrap()) {
-                        cb = cb.selected_text(selected.name());
-                        (selected.index(), selected.name())
-                    } else {
-                        (usize::MAX, "None")
-                    };
-                cb.show_ui(ui, |ui| {
-                    for port in ports.iter() {
-                        if ui
-                            .selectable_value(&mut selected_index, port.index(), port.name())
-                            .changed()
-                        {
-                            let _ = self
-                                .sender
-                                .send(MidiInterfaceInput::SelectMidiInput(port.clone()));
+                if let Ok(ports) = &self.inputs().lock() {
+                    let mut cb = ComboBox::from_label("MIDI in");
+                    let (mut selected_index, _selected_text) =
+                        if let Some(selected) = &(*self.selected_input.lock().unwrap()) {
+                            cb = cb.selected_text(selected.name());
+                            (selected.index(), selected.name())
+                        } else {
+                            (usize::MAX, "None")
+                        };
+                    cb.show_ui(ui, |ui| {
+                        for port in ports.iter() {
+                            if ui
+                                .selectable_value(&mut selected_index, port.index(), port.name())
+                                .changed()
+                            {
+                                let _ = self
+                                    .sender
+                                    .send(MidiInterfaceInput::SelectMidiInput(port.clone()));
+                            }
                         }
-                    }
-                });
-            }
-            ui.end_row();
+                    });
+                }
+                ui.end_row();
 
-            if let Ok(ports) = &self.outputs().lock() {
-                let mut cb = ComboBox::from_label("MIDI out");
-                let (mut selected_index, _selected_text) =
-                    if let Some(selected) = &(*self.selected_output.lock().unwrap()) {
-                        cb = cb.selected_text(selected.name());
-                        (selected.index(), selected.name())
-                    } else {
-                        (usize::MAX, "None")
-                    };
-                cb.show_ui(ui, |ui| {
-                    for port in ports.iter() {
-                        if ui
-                            .selectable_value(&mut selected_index, port.index(), port.name())
-                            .changed()
-                        {
-                            let _ = self
-                                .sender
-                                .send(MidiInterfaceInput::SelectMidiOutput(port.clone()));
+                if let Ok(ports) = &self.outputs().lock() {
+                    let mut cb = ComboBox::from_label("MIDI out");
+                    let (mut selected_index, _selected_text) =
+                        if let Some(selected) = &(*self.selected_output.lock().unwrap()) {
+                            cb = cb.selected_text(selected.name());
+                            (selected.index(), selected.name())
+                        } else {
+                            (usize::MAX, "None")
+                        };
+                    cb.show_ui(ui, |ui| {
+                        for port in ports.iter() {
+                            if ui
+                                .selectable_value(&mut selected_index, port.index(), port.name())
+                                .changed()
+                            {
+                                let _ = self
+                                    .sender
+                                    .send(MidiInterfaceInput::SelectMidiOutput(port.clone()));
+                            }
                         }
-                    }
-                });
-            }
-            ui.end_row();
+                    });
+                }
+                ui.end_row();
 
-            ui.label(if input_was_recent { "⬅" } else { " " });
-            ui.label(if output_was_recent { "➡" } else { " " });
-        });
+                ui.label(if input_was_recent { "⬅" } else { " " });
+                ui.label(if output_was_recent { "➡" } else { " " });
+            });
     }
+    // fn show(&mut self, ctx: &egui::Context) {
+    // }
 }
