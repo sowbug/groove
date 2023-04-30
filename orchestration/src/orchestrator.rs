@@ -909,148 +909,159 @@ impl Resets for Orchestrator {
 mod gui {
     use crate::{entities::Entity, Orchestrator};
     use eframe::{
-        egui::{CollapsingHeader, Frame, Layout, Ui},
+        egui::{Frame, Layout, Style, Ui},
         emath::Align,
-        epaint::Color32,
+        epaint::Vec2,
     };
     use groove_core::traits::gui::Shows;
 
     impl Shows for Orchestrator {
         fn show(&mut self, ui: &mut Ui) {
-            ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
-                let uids: Vec<usize> = self.entity_iter().map(|(uid, _entity)| *uid).collect();
+            ui.allocate_ui(Vec2::new(800.0, 500.0), |ui| {
+                ui.with_layout(
+                    Layout::left_to_right(Align::Center)
+                        .with_main_wrap(true)
+                        .with_cross_align(Align::Center)
+                        .with_cross_justify(false),
+                    |ui| {
+                        let uids: Vec<usize> =
+                            self.entity_iter().map(|(uid, _entity)| *uid).collect();
 
-                #[allow(unused_variables)] // for all the (e) in the match
-                for uid in uids {
-                    let entity = self.get_mut(uid).unwrap();
-                    CollapsingHeader::new(entity.as_has_uid().name())
-                        .id_source(ui.next_auto_id())
-                        .default_open(true)
-                        .show(ui, |ui| {
-                            Frame::none().fill(Color32::DARK_GRAY).show(ui, |ui| {
-                                ui.vertical(|ui| match entity {
-                                    Entity::Arpeggiator(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::BiQuadFilterAllPass(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::BiQuadFilterBandPass(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::BiQuadFilterBandStop(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::BiQuadFilterHighPass(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::BiQuadFilterHighShelf(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::BiQuadFilterLowPass12db(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::BiQuadFilterLowPass24db(e) => {
-                                        e.show(ui);
-                                    }
-                                    Entity::BiQuadFilterLowShelf(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::BiQuadFilterNone(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::BiQuadFilterPeakingEq(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::Bitcrusher(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::Chorus(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::Clock(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::Compressor(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::ControlTrip(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::DebugSynth(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::Delay(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::Drumkit(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::FmSynth(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::Gain(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::LfoController(e) => {
-                                        e.show(ui);
-                                    }
-                                    Entity::Limiter(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::Metronome(e) => {
-                                        e.show(ui);
-                                    }
-                                    Entity::MidiTickSequencer(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::Mixer(e) => {
-                                        e.show(ui);
-                                    }
-                                    Entity::PatternManager(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::Reverb(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::Sampler(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::Sequencer(e) => {
-                                        e.show(ui);
-                                    }
-                                    Entity::SignalPassthroughController(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::Timer(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::ToyAudioSource(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::ToyController(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::ToyEffect(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::ToyInstrument(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::ToySynth(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::Trigger(e) => {
-                                        ui.label(entity.as_has_uid().name());
-                                    }
-                                    Entity::WelshSynth(e) => {
-                                        e.show(ui);
-                                    }
-                                })
+                        #[allow(unused_variables)] // for all the (e) in the match
+                        for uid in uids {
+                            let entity = self.get_mut(uid).unwrap();
+                            ui.allocate_space(Vec2::new(64.0, 64.0));
+                            Frame::central_panel(&Style::default()).show(ui, |ui| {
+                                ui.vertical(|ui| {
+                                    show_for_entity(entity, ui);
+                                });
                             });
-                        });
-                }
+                        }
+                    },
+                )
             });
+        }
+    }
+
+    fn show_for_entity(entity: &mut Entity, ui: &mut Ui) {
+        match entity {
+            Entity::Arpeggiator(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::BiQuadFilterAllPass(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::BiQuadFilterBandPass(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::BiQuadFilterBandStop(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::BiQuadFilterHighPass(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::BiQuadFilterHighShelf(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::BiQuadFilterLowPass12db(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::BiQuadFilterLowPass24db(e) => {
+                e.show(ui);
+            }
+            Entity::BiQuadFilterLowShelf(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::BiQuadFilterNone(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::BiQuadFilterPeakingEq(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::Bitcrusher(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::Chorus(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::Clock(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::Compressor(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::ControlTrip(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::DebugSynth(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::Delay(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::Drumkit(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::FmSynth(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::Gain(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::LfoController(e) => {
+                e.show(ui);
+            }
+            Entity::Limiter(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::Metronome(e) => {
+                e.show(ui);
+            }
+            Entity::MidiTickSequencer(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::Mixer(e) => {
+                e.show(ui);
+            }
+            Entity::PatternManager(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::Reverb(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::Sampler(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::Sequencer(e) => {
+                e.show(ui);
+            }
+            Entity::SignalPassthroughController(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::Timer(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::ToyAudioSource(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::ToyController(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::ToyEffect(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::ToyInstrument(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::ToySynth(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::Trigger(e) => {
+                ui.label(entity.as_has_uid().name());
+            }
+            Entity::WelshSynth(e) => {
+                e.show(ui);
+            }
         }
     }
 }

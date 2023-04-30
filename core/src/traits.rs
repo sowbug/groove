@@ -247,16 +247,11 @@ pub trait IsStereoSampleVoice: IsVoice<StereoSample> {}
 
 #[cfg(feature = "egui-framework")]
 pub mod gui {
-    use eframe::egui::{Context, Ui};
+    use eframe::egui::Ui;
 
     /// Implements egui content inside a Window or SidePanel.
     pub trait Shows {
         fn show(&mut self, ui: &mut Ui);
-    }
-
-    /// Implements a top-level egui Window.
-    pub trait ShowsTopLevel {
-        fn show(&mut self, ctx: &Context);
     }
 }
 #[cfg(test)]
