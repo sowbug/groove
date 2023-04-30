@@ -106,7 +106,7 @@ impl ThingBrowser {
             ThingType::Top => self.children_ui(ui, orchestrator),
             ThingType::Directory(path) => CollapsingHeader::new(&self.name)
                 .id_source(ui.next_auto_id())
-                .default_open(self.depth < 1)
+                .default_open(self.depth < 2)
                 .show(ui, |ui| self.children_ui(ui, orchestrator))
                 .body_returned
                 .unwrap_or(Action::Keep),
