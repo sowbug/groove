@@ -10,7 +10,10 @@ use eframe::{
     CreationContext,
 };
 use egui_extras::StripBuilder;
-use groove::egui_widgets::{AudioPanel, ControlBar, MidiPanel, ThingBrowser};
+use groove::{
+    app_version,
+    egui_widgets::{AudioPanel, ControlBar, MidiPanel, ThingBrowser},
+};
 use groove_core::{time::ClockNano, traits::gui::Shows};
 use groove_orchestration::Orchestrator;
 use std::sync::{Arc, Mutex};
@@ -71,15 +74,13 @@ impl eframe::App for GrooveApp {
             }
         });
         bottom.show(ctx, |ui| {
-            if let Ok(o) = self.orchestrator.lock() {
-                ui.with_layout(Layout::left_to_right(eframe::emath::Align::Center), |ui| {
-                    ui.label(
-                        RichText::new(format!("clock: {:?}", o.clock()))
-                            .font(self.bold_font_id.clone())
-                            .color(Color32::YELLOW),
-                    )
-                });
-            }
+            ui.with_layout(Layout::right_to_left(eframe::emath::Align::Center), |ui| {
+                ui.label(
+                    RichText::new(format!("Build: {:?}", app_version()))
+                        .font(self.bold_font_id.clone())
+                        .color(Color32::YELLOW),
+                )
+            });
         });
         left.show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
