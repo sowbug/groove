@@ -298,6 +298,8 @@ pub struct WelshSynth {
 
     #[nano]
     pan: BipolarNormal,
+
+    dca: Dca,
 }
 impl IsInstrument for WelshSynth {}
 impl Generates<StereoSample> for WelshSynth {
@@ -350,6 +352,10 @@ impl WelshSynth {
         Self {
             uid: Default::default(),
             inner_synth: Synthesizer::<WelshVoice>::new_with(Box::new(voice_store)),
+            dca: Dca::new_with(DcaNano {
+                gain: params.gain(),
+                pan: params.pan(),
+            }),
             gain: params.gain(),
             pan: params.pan(),
             envelope: params.envelope().clone(),
@@ -389,6 +395,7 @@ impl WelshSynth {
         // inheritance. It feels weird for the concrete case to be at the top.
         // Maybe this is all just fine.
         self.gain = gain;
+        self.dca.set_gain(gain);
         self.inner_synth.set_gain(gain);
         self.inner_synth.voices_mut().for_each(|v| v.set_gain(gain));
         self.inner_synth.set_gain(gain);
@@ -400,6 +407,7 @@ impl WelshSynth {
 
     pub fn set_pan(&mut self, pan: BipolarNormal) {
         self.pan = pan;
+        self.dca.set_pan(pan);
         self.inner_synth.set_pan(pan);
         self.inner_synth.voices_mut().for_each(|v| v.set_pan(pan));
         self.inner_synth.set_pan(pan);
@@ -479,31 +487,27 @@ impl WelshSynth {
 
 #[cfg(feature = "egui-framework")]
 mod gui {
+    use crate::effects::BiQuadFilterLowPass24db;
+
     use super::WelshSynth;
     use eframe::egui::Ui;
-    use groove_core::{generators::Envelope, traits::gui::Shows, Dca, DcaNano};
+    use groove_core::{generators::Envelope, traits::gui::Shows};
 
     impl Shows for WelshSynth {
         fn show(&mut self, ui: &mut Ui) {
-            // This is pretty annoying, because the DCA doesn't live here, or in
-            // inner_synth, or in voice_store, but in each voice. TODO: maybe
-            // it's better to allow someone up top to keep a single DCA that's
-            // in charge of propagating to individual voices. Or maybe there
-            // shouldn't even be more than one DCA per instrument.
-            let mut dca = Dca::new_with(DcaNano {
-                gain: self.gain(),
-                pan: self.pan(),
-            });
-            dca.show(ui);
-            if dca.gain() != self.gain() {
-                self.set_gain(dca.gain());
+            self.dca.show(ui);
+            if self.dca.gain() != self.gain() {
+                self.set_gain(self.dca.gain());
             }
-            if dca.pan() != self.pan() {
-                self.set_pan(dca.pan());
+            if self.dca.pan() != self.pan() {
+                self.set_pan(self.dca.pan());
             }
 
             // Similarly annoying.
             Envelope::new_with(self.envelope().clone()).show(ui);
+
+            BiQuadFilterLowPass24db::new_with(self.low_pass_filter.clone()).show(ui);
+            Envelope::new_with(self.filter_envelope().clone()).show(ui);
         }
     }
 }

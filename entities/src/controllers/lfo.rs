@@ -29,6 +29,9 @@ pub struct LfoController {
     oscillator: Oscillator,
 
     is_performing: bool,
+
+    #[cfg(feature = "egui-framework")]
+    waveform_widget: groove_egui::Waveform,
 }
 impl IsController for LfoController {}
 impl Resets for LfoController {
@@ -75,6 +78,7 @@ impl LfoController {
             waveform: params.waveform(),
             frequency: params.frequency(),
             is_performing: false,
+            waveform_widget: Default::default(),
         }
     }
 
@@ -111,7 +115,7 @@ impl LfoController {
 #[cfg(feature = "egui-framework")]
 mod gui {
     use super::LfoController;
-    use eframe::egui::{ComboBox, Slider, Ui};
+    use eframe::egui::{ComboBox, DragValue, Ui};
     use groove_core::{generators::Waveform, traits::gui::Shows};
     use strum::IntoEnumIterator;
 
@@ -121,7 +125,9 @@ mod gui {
             let mut waveform = self.waveform();
             if ui
                 .add(
-                    Slider::new(&mut frequency, LfoController::frequency_range()).text("Frequency"),
+                    DragValue::new(&mut frequency)
+                        .clamp_range(LfoController::frequency_range())
+                        .suffix(" Hz"),
                 )
                 .changed()
             {
@@ -135,9 +141,10 @@ mod gui {
                     }
                 });
             if waveform != self.waveform() {
-                eprintln!("changed {} {}", self.waveform(), waveform);
                 self.set_waveform(waveform);
             }
+
+            self.waveform_widget.show(ui);
         }
     }
 }

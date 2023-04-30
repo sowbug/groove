@@ -2,7 +2,7 @@
 
 use groove_core::{
     traits::{IsEffect, Resets, TransformsAudio},
-    BipolarNormal, Sample,
+    Normal, Sample,
 };
 use groove_proc_macros::{Nano, Uid};
 use std::str::FromStr;
@@ -17,16 +17,16 @@ pub struct Limiter {
     uid: usize,
 
     #[nano]
-    max: BipolarNormal,
+    min: Normal,
     #[nano]
-    min: BipolarNormal,
+    max: Normal,
 }
 impl Default for Limiter {
     fn default() -> Self {
         Self {
             uid: Default::default(),
-            min: BipolarNormal::minimum(), // TODO: this should be a regular Normal, since we don't have negatives
-            max: BipolarNormal::maximum(),
+            min: Normal::minimum(),
+            max: Normal::maximum(),
         }
     }
 }
@@ -62,20 +62,56 @@ impl Limiter {
         }
     }
 
-    pub fn max(&self) -> BipolarNormal {
+    pub fn max(&self) -> Normal {
         self.max
     }
 
-    pub fn set_max(&mut self, max: BipolarNormal) {
+    pub fn set_max(&mut self, max: Normal) {
         self.max = max;
     }
 
-    pub fn min(&self) -> BipolarNormal {
+    pub fn min(&self) -> Normal {
         self.min
     }
 
-    pub fn set_min(&mut self, min: BipolarNormal) {
+    pub fn set_min(&mut self, min: Normal) {
         self.min = min;
+    }
+}
+
+#[cfg(feature = "egui-framework")]
+mod gui {
+    use super::Limiter;
+    use eframe::egui::{Slider, Ui};
+    use groove_core::{traits::gui::Shows, Normal};
+
+    impl Shows for Limiter {
+        fn show(&mut self, ui: &mut Ui) {
+            let mut min = self.min().to_percentage();
+            let mut max = self.max().to_percentage();
+            if ui
+                .add(
+                    Slider::new(&mut min, 0.0..=max)
+                        .suffix(" %")
+                        .text("min")
+                        .fixed_decimals(2),
+                )
+                .changed()
+            {
+                self.set_min(min.into());
+            };
+            if ui
+                .add(
+                    Slider::new(&mut max, min..=1.0)
+                        .suffix(" %")
+                        .text("max")
+                        .fixed_decimals(2),
+                )
+                .changed()
+            {
+                self.set_max(Normal::from_percentage(max).into());
+            };
+        }
     }
 }
 
@@ -177,8 +213,8 @@ mod tests {
     #[test]
     fn limiter_bias() {
         let mut limiter = Limiter::new_with(LimiterNano {
-            min: BipolarNormal::from(0.2),
-            max: BipolarNormal::from(0.8),
+            min: 0.2.into(),
+            max: 0.8.into(),
         });
         assert_eq!(
             limiter.transform_channel(0, Sample::from(0.1)),

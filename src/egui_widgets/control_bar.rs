@@ -12,8 +12,15 @@ impl ControlBar {
     pub fn show(&self, ui: &mut egui::Ui, orchestrator: &mut Orchestrator) {
         ui.horizontal(|ui| {
             let mut bpm = orchestrator.bpm();
-            ui.label("BPM");
-            if ui.add(DragValue::new(&mut bpm).speed(0.1)).changed() {
+            if ui
+                .add(
+                    DragValue::new(&mut bpm)
+                        .speed(0.1)
+                        .suffix(" BPM")
+                        .fixed_decimals(2),
+                )
+                .changed()
+            {
                 orchestrator.set_bpm(bpm);
             }
             if ui.button("start over").clicked() {

@@ -38,7 +38,9 @@ struct GrooveApp {
 
     thing_browser: ThingBrowser,
 
+    #[allow(dead_code)]
     regular_font_id: FontId,
+    #[allow(dead_code)]
     mono_font_id: FontId,
     bold_font_id: FontId,
 }

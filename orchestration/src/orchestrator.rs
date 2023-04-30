@@ -917,7 +917,7 @@ mod gui {
 
     impl Shows for Orchestrator {
         fn show(&mut self, ui: &mut Ui) {
-            ui.allocate_ui(Vec2::new(ui.available_width(), 128.0), |ui| {
+            ui.allocate_ui(Vec2::new(ui.available_width(), 128.0 + 2.0), |ui| {
                 ui.with_layout(
                     Layout::left_to_right(Align::Min)
                         .with_main_wrap(true)
@@ -935,7 +935,13 @@ mod gui {
                                     Frame::none()
                                         .stroke(Stroke::new(2.0, Color32::GRAY))
                                         .fill(Color32::DARK_GRAY)
-                                        .inner_margin(Margin::symmetric(2.0, 2.0))
+                                        .inner_margin(Margin::same(2.0))
+                                        .outer_margin(Margin {
+                                            left: 0.0,
+                                            right: 0.0,
+                                            top: 0.0,
+                                            bottom: 5.0,
+                                        })
                                         .show(ui, |ui| {
                                             CollapsingHeader::new(
                                                 RichText::new(entity.name())
@@ -995,7 +1001,7 @@ mod gui {
                 ui.label(entity.as_has_uid().name());
             }
             Entity::Bitcrusher(e) => {
-                ui.label(entity.as_has_uid().name());
+                e.show(ui);
             }
             Entity::Chorus(e) => {
                 ui.label(entity.as_has_uid().name());
@@ -1022,13 +1028,13 @@ mod gui {
                 ui.label(entity.as_has_uid().name());
             }
             Entity::Gain(e) => {
-                ui.label(entity.as_has_uid().name());
+                e.show(ui);
             }
             Entity::LfoController(e) => {
                 e.show(ui);
             }
             Entity::Limiter(e) => {
-                ui.label(entity.as_has_uid().name());
+                e.show(ui);
             }
             Entity::Metronome(e) => {
                 e.show(ui);

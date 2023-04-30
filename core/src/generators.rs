@@ -808,13 +808,14 @@ mod gui {
                 .show_unindented(ui, |ui| {
                     let mut attack = self.attack();
                     let mut decay = self.decay();
-                    let mut sustain = self.sustain().value();
+                    let mut sustain = self.sustain().to_percentage();
                     let mut release = self.release();
                     if ui
                         .add(
                             DragValue::new(&mut attack)
                                 .speed(0.1)
                                 .prefix("Attack: ")
+                                .clamp_range(0.0..=100.0)
                                 .suffix(" s"),
                         )
                         .changed()
@@ -827,6 +828,7 @@ mod gui {
                             DragValue::new(&mut decay)
                                 .speed(0.1)
                                 .prefix("Decay: ")
+                                .clamp_range(0.0..=100.0)
                                 .suffix(" s"),
                         )
                         .changed()
@@ -839,11 +841,13 @@ mod gui {
                             DragValue::new(&mut sustain)
                                 .speed(0.1)
                                 .prefix("Sustain: ")
+                                .clamp_range(0.0..=100.0)
+                                .fixed_decimals(2)
                                 .suffix("%"),
                         )
                         .changed()
                     {
-                        self.set_sustain(sustain.into());
+                        self.set_sustain((sustain / 100.0).into());
                     }
                     ui.end_row();
                     if ui
@@ -851,6 +855,7 @@ mod gui {
                             DragValue::new(&mut release)
                                 .speed(0.1)
                                 .prefix("Release: ")
+                                .clamp_range(0.0..=100.0)
                                 .suffix(" s"),
                         )
                         .changed()

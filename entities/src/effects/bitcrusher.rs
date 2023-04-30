@@ -67,6 +67,33 @@ impl Bitcrusher {
             _ => self.derived_update(message),
         }
     }
+
+    fn bits_range() -> std::ops::RangeInclusive<u8> {
+        0..=16
+    }
+}
+
+#[cfg(feature = "egui-framework")]
+mod gui {
+    use super::Bitcrusher;
+    use eframe::egui::{DragValue, Ui};
+    use groove_core::traits::gui::Shows;
+
+    impl Shows for Bitcrusher {
+        fn show(&mut self, ui: &mut Ui) {
+            let mut bits = self.bits();
+            if ui
+                .add(
+                    DragValue::new(&mut bits)
+                        .clamp_range(Bitcrusher::bits_range())
+                        .suffix(" bits"),
+                )
+                .changed()
+            {
+                self.set_bits(bits);
+            };
+        }
+    }
 }
 
 #[cfg(test)]

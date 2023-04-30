@@ -53,6 +53,30 @@ impl Gain {
     }
 }
 
+#[cfg(feature = "egui-framework")]
+mod gui {
+    use super::Gain;
+    use eframe::egui::{DragValue, Ui};
+    use groove_core::{traits::gui::Shows, Normal};
+
+    impl Shows for Gain {
+        fn show(&mut self, ui: &mut Ui) {
+            let mut ceiling = self.ceiling().to_percentage();
+            if ui
+                .add(
+                    DragValue::new(&mut ceiling)
+                        .clamp_range(0.0..=100.0)
+                        .fixed_decimals(2)
+                        .suffix(" %"),
+                )
+                .changed()
+            {
+                self.set_ceiling(Normal::from_percentage(ceiling));
+            };
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

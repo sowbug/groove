@@ -253,6 +253,7 @@ impl<const LOWER: i8, const UPPER: i8> RangedF64<LOWER, UPPER> {
     pub fn new(value: f64) -> Self {
         Self(value.clamp(Self::MIN, Self::MAX))
     }
+    #[deprecated]
     pub fn new_from_f32(value: f32) -> Self {
         Self::new(value as f64)
     }
@@ -273,7 +274,8 @@ impl<const LOWER: i8, const UPPER: i8> RangedF64<LOWER, UPPER> {
         Self(Self::ZERO)
     }
     pub fn value(&self) -> f64 {
-        self.0.clamp(Self::MIN, Self::MAX)
+        // We don't clamp here because we have already checked all inputs.
+        self.0
     }
     pub fn value_as_f32(&self) -> f32 {
         self.value() as f32
@@ -284,6 +286,14 @@ impl<const LOWER: i8, const UPPER: i8> RangedF64<LOWER, UPPER> {
 
     pub fn scale(&self, factor: f64) -> f64 {
         self.0 * factor
+    }
+
+    pub fn to_percentage(&self) -> f64 {
+        self.value() * 100.0
+    }
+
+    pub fn from_percentage(percentage: f64) -> Self {
+        Self(percentage / 100.0)
     }
 }
 impl<const LOWER: i8, const UPPER: i8> Add for RangedF64<LOWER, UPPER> {
@@ -479,8 +489,8 @@ mod gui {
     impl Shows for Dca {
         fn show(&mut self, ui: &mut Ui) {
             CollapsingHeader::new("DCA")
+                .id_source(ui.next_auto_id())
                 .default_open(true)
-                .enabled(false)
                 .show_unindented(ui, |ui| {
                     let mut gain = self.gain().value();
                     if ui
