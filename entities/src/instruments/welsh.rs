@@ -480,22 +480,29 @@ impl WelshSynth {
 #[cfg(feature = "egui-framework")]
 mod gui {
     use super::WelshSynth;
-    use eframe::egui::{Slider, Ui};
-    use groove_core::{generators::Envelope, traits::gui::Shows, BipolarNormal};
+    use eframe::egui::Ui;
+    use groove_core::{generators::Envelope, traits::gui::Shows, Dca, DcaNano};
 
     impl Shows for WelshSynth {
         fn show(&mut self, ui: &mut Ui) {
-            let mut pan = self.pan().value();
-            if ui
-                .add(
-                    Slider::new(&mut pan, BipolarNormal::range())
-                        .text("Pan")
-                        .max_decimals(1),
-                )
-                .changed()
-            {
-                self.set_pan(pan.into());
-            };
+            // This is pretty annoying, because the DCA doesn't live here, or in
+            // inner_synth, or in voice_store, but in each voice. TODO: maybe
+            // it's better to allow someone up top to keep a single DCA that's
+            // in charge of propagating to individual voices. Or maybe there
+            // shouldn't even be more than one DCA per instrument.
+            let mut dca = Dca::new_with(DcaNano {
+                gain: self.gain(),
+                pan: self.pan(),
+            });
+            dca.show(ui);
+            if dca.gain() != self.gain() {
+                self.set_gain(dca.gain());
+            }
+            if dca.pan() != self.pan() {
+                self.set_pan(dca.pan());
+            }
+
+            // Similarly annoying.
             Envelope::new_with(self.envelope().clone()).show(ui);
         }
     }

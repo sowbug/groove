@@ -909,20 +909,20 @@ impl Resets for Orchestrator {
 mod gui {
     use crate::{entities::Entity, Orchestrator};
     use eframe::{
-        egui::{Frame, Layout, Style, Ui},
+        egui::{CollapsingHeader, Frame, Layout, Margin, RichText, Ui},
         emath::Align,
-        epaint::Vec2,
+        epaint::{Color32, Stroke, Vec2},
     };
     use groove_core::traits::gui::Shows;
 
     impl Shows for Orchestrator {
         fn show(&mut self, ui: &mut Ui) {
-            ui.allocate_ui(Vec2::new(800.0, 500.0), |ui| {
+            ui.allocate_ui(Vec2::new(ui.available_width(), 128.0), |ui| {
                 ui.with_layout(
-                    Layout::left_to_right(Align::Center)
+                    Layout::left_to_right(Align::Min)
                         .with_main_wrap(true)
-                        .with_cross_align(Align::Center)
-                        .with_cross_justify(false),
+                        .with_cross_align(Align::Min)
+                        .with_cross_justify(true),
                     |ui| {
                         let uids: Vec<usize> =
                             self.entity_iter().map(|(uid, _entity)| *uid).collect();
@@ -930,11 +930,26 @@ mod gui {
                         #[allow(unused_variables)] // for all the (e) in the match
                         for uid in uids {
                             let entity = self.get_mut(uid).unwrap();
-                            ui.allocate_space(Vec2::new(64.0, 64.0));
-                            Frame::central_panel(&Style::default()).show(ui, |ui| {
-                                ui.vertical(|ui| {
-                                    show_for_entity(entity, ui);
-                                });
+                            ui.allocate_ui(Vec2::new(256.0, ui.available_height()), |ui| {
+                                let frame =
+                                    Frame::none()
+                                        .stroke(Stroke::new(2.0, Color32::GRAY))
+                                        .fill(Color32::DARK_GRAY)
+                                        .inner_margin(Margin::symmetric(2.0, 2.0))
+                                        .show(ui, |ui| {
+                                            CollapsingHeader::new(
+                                                RichText::new(entity.name())
+                                                    .color(Color32::YELLOW)
+                                                    .text_style(eframe::egui::TextStyle::Heading),
+                                            )
+                                            .id_source(ui.next_auto_id())
+                                            .default_open(true)
+                                            .show_unindented(ui, |ui| {
+                                                ui.vertical(|ui| {
+                                                    show_for_entity(entity, ui);
+                                                })
+                                            });
+                                        });
                             });
                         }
                     },
@@ -943,6 +958,7 @@ mod gui {
         }
     }
 
+    #[allow(unused_variables)]
     fn show_for_entity(entity: &mut Entity, ui: &mut Ui) {
         match entity {
             Entity::Arpeggiator(e) => {

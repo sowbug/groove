@@ -5,7 +5,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use eframe::{
-    egui::{self, FontData, FontDefinitions, Layout, RichText},
+    egui::{self, Context, FontData, FontDefinitions, Layout, RichText, TextStyle},
     epaint::{Color32, FontFamily, FontId},
     CreationContext,
 };
@@ -118,6 +118,7 @@ impl GrooveApp {
 
         Self::initialize_fonts(cc);
         Self::initialize_visuals(cc);
+        Self::initialize_style(&cc.egui_ctx);
 
         let clock_settings = ClockNano::default();
         let orchestrator = Arc::new(Mutex::new(Orchestrator::new_with(clock_settings)));
@@ -173,5 +174,42 @@ impl GrooveApp {
 
     fn initialize_visuals(_cc: &CreationContext) {
         // TODO - currently happy with defaults
+    }
+
+    fn initialize_style(ctx: &Context) {
+        let mut style = (*ctx.style()).clone();
+
+        style.visuals.override_text_color = Some(Color32::LIGHT_GRAY);
+
+        style.text_styles = [
+            (
+                TextStyle::Heading,
+                FontId::new(14.0, FontFamily::Proportional),
+            ),
+            (
+                TextStyle::Name("Heading2".into()),
+                FontId::new(25.0, FontFamily::Proportional),
+            ),
+            (
+                TextStyle::Name("Context".into()),
+                FontId::new(23.0, FontFamily::Proportional),
+            ),
+            (TextStyle::Body, FontId::new(12.0, FontFamily::Proportional)),
+            (
+                TextStyle::Monospace,
+                FontId::new(12.0, FontFamily::Proportional),
+            ),
+            (
+                TextStyle::Button,
+                FontId::new(12.0, FontFamily::Proportional),
+            ),
+            (
+                TextStyle::Small,
+                FontId::new(10.0, FontFamily::Proportional),
+            ),
+        ]
+        .into();
+
+        ctx.set_style(style);
     }
 }

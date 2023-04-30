@@ -471,6 +471,45 @@ impl Dca {
     }
 }
 
+#[cfg(feature = "egui-framework")]
+mod gui {
+    use crate::{traits::gui::Shows, BipolarNormal, Dca, Normal};
+    use eframe::egui::{CollapsingHeader, Slider, Ui};
+
+    impl Shows for Dca {
+        fn show(&mut self, ui: &mut Ui) {
+            CollapsingHeader::new("DCA")
+                .default_open(true)
+                .enabled(false)
+                .show_unindented(ui, |ui| {
+                    let mut gain = self.gain().value();
+                    if ui
+                        .add(
+                            Slider::new(&mut gain, Normal::range())
+                                .fixed_decimals(2)
+                                .text("Gain"),
+                        )
+                        .changed()
+                    {
+                        self.set_gain(gain.into());
+                    };
+
+                    let mut pan = self.pan().value();
+                    if ui
+                        .add(
+                            Slider::new(&mut pan, BipolarNormal::range())
+                                .fixed_decimals(2)
+                                .text("Pan"),
+                        )
+                        .changed()
+                    {
+                        self.set_pan(pan.into());
+                    };
+                });
+        }
+    }
+}
+
 /// [FrequencyHz] is a frequency measured in
 /// [Hertz](https://en.wikipedia.org/wiki/Hertz), or cycles per second. Because
 /// we're usually discussing human hearing or LFOs, we can expect [FrequencyHz]

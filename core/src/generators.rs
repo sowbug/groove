@@ -798,34 +798,67 @@ impl Envelope {
 mod gui {
     use super::Envelope;
     use crate::traits::gui::Shows;
-    use eframe::egui::{DragValue, Ui};
+    use eframe::egui::{CollapsingHeader, DragValue, Ui};
 
     impl Shows for Envelope {
         fn show(&mut self, ui: &mut Ui) {
-            let mut attack = self.attack();
-            let mut decay = self.decay();
-            let mut sustain = self.sustain().value();
-            let mut release = self.release();
-            ui.label("Attack");
-            if ui.add(DragValue::new(&mut attack).speed(0.1)).changed() {
-                self.set_attack(attack);
-            }
-            ui.end_row();
-            ui.label("Decay");
-            if ui.add(DragValue::new(&mut decay).speed(0.1)).changed() {
-                self.set_decay(decay);
-            }
-            ui.end_row();
-            ui.label("Sustain");
-            if ui.add(DragValue::new(&mut sustain).speed(0.1)).changed() {
-                self.set_sustain(sustain.into());
-            }
-            ui.end_row();
-            ui.label("Release");
-            if ui.add(DragValue::new(&mut release).speed(0.1)).changed() {
-                self.set_release(release);
-            }
-            ui.end_row();
+            CollapsingHeader::new("Envelope")
+                .id_source(ui.next_auto_id())
+                .default_open(true)
+                .show_unindented(ui, |ui| {
+                    let mut attack = self.attack();
+                    let mut decay = self.decay();
+                    let mut sustain = self.sustain().value();
+                    let mut release = self.release();
+                    if ui
+                        .add(
+                            DragValue::new(&mut attack)
+                                .speed(0.1)
+                                .prefix("Attack: ")
+                                .suffix(" s"),
+                        )
+                        .changed()
+                    {
+                        self.set_attack(attack);
+                    }
+                    ui.end_row();
+                    if ui
+                        .add(
+                            DragValue::new(&mut decay)
+                                .speed(0.1)
+                                .prefix("Decay: ")
+                                .suffix(" s"),
+                        )
+                        .changed()
+                    {
+                        self.set_decay(decay);
+                    }
+                    ui.end_row();
+                    if ui
+                        .add(
+                            DragValue::new(&mut sustain)
+                                .speed(0.1)
+                                .prefix("Sustain: ")
+                                .suffix("%"),
+                        )
+                        .changed()
+                    {
+                        self.set_sustain(sustain.into());
+                    }
+                    ui.end_row();
+                    if ui
+                        .add(
+                            DragValue::new(&mut release)
+                                .speed(0.1)
+                                .prefix("Release: ")
+                                .suffix(" s"),
+                        )
+                        .changed()
+                    {
+                        self.set_release(release);
+                    }
+                    ui.end_row();
+                });
         }
     }
 }
