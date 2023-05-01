@@ -11,8 +11,9 @@ use groove_entities::{
     effects::{BiQuadFilter, BiQuadFilterLowPass24dbNano},
     instruments::{LfoRouting, WelshSynthNano},
 };
+use groove_utils::Paths;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::{io::Read, path::Path};
 use strum_macros::IntoStaticStr;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -59,28 +60,27 @@ impl WelshPatchSettings {
         })
     }
 
-    pub fn by_name(base_asset_path: &Path, name: &str) -> Self {
-        let mut base_path = base_asset_path.to_path_buf();
-        // TODO: we're hardcoding patches/. Figure out a way to use the
-        // system.
-        base_path.push("patches");
-        base_path.push("welsh");
-        base_path.push(format!(
-            "{}.yaml",
-            Self::patch_name_to_settings_name(name.to_string().as_str())
-        ));
-        if let Ok(contents) = std::fs::read_to_string(&base_path) {
-            match Self::new_from_yaml(&contents) {
-                Ok(patch) => patch,
-                Err(err) => {
-                    // TODO: this should return a failsafe patch, maybe a boring
-                    // square wave
-                    panic!("couldn't parse patch file: {err:?}");
+    pub fn by_name(paths: &Paths, name: &str) -> Self {
+        let path = paths.build_patch(
+            "welsh",
+            Path::new(&format!("{}.yaml", Self::patch_name_to_settings_name(name))),
+        );
+        if let Ok(mut file) = paths.search_and_open(&path) {
+            let mut contents = String::new();
+            if let Ok(_bytes_read) = file.read_to_string(&mut contents) {
+                match Self::new_from_yaml(&contents) {
+                    Ok(patch) => {
+                        return patch;
+                    }
+                    Err(err) => {
+                        // TODO: this should return a failsafe patch, maybe a boring
+                        // square wave
+                        panic!("couldn't parse patch file: {err:?}");
+                    }
                 }
             }
-        } else {
-            panic!("couldn't read patch file named {:?}", &base_path);
         }
+        panic!("couldn't read patch file named {:?}", &path);
     }
 
     pub fn derive_welsh_synth_nano(&self) -> WelshSynthNano {
@@ -315,7 +315,10 @@ pub struct FilterPreset {
 
 impl WelshPatchSettings {
     #[allow(dead_code)]
-    pub fn general_midi_preset(program: &GeneralMidiProgram) -> anyhow::Result<WelshPatchSettings> {
+    pub fn general_midi_preset(
+        paths: &Paths,
+        program: &GeneralMidiProgram,
+    ) -> anyhow::Result<WelshPatchSettings> {
         let mut delegated = false;
         let preset = match program {
             GeneralMidiProgram::AcousticGrand => "Piano",
@@ -661,7 +664,7 @@ impl WelshPatchSettings {
             eprintln!("Delegated {program} to {preset}");
         }
         //        Ok(WelshPatchSettings::by_name(preset))
-        Ok(WelshPatchSettings::by_name(&PathBuf::from("todo"), "todo"))
+        Ok(WelshPatchSettings::by_name(paths, "todo"))
     }
 }
 

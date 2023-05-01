@@ -10,9 +10,10 @@ use groove_entities::controllers::{
     ControlPath, ControlTrip, ControlTripNano, Note, Pattern, PatternProgrammer,
 };
 use groove_orchestration::{Entity, Orchestrator};
+use groove_utils::Paths;
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 type PatchCable = Vec<DeviceId>; // first is source, last is sink
 
@@ -74,12 +75,12 @@ impl SongSettings {
 
     pub fn instantiate(
         &self,
-        base_path: &PathBuf,
+        paths: &Paths,
         load_only_test_entities: bool,
     ) -> Result<Orchestrator> {
         let mut o: Orchestrator = Orchestrator::new_with(self.clock.clone());
         o.set_title(self.title.clone());
-        self.instantiate_devices(&mut o, &self.clock, base_path, load_only_test_entities);
+        self.instantiate_devices(paths, &mut o, &self.clock, load_only_test_entities);
         self.instantiate_patch_cables(&mut o)?;
         self.instantiate_controls(&mut o)?;
         self.instantiate_tracks(&mut o);
@@ -89,16 +90,15 @@ impl SongSettings {
 
     fn instantiate_devices(
         &self,
+        paths: &Paths,
         orchestrator: &mut Orchestrator,
         clock: &ClockNano,
-        base_path: &PathBuf,
         load_only_test_entities: bool,
     ) {
         for device in &self.devices {
             match device {
                 DeviceSettings::Instrument(uvid, settings) => {
-                    let (channel, entity) =
-                        settings.instantiate(base_path, load_only_test_entities);
+                    let (channel, entity) = settings.instantiate(paths, load_only_test_entities);
                     let uid = orchestrator.add_with_uvid(entity, uvid);
                     orchestrator.connect_midi_downstream(uid, channel);
                 }

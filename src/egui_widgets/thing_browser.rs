@@ -4,18 +4,16 @@ use eframe::egui::{CollapsingHeader, Ui};
 use groove_core::traits::Resets;
 use groove_orchestration::Orchestrator;
 use groove_settings::SongSettings;
-use groove_utils::{PathType, Paths};
+use groove_utils::Paths;
 use std::{
     fs,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
-use strum::IntoEnumIterator;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Action {
     Keep,
-    Delete,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -41,17 +39,28 @@ pub struct ThingBrowser {
 impl ThingBrowser {
     /// Instantiates a new top-level [ThingBrowser] and scans global/user/dev
     /// directories. TODO: this is synchronous
-    pub fn scan_everything() -> Self {
+    pub fn scan_everything(paths: &Paths, extra_paths: Vec<PathBuf>) -> Self {
         let mut r = ThingBrowser::default();
         r.thing_type = ThingType::Top;
-        for path_type in PathType::iter() {
-            r.top_scan(&Paths::assets_path(&path_type), path_type.into());
+        for path in paths.hives() {
+            eprintln!("Scanning hive {}", path.display());
+            r.top_scan(path, path.display().to_string().as_str());
+        }
+        for path in extra_paths {
+            eprintln!("Scanning extra path {}", path.display());
+            r.top_scan(&path, &path.display().to_string().as_str());
         }
         r
     }
 
-    pub fn show(&mut self, ui: &mut eframe::egui::Ui, orchestrator: Arc<Mutex<Orchestrator>>) {
-        self.ui_impl(ui, orchestrator);
+    /// Renders the thing browser.
+    pub fn show(
+        &mut self,
+        ui: &mut eframe::egui::Ui,
+        paths: &Paths,
+        orchestrator: Arc<Mutex<Orchestrator>>,
+    ) {
+        self.ui_impl(ui, paths, orchestrator);
     }
 
     fn top_scan(&mut self, path: &Path, title: &str) {
@@ -101,19 +110,24 @@ impl ThingBrowser {
         }
     }
 
-    fn ui_impl(&mut self, ui: &mut Ui, orchestrator: Arc<Mutex<Orchestrator>>) -> Action {
+    fn ui_impl(
+        &mut self,
+        ui: &mut Ui,
+        paths: &Paths,
+        orchestrator: Arc<Mutex<Orchestrator>>,
+    ) -> Action {
         match &self.thing_type {
-            ThingType::Top => self.children_ui(ui, orchestrator),
-            ThingType::Directory(path) => CollapsingHeader::new(&self.name)
+            ThingType::Top => self.children_ui(ui, paths, orchestrator),
+            ThingType::Directory(_path) => CollapsingHeader::new(&self.name)
                 .id_source(ui.next_auto_id())
                 .default_open(self.depth < 2)
-                .show(ui, |ui| self.children_ui(ui, orchestrator))
+                .show(ui, |ui| self.children_ui(ui, paths, orchestrator))
                 .body_returned
                 .unwrap_or(Action::Keep),
             ThingType::Project(path) => {
                 ui.horizontal(|ui| {
                     if ui.button("Load").clicked() {
-                        Self::handle_load(orchestrator, &path.clone());
+                        Self::handle_load(paths, orchestrator, &path.clone());
                     }
                     ui.label(format!("Project {}", self.name));
                 });
@@ -130,17 +144,22 @@ impl ThingBrowser {
         }
     }
 
-    fn children_ui(&mut self, ui: &mut Ui, orchestrator: Arc<Mutex<Orchestrator>>) -> Action {
+    fn children_ui(
+        &mut self,
+        ui: &mut Ui,
+        paths: &Paths,
+        orchestrator: Arc<Mutex<Orchestrator>>,
+    ) -> Action {
         for child in self.children.iter_mut() {
-            child.show(ui, Arc::clone(&orchestrator));
+            child.show(ui, paths, Arc::clone(&orchestrator));
         }
 
         Action::Keep
     }
 
-    fn handle_load(orchestrator: Arc<Mutex<Orchestrator>>, path: &Path) {
+    fn handle_load(paths: &Paths, orchestrator: Arc<Mutex<Orchestrator>>, path: &Path) {
         match SongSettings::new_from_yaml_file(path) {
-            Ok(s) => match s.instantiate(&Paths::assets_path(&PathType::Dev), false) {
+            Ok(s) => match s.instantiate(paths, false) {
                 Ok(instance) => {
                     if let Ok(mut o) = orchestrator.lock() {
                         let sample_rate = o.sample_rate();

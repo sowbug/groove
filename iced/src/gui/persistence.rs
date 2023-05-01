@@ -48,7 +48,7 @@ impl Preferences {
     pub async fn load_prefs() -> anyhow::Result<Preferences, LoadError> {
         use async_std::prelude::*;
         let mut contents = String::new();
-        let mut file = async_std::fs::File::open(Paths::prefs())
+        let mut file = async_std::fs::File::open(Paths::prefs_file())
             .await
             .map_err(|_| LoadError::File)?;
         file.read_to_string(&mut contents)
@@ -61,7 +61,7 @@ impl Preferences {
         use async_std::prelude::*;
 
         let json = serde_json::to_string_pretty(&self).map_err(|_| SaveError::Format)?;
-        let path = Paths::prefs();
+        let path = Paths::prefs_file();
         if let Some(dir) = path.parent() {
             async_std::fs::create_dir_all(dir)
                 .await
@@ -137,11 +137,14 @@ pub async fn export_to_mp3(performance: Performance) -> Result<(), SaveError> {
     Err(SaveError::Write)
 }
 
-pub async fn load_project(filename: PathBuf) -> Result<(Orchestrator, String), LoadError> {
+pub async fn load_project(
+    paths: &Paths,
+    filename: PathBuf,
+) -> Result<(Orchestrator, String), LoadError> {
     use async_std::prelude::*;
 
     if let Some(filename) = filename.to_str() {
-        let mut path = Paths::projects_path(&PathType::Global);
+        let mut path = Paths::projects(PathType::System);
         path.push(filename);
 
         let mut contents = String::new();
@@ -153,9 +156,7 @@ pub async fn load_project(filename: PathBuf) -> Result<(Orchestrator, String), L
             .map_err(|_| LoadError::File)?;
 
         if let Ok(settings) = serde_yaml::from_str::<SongSettings>(contents.as_str()) {
-            if let Ok(instance) =
-                settings.instantiate(&Paths::assets_path(&PathType::Global), false)
-            {
+            if let Ok(instance) = settings.instantiate(paths, false) {
                 return Ok((instance, filename.to_string()));
             }
         }

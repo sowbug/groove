@@ -13,8 +13,8 @@ use groove_entities::{
 };
 use groove_orchestration::Entity;
 use groove_toys::{ToyInstrument, ToyInstrumentNano};
+use groove_utils::Paths;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct WelshPatchWrapper {
@@ -41,7 +41,7 @@ pub enum InstrumentSettings {
 impl InstrumentSettings {
     pub(crate) fn instantiate(
         &self,
-        asset_path: &Path,
+        paths: &Paths,
         load_only_test_entities: bool,
     ) -> (MidiChannel, Entity) {
         if load_only_test_entities {
@@ -68,7 +68,7 @@ impl InstrumentSettings {
             InstrumentSettings::Welsh(midi, patch) => (
                 midi.midi_in,
                 Entity::WelshSynth(Box::new(WelshSynth::new_with(
-                    WelshPatchSettings::by_name(asset_path, &patch.name).derive_welsh_synth_nano(),
+                    WelshPatchSettings::by_name(paths, &patch.name).derive_welsh_synth_nano(),
                 ))),
             ),
             InstrumentSettings::WelshRaw(midi, params) => (
@@ -77,19 +77,12 @@ impl InstrumentSettings {
             ),
             InstrumentSettings::Drumkit(midi, params) => (
                 midi.midi_in,
-                Entity::Drumkit(Box::new(Drumkit::new_with(
-                    asset_path.to_path_buf(),
-                    params.clone(),
-                ))),
+                Entity::Drumkit(Box::new(Drumkit::new_with(paths, params.clone()))),
             ),
-            InstrumentSettings::Sampler(midi, params) => {
-                let mut path = asset_path.to_path_buf();
-                path.push("samples");
-                (
-                    midi.midi_in,
-                    Entity::Sampler(Box::new(Sampler::new_with(path, params.clone()))),
-                )
-            }
+            InstrumentSettings::Sampler(midi, params) => (
+                midi.midi_in,
+                Entity::Sampler(Box::new(Sampler::new_with(paths, params.clone()))),
+            ),
             InstrumentSettings::FmSynthesizer(midi, params) => (
                 midi.midi_in,
                 Entity::FmSynth(Box::new(FmSynth::new_with(params.clone()))),

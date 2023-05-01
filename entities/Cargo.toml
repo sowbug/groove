@@ -13,12 +13,13 @@ groove-core = { path = "../core", features = ["serialization"] }
 groove-egui = { path = "../egui", optional = true }
 groove-proc-macros = { path = "../proc-macros" }
 groove-toys = { path = "../toys" }
+groove-utils = { path = "../utils" }
 hound = "3.5"
 iced_audio = "0.11.0"
 midly = "0.5.3"
 more-asserts = "0.3.1"
 rand = "0.8.5"
-riff-io = "0.1.2"
+riff-io = { git = "https://github.com/sowbug/riff-io.git" }
 rustc-hash = "1.1.0"
 strum = "0.24.1"
 strum_macros = "0.24.2"

@@ -16,7 +16,11 @@ use groove::{
 };
 use groove_core::{time::ClockNano, traits::gui::Shows};
 use groove_orchestration::Orchestrator;
-use std::sync::{Arc, Mutex};
+use groove_utils::Paths;
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 fn main() -> Result<(), eframe::Error> {
     env_logger::init();
@@ -33,6 +37,8 @@ fn main() -> Result<(), eframe::Error> {
 }
 
 struct GrooveApp {
+    paths: Paths,
+
     orchestrator: Arc<Mutex<Orchestrator>>,
 
     control_bar: ControlBar,
@@ -84,7 +90,8 @@ impl eframe::App for GrooveApp {
         });
         left.show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
-                self.thing_browser.show(ui, Arc::clone(&self.orchestrator));
+                self.thing_browser
+                    .show(ui, &self.paths, Arc::clone(&self.orchestrator));
             });
         });
         right.show(ctx, |ui| {
@@ -126,18 +133,30 @@ impl GrooveApp {
         let clock_settings = ClockNano::default();
         let orchestrator = Arc::new(Mutex::new(Orchestrator::new_with(clock_settings)));
 
+        let paths = Paths::default();
+        let extra_paths = Self::set_up_extra_paths();
         Self {
+            paths: paths.clone(),
+
             orchestrator: Arc::clone(&orchestrator),
 
             control_bar: ControlBar::default(),
             audio_panel: AudioPanel::new_with(Arc::clone(&orchestrator)),
             midi_panel: MidiPanel::new_with(),
-            thing_browser: ThingBrowser::scan_everything(),
+            thing_browser: ThingBrowser::scan_everything(&paths, extra_paths),
 
             regular_font_id: FontId::proportional(14.0),
             bold_font_id: FontId::new(12.0, FontFamily::Name(Self::FONT_BOLD.into())),
             mono_font_id: FontId::monospace(14.0),
         }
+    }
+
+    fn set_up_extra_paths() -> Vec<PathBuf> {
+        let mut local_projects = Paths::hive(groove_utils::PathType::Cwd);
+        local_projects.push(Paths::projects_rel());
+        let mut user_projects = Paths::hive(groove_utils::PathType::User);
+        user_projects.push(Paths::projects_rel());
+        vec![user_projects, local_projects]
     }
 
     fn initialize_fonts(cc: &CreationContext) {

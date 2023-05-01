@@ -14,7 +14,7 @@ use groove_core::{
 };
 use groove_orchestration::{helpers::IOHelper, Orchestrator};
 use groove_settings::SongSettings;
-use groove_utils::{PathType, Paths};
+use groove_utils::Paths;
 use regex::Regex;
 use std::{
     path::{Path, PathBuf},
@@ -88,14 +88,10 @@ fn main() -> anyhow::Result<()> {
             || input_filename.ends_with(".yml")
             || input_filename.ends_with(".nsn")
         {
-            let path_type = if args.debug {
-                PathType::Dev
-            } else {
-                PathType::Global
-            };
             let start_instant = Instant::now();
+            let paths = Paths::default();
             let r = SongSettings::new_from_yaml_file(&Path::new(&input_filename))?
-                .instantiate(&Paths::assets_path(&path_type), false)?;
+                .instantiate(&paths, false)?;
             if args.perf {
                 println!(
                     "Orchestrator instantiation time: {:.2?}",

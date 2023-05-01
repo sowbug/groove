@@ -78,6 +78,7 @@ impl LfoController {
             waveform: params.waveform(),
             frequency: params.frequency(),
             is_performing: false,
+            #[cfg(feature = "egui-framework")]
             waveform_widget: Default::default(),
         }
     }

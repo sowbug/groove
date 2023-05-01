@@ -9,11 +9,12 @@ use groove_core::{
     FrequencyHz, ParameterType, Sample, SampleType, StereoSample,
 };
 use groove_proc_macros::{Nano, Uid};
+use groove_utils::Paths;
 use hound::WavReader;
 use std::{
     fs::File,
     io::{BufReader, Read, Seek, SeekFrom},
-    path::{Path, PathBuf},
+    path::Path,
     str::FromStr,
     sync::Arc,
 };
@@ -157,50 +158,43 @@ impl Resets for Sampler {
     }
 }
 impl Sampler {
-    pub fn new_with(asset_path: PathBuf, params: SamplerNano) -> Self {
-        let mut path = asset_path;
-        path.push(params.filename());
-        if let Ok(samples) = Self::read_samples_from_file(&path) {
-            let samples = Arc::new(samples);
+    pub fn new_with(paths: &Paths, params: SamplerNano) -> Self {
+        let path = paths.build_sample(&Vec::default(), Path::new(params.filename()));
+        if let Ok(file) = paths.search_and_open(path.as_path()) {
+            if let Ok(mut f2) = file.try_clone() {
+                if let Ok(samples) = Self::read_samples_from_file(&file) {
+                    let samples = Arc::new(samples);
 
-            // let calculated_root_frequency = if let Some(explicit_root_frequency) =
-            //     params.root_frequency()
-            // {
-            //     explicit_root_frequency
-            // } else if let Ok(embedded_root_frequency) = Self::read_riff_metadata(&params.filename())
-            // {
-            //     note_to_frequency(embedded_root_frequency)
-            // } else {
-            //     FrequencyHz::from(440.0)
-            // };
+                    let calculated_root_frequency = if params.root().value() > 0.0 {
+                        params.root()
+                    } else if let Ok(embedded_root_note) = Self::read_riff_metadata(&mut f2) {
+                        note_to_frequency(embedded_root_note)
+                    } else {
+                        FrequencyHz::from(440.0)
+                    };
 
-            let calculated_root_frequency = if params.root().value() > 0.0 {
-                params.root()
-            } else if let Ok(embedded_root_note) = Self::read_riff_metadata(&path) {
-                note_to_frequency(embedded_root_note)
+                    Self {
+                        uid: Default::default(),
+                        inner_synth: Synthesizer::<SamplerVoice>::new_with(Box::new(
+                            VoiceStore::<SamplerVoice>::new_with_voice(8, || {
+                                SamplerVoice::new_with_samples(
+                                    Arc::clone(&samples),
+                                    calculated_root_frequency,
+                                )
+                            }),
+                        )),
+                        filename: params.filename().to_string(),
+                        root: params.root(),
+                        calculated_root: calculated_root_frequency,
+                    }
+                } else {
+                    panic!("Couldn't load sample {}", &params.filename());
+                }
             } else {
-                FrequencyHz::from(440.0)
-            };
-
-            Self {
-                uid: Default::default(),
-                inner_synth: Synthesizer::<SamplerVoice>::new_with(Box::new(VoiceStore::<
-                    SamplerVoice,
-                >::new_with_voice(
-                    8,
-                    || {
-                        SamplerVoice::new_with_samples(
-                            Arc::clone(&samples),
-                            calculated_root_frequency,
-                        )
-                    },
-                ))),
-                filename: params.filename().to_string(),
-                root: params.root(),
-                calculated_root: calculated_root_frequency,
+                panic!("Couldn't create second file handle to read metadata");
             }
         } else {
-            panic!("Couldn't load sample {}", &params.filename());
+            panic!("Couldn't read file {:?}", path);
         }
     }
 
@@ -234,42 +228,37 @@ impl Sampler {
     // **                      //are we sure about the order?? usually its num/denom
     // ** 4 bytes (float)      tempo
     // **
-    fn read_riff_metadata(filename: &Path) -> Result<u8> {
-        if let Some(filename) = filename.to_str() {
-            let riff = riff_io::RiffFile::open(filename)?;
-            let entries = riff.read_entries()?;
-            for entry in entries {
-                match entry {
-                    riff_io::Entry::Chunk(chunk) => {
-                        // looking for chunk_id 'acid'
-                        if chunk.chunk_id == [97, 99, 105, 100] {
-                            let mut f = File::open(filename)?;
-                            f.seek(SeekFrom::Start(chunk.data_offset as u64))?;
-                            let mut bytes = Vec::default();
-                            bytes.resize(chunk.data_size, 0);
-                            let _ = f.read(&mut bytes)?;
+    fn read_riff_metadata(file: &mut File) -> Result<u8> {
+        let riff = riff_io::RiffFile::open_with_file_handle(file)?;
+        let entries = riff.read_entries()?;
+        for entry in entries {
+            match entry {
+                riff_io::Entry::Chunk(chunk) => {
+                    // looking for chunk_id 'acid'
+                    if chunk.chunk_id == [97, 99, 105, 100] {
+                        file.seek(SeekFrom::Start(chunk.data_offset as u64))?;
+                        let mut bytes = Vec::default();
+                        bytes.resize(chunk.data_size, 0);
+                        let _ = file.read(&mut bytes)?;
 
-                            let root_note_set = bytes[0] & 0x02 != 0;
-                            let pitch_b = bytes[0] & 0x10 != 0;
+                        let root_note_set = bytes[0] & 0x02 != 0;
+                        let pitch_b = bytes[0] & 0x10 != 0;
 
-                            if root_note_set {
-                                // TODO: find a real WAV that has the pitch_b flag set
-                                let root_note = bytes[4] - if pitch_b { 12 } else { 0 };
-                                return Ok(root_note);
-                            }
+                        if root_note_set {
+                            // TODO: find a real WAV that has the pitch_b flag set
+                            let root_note = bytes[4] - if pitch_b { 12 } else { 0 };
+                            return Ok(root_note);
                         }
                     }
-                    _ => {}
                 }
+                _ => {}
             }
-            Err(anyhow!("Couldn't find root note in acid RIFF chunk"))
-        } else {
-            Err(anyhow!("Couldn't make valid path from '{:?}'", filename))
         }
+        Err(anyhow!("Couldn't find root note in acid RIFF chunk"))
     }
 
     fn read_samples<T>(
-        reader: &mut WavReader<BufReader<File>>,
+        reader: &mut WavReader<BufReader<&File>>,
         channels: u16,
         scale_factor: SampleType,
     ) -> anyhow::Result<Vec<StereoSample>>
@@ -304,8 +293,8 @@ impl Sampler {
         Ok(samples)
     }
 
-    pub fn read_samples_from_file(path: &Path) -> anyhow::Result<Vec<StereoSample>> {
-        let mut reader = hound::WavReader::open(path)?;
+    pub fn read_samples_from_file(file: &File) -> anyhow::Result<Vec<StereoSample>> {
+        let mut reader = hound::WavReader::new(BufReader::new(file))?;
         let spec = reader.spec();
         let itype_max: SampleType = 2.0f64.powi(spec.bits_per_sample as i32 - 1);
 
@@ -355,16 +344,21 @@ impl Sampler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use groove_core::util::tests::TestOnlyPaths;
     use std::path::PathBuf;
+
+    fn paths_with_test_data_dir() -> Paths {
+        let mut paths = Paths::default();
+        paths.push_hive(Paths::test_data_rel());
+        paths
+    }
 
     #[test]
     fn loading() {
-        let filename = PathBuf::from("stereo-pluck.wav");
+        let paths = paths_with_test_data_dir();
         let sampler = Sampler::new_with(
-            TestOnlyPaths::data_path(),
+            &paths,
             SamplerNano {
-                filename: filename.to_str().unwrap().to_string(),
+                filename: "stereo-pluck.wav".to_string(),
                 root: 0.0.into(),
             },
         );
@@ -375,12 +369,14 @@ mod tests {
     #[ignore = "Re-enable when SamplerNano knows how to handle String"]
     fn reading_acidized_metadata() {
         let filename = PathBuf::from("riff-acidized.wav");
-        let root_note = Sampler::read_riff_metadata(&filename);
+        let mut file = std::fs::File::open(filename).unwrap();
+        let root_note = Sampler::read_riff_metadata(&mut file);
         assert!(root_note.is_ok());
         assert_eq!(root_note.unwrap(), 57);
 
         let filename = PathBuf::from("riff-not-acidized.wav");
-        let root_note = Sampler::read_riff_metadata(&filename);
+        let mut file = std::fs::File::open(filename).unwrap();
+        let root_note = Sampler::read_riff_metadata(&mut file);
         assert!(root_note.is_err());
     }
 
@@ -388,22 +384,23 @@ mod tests {
     #[allow(dead_code)]
     fn reading_smpl_metadata() {
         let filename = PathBuf::from("riff-with-smpl.wav");
-        let root_note = Sampler::read_riff_metadata(&filename);
+        let mut file = std::fs::File::open(filename).unwrap();
+        let root_note = Sampler::read_riff_metadata(&mut file);
         assert!(root_note.is_ok());
         assert_eq!(root_note.unwrap(), 255);
     }
 
     #[test]
     fn loading_with_root_frequency() {
-        let filename = PathBuf::from("riff-acidized.wav");
-
+        let paths = paths_with_test_data_dir();
         let sampler = Sampler::new_with(
-            TestOnlyPaths::data_path(),
+            &paths,
             SamplerNano {
-                filename: filename.to_str().unwrap().to_string(),
+                filename: "riff-acidized.wav".to_string(),
                 root: 0.0.into(),
             },
         );
+        eprintln!("calculated {} ", sampler.calculated_root());
         assert_eq!(
             sampler.calculated_root(),
             note_to_frequency(57),
@@ -411,9 +408,9 @@ mod tests {
         );
 
         let sampler = Sampler::new_with(
-            TestOnlyPaths::data_path(),
+            &paths,
             SamplerNano {
-                filename: filename.to_str().unwrap().to_string(),
+                filename: "riff-acidized.wav".to_string(),
                 root: 123.0.into(),
             },
         );
@@ -424,12 +421,9 @@ mod tests {
         );
 
         let sampler = Sampler::new_with(
-            TestOnlyPaths::data_path(),
+            &paths,
             SamplerNano {
-                filename: PathBuf::from("riff-not-acidized.wav")
-                    .to_str()
-                    .unwrap()
-                    .to_string(),
+                filename: "riff-not-acidized.wav".to_string(),
                 root: 123.0.into(),
             },
         );
@@ -439,15 +433,13 @@ mod tests {
             "specified parameter should be used for non-acidized WAV"
         );
 
-        let sampler = Sampler::new_with(TestOnlyPaths::data_path(), {
+        let sampler = Sampler::new_with(
+            &paths,
             SamplerNano {
-                filename: PathBuf::from("riff-not-acidized.wav")
-                    .to_str()
-                    .unwrap()
-                    .to_string(),
+                filename: "riff-not-acidized.wav".to_string(),
                 root: 0.0.into(),
-            }
-        });
+            },
+        );
         assert_eq!(
             sampler.calculated_root(),
             note_to_frequency(69),
@@ -457,9 +449,13 @@ mod tests {
 
     #[test]
     fn sampler_makes_any_sound_at_all() {
-        let mut filename = TestOnlyPaths::data_path();
-        filename.push("square-440Hz-1-second-mono-24-bit-PCM.wav");
-        let samples = Sampler::read_samples_from_file(&filename);
+        let paths = paths_with_test_data_dir();
+        let file = paths.search_and_open_with_file_type(
+            groove_utils::FileType::Sample,
+            Path::new("square-440Hz-1-second-mono-24-bit-PCM.wav"),
+        );
+        assert!(file.is_ok());
+        let samples = Sampler::read_samples_from_file(&file.unwrap());
         assert!(samples.is_ok());
         let samples = samples.unwrap();
         let mut voice = SamplerVoice::new_with_samples(Arc::new(samples), FrequencyHz::from(440.0));

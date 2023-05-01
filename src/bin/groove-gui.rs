@@ -241,14 +241,15 @@ impl Application for GrooveApp {
             }
             AppMessage::OpenDialogComplete(path_buf) => match path_buf {
                 Ok(path) => {
-                    if let Some(path) = path {
-                        if let Some(path) = path.to_str() {
-                            return Command::perform(
-                                load_project(path.into()),
-                                AppMessage::ProjectFileLoaded,
-                            );
-                        }
-                    }
+                    //TODO - reenable
+                    // if let Some(path) = path {
+                    //     if let Some(path) = path.to_str() {
+                    //         return Command::perform(
+                    //             load_project(path.into()),
+                    //             AppMessage::ProjectFileLoaded,
+                    //         );
+                    //     }
+                    // }
                 }
                 Err(_) => todo!(),
             },
@@ -448,10 +449,11 @@ impl GrooveApp {
                 // filename should be set by the time we look at it.
                 if self.preferences.should_reload_last_project {
                     if let Some(filename) = &self.preferences.last_project_filename {
-                        return Some(Command::perform(
-                            load_project(filename.into()),
-                            AppMessage::ProjectFileLoaded,
-                        ));
+                        //TODO - reenable
+                        // return Some(Command::perform(
+                        //     load_project(filename.into()),
+                        //     AppMessage::ProjectFileLoaded,
+                        // ));
                     }
                 }
             }
