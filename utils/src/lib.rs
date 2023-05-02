@@ -352,7 +352,7 @@ mod tests {
 
         let f = paths.search_and_read_to_string(filename);
         assert!(f.is_ok());
-        let s = f.unwrap();
-        assert_eq!(s, "specific\n");
+        let s = f.unwrap().trim().to_string();
+        assert_eq!(s, "specific");
     }
 }
