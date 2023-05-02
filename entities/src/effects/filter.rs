@@ -151,33 +151,6 @@ impl BiQuadFilterLowPass24dbChannel {
     }
 }
 
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use super::BiQuadFilterLowPass24db;
-    use eframe::egui::Slider;
-    use eframe::egui::Ui;
-    use groove_core::{traits::gui::Shows, FrequencyHz};
-
-    impl Shows for BiQuadFilterLowPass24db {
-        fn show(&mut self, ui: &mut Ui) {
-            let mut cutoff = self.cutoff().value();
-            let mut pbr = self.passband_ripple();
-            if ui
-                .add(Slider::new(&mut cutoff, FrequencyHz::range()).text("Cutoff"))
-                .changed()
-            {
-                self.set_cutoff(cutoff.into());
-            };
-            if ui
-                .add(Slider::new(&mut pbr, 0.0..=10.0).text("Passband"))
-                .changed()
-            {
-                self.set_passband_ripple(pbr)
-            };
-        }
-    }
-}
-
 #[derive(Debug, Nano, Uid)]
 pub struct BiQuadFilterLowPass12db {
     #[nano]
@@ -1163,6 +1136,44 @@ impl BiQuadFilter {
 
     fn set_coefficients(&mut self, coefficient_set: CoefficientSet) {
         self.coefficients = coefficient_set;
+    }
+}
+
+#[cfg(feature = "egui-framework")]
+mod gui {
+    use super::BiQuadFilterLowPass24db;
+    use super::BiQuadFilterLowPass24dbNano;
+    use eframe::egui::Slider;
+    use eframe::egui::Ui;
+    use groove_core::{traits::gui::Shows, FrequencyHz};
+
+    impl Shows for BiQuadFilterLowPass24dbNano {
+        fn show(&mut self, ui: &mut Ui) {
+            let mut cutoff = self.cutoff().value();
+            let mut pbr = self.passband_ripple();
+            if ui
+                .add(Slider::new(&mut cutoff, FrequencyHz::range()).text("Cutoff"))
+                .changed()
+            {
+                self.set_cutoff(cutoff.into());
+            };
+            if ui
+                .add(Slider::new(&mut pbr, 0.0..=10.0).text("Passband"))
+                .changed()
+            {
+                self.set_passband_ripple(pbr)
+            };
+        }
+    }
+    impl Shows for BiQuadFilterLowPass24db {
+        // TODO ugh, is there a better way?
+        fn show(&mut self, ui: &mut Ui) {
+            BiQuadFilterLowPass24dbNano {
+                cutoff: self.cutoff,
+                passband_ripple: self.passband_ripple,
+            }
+            .show(ui)
+        }
     }
 }
 

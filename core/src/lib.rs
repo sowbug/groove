@@ -481,45 +481,6 @@ impl Dca {
     }
 }
 
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use crate::{traits::gui::Shows, BipolarNormal, Dca, Normal};
-    use eframe::egui::{CollapsingHeader, Slider, Ui};
-
-    impl Shows for Dca {
-        fn show(&mut self, ui: &mut Ui) {
-            CollapsingHeader::new("DCA")
-                .id_source(ui.next_auto_id())
-                .default_open(true)
-                .show_unindented(ui, |ui| {
-                    let mut gain = self.gain().value();
-                    if ui
-                        .add(
-                            Slider::new(&mut gain, Normal::range())
-                                .fixed_decimals(2)
-                                .text("Gain"),
-                        )
-                        .changed()
-                    {
-                        self.set_gain(gain.into());
-                    };
-
-                    let mut pan = self.pan().value();
-                    if ui
-                        .add(
-                            Slider::new(&mut pan, BipolarNormal::range())
-                                .fixed_decimals(2)
-                                .text("Pan"),
-                        )
-                        .changed()
-                    {
-                        self.set_pan(pan.into());
-                    };
-                });
-        }
-    }
-}
-
 /// [FrequencyHz] is a frequency measured in
 /// [Hertz](https://en.wikipedia.org/wiki/Hertz), or cycles per second. Because
 /// we're usually discussing human hearing or LFOs, we can expect [FrequencyHz]
@@ -718,6 +679,56 @@ impl Div<Ratio> for ParameterType {
 
     fn div(self, rhs: Ratio) -> Self::Output {
         self / rhs.0
+    }
+}
+
+#[cfg(feature = "egui-framework")]
+mod gui {
+    use crate::{traits::gui::Shows, BipolarNormal, Dca, FrequencyHz, Normal};
+    use eframe::egui::{DragValue, Slider, Ui};
+    use std::ops::RangeInclusive;
+
+    impl FrequencyHz {
+        pub fn show(&mut self, ui: &mut Ui, range: RangeInclusive<f64>) {
+            let mut frequency = self.0;
+            if ui
+                .add(
+                    DragValue::new(&mut frequency)
+                        .clamp_range(range)
+                        .suffix(" Hz"),
+                )
+                .changed()
+            {
+                self.0 = frequency;
+            };
+        }
+    }
+    impl Shows for Dca {
+        fn show(&mut self, ui: &mut Ui) {
+            let mut gain = self.gain().value();
+            if ui
+                .add(
+                    Slider::new(&mut gain, Normal::range())
+                        .fixed_decimals(2)
+                        .text("Gain"),
+                )
+                .changed()
+            {
+                self.set_gain(gain.into());
+            };
+
+            let mut pan = self.pan().value();
+            if ui
+                .add(
+                    Slider::new(&mut pan, BipolarNormal::range())
+                        .fixed_decimals(2)
+                        .text("Pan"),
+                )
+                .changed()
+            {
+                self.set_pan(pan.into());
+            };
+        }
     }
 }
 

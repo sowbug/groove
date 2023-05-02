@@ -116,35 +116,13 @@ impl LfoController {
 #[cfg(feature = "egui-framework")]
 mod gui {
     use super::LfoController;
-    use eframe::egui::{ComboBox, DragValue, Ui};
-    use groove_core::{generators::Waveform, traits::gui::Shows};
-    use strum::IntoEnumIterator;
+    use eframe::egui::Ui;
+    use groove_core::traits::gui::Shows;
 
     impl Shows for LfoController {
         fn show(&mut self, ui: &mut Ui) {
-            let mut frequency = self.frequency().value();
-            let mut waveform = self.waveform();
-            if ui
-                .add(
-                    DragValue::new(&mut frequency)
-                        .clamp_range(LfoController::frequency_range())
-                        .suffix(" Hz"),
-                )
-                .changed()
-            {
-                self.set_frequency(frequency.into());
-            };
-            ComboBox::new(ui.next_auto_id(), "Waveform")
-                .selected_text(waveform.to_string())
-                .show_ui(ui, |ui| {
-                    for w in Waveform::iter() {
-                        ui.selectable_value(&mut waveform, w, w.to_string());
-                    }
-                });
-            if waveform != self.waveform() {
-                self.set_waveform(waveform);
-            }
-
+            self.frequency.show(ui, Self::frequency_range());
+            self.waveform.show(ui);
             self.waveform_widget.show(ui);
         }
     }

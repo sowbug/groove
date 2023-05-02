@@ -487,15 +487,24 @@ impl WelshSynth {
 
 #[cfg(feature = "egui-framework")]
 mod gui {
-    use crate::effects::BiQuadFilterLowPass24db;
-
     use super::WelshSynth;
-    use eframe::egui::Ui;
-    use groove_core::{generators::Envelope, traits::gui::Shows};
+    use eframe::egui::{CollapsingHeader, Ui};
+    use groove_core::traits::gui::Shows;
 
     impl Shows for WelshSynth {
         fn show(&mut self, ui: &mut Ui) {
-            self.dca.show(ui);
+            CollapsingHeader::new("Oscillator 1")
+                .default_open(true)
+                .id_source(ui.next_auto_id())
+                .show(ui, |ui| self.oscillator_1.show(ui));
+            CollapsingHeader::new("Oscillator 2")
+                .default_open(true)
+                .id_source(ui.next_auto_id())
+                .show(ui, |ui| self.oscillator_2.show(ui));
+            CollapsingHeader::new("DCA")
+                .default_open(true)
+                .id_source(ui.next_auto_id())
+                .show(ui, |ui| self.dca.show(ui));
             if self.dca.gain() != self.gain() {
                 self.set_gain(self.dca.gain());
             }
@@ -503,11 +512,17 @@ mod gui {
                 self.set_pan(self.dca.pan());
             }
 
-            // Similarly annoying.
-            Envelope::new_with(self.envelope().clone()).show(ui);
-
-            BiQuadFilterLowPass24db::new_with(self.low_pass_filter.clone()).show(ui);
-            Envelope::new_with(self.filter_envelope().clone()).show(ui);
+            CollapsingHeader::new("Amplitude")
+                .default_open(true)
+                .id_source(ui.next_auto_id())
+                .show(ui, |ui| self.envelope.show(ui));
+            CollapsingHeader::new("LPF")
+                .default_open(true)
+                .id_source(ui.next_auto_id())
+                .show_unindented(ui, |ui| {
+                    self.low_pass_filter.show(ui);
+                    self.filter_envelope.show(ui);
+                });
         }
     }
 }
