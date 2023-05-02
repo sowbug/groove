@@ -24,6 +24,7 @@ eframe = { version = "0.21.3", optional = true }
 egui_extras = { version = "0.21.0", optional = true }
 enum-primitive-derive = "0.2.2"
 env_logger = "0.10"
+futures = "0.3.28"
 groove-audio = { path = "audio" }
 groove-core = { path = "core", features = ["serialization"] }
 groove-egui = { path = "egui", optional = true }

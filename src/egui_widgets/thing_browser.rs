@@ -1,9 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use super::Preferences;
 use eframe::egui::{CollapsingHeader, Ui};
-use groove_core::traits::Resets;
 use groove_orchestration::Orchestrator;
-use groove_settings::SongSettings;
 use groove_utils::Paths;
 use std::{
     fs,
@@ -127,7 +126,7 @@ impl ThingBrowser {
             ThingType::Project(path) => {
                 ui.horizontal(|ui| {
                     if ui.button("Load").clicked() {
-                        Self::handle_load(paths, orchestrator, &path.clone());
+                        Preferences::handle_load(paths, &path.clone(), orchestrator);
                     }
                     ui.label(format!("Project {}", self.name));
                 });
@@ -155,21 +154,5 @@ impl ThingBrowser {
         }
 
         Action::Keep
-    }
-
-    fn handle_load(paths: &Paths, orchestrator: Arc<Mutex<Orchestrator>>, path: &Path) {
-        match SongSettings::new_from_yaml_file(path) {
-            Ok(s) => match s.instantiate(paths, false) {
-                Ok(instance) => {
-                    if let Ok(mut o) = orchestrator.lock() {
-                        let sample_rate = o.sample_rate();
-                        *o = instance;
-                        o.reset(sample_rate);
-                    }
-                }
-                Err(err) => eprintln!("instantiate: {}", err),
-            },
-            Err(err) => eprintln!("new_from_yaml: {}", err),
-        }
     }
 }

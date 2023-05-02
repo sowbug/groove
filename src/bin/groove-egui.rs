@@ -12,13 +12,13 @@ use eframe::{
 use egui_extras::StripBuilder;
 use groove::{
     app_version,
-    egui_widgets::{AudioPanel, ControlBar, MidiPanel, ThingBrowser},
+    egui_widgets::{AudioPanel, ControlBar, MidiPanel, Preferences, ThingBrowser},
 };
 use groove_core::{time::ClockNano, traits::gui::Shows};
 use groove_orchestration::Orchestrator;
 use groove_utils::Paths;
 use std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
 
@@ -37,6 +37,7 @@ fn main() -> Result<(), eframe::Error> {
 }
 
 struct GrooveApp {
+    preferences: Preferences,
     paths: Paths,
 
     orchestrator: Arc<Mutex<Orchestrator>>,
@@ -135,7 +136,17 @@ impl GrooveApp {
 
         let paths = Paths::default();
         let extra_paths = Self::set_up_extra_paths();
-        Self {
+
+        let load_prefs = Preferences::load();
+        let prefs_result = futures::executor::block_on(load_prefs);
+        let mut r = Self {
+            preferences: match prefs_result {
+                Ok(preferences) => preferences,
+                Err(e) => {
+                    eprintln!("While loading preferences: {:?}", e);
+                    Preferences::default()
+                }
+            },
             paths: paths.clone(),
 
             orchestrator: Arc::clone(&orchestrator),
@@ -148,7 +159,11 @@ impl GrooveApp {
             regular_font_id: FontId::proportional(14.0),
             bold_font_id: FontId::new(12.0, FontFamily::Name(Self::FONT_BOLD.into())),
             mono_font_id: FontId::monospace(14.0),
-        }
+        };
+
+        r.load_project_at_startup();
+
+        r
     }
 
     fn set_up_extra_paths() -> Vec<PathBuf> {
@@ -233,5 +248,15 @@ impl GrooveApp {
         .into();
 
         ctx.set_style(style);
+    }
+
+    fn load_project_at_startup(&mut self) {
+        if let Some(path) = self.preferences.last_project_filename() {
+            Preferences::handle_load(
+                &self.paths,
+                Path::new(path.as_str()),
+                Arc::clone(&self.orchestrator),
+            );
+        }
     }
 }
