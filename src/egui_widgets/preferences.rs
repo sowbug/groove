@@ -49,7 +49,11 @@ impl Preferences {
 
     // TODO: this might make more sense in Orchestrator, or maybe utils
     /// Loads the specified project file.
-    pub fn handle_load(paths: &Paths, path: &Path, orchestrator: Arc<Mutex<Orchestrator>>) {
+    pub fn handle_load(
+        paths: &Paths,
+        path: &Path,
+        orchestrator: Arc<Mutex<Orchestrator>>,
+    ) -> anyhow::Result<(), anyhow::Error> {
         match SongSettings::new_from_yaml_file(path) {
             Ok(s) => match s.instantiate(paths, false) {
                 Ok(instance) => {
@@ -58,10 +62,19 @@ impl Preferences {
                         *o = instance;
                         o.reset(sample_rate);
                     }
+                    Ok(())
                 }
-                Err(err) => eprintln!("instantiate: {}", err),
+                Err(err) => Err(anyhow::format_err!(
+                    "Error while processing project file {}: {}",
+                    path.display(),
+                    err
+                )),
             },
-            Err(err) => eprintln!("new_from_yaml: {}", err),
+            Err(err) => Err(anyhow::format_err!(
+                "Error while reading YAML file {}: {}",
+                path.display(),
+                err
+            )),
         }
     }
 

@@ -1,6 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::Preferences;
+use crate::Message;
+use crossbeam_channel::Sender;
 use eframe::egui::{CollapsingHeader, Ui};
 use groove_orchestration::Orchestrator;
 use groove_utils::Paths;
@@ -57,9 +59,10 @@ impl ThingBrowser {
         &mut self,
         ui: &mut eframe::egui::Ui,
         paths: &Paths,
+        sender: Sender<Message>,
         orchestrator: Arc<Mutex<Orchestrator>>,
     ) {
-        self.ui_impl(ui, paths, orchestrator);
+        self.ui_impl(ui, paths, sender, orchestrator);
     }
 
     fn top_scan(&mut self, path: &Path, title: &str) {
@@ -113,20 +116,25 @@ impl ThingBrowser {
         &mut self,
         ui: &mut Ui,
         paths: &Paths,
+        sender: Sender<Message>,
         orchestrator: Arc<Mutex<Orchestrator>>,
     ) -> Action {
         match &self.thing_type {
-            ThingType::Top => self.children_ui(ui, paths, orchestrator),
+            ThingType::Top => self.children_ui(ui, paths, sender, orchestrator),
             ThingType::Directory(_path) => CollapsingHeader::new(&self.name)
                 .id_source(ui.next_auto_id())
                 .default_open(self.depth < 2)
-                .show(ui, |ui| self.children_ui(ui, paths, orchestrator))
+                .show(ui, |ui| self.children_ui(ui, paths, sender, orchestrator))
                 .body_returned
                 .unwrap_or(Action::Keep),
             ThingType::Project(path) => {
                 ui.horizontal(|ui| {
                     if ui.button("Load").clicked() {
-                        Preferences::handle_load(paths, &path.clone(), orchestrator);
+                        if let Err(err) =
+                            Preferences::handle_load(paths, &path.clone(), orchestrator)
+                        {
+                            let _ = sender.send(Message::Error(err.to_string()));
+                        }
                     }
                     ui.label(format!("Project {}", self.name));
                 });
@@ -147,10 +155,11 @@ impl ThingBrowser {
         &mut self,
         ui: &mut Ui,
         paths: &Paths,
+        sender: Sender<Message>,
         orchestrator: Arc<Mutex<Orchestrator>>,
     ) -> Action {
         for child in self.children.iter_mut() {
-            child.show(ui, paths, Arc::clone(&orchestrator));
+            child.show(ui, paths, sender.clone(), Arc::clone(&orchestrator));
         }
 
         Action::Keep

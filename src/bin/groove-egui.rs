@@ -4,15 +4,19 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use crossbeam_channel::{Receiver, Sender};
 use eframe::{
     egui::{self, Context, FontData, FontDefinitions, Layout, RichText, TextStyle},
+    emath::Align2,
     epaint::{Color32, FontFamily, FontId},
     CreationContext,
 };
 use egui_extras::StripBuilder;
+use egui_toast::{Toast, ToastOptions, Toasts};
 use groove::{
     app_version,
     egui_widgets::{AudioPanel, ControlBar, MidiPanel, Preferences, ThingBrowser},
+    Message,
 };
 use groove_core::{time::ClockNano, traits::gui::Shows};
 use groove_orchestration::Orchestrator;
@@ -40,13 +44,17 @@ struct GrooveApp {
     preferences: Preferences,
     paths: Paths,
 
+    // Used for sending messages to the app.
+    sender: Sender<Message>,
+    receiver: Receiver<Message>,
+
     orchestrator: Arc<Mutex<Orchestrator>>,
 
     control_bar: ControlBar,
     audio_panel: AudioPanel,
     midi_panel: MidiPanel,
-
     thing_browser: ThingBrowser,
+    toasts: Toasts,
 
     #[allow(dead_code)]
     regular_font_id: FontId,
@@ -56,6 +64,8 @@ struct GrooveApp {
 }
 impl eframe::App for GrooveApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.handle_message_queue();
+
         let mut bold_font_height = 0.0;
         ctx.fonts(|f| bold_font_height = f.row_height(&self.bold_font_id));
 
@@ -91,8 +101,12 @@ impl eframe::App for GrooveApp {
         });
         left.show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
-                self.thing_browser
-                    .show(ui, &self.paths, Arc::clone(&self.orchestrator));
+                self.thing_browser.show(
+                    ui,
+                    &self.paths,
+                    self.sender.clone(),
+                    Arc::clone(&self.orchestrator),
+                );
             });
         });
         right.show(ctx, |ui| {
@@ -111,6 +125,7 @@ impl eframe::App for GrooveApp {
             if let Ok(mut o) = self.orchestrator.lock() {
                 o.show(ui);
             }
+            self.toasts.show(ctx);
         });
 
         // TODO: this is how to keep redrawing when the system doesn't otherwise
@@ -131,6 +146,8 @@ impl GrooveApp {
         Self::initialize_visuals(cc);
         Self::initialize_style(&cc.egui_ctx);
 
+        let (sender, receiver) = crossbeam_channel::unbounded();
+
         let clock_settings = ClockNano::default();
         let orchestrator = Arc::new(Mutex::new(Orchestrator::new_with(clock_settings)));
 
@@ -139,6 +156,7 @@ impl GrooveApp {
 
         let load_prefs = Preferences::load();
         let prefs_result = futures::executor::block_on(load_prefs);
+
         let mut r = Self {
             preferences: match prefs_result {
                 Ok(preferences) => preferences,
@@ -149,12 +167,18 @@ impl GrooveApp {
             },
             paths: paths.clone(),
 
+            sender,
+            receiver,
+
             orchestrator: Arc::clone(&orchestrator),
 
             control_bar: ControlBar::default(),
             audio_panel: AudioPanel::new_with(Arc::clone(&orchestrator)),
             midi_panel: MidiPanel::new_with(),
             thing_browser: ThingBrowser::scan_everything(&paths, extra_paths),
+            toasts: Toasts::new()
+                .anchor(Align2::RIGHT_BOTTOM, (-10.0, -10.0))
+                .direction(egui::Direction::BottomUp),
 
             regular_font_id: FontId::proportional(14.0),
             bold_font_id: FontId::new(12.0, FontFamily::Name(Self::FONT_BOLD.into())),
@@ -252,11 +276,33 @@ impl GrooveApp {
 
     fn load_project_at_startup(&mut self) {
         if let Some(path) = self.preferences.last_project_filename() {
-            Preferences::handle_load(
+            if let Err(err) = Preferences::handle_load(
                 &self.paths,
                 Path::new(path.as_str()),
                 Arc::clone(&self.orchestrator),
-            );
+            ) {
+                self.add_error_toast(err.to_string());
+            }
         }
+    }
+
+    fn handle_message_queue(&mut self) {
+        loop {
+            if let Ok(message) = self.receiver.try_recv() {
+                match message {
+                    Message::Error(text) => self.add_error_toast(text),
+                }
+            } else {
+                break;
+            }
+        }
+    }
+
+    fn add_error_toast(&mut self, text: String) {
+        self.toasts.add(Toast {
+            kind: egui_toast::ToastKind::Error,
+            text: text.into(),
+            options: ToastOptions::default(),
+        });
     }
 }

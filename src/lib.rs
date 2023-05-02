@@ -120,6 +120,13 @@ pub fn app_version() -> &'static str {
         .unwrap_or(option_env!("GIT_REV_PARSE").unwrap_or(env!("CARGO_PKG_VERSION")))
 }
 
+/// Any part of the system can send a [Message] to the app.
+#[derive(Debug)]
+pub enum Message {
+    /// An error occurred that the user should see.
+    Error(String),
+}
+
 #[cfg(test)]
 mod tests {
     use groove_core::{util::tests::TestOnlyPaths, StereoSample, SAMPLE_BUFFER_SIZE};
