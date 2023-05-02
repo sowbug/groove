@@ -307,7 +307,11 @@ mod tests {
         let paths = Paths::default();
 
         // We don't guarantee this number, but it's good to keep an eye on it in case it changes.
-        assert_eq!(paths.hives().len(), 4);
+        if cfg!(unix) {
+            assert_eq!(paths.hives().len(), 4);
+        } else {
+            assert_eq!(paths.hives().len(), 3);
+        }
     }
 
     #[test]
@@ -339,8 +343,10 @@ mod tests {
         paths.push_hive(Path::new("test-data/hive-general"));
         let f = paths.search_and_read_to_string(filename);
         assert!(f.is_ok());
-        let s = f.unwrap();
-        assert_eq!(s, "42\n");
+
+        // We need to trim rather than comparing with 42\n because some OSes (WINDOWS) think a newline is \r\n, and I'd prefer cross-platform approaches.
+        let s = f.unwrap().trim().to_string();
+        assert_eq!(s, "42");
 
         paths.push_hive(Path::new("test-data/hive-specific"));
 
