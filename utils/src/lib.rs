@@ -232,7 +232,6 @@ impl Paths {
         for path in self.hives.iter().rev() {
             let mut full_path = path.to_path_buf();
             full_path.push(filename);
-            eprintln!("looking in {:?}", full_path.as_path());
             if let Ok(f) = std::fs::File::open(full_path) {
                 return Ok(f);
             }
