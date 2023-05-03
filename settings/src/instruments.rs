@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::patches::WelshPatchSettings;
 use super::MidiChannel;
+use crate::patches::WelshPatchSettings;
 use groove_core::Normal;
 use groove_entities::{
     controllers::MidiChannelInputNano,
