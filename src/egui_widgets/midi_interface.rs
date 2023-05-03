@@ -93,7 +93,6 @@ impl MidiPanel {
                             *selected_output = port;
                         }
                     }
-                    #[allow(unused_variables)]
                     groove_midi::MidiInterfaceEvent::Midi(channel, message) => {
                         if let Ok(mut last_input_instant) = last_input_instant.lock() {
                             *last_input_instant = Instant::now();
