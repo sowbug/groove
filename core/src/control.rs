@@ -89,9 +89,8 @@ impl Into<F32ControlValue> for bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::Ratio;
-
     use super::*;
+    use crate::Ratio;
 
     #[test]
     fn usize_ok() {
