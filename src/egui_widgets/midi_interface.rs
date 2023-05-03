@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use crate::Message;
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{self, CollapsingHeader, ComboBox};
 use groove_core::traits::gui::Shows;
@@ -15,6 +16,7 @@ use std::{
 #[derive(Debug)]
 pub struct MidiPanel {
     sender: Sender<MidiInterfaceInput>,
+    app_sender: Sender<Message>,
 
     inputs: Arc<Mutex<Vec<MidiPortDescriptor>>>,
     selected_input: Arc<Mutex<Option<MidiPortDescriptor>>>,
@@ -26,12 +28,13 @@ pub struct MidiPanel {
 }
 impl MidiPanel {
     /// Creates a new [MidiPanel].
-    pub fn new_with() -> Self {
+    pub fn new_with(app_sender: Sender<Message>) -> Self {
         let midi_interface_service = MidiInterfaceService::default();
         let sender = midi_interface_service.sender().clone();
 
         let r = Self {
             sender,
+            app_sender,
 
             inputs: Default::default(),
             selected_input: Default::default(),
@@ -65,6 +68,7 @@ impl MidiPanel {
         let outputs = Arc::clone(&self.outputs);
         let selected_output = Arc::clone(&self.selected_output);
         let last_input_instant = Arc::clone(&self.last_input_instant);
+        let app_sender = self.app_sender.clone();
         std::thread::spawn(move || loop {
             if let Ok(event) = receiver.recv() {
                 match event {
@@ -94,7 +98,7 @@ impl MidiPanel {
                         if let Ok(mut last_input_instant) = last_input_instant.lock() {
                             *last_input_instant = Instant::now();
                         }
-                        // TODO: send them!
+                        let _ = app_sender.send(Message::Midi(channel, message));
                     }
                     groove_midi::MidiInterfaceEvent::Quit => break,
                 }

@@ -19,7 +19,7 @@ use groove::{
     Message,
 };
 use groove_core::{time::ClockNano, traits::gui::Shows};
-use groove_orchestration::Orchestrator;
+use groove_orchestration::{messages::GrooveInput, Orchestrator};
 use groove_utils::Paths;
 use std::{
     path::{Path, PathBuf},
@@ -167,14 +167,11 @@ impl GrooveApp {
             },
             paths: paths.clone(),
 
-            sender,
-            receiver,
-
             orchestrator: Arc::clone(&orchestrator),
 
             control_bar: ControlBar::default(),
             audio_panel: AudioPanel::new_with(Arc::clone(&orchestrator)),
-            midi_panel: MidiPanel::new_with(),
+            midi_panel: MidiPanel::new_with(sender.clone()),
             thing_browser: ThingBrowser::scan_everything(&paths, extra_paths),
             toasts: Toasts::new()
                 .anchor(Align2::RIGHT_BOTTOM, (-10.0, -10.0))
@@ -183,6 +180,10 @@ impl GrooveApp {
             regular_font_id: FontId::proportional(14.0),
             bold_font_id: FontId::new(12.0, FontFamily::Name(Self::FONT_BOLD.into())),
             mono_font_id: FontId::monospace(14.0),
+
+            // Keep these last to avoid a bunch of temporary variables
+            sender,
+            receiver,
         };
 
         r.load_project_at_startup();
@@ -291,6 +292,11 @@ impl GrooveApp {
             if let Ok(message) = self.receiver.try_recv() {
                 match message {
                     Message::Error(text) => self.add_error_toast(text),
+                    Message::Midi(channel, message) => {
+                        if let Ok(mut o) = self.orchestrator.lock() {
+                            o.update(GrooveInput::MidiFromExternal(channel, message));
+                        }
+                    }
                 }
             } else {
                 break;

@@ -92,10 +92,13 @@
 
 pub use groove_orchestration::{Entity, Orchestrator};
 
-use groove_core::ParameterType;
-
 /// Widgets for egui
 pub mod egui_widgets;
+
+use groove_core::{
+    midi::{MidiChannel, MidiMessage},
+    ParameterType,
+};
 
 // TODO: these should be #[cfg(test)] because nobody should be assuming these
 // values
@@ -125,6 +128,9 @@ pub fn app_version() -> &'static str {
 pub enum Message {
     /// An error occurred that the user should see.
     Error(String),
+
+    /// An external MIDI message arrived, and should be handled.
+    Midi(MidiChannel, MidiMessage),
 }
 
 #[cfg(test)]
