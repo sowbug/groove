@@ -90,6 +90,9 @@
 //! }
 //! ```
 
+use groove_midi::MidiPortDescriptor;
+use std::path::PathBuf;
+
 pub use groove_orchestration::{Entity, Orchestrator};
 
 /// Widgets for egui
@@ -129,8 +132,17 @@ pub enum Message {
     /// An error occurred that the user should see.
     Error(String),
 
+    /// A new project was loaded. Filename provided.
+    ProjectLoaded(Result<PathBuf, anyhow::Error>),
+
     /// An external MIDI message arrived, and should be handled.
     Midi(MidiChannel, MidiMessage),
+
+    /// The user selected a MIDI input.
+    SelectMidiInput(MidiPortDescriptor),
+
+    /// The user selected a MIDI output.
+    SelectMidiOutput(MidiPortDescriptor),
 }
 
 #[cfg(test)]

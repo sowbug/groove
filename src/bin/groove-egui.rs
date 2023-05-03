@@ -11,7 +11,6 @@ use eframe::{
     epaint::{Color32, FontFamily, FontId},
     CreationContext,
 };
-use egui_extras::StripBuilder;
 use egui_toast::{Toast, ToastOptions, Toasts};
 use groove::{
     app_version,
@@ -111,15 +110,12 @@ impl eframe::App for GrooveApp {
         });
         right.show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
-                // Just experimenting
-                StripBuilder::new(ui)
-                    .size(egui_extras::Size::exact(80.0))
-                    .size(egui_extras::Size::exact(50.0))
-                    .vertical(|mut strip| {
-                        strip.cell(|ui| self.midi_panel.show(ui));
-                        strip.cell(|ui| self.audio_panel.show(ui))
-                    });
-            });
+                ui.vertical(|ui| {
+                    self.preferences.show(ui);
+                    self.midi_panel.show(ui);
+                    self.audio_panel.show(ui);
+                });
+            })
         });
         center.show(ctx, |ui| {
             if let Ok(mut o) = self.orchestrator.lock() {
@@ -157,21 +153,22 @@ impl GrooveApp {
         let load_prefs = Preferences::load();
         let prefs_result = futures::executor::block_on(load_prefs);
 
+        let preferences = match prefs_result {
+            Ok(preferences) => preferences,
+            Err(e) => {
+                eprintln!("While loading preferences: {:?}", e);
+                Preferences::default()
+            }
+        };
         let mut r = Self {
-            preferences: match prefs_result {
-                Ok(preferences) => preferences,
-                Err(e) => {
-                    eprintln!("While loading preferences: {:?}", e);
-                    Preferences::default()
-                }
-            },
             paths: paths.clone(),
 
             orchestrator: Arc::clone(&orchestrator),
 
             control_bar: ControlBar::default(),
-            audio_panel: AudioPanel::new_with(Arc::clone(&orchestrator)),
             midi_panel: MidiPanel::new_with(sender.clone()),
+            audio_panel: AudioPanel::new_with(Arc::clone(&orchestrator)),
+            preferences,
             thing_browser: ThingBrowser::scan_everything(&paths, extra_paths),
             toasts: Toasts::new()
                 .anchor(Align2::RIGHT_BOTTOM, (-10.0, -10.0))
@@ -275,14 +272,49 @@ impl GrooveApp {
         ctx.set_style(style);
     }
 
+    // fn restore_settings(&self, selected_input: Option<&String>, selected_output: Option<&String>) {
+    //     // Unlike the show() handlers, we don't send the
+    //     // Message::SelectMidiInput/Output messages to the app. This is because
+    //     // we know the app was going to reflect that information to Preferences,
+    //     // and we don't need to do that because restore_settings() is always
+    //     // called with the current state of Preferences.
+    //     if let Some(input) = selected_input {
+    //         if let Ok(inputs) = self.inputs().lock() {
+    //             for port in inputs.iter() {
+    //                 if input == port.name() {
+    //                     let _ = self
+    //                         .sender
+    //                         .send(MidiInterfaceInput::SelectMidiInput(port.clone()));
+    //                     break;
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     if let Some(output) = selected_output {
+    //         if let Ok(outputs) = self.outputs().lock() {
+    //             for port in outputs.iter() {
+    //                 if output == port.name() {
+    //                     let _ = self
+    //                         .sender
+    //                         .send(MidiInterfaceInput::SelectMidiOutput(port.clone()));
+    //                     break;
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+
     fn load_project_at_startup(&mut self) {
-        if let Some(path) = self.preferences.last_project_filename() {
-            if let Err(err) = Preferences::handle_load(
-                &self.paths,
-                Path::new(path.as_str()),
-                Arc::clone(&self.orchestrator),
-            ) {
-                self.add_error_toast(err.to_string());
+        if self.preferences.should_reload_last_project() {
+            if let Some(path) = self.preferences.project_filename() {
+                if let Err(err) = Preferences::handle_load(
+                    &self.paths,
+                    Path::new(path),
+                    Arc::clone(&self.orchestrator),
+                ) {
+                    self.preferences.set_should_reload_last_project(false);
+                    self.add_error_toast(err.to_string());
+                }
             }
         }
     }
@@ -292,10 +324,22 @@ impl GrooveApp {
             if let Ok(message) = self.receiver.try_recv() {
                 match message {
                     Message::Error(text) => self.add_error_toast(text),
+                    Message::ProjectLoaded(Ok(path)) => {
+                        self.preferences.set_project_filename(&path);
+                    }
+                    Message::ProjectLoaded(Err(err)) => {
+                        self.add_error_toast(err.to_string());
+                    }
                     Message::Midi(channel, message) => {
                         if let Ok(mut o) = self.orchestrator.lock() {
                             o.update(GrooveInput::MidiFromExternal(channel, message));
                         }
+                    }
+                    Message::SelectMidiInput(port) => {
+                        self.preferences.set_selected_midi_input(&port.to_string())
+                    }
+                    Message::SelectMidiOutput(port) => {
+                        self.preferences.set_selected_midi_output(&port.to_string())
                     }
                 }
             } else {

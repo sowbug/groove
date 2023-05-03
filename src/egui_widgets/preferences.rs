@@ -1,16 +1,15 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use std::{
-    path::Path,
-    sync::{Arc, Mutex},
-};
-
-use eframe::egui::{self};
+use eframe::egui::{self, CollapsingHeader};
 use groove_core::traits::{gui::Shows, Resets};
 use groove_orchestration::Orchestrator;
 use groove_settings::SongSettings;
 use groove_utils::Paths;
 use serde::{Deserialize, Serialize};
+use std::{
+    path::{Path, PathBuf},
+    sync::{Arc, Mutex},
+};
 
 /// User-specific preferences for the whole app
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -20,15 +19,16 @@ pub struct Preferences {
     /// The last-selected MIDI output
     selected_midi_output: Option<String>,
 
-    /// The last-loaded project filename. Its presence in the Option indicates
-    /// whether we should reload it on startup.
-    last_project_filename: Option<String>,
+    /// Whether we should reload the last-loaded project on startup
+    should_reload_last_project: bool,
 
-    #[serde(skip)]
-    current_project_filename: Arc<Mutex<String>>,
+    /// The last-loaded project filename.
+    last_project_filename: Option<PathBuf>,
 
+    // #[serde(skip)]
+    // current_project_filename: Arc<Mutex<String>>,
     #[serde(skip)]
-    is_dirty: bool,
+    is_saved: bool,
 }
 impl Preferences {
     /// Loads preferences from a well-known location, and creates a Preferences
@@ -39,12 +39,37 @@ impl Preferences {
         let mut contents = String::new();
         let mut file = async_std::fs::File::open(Paths::prefs_file())
             .await
-            .map_err(|_| anyhow::format_err!("Couldn't open prefs file"))?;
+            .map_err(|e| anyhow::format_err!("Couldn't open prefs file: {}", e))?;
         file.read_to_string(&mut contents)
             .await
-            .map_err(|_| anyhow::format_err!("Couldn't read prefs file"))?;
+            .map_err(|e| anyhow::format_err!("Couldn't read prefs file: {}", e))?;
         serde_json::from_str(&contents)
-            .map_err(|_| anyhow::format_err!("Couldn't parse prefs file"))
+            .map_err(|e| anyhow::format_err!("Couldn't parse prefs file: {}", e))
+    }
+
+    /// Saves the current in-memory preferences
+    async fn save(&mut self) -> anyhow::Result<(), anyhow::Error> {
+        use async_std::prelude::*;
+
+        let json = serde_json::to_string_pretty(&self)
+            .map_err(|_| anyhow::format_err!("Unable to serialize prefs JSON"))?;
+        let path = Paths::prefs_file();
+        if let Some(dir) = path.parent() {
+            async_std::fs::create_dir_all(dir).await.map_err(|e| {
+                anyhow::format_err!("Unable to create prefs parent directories: {}", e)
+            })?;
+        }
+
+        let mut file = async_std::fs::File::create(path)
+            .await
+            .map_err(|e| anyhow::format_err!("Unable to create prefs file: {}", e))?;
+
+        file.write_all(json.as_bytes())
+            .await
+            .map_err(|e| anyhow::format_err!("Unable to write prefs file: {}", e))?;
+
+        self.is_saved = true;
+        Ok(())
     }
 
     // TODO: this might make more sense in Orchestrator, or maybe utils
@@ -53,7 +78,7 @@ impl Preferences {
         paths: &Paths,
         path: &Path,
         orchestrator: Arc<Mutex<Orchestrator>>,
-    ) -> anyhow::Result<(), anyhow::Error> {
+    ) -> anyhow::Result<PathBuf, anyhow::Error> {
         match SongSettings::new_from_yaml_file(path) {
             Ok(s) => match s.instantiate(paths, false) {
                 Ok(instance) => {
@@ -62,7 +87,7 @@ impl Preferences {
                         *o = instance;
                         o.reset(sample_rate);
                     }
-                    Ok(())
+                    Ok(path.to_path_buf())
                 }
                 Err(err) => Err(anyhow::format_err!(
                     "Error while processing project file {}: {}",
@@ -78,57 +103,83 @@ impl Preferences {
         }
     }
 
-    #[doc(hidden)]
+    fn mark_dirty(&mut self) {
+        if !self.is_saved {
+            if let Ok(_) = futures::executor::block_on(self.save()) {
+                self.is_saved = true;
+            }
+        }
+    }
+
+    /// currently selected MIDI input
     pub fn selected_midi_input(&self) -> Option<&String> {
         self.selected_midi_input.as_ref()
     }
 
-    #[doc(hidden)]
+    /// currently selected MIDI output
     pub fn selected_midi_output(&self) -> Option<&String> {
         self.selected_midi_output.as_ref()
     }
 
-    #[doc(hidden)]
-    pub fn last_project_filename(&self) -> Option<&String> {
+    /// Set current MIDI input
+    pub fn set_selected_midi_input(&mut self, selected_midi_input: &str) {
+        self.selected_midi_input = Some(selected_midi_input.to_string());
+        self.mark_dirty();
+    }
+
+    /// Set current MIDI output
+    pub fn set_selected_midi_output(&mut self, selected_midi_output: &str) {
+        self.selected_midi_output = Some(selected_midi_output.to_string());
+        self.mark_dirty();
+    }
+
+    /// filename of most recently loaded project
+    pub fn project_filename(&self) -> Option<&PathBuf> {
         self.last_project_filename.as_ref()
     }
 
-    #[doc(hidden)]
-    pub fn set_selected_midi_input(&mut self, selected_midi_input: &str) {
-        self.selected_midi_input = Some(selected_midi_input.to_string());
-        self.is_dirty = true;
+    /// update most recently loaded project filename
+    pub fn set_project_filename(&mut self, project_filename: &Path) {
+        let should_update = if let Some(filename) = &self.last_project_filename {
+            // We had one; is it different?
+            filename.as_path() != project_filename
+        } else {
+            // We didn't have one, but we do now
+            true
+        };
+        if should_update {
+            self.last_project_filename = Some(project_filename.to_path_buf());
+            self.mark_dirty();
+        }
     }
 
-    #[doc(hidden)]
-    pub fn set_selected_midi_output(&mut self, selected_midi_output: &str) {
-        self.selected_midi_output = Some(selected_midi_output.to_string());
-        self.is_dirty = true;
+    /// Whether to reload the last-loaded project on app start
+    pub fn should_reload_last_project(&self) -> bool {
+        self.should_reload_last_project
     }
 
-    #[doc(hidden)]
-    pub fn set_current_project_filename(&mut self, current_project_filename: &str) {
-        if let Ok(mut filename) = self.current_project_filename.lock() {
-            *filename = current_project_filename.to_string();
-            self.is_dirty = true;
+    /// Set whether to reload the last-loaded project on app start
+    pub fn set_should_reload_last_project(&mut self, should_reload_last_project: bool) {
+        if self.should_reload_last_project != should_reload_last_project {
+            self.should_reload_last_project = should_reload_last_project;
+            self.mark_dirty();
         }
     }
 }
 impl Shows for Preferences {
     fn show(&mut self, ui: &mut egui::Ui) {
-        let mut should_reload = self.last_project_filename.is_some();
-        if ui
-            .checkbox(&mut should_reload, "Load last project on startup")
-            .changed()
-        {
-            self.last_project_filename = if should_reload {
-                if let Ok(filename) = self.current_project_filename.lock() {
-                    Some(filename.to_string())
-                } else {
-                    None
+        CollapsingHeader::new("General")
+            .default_open(true)
+            .show(ui, |ui| {
+                if ui
+                    .checkbox(
+                        &mut self.should_reload_last_project,
+                        "Load last project on startup",
+                    )
+                    .changed()
+                {
+                    self.mark_dirty();
                 }
-            } else {
-                None
-            }
-        }
+            });
     }
 }

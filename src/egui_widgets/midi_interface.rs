@@ -123,6 +123,12 @@ impl Shows for MidiPanel {
                 let input_was_recent = (now - last_input_instant).as_millis() < 250;
                 let output_was_recent = (now - self.last_output_instant).as_millis() < 250;
 
+                ui.label(format!(
+                    "in: {} out: {}",
+                    if input_was_recent { "•" } else { "◦" },
+                    if output_was_recent { "•" } else { "◦" }
+                ));
+
                 if let Ok(ports) = &self.inputs().lock() {
                     let mut cb = ComboBox::from_label("MIDI in");
                     let (mut selected_index, _selected_text) =
@@ -141,6 +147,8 @@ impl Shows for MidiPanel {
                                 let _ = self
                                     .sender
                                     .send(MidiInterfaceInput::SelectMidiInput(port.clone()));
+                                let _ =
+                                    self.app_sender.send(Message::SelectMidiInput(port.clone()));
                             }
                         }
                     });
@@ -165,14 +173,14 @@ impl Shows for MidiPanel {
                                 let _ = self
                                     .sender
                                     .send(MidiInterfaceInput::SelectMidiOutput(port.clone()));
+                                let _ = self
+                                    .app_sender
+                                    .send(Message::SelectMidiOutput(port.clone()));
                             }
                         }
                     });
                 }
                 ui.end_row();
-
-                ui.label(if input_was_recent { "⬅" } else { " " });
-                ui.label(if output_was_recent { "➡" } else { " " });
             });
     }
     // fn show(&mut self, ctx: &egui::Context) {

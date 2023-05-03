@@ -130,11 +130,11 @@ impl ThingBrowser {
             ThingType::Project(path) => {
                 ui.horizontal(|ui| {
                     if ui.button("Load").clicked() {
-                        if let Err(err) =
-                            Preferences::handle_load(paths, &path.clone(), orchestrator)
-                        {
-                            let _ = sender.send(Message::Error(err.to_string()));
-                        }
+                        let _ = sender.send(Message::ProjectLoaded(Preferences::handle_load(
+                            paths,
+                            &path.clone(),
+                            orchestrator,
+                        )));
                     }
                     ui.label(format!("Project {}", self.name));
                 });
