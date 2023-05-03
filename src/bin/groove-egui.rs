@@ -272,38 +272,6 @@ impl GrooveApp {
         ctx.set_style(style);
     }
 
-    // fn restore_settings(&self, selected_input: Option<&String>, selected_output: Option<&String>) {
-    //     // Unlike the show() handlers, we don't send the
-    //     // Message::SelectMidiInput/Output messages to the app. This is because
-    //     // we know the app was going to reflect that information to Preferences,
-    //     // and we don't need to do that because restore_settings() is always
-    //     // called with the current state of Preferences.
-    //     if let Some(input) = selected_input {
-    //         if let Ok(inputs) = self.inputs().lock() {
-    //             for port in inputs.iter() {
-    //                 if input == port.name() {
-    //                     let _ = self
-    //                         .sender
-    //                         .send(MidiInterfaceInput::SelectMidiInput(port.clone()));
-    //                     break;
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     if let Some(output) = selected_output {
-    //         if let Ok(outputs) = self.outputs().lock() {
-    //             for port in outputs.iter() {
-    //                 if output == port.name() {
-    //                     let _ = self
-    //                         .sender
-    //                         .send(MidiInterfaceInput::SelectMidiOutput(port.clone()));
-    //                     break;
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-
     fn load_project_at_startup(&mut self) {
         if self.preferences.should_reload_last_project() {
             if let Some(path) = self.preferences.project_filename() {
@@ -341,6 +309,7 @@ impl GrooveApp {
                     Message::SelectMidiOutput(port) => {
                         self.preferences.set_selected_midi_output(&port.to_string())
                     }
+                    Message::MidiPortsRefreshed => self.restore_midi_port_selections(),
                 }
             } else {
                 break;
@@ -354,5 +323,25 @@ impl GrooveApp {
             text: text.into(),
             options: ToastOptions::default(),
         });
+    }
+
+    fn restore_midi_port_selections(&mut self) {
+        // Unlike the show() handlers, we don't send the
+        // Message::SelectMidiInput/Output messages to the app. This is because
+        // we know the app was going to reflect that information to Preferences,
+        // and we don't need to do that because restore_settings() is always
+        // called with the current state of Preferences.
+        if let Some(port_name) = self.preferences.selected_midi_input() {
+            self.midi_panel
+                .send(groove_midi::MidiInterfaceInput::RestoreMidiInput(
+                    port_name.clone(),
+                ));
+        }
+        if let Some(port_name) = self.preferences.selected_midi_output() {
+            self.midi_panel
+                .send(groove_midi::MidiInterfaceInput::RestoreMidiOutput(
+                    port_name.clone(),
+                ));
+        }
     }
 }

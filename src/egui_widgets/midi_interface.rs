@@ -49,10 +49,8 @@ impl MidiPanel {
         r
     }
 
-    // TODO: figure out how we're going to get events back from Orchestrator.
-    // This includes MIDI events that we'll then send to the MIDI interface.
-    #[allow(dead_code)]
-    pub(crate) fn send(&mut self, input: MidiInterfaceInput) {
+    /// Sends a [MidiInterfaceInput] message to the service.
+    pub fn send(&mut self, input: MidiInterfaceInput) {
         if let MidiInterfaceInput::Midi(..) = input {
             self.last_output_instant = Instant::now();
         }
@@ -69,37 +67,48 @@ impl MidiPanel {
         let selected_output = Arc::clone(&self.selected_output);
         let last_input_instant = Arc::clone(&self.last_input_instant);
         let app_sender = self.app_sender.clone();
-        std::thread::spawn(move || loop {
-            if let Ok(event) = receiver.recv() {
-                match event {
-                    groove_midi::MidiInterfaceEvent::Ready => {}
-                    groove_midi::MidiInterfaceEvent::InputPorts(ports) => {
-                        if let Ok(mut inputs) = inputs.lock() {
-                            *inputs = ports.clone();
+        std::thread::spawn(move || {
+            let mut inputs_refreshed = false;
+            let mut outputs_refreshed = false;
+            let mut refresh_sent = false;
+            loop {
+                if let Ok(event) = receiver.recv() {
+                    match event {
+                        MidiInterfaceEvent::Ready => {}
+                        MidiInterfaceEvent::InputPorts(ports) => {
+                            if let Ok(mut inputs) = inputs.lock() {
+                                *inputs = ports.clone();
+                                inputs_refreshed = true;
+                            }
                         }
-                    }
-                    groove_midi::MidiInterfaceEvent::InputPortSelected(port) => {
-                        if let Ok(mut selected_input) = selected_input.lock() {
-                            *selected_input = port;
+                        MidiInterfaceEvent::InputPortSelected(port) => {
+                            if let Ok(mut selected_input) = selected_input.lock() {
+                                *selected_input = port;
+                            }
                         }
-                    }
-                    groove_midi::MidiInterfaceEvent::OutputPorts(ports) => {
-                        if let Ok(mut outputs) = outputs.lock() {
-                            *outputs = ports.clone();
+                        MidiInterfaceEvent::OutputPorts(ports) => {
+                            if let Ok(mut outputs) = outputs.lock() {
+                                *outputs = ports.clone();
+                                outputs_refreshed = true;
+                            }
                         }
-                    }
-                    groove_midi::MidiInterfaceEvent::OutputPortSelected(port) => {
-                        if let Ok(mut selected_output) = selected_output.lock() {
-                            *selected_output = port;
+                        MidiInterfaceEvent::OutputPortSelected(port) => {
+                            if let Ok(mut selected_output) = selected_output.lock() {
+                                *selected_output = port;
+                            }
                         }
-                    }
-                    groove_midi::MidiInterfaceEvent::Midi(channel, message) => {
-                        if let Ok(mut last_input_instant) = last_input_instant.lock() {
-                            *last_input_instant = Instant::now();
+                        MidiInterfaceEvent::Midi(channel, message) => {
+                            if let Ok(mut last_input_instant) = last_input_instant.lock() {
+                                *last_input_instant = Instant::now();
+                            }
+                            let _ = app_sender.send(Message::Midi(channel, message));
                         }
-                        let _ = app_sender.send(Message::Midi(channel, message));
+                        MidiInterfaceEvent::Quit => break,
                     }
-                    groove_midi::MidiInterfaceEvent::Quit => break,
+                }
+                if !refresh_sent && inputs_refreshed && outputs_refreshed {
+                    refresh_sent = true;
+                    let _ = app_sender.send(Message::MidiPortsRefreshed);
                 }
             }
         });
@@ -183,6 +192,4 @@ impl Shows for MidiPanel {
                 ui.end_row();
             });
     }
-    // fn show(&mut self, ctx: &egui::Context) {
-    // }
 }

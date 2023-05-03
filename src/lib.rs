@@ -143,6 +143,10 @@ pub enum Message {
 
     /// The user selected a MIDI output.
     SelectMidiOutput(MidiPortDescriptor),
+
+    /// The MIDI service has refreshed the ports for the first time, so it's
+    /// time for the app to restore any saved port selections.
+    MidiPortsRefreshed,
 }
 
 #[cfg(test)]

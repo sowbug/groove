@@ -30,6 +30,12 @@ pub enum MidiInterfaceInput {
 
     /// The app is ready to quit, so the service should end.
     QuitRequested,
+
+    /// Attempt to set the selected MIDI input by matching a text description.
+    RestoreMidiInput(String),
+
+    /// Attempt to set the selected MIDI output by matching a text description.
+    RestoreMidiOutput(String),
 }
 
 /// The service provides updates to the client through [MidiInterfaceEvent]
@@ -105,6 +111,12 @@ impl MidiInterfaceService {
                             break;
                         }
                         MidiInterfaceInput::RefreshPorts => midi_interface.refresh_ports(),
+                        MidiInterfaceInput::RestoreMidiInput(port_name) => {
+                            midi_interface.restore_input(port_name);
+                        }
+                        MidiInterfaceInput::RestoreMidiOutput(port_name) => {
+                            midi_interface.restore_output(port_name);
+                        }
                     }
                 } else {
                     eprintln!("MidiInterfaceService channel sender has hung up. Exiting...");
@@ -208,7 +220,10 @@ impl MidiInputHandler {
     // there's a more stable way to refer to individual ports.
     //
     // I think the question boils down to how long a MidiInputPort is valid.
-    pub fn select_port(&mut self, index: usize) -> anyhow::Result<()> {
+    pub fn select_port(
+        &mut self,
+        index: usize,
+    ) -> anyhow::Result<MidiPortDescriptor, anyhow::Error> {
         if self.midi.is_none() {
             // self.connection is probably Some()
             self.stop();
@@ -271,15 +286,15 @@ impl MidiInputHandler {
                 // back/forth like a hot potato.
                 Ok(conn) => {
                     self.connection = Some(conn);
-                    self.active_port = Some(selected_port_label);
-                    Ok(())
+                    self.active_port = Some(selected_port_label.clone());
+                    Ok(selected_port_label)
                 }
                 Err(err) => Err(anyhow::Error::msg(err.to_string())),
             }
         } else {
             // This shouldn't happen; if it did, it means we had a
             // Some(self.midi) and then a None immediately after.
-            Ok(())
+            Err(anyhow::format_err!("not sure what happened"))
         }
     }
 
@@ -288,6 +303,19 @@ impl MidiInputHandler {
             let close_result = self.connection.take().unwrap().close();
             self.midi = Some(close_result.0);
         }
+    }
+
+    fn restore_port(&mut self, port_name: String) -> Result<MidiPortDescriptor, anyhow::Error> {
+        if let Some(midi) = self.midi.as_ref() {
+            for (index, port) in midi.ports().iter().enumerate() {
+                if let Ok(name) = midi.port_name(port) {
+                    if name == port_name {
+                        return self.select_port(index);
+                    }
+                }
+            }
+        }
+        Err(anyhow::format_err!("failed to restore input port"))
     }
 }
 impl std::fmt::Debug for MidiInputHandler {
@@ -350,7 +378,10 @@ impl MidiOutputHandler {
     }
 
     // TODO: race condition.
-    pub fn select_port(&mut self, index: usize) -> anyhow::Result<()> {
+    pub fn select_port(
+        &mut self,
+        index: usize,
+    ) -> anyhow::Result<MidiPortDescriptor, anyhow::Error> {
         if self.midi.is_none() {
             // self.connection is probably Some()
             self.stop();
@@ -385,13 +416,13 @@ impl MidiOutputHandler {
             {
                 Ok(conn) => {
                     self.connection = Some(conn);
-                    self.active_port = Some(selected_port_label);
-                    Ok(())
+                    self.active_port = Some(selected_port_label.clone());
+                    Ok(selected_port_label)
                 }
                 Err(err) => Err(anyhow::Error::msg(err.to_string())),
             }
         } else {
-            Ok(())
+            Err(anyhow::format_err!("unexpected - output"))
         }
     }
 
@@ -423,6 +454,19 @@ impl MidiOutputHandler {
         if self.send(&buf).is_err() {
             // TODO
         }
+    }
+
+    fn restore_port(&mut self, port_name: String) -> Result<MidiPortDescriptor, anyhow::Error> {
+        if let Some(midi) = self.midi.as_ref() {
+            for (index, port) in midi.ports().iter().enumerate() {
+                if let Ok(name) = midi.port_name(port) {
+                    if name == port_name {
+                        return self.select_port(index);
+                    }
+                }
+            }
+        }
+        Err(anyhow::format_err!("failed to restore input port"))
     }
 }
 
@@ -497,6 +541,22 @@ impl MidiInterface {
         }
         if let Some(output) = self.midi_output.as_mut() {
             output.refresh_ports();
+        }
+    }
+
+    fn restore_input(&mut self, port_name: String) {
+        if let Some(handler) = self.midi_input.as_mut() {
+            if let Ok(which) = handler.restore_port(port_name) {
+                self.select_input(which);
+            }
+        }
+    }
+
+    fn restore_output(&mut self, port_name: String) {
+        if let Some(handler) = self.midi_output.as_mut() {
+            if let Ok(which) = handler.restore_port(port_name) {
+                self.select_output(which);
+            }
         }
     }
 }
