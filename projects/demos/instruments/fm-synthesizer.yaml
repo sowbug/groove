@@ -2,6 +2,7 @@
 title: "FM Synthesizer - simple bass"
 clock:
   bpm: 60.0
+  midi-ticks-per-second: 960
   time-signature:
     - 4
     - 4
@@ -10,7 +11,9 @@ devices:
       - instrument-1
       - fm-synthesizer:
         - midi-in: 0
-        - ratio: 2.0
+        - gain: 1.0
+          pan: 0.0
+          ratio: 2.0
           depth: 1.0
           beta: 15.0
           carrier-envelope:
