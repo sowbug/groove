@@ -219,12 +219,11 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
                     None
                 }
             }
-            fn control_index_for_name(&self, name: &str) -> usize {
+            fn control_index_for_name(&self, name: &str) -> Option<usize> {
                 if let Ok(param) = #unit_only_enum_name::from_str(name) {
-                    param as usize
+                    Some(param as usize)
                 } else {
-                    eprintln!("Unrecognized control param name: {}", name);
-                    usize::MAX
+                    None
                 }
             }
             fn control_index_count(&self) -> usize {

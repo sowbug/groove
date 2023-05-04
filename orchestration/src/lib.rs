@@ -533,7 +533,7 @@ mod tests {
         let a = Stuff::<OtherEntityMessage>::new(StuffNano::make_fake());
 
         assert_eq!(a.control_index_count(), 3); // apple/banana/cherry but not abnormal
-        assert_eq!(a.control_index_for_name("abnormal"), usize::MAX); // apple/banana/cherry but not abnormal
+        assert!(a.control_index_for_name("abnormal").is_none()); // apple/banana/cherry but not abnormal
         let message = StuffMessage::Abnormal(Abnormal::Foo); // Should still be able to instantiate this
 
         let mut ea = Entity::Stuff(Box::new(a));

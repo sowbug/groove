@@ -184,8 +184,7 @@ impl Orchestrator {
     ) -> anyhow::Result<()> {
         if let Some(target) = self.store.get(target_uid) {
             if let Some(target) = target.as_controllable() {
-                let control_index = target.control_index_for_name(param_name);
-                if control_index != usize::MAX {
+                if let Some(control_index) = target.control_index_for_name(param_name) {
                     return self.link_control_by_id(controller_uid, target_uid, control_index);
                 } else {
                     // TODO: return valid names so user doesn't hate us
@@ -225,8 +224,7 @@ impl Orchestrator {
     ) {
         if let Some(target) = self.store.get(target_uid) {
             if let Some(target) = target.as_controllable() {
-                let control_index = target.control_index_for_name(param_name);
-                if control_index != usize::MAX {
+                if let Some(control_index) = target.control_index_for_name(param_name) {
                     self.store
                         .unlink_control(controller_uid, target_uid, control_index);
                 }

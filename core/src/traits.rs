@@ -67,7 +67,7 @@ pub trait Controllable {
     fn control_index_count(&self) -> usize {
         unimplemented!()
     }
-    fn control_index_for_name(&self, name: &str) -> usize {
+    fn control_index_for_name(&self, name: &str) -> Option<usize> {
         unimplemented!("Controllable trait methods are implemented by a macro")
     }
     fn control_name_for_index(&self, index: usize) -> Option<&'static str> {
