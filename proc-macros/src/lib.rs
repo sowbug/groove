@@ -2,15 +2,18 @@
 
 //! This crate provides macros that make Entity development easier.
 
+use control::impl_control_derive;
 use everything::parse_and_generate_everything;
 use nano::impl_nano_derive;
 use proc_macro::TokenStream;
 use proc_macro_crate::crate_name;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, DeriveInput};
+use std::collections::HashSet;
+use syn::{parse_macro_input, DeriveInput, Ident};
 use uid::impl_uid_derive;
 use views::parse_and_generate_views;
 
+mod control;
 mod everything;
 mod nano;
 mod uid;
@@ -47,6 +50,45 @@ pub fn derive_views(input: TokenStream) -> TokenStream {
     TokenStream::from(parse_and_generate_views(
         &(parse_macro_input!(input as DeriveInput)).data,
     ))
+}
+
+/// field types that don't recurse further for #[derive(Control)] purposes
+fn make_primitives() -> HashSet<Ident> {
+    vec![
+        "BipolarNormal",
+        "FrequencyHz",
+        "Normal",
+        "ParameterType",
+        "Ratio",
+        "String",
+        "Waveform",
+        "bool",
+        "char",
+        "f32",
+        "f64",
+        "i128",
+        "i16",
+        "i32",
+        "i64",
+        "i8",
+        "u128",
+        "u16",
+        "u32",
+        "u64",
+        "u8",
+        "usize",
+    ]
+    .into_iter()
+    .fold(HashSet::default(), |mut hs, e| {
+        hs.insert(format_ident!("{}", e));
+        hs
+    })
+}
+
+/// The [Control] macro derives the code that allows automation (one entity's output driving another entity's control).
+#[proc_macro_derive(Control, attributes(control))]
+pub fn derive_control(input: TokenStream) -> TokenStream {
+    impl_control_derive(input, &make_primitives())
 }
 
 // Some of the code generated in these macros uses the groove-core crate, but
