@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    generators::{Envelope, EnvelopeNano, Oscillator, OscillatorNano, Waveform},
+    generators::{Envelope, EnvelopeParams, Oscillator, OscillatorNano, Waveform},
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     time::ClockTimeUnit,
@@ -292,7 +292,7 @@ impl DebugSynth {
             Box::new(Oscillator::new_with(OscillatorNano::default_with_waveform(
                 Waveform::Sine,
             ))),
-            Box::new(Envelope::new_with(EnvelopeNano::safe_default())),
+            Box::new(Envelope::new_with(EnvelopeParams::safe_default())),
         )
     }
 
@@ -323,7 +323,7 @@ pub struct ToySynth {
     waveform: Waveform,
 
     #[nano(control = false, no_copy = true)]
-    envelope: EnvelopeNano,
+    envelope: EnvelopeParams,
 
     inner: Synthesizer<ToyVoice>,
 }
@@ -391,11 +391,11 @@ impl ToySynth {
         self.waveform = waveform;
     }
 
-    pub fn envelope(&self) -> &EnvelopeNano {
+    pub fn envelope(&self) -> &EnvelopeParams {
         &self.envelope
     }
 
-    pub fn set_envelope(&mut self, envelope: EnvelopeNano) {
+    pub fn set_envelope(&mut self, envelope: EnvelopeParams) {
         self.envelope = envelope;
     }
 }
@@ -451,7 +451,7 @@ impl Resets for ToyVoice {
     }
 }
 impl ToyVoice {
-    fn new_with(waveform: Waveform, envelope: EnvelopeNano) -> Self {
+    fn new_with(waveform: Waveform, envelope: EnvelopeParams) -> Self {
         Self {
             oscillator: Oscillator::new_with(OscillatorNano::default_with_waveform(waveform)),
             envelope: Envelope::new_with(envelope),

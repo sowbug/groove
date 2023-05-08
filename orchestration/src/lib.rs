@@ -12,7 +12,6 @@ pub mod messages;
 
 mod entities;
 mod orchestrator;
-//mod tmp_stuff;
 mod util;
 
 #[cfg(feature = "metrics")]
@@ -550,12 +549,12 @@ mod tests {
             assert!(ea.message_for(4, 1.0.into()).is_none()); // But this is meaningless
         }
     }
-    mod prefs {
+    mod params {
         use groove_core::{
             control::F32ControlValue,
             traits::{Controllable, Resets},
         };
-        use groove_proc_macros::{Control, Prefs, Uid};
+        use groove_proc_macros::{Control, Params, Uid};
         use strum::EnumCount;
         use strum_macros::{EnumCount as EnumCountMacro, FromRepr};
 
@@ -609,7 +608,7 @@ mod tests {
             }
         }
 
-        impl StuffPrefs {
+        impl StuffParams {
             fn make_fake() -> Self {
                 use rand::Rng;
 
@@ -632,29 +631,29 @@ mod tests {
             }
         }
 
-        #[derive(Control, Debug, Prefs, PartialEq, Uid)]
+        #[derive(Control, Debug, Params, PartialEq, Uid)]
         pub struct Stuff {
             uid: usize,
 
-            #[prefs]
+            #[params]
             #[control]
             apple_count: usize,
 
-            #[prefs]
+            #[params]
             #[control]
             banana_quality: f32,
 
-            #[prefs(leaf = true)]
+            #[params(leaf = true)]
             #[control(leaf = true)]
             cherry: Cherry,
 
-            #[prefs(leaf = true)]
+            #[params(leaf = true)]
             abnormal: Abnormal,
         }
         impl Resets for Stuff {}
 
         impl Stuff {
-            pub fn new(nano: StuffPrefs) -> Self {
+            pub fn new(nano: StuffParams) -> Self {
                 let mut r = Self {
                     uid: Default::default(),
                     apple_count: nano.apple_count(),
@@ -711,7 +710,7 @@ mod tests {
             }
         }
 
-        impl MiscPrefs {
+        impl MiscParams {
             fn make_fake() -> Self {
                 use rand::Rng;
 
@@ -719,29 +718,29 @@ mod tests {
                 Self {
                     cat_count: rng.gen_range(5..1000),
                     dog_count: rng.gen_range(5..1000),
-                    stuff: StuffPrefs::make_fake(),
+                    stuff: StuffParams::make_fake(),
                 }
             }
         }
 
-        #[derive(Control, Debug, Prefs, Uid)]
+        #[derive(Control, Debug, Params, Uid)]
         pub struct Misc {
             uid: usize,
 
-            #[prefs]
+            #[params]
             #[control]
             cat_count: usize,
-            #[prefs]
+            #[params]
             #[control]
             dog_count: usize,
 
-            #[prefs]
+            #[params]
             #[control]
             stuff: Stuff,
         }
         impl Resets for Misc {}
         impl Misc {
-            pub fn new(params: MiscPrefs) -> Self {
+            pub fn new(params: MiscParams) -> Self {
                 Self {
                     uid: Default::default(),
                     cat_count: params.cat_count(),
@@ -781,8 +780,8 @@ mod tests {
 
         #[test]
         fn control_params_by_name() {
-            let a_params = StuffPrefs::make_fake();
-            let b_params = StuffPrefs::make_different_from(&a_params);
+            let a_params = StuffParams::make_fake();
+            let b_params = StuffParams::make_different_from(&a_params);
             assert_ne!(a_params, b_params);
             let a: Stuff = Stuff::new(a_params);
             let mut b: Stuff = Stuff::new(b_params);
@@ -801,8 +800,8 @@ mod tests {
 
         #[test]
         fn control_params_by_index() {
-            let a_params = StuffPrefs::make_fake();
-            let b_params = StuffPrefs::make_different_from(&a_params);
+            let a_params = StuffParams::make_fake();
+            let b_params = StuffParams::make_different_from(&a_params);
             assert_ne!(a_params, b_params);
             let a: Stuff = Stuff::new(a_params);
             let mut b: Stuff = Stuff::new(b_params);
@@ -824,13 +823,13 @@ mod tests {
 
         #[test]
         fn control_ergonomics() {
-            let a: Stuff = Stuff::new(StuffPrefs::make_fake());
+            let a: Stuff = Stuff::new(StuffParams::make_fake());
 
             assert_eq!(a.control_name_for_index(2), Some("cherry".to_string()));
             assert_eq!(a.control_index_count(), 3);
             assert_eq!(a.control_name_for_index(a.control_index_count()), None);
 
-            let a = Misc::new(MiscPrefs::make_fake());
+            let a = Misc::new(MiscParams::make_fake());
 
             assert_eq!(a.control_name_for_index(0), Some("cat-count".to_string()));
             assert_eq!(a.control_index_count(), 2 + 3);

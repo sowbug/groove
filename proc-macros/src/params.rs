@@ -11,7 +11,7 @@ use syn::{
     NestedMeta,
 };
 
-pub(crate) fn impl_prefs_derive(input: TokenStream, primitives: &HashSet<Ident>) -> TokenStream {
+pub(crate) fn impl_params_derive(input: TokenStream, primitives: &HashSet<Ident>) -> TokenStream {
     TokenStream::from({
         let input = parse_macro_input!(input as DeriveInput);
         let generics = &input.generics;
@@ -19,7 +19,7 @@ pub(crate) fn impl_prefs_derive(input: TokenStream, primitives: &HashSet<Ident>)
 
         let struct_name = &input.ident;
         let struct_snake_case_name = stringify!("{}", struct_name.to_string().to_case(Case::Snake));
-        let prefs_name = format_ident!("{}Prefs", struct_name);
+        let params_name = format_ident!("{}Params", struct_name);
 
         let (_impl_generics, _ty_generics, _where_clause) = generics.split_for_impl();
         // Code adapted from https://blog.turbo.fish/proc-macro-error-handling/
@@ -35,10 +35,10 @@ pub(crate) fn impl_prefs_derive(input: TokenStream, primitives: &HashSet<Ident>)
             let attrs: Vec<_> = f
                 .attrs
                 .iter()
-                .filter(|attr| attr.path.is_ident("prefs"))
+                .filter(|attr| attr.path.is_ident("params"))
                 .collect();
             if !attrs.is_empty() {
-                let is_leaf = parse_prefs_meta(attrs[0]);
+                let is_leaf = parse_params_meta(attrs[0]);
                 match &f.ty {
                     syn::Type::Path(t) => {
                         if let Some(ident) = t.path.get_ident() {
@@ -63,40 +63,40 @@ pub(crate) fn impl_prefs_derive(input: TokenStream, primitives: &HashSet<Ident>)
             variant_names.push(field_name_pascal_case.clone());
             field_names.push(field_name.clone());
             let is_leaf_or_primitive = primitives.contains(&field_type) || is_leaf;
-            let field_prefs_type = if is_leaf_or_primitive {
+            let field_params_type = if is_leaf_or_primitive {
                 field_type.clone()
             } else {
-                format_ident!("{}Prefs", &field_type)
+                format_ident!("{}Params", &field_type)
             };
 
             getter_methods.push(if is_leaf_or_primitive {
                 quote! {
-                    pub fn #field_name(&self) -> #field_prefs_type { self.#field_name }
+                    pub fn #field_name(&self) -> #field_params_type { self.#field_name }
                 }
             } else {
                 quote! {
-                    pub fn #field_name(&self) -> &#field_prefs_type { &self.#field_name }
+                    pub fn #field_name(&self) -> &#field_params_type { &self.#field_name }
                 }
             });
-            field_types.push(field_prefs_type);
+            field_types.push(field_params_type);
             setters.push(format_ident!("set_{}", field_name.to_string(),));
         }
 
-        let prefs_struct_block = quote! {
+        let params_struct_block = quote! {
             #[derive(Clone, Debug, Default, PartialEq)]
             #[cfg_attr(
                 feature = "serialization",
                 derive(Serialize, Deserialize),
                 serde(rename = #struct_snake_case_name, rename_all = "kebab-case")
             )]
-            pub struct #prefs_name {
+            pub struct #params_name {
                 #( pub #field_names: #field_types ),*
             }
 
         };
 
         let getter_setter_block = quote! {
-            impl #prefs_name {
+            impl #params_name {
                 #(
                    #getter_methods
                 )*
@@ -108,16 +108,16 @@ pub(crate) fn impl_prefs_derive(input: TokenStream, primitives: &HashSet<Ident>)
 
         quote! {
             #[automatically_derived]
-            #prefs_struct_block
+            #params_struct_block
             #[automatically_derived]
             #getter_setter_block
         }
     })
 }
 
-// Returns booleans indicating (1) whether the #[prefs(...)] attr indicates that
-// the field type is a "leaf," meaning we shouldn't expand it to a Prefs type.
-fn parse_prefs_meta(attr: &Attribute) -> bool {
+// Returns booleans indicating (1) whether the #[params(...)] attr indicates that
+// the field type is a "leaf," meaning we shouldn't expand it to a Params type.
+fn parse_params_meta(attr: &Attribute) -> bool {
     let mut is_leaf = false;
     if let Ok(meta) = attr.parse_meta() {
         let meta_list = match meta {

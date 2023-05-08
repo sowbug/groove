@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    generators::{Envelope, EnvelopeNano, Oscillator, OscillatorNano, Waveform},
+    generators::{Envelope, EnvelopeParams, Oscillator, OscillatorNano, Waveform},
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     traits::{
@@ -191,11 +191,11 @@ impl FmVoice {
 
     // TODO: we'll have to be smarter about subbing in a new envelope, possibly
     // while the voice is playing.
-    pub fn set_carrier_envelope(&mut self, params: EnvelopeNano) {
+    pub fn set_carrier_envelope(&mut self, params: EnvelopeParams) {
         self.carrier_envelope = Envelope::new_with(params)
     }
 
-    pub fn set_modulator_envelope(&mut self, params: EnvelopeNano) {
+    pub fn set_modulator_envelope(&mut self, params: EnvelopeParams) {
         self.modulator_envelope = Envelope::new_with(params)
     }
 
@@ -220,10 +220,10 @@ pub struct FmSynth {
     beta: ParameterType,
 
     #[nano(control = false, no_copy = true)]
-    carrier_envelope: EnvelopeNano,
+    carrier_envelope: EnvelopeParams,
 
     #[nano(control = false, no_copy = true)]
-    modulator_envelope: EnvelopeNano,
+    modulator_envelope: EnvelopeParams,
 
     #[nano]
     gain: Normal,
@@ -324,14 +324,14 @@ impl FmSynth {
         }
     }
 
-    pub fn set_carrier_envelope(&mut self, carrier_envelope: EnvelopeNano) {
+    pub fn set_carrier_envelope(&mut self, carrier_envelope: EnvelopeParams) {
         self.carrier_envelope = carrier_envelope;
         self.inner_synth
             .voices_mut()
             .for_each(|v| v.set_carrier_envelope(self.carrier_envelope.clone()));
     }
 
-    pub fn set_modulator_envelope(&mut self, modulator_envelope: EnvelopeNano) {
+    pub fn set_modulator_envelope(&mut self, modulator_envelope: EnvelopeParams) {
         self.modulator_envelope = modulator_envelope;
         self.inner_synth
             .voices_mut()

@@ -6,7 +6,7 @@ use crate::{
     traits::{Generates, GeneratesEnvelope, Resets, Ticks},
     BipolarNormal, FrequencyHz, Normal, ParameterType, Ratio, SignalType,
 };
-use groove_proc_macros::Nano;
+use groove_proc_macros::{Control, Nano, Params};
 use kahan::KahanSum;
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use nalgebra::{Matrix3, Matrix3x1};
@@ -406,7 +406,7 @@ enum State {
     Shutdown,
 }
 
-impl EnvelopeNano {
+impl EnvelopeParams {
     pub const MAX: ParameterType = 10000.0;
 
     pub fn new_with(
@@ -432,15 +432,19 @@ impl EnvelopeNano {
     }
 }
 
-#[derive(Debug, Nano)]
+#[derive(Debug, Control, Params)]
 pub struct Envelope {
-    #[nano]
+    #[control]
+    #[params]
     attack: ParameterType,
-    #[nano]
+    #[control]
+    #[params]
     decay: ParameterType,
-    #[nano]
+    #[control]
+    #[params]
     sustain: Normal,
-    #[nano]
+    #[control]
+    #[params]
     release: ParameterType,
 
     sample_rate: f64,
@@ -538,7 +542,7 @@ impl Ticks for Envelope {
     }
 }
 impl Envelope {
-    pub fn new_with(params: EnvelopeNano) -> Self {
+    pub fn new_with(params: EnvelopeParams) -> Self {
         Self {
             attack: params.attack(),
             decay: params.decay(),
@@ -796,7 +800,7 @@ impl Envelope {
 
 #[cfg(feature = "egui-framework")]
 mod gui {
-    use super::{EnvelopeNano, OscillatorNano, Waveform};
+    use super::{EnvelopeParams, OscillatorNano, Waveform};
     use crate::traits::gui::Shows;
     use eframe::egui::{ComboBox, DragValue, Ui};
     use strum::IntoEnumIterator;
@@ -825,7 +829,7 @@ mod gui {
         }
     }
 
-    impl Shows for EnvelopeNano {
+    impl Shows for EnvelopeParams {
         fn show(&mut self, ui: &mut Ui) {
             let mut attack = self.attack();
             let mut decay = self.decay();
@@ -1506,7 +1510,7 @@ pub mod tests {
     // Envelope trait, so that we can confirm that the trait alone is useful.
     fn get_ge_trait_stuff() -> (Clock, impl GeneratesEnvelope) {
         let clock = Clock::new_test();
-        let envelope = Envelope::new_with(EnvelopeNano::new_with(0.1, 0.2, Normal::new(0.8), 0.3));
+        let envelope = Envelope::new_with(EnvelopeParams::new_with(0.1, 0.2, Normal::new(0.8), 0.3));
         (clock, envelope)
     }
 
@@ -1589,7 +1593,7 @@ pub mod tests {
         let sustain = Normal::new(0.8);
         const RELEASE: f64 = 0.3;
         let mut envelope =
-            Envelope::new_with(EnvelopeNano::new_with(ATTACK, DECAY, sustain, RELEASE));
+            Envelope::new_with(EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE));
 
         clock.reset(100);
         envelope.reset(100);
@@ -1660,7 +1664,7 @@ pub mod tests {
         let sustain = Normal::new(0.8);
         const RELEASE: ParameterType = 0.3;
         let mut envelope =
-            Envelope::new_with(EnvelopeNano::new_with(ATTACK, DECAY, sustain, RELEASE));
+            Envelope::new_with(EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE));
 
         envelope.trigger_attack();
         envelope.tick(1);
@@ -1731,7 +1735,7 @@ pub mod tests {
         let sustain = Normal::new(0.25);
         const RELEASE: ParameterType = 0.5;
         let mut envelope =
-            Envelope::new_with(EnvelopeNano::new_with(ATTACK, DECAY, sustain, RELEASE));
+            Envelope::new_with(EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE));
 
         clock.reset(DEFAULT_SAMPLE_RATE);
         envelope.reset(DEFAULT_SAMPLE_RATE);
@@ -1850,7 +1854,7 @@ pub mod tests {
         let sustain = Normal::new(0.5);
         const RELEASE: ParameterType = 0.4;
         let mut envelope =
-            Envelope::new_with(EnvelopeNano::new_with(ATTACK, DECAY, sustain, RELEASE));
+            Envelope::new_with(EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE));
 
         clock.reset(DEFAULT_SAMPLE_RATE);
         envelope.reset(DEFAULT_SAMPLE_RATE);
@@ -1915,7 +1919,7 @@ pub mod tests {
 
     #[test]
     fn envelope_amplitude_batching() {
-        let mut e = Envelope::new_with(EnvelopeNano::new_with(0.1, 0.2, Normal::new(0.5), 0.3));
+        let mut e = Envelope::new_with(EnvelopeParams::new_with(0.1, 0.2, Normal::new(0.5), 0.3));
 
         // Initialize the buffer with a nonsense value so we know it got
         // overwritten by the method we're about to call.
@@ -1945,7 +1949,7 @@ pub mod tests {
 
     #[test]
     fn envelope_shutdown_state() {
-        let mut e = Envelope::new_with(EnvelopeNano::new_with(0.0, 0.0, Normal::maximum(), 0.5));
+        let mut e = Envelope::new_with(EnvelopeParams::new_with(0.0, 0.0, Normal::maximum(), 0.5));
         e.reset(2000);
 
         // With sample rate 1000, each sample is 0.5 millisecond.

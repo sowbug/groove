@@ -3,7 +3,7 @@
 use super::LoadError;
 use convert_case::{Boundary, Case, Casing};
 use groove_core::{
-    generators::{EnvelopeNano, Oscillator, OscillatorNano, Waveform},
+    generators::{EnvelopeParams, Oscillator, OscillatorNano, Waveform},
     midi::{note_to_frequency, GeneralMidiProgram},
     FrequencyHz, Normal, ParameterType, Ratio,
 };
@@ -40,9 +40,9 @@ pub struct WelshPatchSettings {
     pub filter_type_12db: FilterPreset,
     pub filter_resonance: f32, // This should be an appropriate interpretation of a linear 0..1
     pub filter_envelope_weight: f32,
-    pub filter_envelope: EnvelopeNano,
+    pub filter_envelope: EnvelopeParams,
 
-    pub amp_envelope: EnvelopeNano,
+    pub amp_envelope: EnvelopeParams,
 }
 
 // TODO: cache these as they're loaded
@@ -675,15 +675,15 @@ pub struct FmSynthesizerSettings {
     pub depth: ParameterType,
     pub beta: ParameterType,
 
-    pub carrier_envelope: EnvelopeNano,
-    pub modulator_envelope: EnvelopeNano,
+    pub carrier_envelope: EnvelopeParams,
+    pub modulator_envelope: EnvelopeParams,
 }
 
 impl FmSynthesizerSettings {
     #[allow(dead_code)]
     pub fn from_name(_name: &str) -> FmSynthesizerSettings {
-        let carrier_envelope = EnvelopeNano::safe_default();
-        let modulator_envelope = EnvelopeNano::safe_default();
+        let carrier_envelope = EnvelopeParams::safe_default();
+        let modulator_envelope = EnvelopeParams::safe_default();
         FmSynthesizerSettings {
             ratio: 2.0, // Modulator frequency is 2x carrier
             depth: 1.0, // full strength
@@ -703,7 +703,7 @@ mod tests {
     use convert_case::{Case, Casing};
     use float_cmp::approx_eq;
     use groove_core::{
-        generators::{EnvelopeNano, Waveform},
+        generators::{EnvelopeParams, Waveform},
         time::{Clock, ClockNano, TimeSignature},
         traits::{Generates, PlaysNotes, Resets, Ticks},
         util::tests::TestOnlyPaths,
@@ -842,15 +842,15 @@ mod tests {
             },
             filter_resonance: 0.0,
             filter_envelope_weight: 0.9,
-            filter_envelope: EnvelopeNano {
+            filter_envelope: EnvelopeParams {
                 attack: 0.0,
                 decay: 3.29,
                 sustain: Normal::from(0.78),
-                release: EnvelopeNano::MAX,
+                release: EnvelopeParams::MAX,
             },
-            amp_envelope: EnvelopeNano {
+            amp_envelope: EnvelopeParams {
                 attack: 0.06,
-                decay: EnvelopeNano::MAX,
+                decay: EnvelopeParams::MAX,
                 sustain: Normal::maximum(),
                 release: 0.3,
             },
@@ -888,17 +888,17 @@ mod tests {
             },
             filter_resonance: 0.0,
             filter_envelope_weight: 1.0,
-            filter_envelope: EnvelopeNano {
+            filter_envelope: EnvelopeParams {
                 attack: 5.0,
-                decay: EnvelopeNano::MAX,
+                decay: EnvelopeParams::MAX,
                 sustain: Normal::maximum(),
-                release: EnvelopeNano::MAX,
+                release: EnvelopeParams::MAX,
             },
-            amp_envelope: EnvelopeNano {
+            amp_envelope: EnvelopeParams {
                 attack: 0.5,
-                decay: EnvelopeNano::MAX,
+                decay: EnvelopeParams::MAX,
                 sustain: Normal::maximum(),
-                release: EnvelopeNano::MAX,
+                release: EnvelopeParams::MAX,
             },
         }
     }

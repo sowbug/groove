@@ -3,7 +3,7 @@
 use crate::effects::{BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbNano};
 use core::fmt::Debug;
 use groove_core::{
-    generators::{Envelope, EnvelopeNano, Oscillator, OscillatorNano},
+    generators::{Envelope, EnvelopeParams, Oscillator, OscillatorNano},
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     traits::{
@@ -272,7 +272,7 @@ pub struct WelshSynth {
     oscillator_mix: Normal,
 
     #[nano(control = false, no_copy = true)]
-    envelope: EnvelopeNano,
+    envelope: EnvelopeParams,
 
     #[nano(control = false, no_copy = true)]
     lfo: OscillatorNano,
@@ -291,7 +291,7 @@ pub struct WelshSynth {
     filter_cutoff_end: Normal,
 
     #[nano(control = false, no_copy = true)]
-    filter_envelope: EnvelopeNano,
+    filter_envelope: EnvelopeParams,
 
     #[nano]
     gain: Normal,
@@ -424,19 +424,19 @@ impl WelshSynth {
         }
     }
 
-    pub fn envelope(&self) -> &EnvelopeNano {
+    pub fn envelope(&self) -> &EnvelopeParams {
         &self.envelope
     }
 
-    pub fn filter_envelope(&self) -> &EnvelopeNano {
+    pub fn filter_envelope(&self) -> &EnvelopeParams {
         &self.filter_envelope
     }
 
-    pub fn set_envelope(&mut self, envelope: EnvelopeNano) {
+    pub fn set_envelope(&mut self, envelope: EnvelopeParams) {
         self.envelope = envelope;
     }
 
-    pub fn set_filter_envelope(&mut self, filter_envelope: EnvelopeNano) {
+    pub fn set_filter_envelope(&mut self, filter_envelope: EnvelopeParams) {
         self.filter_envelope = filter_envelope;
     }
 

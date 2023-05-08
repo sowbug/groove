@@ -5,7 +5,7 @@
 use control::impl_control_derive;
 use everything::parse_and_generate_everything;
 use nano::impl_nano_derive;
-use prefs::impl_prefs_derive;
+use params::impl_params_derive;
 use proc_macro::TokenStream;
 use proc_macro_crate::crate_name;
 use quote::{format_ident, quote};
@@ -17,7 +17,7 @@ use views::parse_and_generate_views;
 mod control;
 mod everything;
 mod nano;
-mod prefs;
+mod params;
 mod uid;
 mod views;
 
@@ -37,15 +37,15 @@ pub fn nano_derive(input: TokenStream) -> TokenStream {
     impl_nano_derive(input)
 }
 
-/// The [Prefs] macro generates helper structs that are useful for handing
+/// The [Params] macro generates helper structs that are useful for handing
 /// around bundles of arguments. If you have a struct Foo, then this macro
-/// generates a FooPrefs struct containing all the fields annotated #[prefs]. It
-/// automatically converts fields whose types are #[derive(Prefs)] to Prefs
-/// structs as well. So a `#[derive(Prefs)] struct Foo` with `#[prefs] bar: Bar`
-/// will generate `struct FooPrefs` with `bar: BarPrefs`.
-#[proc_macro_derive(Prefs, attributes(prefs))]
-pub fn prefs_derive(input: TokenStream) -> TokenStream {
-    impl_prefs_derive(input, &make_primitives())
+/// generates a FooParams struct containing all the fields annotated #[params]. It
+/// automatically converts fields whose types are #[derive(Params)] to Params
+/// structs as well. So a `#[derive(Params)] struct Foo` with `#[params] bar: Bar`
+/// will generate `struct FooParams` with `bar: BarParams`.
+#[proc_macro_derive(Params, attributes(params))]
+pub fn params_derive(input: TokenStream) -> TokenStream {
+    impl_params_derive(input, &make_primitives())
 }
 
 /// The [Everything] macro derives the code that ties all Entities together.
