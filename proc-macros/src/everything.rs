@@ -4,7 +4,6 @@ use crate::core_crate_name;
 use quote::{format_ident, quote};
 use syn::{Data, DataEnum, Ident, Meta, NestedMeta};
 
-#[derive(Debug)]
 struct OneThing {
     base_name: Ident,
     ty: syn::Type,

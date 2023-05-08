@@ -2,7 +2,10 @@ use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use std::collections::HashSet;
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, Ident};
+use syn::{
+    parse_macro_input, Attribute, Data, DataStruct, DeriveInput, Fields, Ident, Lit, Meta,
+    NestedMeta,
+};
 
 use crate::core_crate_name;
 
@@ -36,10 +39,11 @@ pub(crate) fn impl_control_derive(input: TokenStream, primitives: &HashSet<Ident
                 .filter(|attr| attr.path.is_ident("control"))
                 .collect();
             if !attrs.is_empty() {
+                let is_leaf = parse_control_meta(attrs[0]);
                 match &f.ty {
                     syn::Type::Path(t) => {
                         if let Some(ident) = t.path.get_ident() {
-                            v.push((f.ident.as_ref().unwrap().clone(), ident.clone()));
+                            v.push((f.ident.as_ref().unwrap().clone(), ident.clone(), is_leaf));
                         }
                     }
                     _ => todo!(),
@@ -70,16 +74,18 @@ pub(crate) fn impl_control_derive(input: TokenStream, primitives: &HashSet<Ident
 
         let mut size_const_ids = Vec::default();
         let mut size_const_values = Vec::default();
-        attr_fields.iter().for_each(|(ident, ident_type)| {
-            let size_const_name = size_const_id(ident);
-            size_const_ids.push(size_const_name.clone());
+        attr_fields
+            .iter()
+            .for_each(|(ident, ident_type, _is_leaf)| {
+                let size_const_name = size_const_id(ident);
+                size_const_ids.push(size_const_name.clone());
 
-            if primitives.contains(ident_type) {
-                size_const_values.push(quote! { 1 });
-            } else {
-                size_const_values.push(quote! { #ident_type::STRUCT_SIZE });
-            }
-        });
+                if primitives.contains(ident_type) {
+                    size_const_values.push(quote! { 1 });
+                } else {
+                    size_const_values.push(quote! { #ident_type::STRUCT_SIZE });
+                }
+            });
         let size_const_body = quote! {
             #( const #size_const_ids: usize = #size_const_values; )*
         };
@@ -103,7 +109,7 @@ pub(crate) fn impl_control_derive(input: TokenStream, primitives: &HashSet<Ident
         // field. So we need to keep track of the prior field name, which
         // enables us to build up the current value from the prior one.
         let mut prior_ident: Option<&Ident> = None;
-        attr_fields.iter().for_each(|(ident, _)| {
+        attr_fields.iter().for_each(|(ident, _, _is_leaf)| {
             index_const_ids.push(index_const_id(ident));
             index_const_range_end_ids.push(index_range_end_const_id(ident));
             if let Some(prior) = prior_ident {
@@ -118,7 +124,7 @@ pub(crate) fn impl_control_derive(input: TokenStream, primitives: &HashSet<Ident
         });
         let mut name_const_ids = Vec::default();
         let mut name_const_values = Vec::default();
-        attr_fields.iter().for_each(|(ident, _)| {
+        attr_fields.iter().for_each(|(ident, _, _is_leaf)| {
             let name_const = name_const_id(ident);
             name_const_ids.push(name_const.clone());
             name_const_values.push(ident.to_string().to_case(Case::Kebab));
@@ -137,9 +143,9 @@ pub(crate) fn impl_control_derive(input: TokenStream, primitives: &HashSet<Ident
 
         let mut id_bodies = Vec::default();
         let mut setter_bodies = Vec::default();
-        attr_fields.iter().for_each(|(ident, ident_type)| {
+        attr_fields.iter().for_each(|(ident, ident_type, is_leaf)| {
             let id = ident.to_string().to_case(Case::Kebab);
-            if primitives.contains(ident_type) {
+            if primitives.contains(ident_type) || *is_leaf {
                 let name_const = format_ident!("set_{}", ident);
                 id_bodies.push(quote! {Some(#id.to_string())});
                 setter_bodies.push(quote! {self.#name_const(value.into());});
@@ -176,10 +182,10 @@ pub(crate) fn impl_control_derive(input: TokenStream, primitives: &HashSet<Ident
         let mut node_indexes = Vec::default();
         let mut node_fields = Vec::default();
         let mut node_field_lens = Vec::default();
-        attr_fields.iter().for_each(|(ident, ident_type)| {
+        attr_fields.iter().for_each(|(ident, ident_type, is_leaf)| {
             let const_name = name_const_id(ident);
             let field_index_name = index_const_id(ident);
-            if primitives.contains(ident_type) {
+            if primitives.contains(ident_type) || *is_leaf {
                 leaf_names.push(quote! { Self::#const_name });
                 leaf_indexes.push(quote! { Self::#field_index_name });
             } else {
@@ -234,4 +240,44 @@ pub(crate) fn impl_control_derive(input: TokenStream, primitives: &HashSet<Ident
         };
         quote
     })
+}
+
+fn parse_control_meta(attr: &Attribute) -> bool {
+    let mut is_leaf = false;
+    if let Ok(meta) = attr.parse_meta() {
+        let meta_list = match meta {
+            Meta::List(list) => list,
+            _ => {
+                return is_leaf;
+            }
+        };
+
+        let punctuated = match meta_list.nested.len() {
+            0 => return is_leaf,
+            _ => &meta_list.nested,
+        };
+
+        punctuated.iter().for_each(|nested| {
+            if let NestedMeta::Meta(Meta::NameValue(name_value)) = nested {
+                if name_value.path.is_ident("leaf") {
+                    is_leaf = get_bool_from_lit(name_value);
+                } else {
+                    // Unsupported attribute; ignore
+                }
+            } else {
+                // Unexpected stuff; ignore
+            }
+        });
+    }
+    is_leaf
+}
+
+fn get_bool_from_lit(name_value: &syn::MetaNameValue) -> bool {
+    match &name_value.lit {
+        Lit::Bool(bool_val) => {
+            return bool_val.value();
+        }
+        _ => {}
+    }
+    false
 }

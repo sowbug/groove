@@ -3,7 +3,6 @@
 use quote::{format_ident, quote};
 use syn::{Data, DataEnum, Ident, Meta, NestedMeta};
 
-#[derive(Debug)]
 struct ViewableThing {
     base_name: Ident,
     ty: syn::Type,

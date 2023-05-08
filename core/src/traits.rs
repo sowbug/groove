@@ -70,7 +70,13 @@ pub trait Controllable {
     fn control_index_for_name(&self, name: &str) -> Option<usize> {
         unimplemented!("Controllable trait methods are implemented by a macro")
     }
-    fn control_name_for_index(&self, index: usize) -> Option<&'static str> {
+    fn control_name_for_index(&self, index: usize) -> Option<String> {
+        unimplemented!()
+    }
+    fn control_set_param_by_name(&mut self, name: &str, value: crate::control::F32ControlValue) {
+        unimplemented!()
+    }
+    fn control_set_param_by_index(&mut self, index: usize, value: crate::control::F32ControlValue) {
         unimplemented!()
     }
 }

@@ -212,9 +212,10 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
             }
         };
         let controllable_block = quote! {
-            fn control_name_for_index(&self, index: usize) -> Option<&'static str> {
+            fn control_name_for_index(&self, index: usize) -> Option<String> {
                 if let Some(message) = #unit_only_enum_name::from_repr(index) {
-                    Some(message.into())
+                    let s: &'static str = message.into();
+                    Some(s.to_string())
                 } else {
                     None
                 }
