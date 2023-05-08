@@ -3,7 +3,7 @@
 use super::LoadError;
 use convert_case::{Boundary, Case, Casing};
 use groove_core::{
-    generators::{EnvelopeParams, Oscillator, OscillatorNano, Waveform},
+    generators::{EnvelopeParams, Oscillator, OscillatorParams, Waveform},
     midi::{note_to_frequency, GeneralMidiProgram},
     FrequencyHz, Normal, ParameterType, Ratio,
 };
@@ -100,19 +100,19 @@ impl WelshPatchSettings {
             oscillators.push(o);
         }
         if self.noise > 0.0 {
-            oscillators.push(Oscillator::new_with(OscillatorNano {
+            oscillators.push(Oscillator::new_with(OscillatorParams {
                 waveform: Waveform::Noise,
                 ..Default::default()
             }));
         }
 
         WelshSynthNano {
-            oscillator_1: OscillatorNano {
+            oscillator_1: OscillatorParams {
                 waveform: self.oscillator_1.waveform.into(),
                 frequency_tune: self.oscillator_1.tune.into(),
                 ..Default::default()
             },
-            oscillator_2: OscillatorNano {
+            oscillator_2: OscillatorParams {
                 waveform: self.oscillator_2.waveform.into(),
                 frequency_tune: self.oscillator_2.tune.into(),
                 ..Default::default()
@@ -129,7 +129,7 @@ impl WelshPatchSettings {
                 Normal::from(self.oscillator_1.mix / total)
             },
             envelope: self.amp_envelope.clone(),
-            lfo: OscillatorNano {
+            lfo: OscillatorParams {
                 waveform: self.lfo.waveform,
                 frequency: self.lfo.frequency.into(),
                 ..Default::default()
@@ -239,8 +239,9 @@ impl OscillatorSettings {
     }
 
     pub fn derive_oscillator(&self) -> Oscillator {
-        let mut r =
-            Oscillator::new_with(OscillatorNano::default_with_waveform(self.waveform.into()));
+        let mut r = Oscillator::new_with(OscillatorParams::default_with_waveform(
+            self.waveform.into(),
+        ));
         r.set_frequency_tune(self.tune.into());
         r
     }

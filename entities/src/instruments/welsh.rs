@@ -3,7 +3,7 @@
 use crate::effects::{BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbNano};
 use core::fmt::Debug;
 use groove_core::{
-    generators::{Envelope, EnvelopeParams, Oscillator, OscillatorNano},
+    generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams},
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     traits::{
@@ -263,9 +263,9 @@ pub struct WelshSynth {
     inner_synth: Synthesizer<WelshVoice>,
 
     #[nano(control = false, no_copy = true)]
-    oscillator_1: OscillatorNano,
+    oscillator_1: OscillatorParams,
     #[nano(control = false, no_copy = true)]
-    oscillator_2: OscillatorNano,
+    oscillator_2: OscillatorParams,
     #[nano]
     oscillator_sync: bool,
     #[nano]
@@ -275,7 +275,7 @@ pub struct WelshSynth {
     envelope: EnvelopeParams,
 
     #[nano(control = false, no_copy = true)]
-    lfo: OscillatorNano,
+    lfo: OscillatorParams,
     #[nano(control = false)]
     lfo_routing: LfoRouting,
     #[nano]
@@ -440,11 +440,11 @@ impl WelshSynth {
         self.filter_envelope = filter_envelope;
     }
 
-    pub fn set_oscillator_1(&mut self, oscillator_1: OscillatorNano) {
+    pub fn set_oscillator_1(&mut self, oscillator_1: OscillatorParams) {
         self.oscillator_1 = oscillator_1;
     }
 
-    pub fn set_oscillator_2(&mut self, oscillator_2: OscillatorNano) {
+    pub fn set_oscillator_2(&mut self, oscillator_2: OscillatorParams) {
         self.oscillator_2 = oscillator_2;
     }
 
@@ -456,7 +456,7 @@ impl WelshSynth {
         self.oscillator_mix = oscillator_mix;
     }
 
-    pub fn set_lfo(&mut self, lfo: OscillatorNano) {
+    pub fn set_lfo(&mut self, lfo: OscillatorParams) {
         self.lfo = lfo;
     }
 
@@ -480,7 +480,7 @@ impl WelshSynth {
         self.filter_cutoff_end = filter_cutoff_end;
     }
 
-    pub fn lfo(&self) -> &OscillatorNano {
+    pub fn lfo(&self) -> &OscillatorParams {
         &self.lfo
     }
 }

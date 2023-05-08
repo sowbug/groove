@@ -3,7 +3,7 @@
 use crate::messages::EntityMessage;
 use core::fmt::Debug;
 use groove_core::{
-    generators::{Oscillator, OscillatorNano, Waveform},
+    generators::{Oscillator, OscillatorParams, Waveform},
     midi::HandlesMidi,
     traits::{Generates, IsController, Performs, Resets, Ticks, TicksWithMessages},
     FrequencyHz, Normal, ParameterType,
@@ -70,7 +70,7 @@ impl LfoController {
     pub fn new_with(params: LfoControllerNano) -> Self {
         Self {
             uid: Default::default(),
-            oscillator: Oscillator::new_with(OscillatorNano {
+            oscillator: Oscillator::new_with(OscillatorParams {
                 waveform: params.waveform,
                 frequency: params.frequency,
                 ..Default::default()

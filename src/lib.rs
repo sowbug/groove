@@ -9,7 +9,7 @@
 //! ```
 //! # use groove::{Entity, Orchestrator};
 //! # use groove_core::{
-//! #     generators::{EnvelopeNano, Waveform},
+//! #     generators::{EnvelopeParams, Waveform},
 //! #     midi::{MidiChannel, new_note_off, new_note_on},
 //! #     time::{Clock, ClockNano, PerfectTimeUnit, TimeSignature},
 //! #     traits::Resets,
@@ -36,7 +36,7 @@
 //! let synth = ToySynth::new_with(ToySynthNano {
 //!     voice_count: 4,
 //!     waveform: Waveform::Sine,
-//!     envelope: EnvelopeNano::new_with(0.0, 0.0, Normal::maximum(), 0.0),
+//!     envelope: EnvelopeParams::new_with(0.0, 0.0, Normal::maximum(), 0.0),
 //! });
 //!
 //! // Sequencer sends MIDI commands to the synth.

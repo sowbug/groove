@@ -381,7 +381,7 @@ pub(crate) mod tests {
             Self {
                 sample_rate: Default::default(),
                 oscillator: Oscillator::new_with(
-                    crate::generators::OscillatorNano::default_with_waveform(Waveform::Sine),
+                    crate::generators::OscillatorParams::default_with_waveform(Waveform::Sine),
                 ),
                 envelope: Envelope::new_with(EnvelopeParams::safe_default()),
                 sample: Default::default(),

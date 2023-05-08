@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    generators::{Envelope, EnvelopeParams, Oscillator, OscillatorNano, Waveform},
+    generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams, Waveform},
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     time::ClockTimeUnit,
@@ -136,7 +136,9 @@ impl ToyInstrument {
             uid: Default::default(),
             sample: Default::default(),
             fake_value: params.fake_value(),
-            oscillator: Oscillator::new_with(OscillatorNano::default_with_waveform(Waveform::Sine)),
+            oscillator: Oscillator::new_with(OscillatorParams::default_with_waveform(
+                Waveform::Sine,
+            )),
             dca: Dca::new_with(DcaNano {
                 gain: 1.0.into(),
                 pan: BipolarNormal::zero(),
@@ -289,9 +291,9 @@ impl DebugSynth {
 
     pub fn new() -> Self {
         Self::new_with_components(
-            Box::new(Oscillator::new_with(OscillatorNano::default_with_waveform(
-                Waveform::Sine,
-            ))),
+            Box::new(Oscillator::new_with(
+                OscillatorParams::default_with_waveform(Waveform::Sine),
+            )),
             Box::new(Envelope::new_with(EnvelopeParams::safe_default())),
         )
     }
@@ -453,7 +455,7 @@ impl Resets for ToyVoice {
 impl ToyVoice {
     fn new_with(waveform: Waveform, envelope: EnvelopeParams) -> Self {
         Self {
-            oscillator: Oscillator::new_with(OscillatorNano::default_with_waveform(waveform)),
+            oscillator: Oscillator::new_with(OscillatorParams::default_with_waveform(waveform)),
             envelope: Envelope::new_with(envelope),
             value: Default::default(),
         }

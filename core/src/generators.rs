@@ -6,16 +6,13 @@ use crate::{
     traits::{Generates, GeneratesEnvelope, Resets, Ticks},
     BipolarNormal, FrequencyHz, Normal, ParameterType, Ratio, SignalType,
 };
-use groove_proc_macros::{Control, Nano, Params};
+use groove_proc_macros::{Control, Params};
 use kahan::KahanSum;
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use nalgebra::{Matrix3, Matrix3x1};
-use std::str::FromStr;
 use std::{f64::consts::PI, fmt::Debug, ops::Range};
 use strum::EnumCount;
-use strum_macros::{
-    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
-};
+use strum_macros::{Display, EnumCount as EnumCountMacro, EnumIter, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -83,7 +80,7 @@ impl From<Waveform> for F32ControlValue {
     }
 }
 
-impl OscillatorNano {
+impl OscillatorParams {
     pub fn default_with_waveform(waveform: Waveform) -> Self {
         Self {
             waveform,
@@ -93,31 +90,37 @@ impl OscillatorNano {
     }
 }
 
-#[derive(Clone, Debug, Nano)]
+#[derive(Clone, Debug, Control, Params)]
 pub struct Oscillator {
-    #[nano]
+    #[control]
+    #[params]
     waveform: Waveform,
 
     /// Hertz. Any positive number. 440 = A4
-    #[nano]
+    #[control]
+    #[params]
     frequency: FrequencyHz,
 
     /// if not zero, then ignores the `frequency` field and uses this one
     /// instead.
-    #[nano]
+    #[control]
+    #[params]
     fixed_frequency: FrequencyHz,
 
     /// Designed for pitch correction at construction time.
-    #[nano]
+    #[control]
+    #[params]
     frequency_tune: Ratio,
 
     /// [-1, 1] is typical range, with -1 halving the frequency, and 1 doubling
     /// it. Designed for LFOs.
-    #[nano]
+    #[control]
+    #[params]
     frequency_modulation: BipolarNormal,
 
     /// A factor applied to the root frequency. It is used for FM synthesis.
-    #[nano]
+    #[control]
+    #[params]
     linear_frequency_modulation: ParameterType,
 
     /// working variables to generate semi-deterministic noise.
@@ -195,7 +198,7 @@ impl Ticks for Oscillator {
 }
 
 impl Oscillator {
-    pub fn new_with(params: OscillatorNano) -> Self {
+    pub fn new_with(params: OscillatorParams) -> Self {
         Self {
             waveform: params.waveform(),
             frequency: params.frequency(),
@@ -423,7 +426,7 @@ impl EnvelopeParams {
         }
     }
 
-    // The #[nano] macro system doesn't currently let us override derived
+    // The #[control] #[params] macro system doesn't currently let us override derived
     // Default, and I wasn't sure whether it was right to default Normal to 1.0,
     // so I'm creating a custom default method. I think that only test/toy code
     // would rely on defaults for an envelope.
@@ -800,7 +803,7 @@ impl Envelope {
 
 #[cfg(feature = "egui-framework")]
 mod gui {
-    use super::{EnvelopeParams, OscillatorNano, Waveform};
+    use super::{EnvelopeParams, OscillatorParams, Waveform};
     use crate::traits::gui::Shows;
     use eframe::egui::{ComboBox, DragValue, Ui};
     use strum::IntoEnumIterator;
@@ -823,7 +826,7 @@ mod gui {
         }
     }
 
-    impl Shows for OscillatorNano {
+    impl Shows for OscillatorParams {
         fn show(&mut self, ui: &mut Ui) {
             self.waveform().show(ui);
         }
@@ -1051,7 +1054,7 @@ pub mod tests {
     }
 
     fn create_oscillator(waveform: Waveform, tune: Ratio, note: MidiNote) -> Oscillator {
-        let mut oscillator = Oscillator::new_with(OscillatorNano {
+        let mut oscillator = Oscillator::new_with(OscillatorParams {
             waveform,
             frequency: note_type_to_frequency(note),
             ..Default::default()
@@ -1063,7 +1066,7 @@ pub mod tests {
     #[test]
     fn oscillator_pola() {
         let mut oscillator =
-            Oscillator::new_with(OscillatorNano::default_with_waveform(Waveform::Sine));
+            Oscillator::new_with(OscillatorParams::default_with_waveform(Waveform::Sine));
 
         // we'll run two ticks in case the oscillator happens to start at zero
         oscillator.tick(2);
@@ -1080,7 +1083,7 @@ pub mod tests {
     fn square_wave_is_correct_amplitude() {
         const SAMPLE_RATE: usize = 63949; // Prime number
         const FREQUENCY: FrequencyHz = FrequencyHz(499.0);
-        let mut oscillator = Oscillator::new_with(OscillatorNano {
+        let mut oscillator = Oscillator::new_with(OscillatorParams {
             waveform: Waveform::Square,
             frequency: FREQUENCY,
             ..Default::default()
@@ -1103,7 +1106,7 @@ pub mod tests {
         // numbers so that we don't have to deal with edge cases.
         const SAMPLE_RATE: usize = 65536;
         const FREQUENCY: FrequencyHz = FrequencyHz(128.0);
-        let mut oscillator = Oscillator::new_with(OscillatorNano {
+        let mut oscillator = Oscillator::new_with(OscillatorParams {
             waveform: Waveform::Square,
             frequency: FREQUENCY,
             ..Default::default()
@@ -1141,7 +1144,7 @@ pub mod tests {
     fn square_wave_shape_is_accurate() {
         const SAMPLE_RATE: usize = 65536;
         const FREQUENCY: FrequencyHz = FrequencyHz(2.0);
-        let mut oscillator = Oscillator::new_with(OscillatorNano {
+        let mut oscillator = Oscillator::new_with(OscillatorParams {
             waveform: Waveform::Square,
             frequency: FREQUENCY,
             ..Default::default()
@@ -1191,7 +1194,7 @@ pub mod tests {
     #[test]
     fn sine_wave_is_balanced() {
         const FREQUENCY: FrequencyHz = FrequencyHz(1.0);
-        let mut oscillator = Oscillator::new_with(OscillatorNano {
+        let mut oscillator = Oscillator::new_with(OscillatorParams {
             waveform: Waveform::Sine,
             frequency: FREQUENCY,
             ..Default::default()
@@ -1275,7 +1278,7 @@ pub mod tests {
             (20000.0, "20000Hz"),
         ];
         for test_case in test_cases {
-            let mut osc = Oscillator::new_with(OscillatorNano {
+            let mut osc = Oscillator::new_with(OscillatorParams {
                 waveform: Waveform::Square,
                 frequency: test_case.0.into(),
                 ..Default::default()
@@ -1307,7 +1310,7 @@ pub mod tests {
     #[test]
     fn sine_matches_known_good() {
         for test_case in get_test_cases() {
-            let mut osc = Oscillator::new_with(OscillatorNano {
+            let mut osc = Oscillator::new_with(OscillatorParams {
                 waveform: Waveform::Sine,
                 frequency: test_case.0.into(),
                 ..Default::default()
@@ -1329,7 +1332,7 @@ pub mod tests {
     #[test]
     fn sawtooth_matches_known_good() {
         for test_case in get_test_cases() {
-            let mut osc = Oscillator::new_with(OscillatorNano {
+            let mut osc = Oscillator::new_with(OscillatorParams {
                 waveform: Waveform::Sawtooth,
                 frequency: test_case.0.into(),
                 ..Default::default()
@@ -1351,7 +1354,7 @@ pub mod tests {
     #[test]
     fn triangle_matches_known_good() {
         for test_case in get_test_cases() {
-            let mut osc = Oscillator::new_with(OscillatorNano {
+            let mut osc = Oscillator::new_with(OscillatorParams {
                 waveform: Waveform::Triangle,
                 frequency: test_case.0.into(),
                 ..Default::default()
@@ -1411,7 +1414,7 @@ pub mod tests {
     #[test]
     fn oscillator_cycle_restarts_on_time() {
         let mut oscillator =
-            Oscillator::new_with(OscillatorNano::default_with_waveform(Waveform::Sine));
+            Oscillator::new_with(OscillatorParams::default_with_waveform(Waveform::Sine));
         const FREQUENCY: FrequencyHz = FrequencyHz(2.0);
         oscillator.set_frequency(FREQUENCY);
         oscillator.reset(DEFAULT_SAMPLE_RATE);
@@ -1510,7 +1513,8 @@ pub mod tests {
     // Envelope trait, so that we can confirm that the trait alone is useful.
     fn get_ge_trait_stuff() -> (Clock, impl GeneratesEnvelope) {
         let clock = Clock::new_test();
-        let envelope = Envelope::new_with(EnvelopeParams::new_with(0.1, 0.2, Normal::new(0.8), 0.3));
+        let envelope =
+            Envelope::new_with(EnvelopeParams::new_with(0.1, 0.2, Normal::new(0.8), 0.3));
         (clock, envelope)
     }
 

@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    generators::{Oscillator, OscillatorNano, Waveform},
+    generators::{Oscillator, OscillatorParams, Waveform},
     midi::{HandlesMidi, MidiChannel, MidiMessage},
     time::{Clock, ClockNano},
     traits::{Generates, IsInstrument, Resets, Ticks},
@@ -79,7 +79,7 @@ impl HandlesMidi for Metronome {
 }
 impl Metronome {
     pub fn new_with(params: MetronomeNano) -> Self {
-        let mut oscillator_nano = OscillatorNano::default();
+        let mut oscillator_nano = OscillatorParams::default();
         oscillator_nano.waveform = Waveform::Square;
         let mut clock_params = ClockNano::default();
         clock_params.set_bpm(params.bpm());
