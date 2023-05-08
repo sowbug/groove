@@ -1,41 +1,28 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+//! An [Entity] wraps a musical device, giving it the ability to be managed by
+//! [crate::Orchestrator] and automated by other devices in the system.
+
 #[cfg(feature = "iced-framework")]
 use groove_core::time::ClockMessage;
-use groove_core::{
-    time::{Clock, ClockParams},
-    traits::{HasUid, Resets},
-};
+use groove_core::{time::Clock, traits::HasUid};
 
 use groove_entities::{
     controllers::{
-        Arpeggiator, ArpeggiatorParams, ControlTrip, ControlTripParams, LfoController,
-        LfoControllerParams, MidiTickSequencer, MidiTickSequencerParams, PatternManager,
-        PatternManagerParams, Sequencer, SequencerParams, SignalPassthroughController,
-        SignalPassthroughControllerParams, Timer, TimerParams, Trigger, TriggerParams,
+        Arpeggiator, ControlTrip, LfoController, MidiTickSequencer, PatternManager, Sequencer,
+        SignalPassthroughController, Timer, Trigger,
     },
     effects::{
-        BiQuadFilterAllPass, BiQuadFilterAllPassParams, BiQuadFilterBandPass,
-        BiQuadFilterBandPassParams, BiQuadFilterBandStop, BiQuadFilterBandStopParams,
-        BiQuadFilterHighPass, BiQuadFilterHighPassParams, BiQuadFilterHighShelf,
-        BiQuadFilterHighShelfParams, BiQuadFilterLowPass12db, BiQuadFilterLowPass12dbParams,
-        BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbParams, BiQuadFilterLowShelf,
-        BiQuadFilterLowShelfParams, BiQuadFilterNone, BiQuadFilterNoneParams,
-        BiQuadFilterPeakingEq, BiQuadFilterPeakingEqParams, Bitcrusher, BitcrusherParams, Chorus,
-        ChorusParams, Compressor, CompressorParams, Delay, DelayParams, Gain, GainParams, Limiter,
-        LimiterParams, Mixer, MixerParams, Reverb, ReverbParams,
+        BiQuadFilterAllPass, BiQuadFilterBandPass, BiQuadFilterBandStop, BiQuadFilterHighPass,
+        BiQuadFilterHighShelf, BiQuadFilterLowPass12db, BiQuadFilterLowPass24db,
+        BiQuadFilterLowShelf, BiQuadFilterNone, BiQuadFilterPeakingEq, Bitcrusher, Chorus,
+        Compressor, Delay, Gain, Limiter, Mixer, Reverb,
     },
-    instruments::{
-        Drumkit, DrumkitParams, FmSynth, FmSynthParams, Metronome, MetronomeParams, Sampler,
-        SamplerParams, WelshSynth, WelshSynthParams,
-    },
+    instruments::{Drumkit, FmSynth, Metronome, Sampler, WelshSynth},
     EntityMessage,
 };
 use groove_proc_macros::Everything;
-use groove_toys::{
-    DebugSynth, DebugSynthParams, ToyAudioSource, ToyAudioSourceParams, ToyEffect, ToyEffectParams,
-    ToyInstrument, ToyInstrumentParams, ToySynth, ToySynthParams,
-};
+use groove_toys::{DebugSynth, ToyAudioSource, ToyEffect, ToyInstrument, ToySynth};
 
 #[cfg(feature = "iced-framework")]
 use groove_entities::{
@@ -67,10 +54,6 @@ use groove_toys::{
 use groove_toys::{ToyController, ToyControllerMessage, ToyControllerParams};
 
 // PRO TIP: use `cargo expand --lib entities` to see what's being generated
-
-// TODO: where does this docstring go?
-// An [Entity] wraps a musical device, giving it the ability to be managed by
-// [Orchestrator] and automated by other devices in the system.
 
 type MsgType = EntityMessage;
 

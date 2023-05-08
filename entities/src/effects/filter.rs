@@ -4,10 +4,8 @@ use groove_core::{
     traits::{IsEffect, Resets, TransformsAudio},
     FrequencyHz, Normal, ParameterType, Sample,
 };
-use groove_proc_macros::{Control, Nano, Params, Uid};
-use std::{f64::consts::PI, str::FromStr};
-use strum::EnumCount;
-use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
+use groove_proc_macros::{Control, Params, Uid};
+use std::f64::consts::PI;
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};

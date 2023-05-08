@@ -596,6 +596,7 @@ mod tests {
         }
         impl Cherry {
             // TODO: this is a hack that needs to be automated in the Control derive macro.
+            // As a workaround, structs that incorporate enums can declare them #[params(leaf=true)]
             pub const STRUCT_SIZE: usize = 1;
 
             fn next_cherry(&self) -> Self {

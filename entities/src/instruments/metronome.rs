@@ -7,10 +7,7 @@ use groove_core::{
     traits::{Generates, IsInstrument, Resets, Ticks},
     ParameterType, StereoSample,
 };
-use groove_proc_macros::{Control, Nano, Params, Uid};
-use std::{fmt::Debug, str::FromStr};
-use strum::EnumCount;
-use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
+use groove_proc_macros::{Control, Params, Uid};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -19,6 +16,7 @@ use serde::{Deserialize, Serialize};
 pub struct Metronome {
     #[control]
     #[params]
+    #[allow(dead_code)]
     bpm: ParameterType,
 
     clock: Clock,

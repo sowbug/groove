@@ -11,6 +11,7 @@ use anyhow::anyhow;
 use core::fmt::Debug;
 use crossbeam::deque::Worker;
 use groove_core::{
+    control::F32ControlValue,
     midi::{MidiChannel, MidiMessage},
     time::{Clock, ClockParams, TimeSignature},
     traits::{Performs, Resets},
@@ -582,8 +583,10 @@ impl Orchestrator {
                             self.broadcast_midi_messages(&[(channel, message)]);
                         }
                         EntityMessage::ControlF32(value) => {
-                            #[cfg(feature = "iced-framework")]
                             messages.extend(self.generate_control_update_messages(uid, value));
+                        }
+                        EntityMessage::HandleControlF32(param_id, value) => {
+                            self.handle_control_f32(uid, param_id, value)
                         }
                         _ => todo!(),
                     },
@@ -684,6 +687,22 @@ impl Orchestrator {
         } else {
             Some(midi_messages_in_response)
         }
+    }
+
+    #[cfg(not(feature = "iced-framework"))]
+    fn generate_control_update_messages(&mut self, uid: usize, value: f32) -> Vec<GrooveInput> {
+        if let Some(control_links) = self.store.control_links(uid) {
+            return control_links
+                .iter()
+                .fold(Vec::default(), |mut v, (target_uid, param_id)| {
+                    v.push(GrooveInput::EntityMessage(
+                        *target_uid,
+                        EntityMessage::HandleControlF32(*param_id, value),
+                    ));
+                    v
+                });
+        }
+        Vec::default()
     }
 
     #[cfg(feature = "iced-framework")]
@@ -855,6 +874,14 @@ impl Orchestrator {
 
     pub fn clock(&self) -> &Clock {
         &self.clock
+    }
+
+    fn handle_control_f32(&mut self, uid: usize, param_id: usize, value: f32) {
+        if let Some(entity) = self.store.get_mut(uid) {
+            if let Some(controllable) = entity.as_controllable_mut() {
+                controllable.control_set_param_by_index(param_id, F32ControlValue(value));
+            }
+        }
     }
 }
 impl Performs for Orchestrator {

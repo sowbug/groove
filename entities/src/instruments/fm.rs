@@ -11,10 +11,7 @@ use groove_core::{
     voices::StealingVoiceStore,
     BipolarNormal, Dca, DcaParams, FrequencyHz, Normal, ParameterType, Ratio, Sample, StereoSample,
 };
-use groove_proc_macros::{Control, Nano, Params, Uid};
-use std::{fmt::Debug, str::FromStr};
-use strum::EnumCount;
-use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
+use groove_proc_macros::{Control, Params, Uid};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -141,10 +138,7 @@ impl FmVoice {
             modulator_beta: params.beta,
             carrier_envelope: Envelope::new_with(&params.carrier_envelope),
             modulator_envelope: Envelope::new_with(&params.modulator_envelope),
-            dca: Dca::new_with(&DcaParams {
-                gain: params.gain(),
-                pan: params.pan(),
-            }),
+            dca: Dca::new_with(&params.dca),
             note_on_key: Default::default(),
             note_on_velocity: Default::default(),
             steal_is_underway: Default::default(),
@@ -234,11 +228,7 @@ pub struct FmSynth {
 
     #[control]
     #[params]
-    gain: Normal,
-
-    #[control]
-    #[params]
-    pan: BipolarNormal,
+    dca: Dca,
 
     uid: usize,
     inner_synth: Synthesizer<FmVoice>,
@@ -286,8 +276,7 @@ impl FmSynth {
             beta: params.beta(),
             carrier_envelope: Envelope::new_with(&params.carrier_envelope),
             modulator_envelope: Envelope::new_with(&params.modulator_envelope),
-            gain: params.gain(),
-            pan: params.pan(),
+            dca: Dca::new_with(&params.dca),
         }
     }
 
@@ -349,10 +338,16 @@ impl FmSynth {
     }
 
     pub fn set_gain(&mut self, gain: Normal) {
+        self.dca.set_gain(gain);
         self.inner_synth.voices_mut().for_each(|v| v.set_gain(gain));
     }
 
     pub fn set_pan(&mut self, pan: BipolarNormal) {
+        self.dca.set_pan(pan);
         self.inner_synth.voices_mut().for_each(|v| v.set_pan(pan));
+    }
+
+    pub fn dca(&self) -> &Dca {
+        &self.dca
     }
 }

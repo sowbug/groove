@@ -198,10 +198,9 @@ impl PatternProgrammer {
 
 #[cfg(test)]
 mod tests {
-    use crate::controllers::SequencerParams;
-
     use super::*;
-    use groove_core::time::{BeatValue, TimeSignature};
+    use crate::controllers::SequencerParams;
+    use groove_core::time::BeatValue;
 
     #[test]
     fn pattern_mainline() {

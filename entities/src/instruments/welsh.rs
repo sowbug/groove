@@ -13,10 +13,8 @@ use groove_core::{
     voices::StealingVoiceStore,
     BipolarNormal, Dca, DcaParams, FrequencyHz, Normal, Sample, StereoSample,
 };
-use groove_proc_macros::{Control, Nano, Params, Uid};
-use std::str::FromStr;
-use strum::EnumCount;
-use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
+use groove_proc_macros::{Control, Params, Uid};
+use strum_macros::{EnumCount as EnumCountMacro, FromRepr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -551,7 +549,7 @@ mod tests {
     use crate::tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND};
     use convert_case::{Case, Casing};
     use groove_core::{
-        time::{Clock, ClockParams, TimeSignature, TimeSignatureParams},
+        time::{Clock, ClockParams, TimeSignatureParams},
         util::tests::TestOnlyPaths,
         SampleType,
     };

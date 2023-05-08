@@ -8,7 +8,7 @@ use groove::{
     app_version, {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
 };
 use groove_core::{
-    time::{ClockParams, TimeSignature, TimeSignatureParams},
+    time::{ClockParams, TimeSignatureParams},
     traits::Resets,
     StereoSample, SAMPLE_BUFFER_SIZE,
 };

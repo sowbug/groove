@@ -5,12 +5,9 @@ use groove_core::{
     traits::{IsEffect, Resets, TransformsAudio},
     Normal, Sample,
 };
-use groove_proc_macros::{Control, Nano, Params, Uid};
+use groove_proc_macros::{Control, Params, Uid};
 use std::collections::VecDeque;
 use std::fmt::Debug;
-use std::str::FromStr;
-use strum::EnumCount;
-use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};

@@ -6,40 +6,32 @@ use super::{
 };
 //use groove::{app_version, Orchestrator};
 use groove_core::{
-    time::{Clock, ClockMessage, ClockParams, TimeSignature},
-    traits::{HasUid, MessageBounds},
+    time::{Clock, ClockMessage, TimeSignature},
+    traits::HasUid,
     BipolarNormal, Normal, ParameterType, StereoSample,
 };
 use groove_entities::{
     controllers::{
-        Arpeggiator, ArpeggiatorMessage, ArpeggiatorParams, ControlTrip, ControlTripMessage,
-        ControlTripParams, LfoController, LfoControllerMessage, LfoControllerParams,
-        MidiTickSequencer, MidiTickSequencerMessage, MidiTickSequencerParams, Note, Pattern,
-        PatternManager, PatternManagerMessage, PatternManagerParams, PatternMessage, Sequencer,
-        SequencerMessage, SequencerParams, SignalPassthroughController,
-        SignalPassthroughControllerMessage, SignalPassthroughControllerParams, Timer, TimerMessage,
-        TimerParams, Trigger, TriggerMessage, TriggerParams,
+        Arpeggiator, ArpeggiatorMessage, ControlTrip, ControlTripMessage, LfoController,
+        LfoControllerMessage, MidiTickSequencer, MidiTickSequencerMessage, Note, Pattern,
+        PatternManager, PatternManagerMessage, PatternMessage, Sequencer, SequencerMessage,
+        SignalPassthroughController, SignalPassthroughControllerMessage, Timer, TimerMessage,
+        Trigger, TriggerMessage,
     },
     effects::{
-        BiQuadFilterAllPass, BiQuadFilterAllPassMessage, BiQuadFilterAllPassParams,
-        BiQuadFilterBandPass, BiQuadFilterBandPassMessage, BiQuadFilterBandPassParams,
-        BiQuadFilterBandStop, BiQuadFilterBandStopMessage, BiQuadFilterBandStopParams,
-        BiQuadFilterHighPass, BiQuadFilterHighPassMessage, BiQuadFilterHighPassParams,
-        BiQuadFilterHighShelf, BiQuadFilterHighShelfMessage, BiQuadFilterHighShelfParams,
-        BiQuadFilterLowPass12db, BiQuadFilterLowPass12dbMessage, BiQuadFilterLowPass12dbParams,
-        BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbMessage, BiQuadFilterLowPass24dbParams,
-        BiQuadFilterLowShelf, BiQuadFilterLowShelfMessage, BiQuadFilterLowShelfParams,
-        BiQuadFilterNone, BiQuadFilterNoneMessage, BiQuadFilterNoneParams, BiQuadFilterPeakingEq,
-        BiQuadFilterPeakingEqMessage, BiQuadFilterPeakingEqParams, Bitcrusher, BitcrusherMessage,
-        BitcrusherParams, Chorus, ChorusMessage, ChorusParams, Compressor, CompressorMessage,
-        CompressorParams, Delay, DelayMessage, DelayParams, Gain, GainMessage, GainParams, Limiter,
-        LimiterMessage, LimiterParams, Mixer, MixerMessage, MixerParams, Reverb, ReverbMessage,
-        ReverbParams,
+        BiQuadFilterAllPass, BiQuadFilterAllPassMessage, BiQuadFilterBandPass,
+        BiQuadFilterBandPassMessage, BiQuadFilterBandStop, BiQuadFilterBandStopMessage,
+        BiQuadFilterHighPass, BiQuadFilterHighPassMessage, BiQuadFilterHighShelf,
+        BiQuadFilterHighShelfMessage, BiQuadFilterLowPass12db, BiQuadFilterLowPass12dbMessage,
+        BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbMessage, BiQuadFilterLowShelf,
+        BiQuadFilterLowShelfMessage, BiQuadFilterNone, BiQuadFilterNoneMessage,
+        BiQuadFilterPeakingEq, BiQuadFilterPeakingEqMessage, Bitcrusher, BitcrusherMessage, Chorus,
+        ChorusMessage, Compressor, CompressorMessage, Delay, DelayMessage, Gain, GainMessage,
+        Limiter, LimiterMessage, Mixer, MixerMessage, Reverb, ReverbMessage,
     },
     instruments::{
-        Drumkit, DrumkitMessage, DrumkitParams, FmSynth, FmSynthMessage, FmSynthParams, Metronome,
-        MetronomeMessage, MetronomeParams, Sampler, SamplerMessage, SamplerParams, WelshSynth,
-        WelshSynthMessage, WelshSynthParams,
+        Drumkit, DrumkitMessage, FmSynth, FmSynthMessage, Metronome, MetronomeMessage, Sampler,
+        SamplerMessage, WelshSynth, WelshSynthMessage,
     },
     EntityMessage,
 };
@@ -1037,7 +1029,7 @@ impl Viewable for WelshSynth {
             |n| WelshSynthMessage::Pan(BipolarNormal::from(n.as_f32())),
         )
         .into();
-        let envelope = GuiStuff::envelope_view(self.envelope().clone());
+        let envelope = GuiStuff::envelope_view(self.envelope());
         let filter_envelope = GuiStuff::envelope_view(self.filter_envelope().clone());
         let column = Column::new()
             .push(GuiStuff::<WelshSynthMessage>::container_text(

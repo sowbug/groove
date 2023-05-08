@@ -7,11 +7,8 @@ use groove_core::{
     traits::{IsController, MessageBounds, Performs, Resets, Ticks, TicksWithMessages},
     ParameterType,
 };
-use groove_proc_macros::{Control, Nano, Params, Uid};
+use groove_proc_macros::{Control, Params, Uid};
 use std::collections::VecDeque;
-use std::str::FromStr;
-use strum::EnumCount;
-use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 enum TestControllerAction {
     Nothing,

@@ -28,6 +28,9 @@ pub enum EntityMessage {
     /// the controller.
     ControlF32(f32),
 
+    /// Sent by system to every entity that subscribes to a control.
+    HandleControlF32(usize, f32),
+
     /// Wrapper for PatternMessages.
     PatternMessage(usize, PatternMessage),
 

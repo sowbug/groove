@@ -8,17 +8,13 @@ use groove_core::{
     traits::{IsController, Performs, Resets, TicksWithMessages},
     ParameterType,
 };
-use groove_proc_macros::{Control, Nano, Params, Uid};
+use groove_proc_macros::{Control, Params, Uid};
 use midly::TrackEventKind;
 use rustc_hash::FxHashMap;
-use std::str::FromStr;
 use std::{
     fmt::Debug,
     ops::Bound::{Excluded, Included},
 };
-
-use strum::EnumCount;
-use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};

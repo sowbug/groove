@@ -3,7 +3,7 @@
 pub mod persistence;
 pub mod views;
 
-use groove_core::{generators::EnvelopeParams, Sample, StereoSample};
+use groove_core::{generators::Envelope, Sample, StereoSample};
 use iced::{
     alignment::{self, Vertical},
     theme::{self, palette},
@@ -249,25 +249,26 @@ impl<'a, Message: 'a + Clone> GuiStuff<'a, Message> {
         .into()
     }
 
-    fn envelope_view(envelope: EnvelopeParams) -> Element<'a, Message> {
+    fn envelope_view(envelope: &Envelope) -> Element<'a, Message> {
         Column::new()
             .push(
                 Row::new()
                     .push(
-                        text(&format!("Attack: {}", envelope.attack)).width(Length::FillPortion(1)),
+                        text(&format!("Attack: {}", envelope.attack()))
+                            .width(Length::FillPortion(1)),
                     )
                     .push(
-                        text(&format!("Decay: {}", envelope.decay)).width(Length::FillPortion(1)),
+                        text(&format!("Decay: {}", envelope.decay())).width(Length::FillPortion(1)),
                     ),
             )
             .push(
                 Row::new()
                     .push(
-                        text(&format!("Sustain: {:0.2}", envelope.sustain.value()))
+                        text(&format!("Sustain: {:0.2}", envelope.sustain().value()))
                             .width(Length::FillPortion(1)),
                     )
                     .push(
-                        text(&format!("Release: {}", envelope.release))
+                        text(&format!("Release: {}", envelope.release()))
                             .width(Length::FillPortion(1)),
                     ),
             )

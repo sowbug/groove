@@ -14,18 +14,14 @@ struct OneThing {
     handles_midi: bool,
 }
 
-fn build_lists<'a>(
-    things: impl Iterator<Item = &'a OneThing>,
-) -> (Vec<Ident>, Vec<syn::Type>, Vec<Ident>) {
+fn build_lists<'a>(things: impl Iterator<Item = &'a OneThing>) -> (Vec<Ident>, Vec<syn::Type>) {
     let mut structs = Vec::default();
     let mut types = Vec::default();
-    let mut params = Vec::default();
     for thing in things {
-        //params.push(format_ident!("{}Params", thing.base_name.to_string()));
         types.push(thing.ty.clone());
         structs.push(thing.base_name.clone());
     }
-    (structs, types, params)
+    (structs, types)
 }
 
 pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenStream {
@@ -52,9 +48,6 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
                                         }
                                         if m.path().is_ident("instrument") {
                                             is_instrument = true;
-                                            if m.path().is_ident("controller") {
-                                                is_controller = true;
-                                            }
                                         }
                                         if m.path().is_ident("controllable") {
                                             is_controllable = true;
@@ -86,17 +79,12 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
     };
 
     let core_crate = format_ident!("{}", core_crate_name());
-    let (structs, types, _params) = build_lists(things.iter());
+    let (structs, types) = build_lists(things.iter());
     let entity_enum = quote! {
         #[derive(Debug)]
         pub enum Entity {
             #( #structs(Box<#types>) ),*
         }
-
-        // #[derive(Debug)]
-        // pub enum EntityParams {
-        //     #( #structs(Box<#params>) ),*
-        // }
     };
 
     let common_dispatchers = quote! {
@@ -122,16 +110,9 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
                 }
             }
         }
-        // impl EntityParams {
-        //     pub fn name(&self) -> &'static str {
-        //         match self {
-        //             #(EntityParams::#structs(e) => {stringify!(#structs)} ),*
-        //         }
-        //     }
-        // }
     };
 
-    let (structs, _, _) = build_lists(things.iter().filter(|thing| thing.is_controller));
+    let (structs, _) = build_lists(things.iter().filter(|thing| thing.is_controller));
     let controller_dispatchers = quote! {
         impl Entity {
             pub fn is_controller(&self) -> bool {
@@ -153,17 +134,9 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
                 }
             }
         }
-        // impl EntityParams {
-        //     pub fn is_controller(&self) -> bool {
-        //         match self {
-        //             #( EntityParams::#structs(_) => true, )*
-        //             _ => false,
-        //         }
-        //     }
-        // }
     };
 
-    let (structs, _, _) = build_lists(things.iter().filter(|thing| thing.is_controllable));
+    let (structs, _) = build_lists(things.iter().filter(|thing| thing.is_controllable));
     let controllable_dispatchers = quote! {
         impl Entity {
             pub fn is_controllable(&self) -> bool {
@@ -185,29 +158,9 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
                 }
             }
         }
-        // impl EntityParams {
-        //     pub fn is_controllable(&self) -> bool {
-        //         match self {
-        //             #( EntityParams::#structs(_) => true, )*
-        //             _ => false,
-        //         }
-        //     }
-        //     pub fn as_controllable(&self) -> Option<&dyn #core_crate::traits::Controllable> {
-        //         match self {
-        //             #( EntityParams::#structs(e) => Some(e.as_ref()), )*
-        //             _ => None,
-        //         }
-        //     }
-        //     pub fn as_controllable_mut(&mut self) -> Option<&mut dyn #core_crate::traits::Controllable> {
-        //         match self {
-        //             #( EntityParams::#structs(e) => Some(e.as_mut()), )*
-        //             _ => None,
-        //         }
-        //     }
-        // }
     };
 
-    let (structs, _, _) = build_lists(things.iter().filter(|thing| thing.is_effect));
+    let (structs, _) = build_lists(things.iter().filter(|thing| thing.is_effect));
     let effect_dispatchers = quote! {
         impl Entity {
             pub fn as_is_effect(&self) -> Option<&dyn #core_crate::traits::IsEffect> {
@@ -225,7 +178,7 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
         }
     };
 
-    let (structs, _, _) = build_lists(things.iter().filter(|thing| thing.is_instrument));
+    let (structs, _) = build_lists(things.iter().filter(|thing| thing.is_instrument));
     let instrument_dispatchers = quote! {
         impl Entity {
             pub fn as_is_instrument(&self) -> Option<&dyn #core_crate::traits::IsInstrument> {
@@ -243,7 +196,7 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
         }
     };
 
-    let (structs, _, _) = build_lists(things.iter().filter(|thing| thing.handles_midi));
+    let (structs, _) = build_lists(things.iter().filter(|thing| thing.handles_midi));
     let handles_midi_dispatchers = quote! {
         impl Entity {
             pub fn as_handles_midi(&self) -> Option<&dyn #core_crate::traits::HandlesMidi> {
