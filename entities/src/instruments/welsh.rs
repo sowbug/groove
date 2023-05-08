@@ -536,7 +536,7 @@ mod gui {
             CollapsingHeader::new("LPF")
                 .default_open(true)
                 .id_source(ui.next_auto_id())
-                .show_unindented(ui, |ui| {
+                .show(ui, |ui| {
                     self.low_pass_filter.show(ui);
                     self.filter_envelope.show(ui);
                 });
