@@ -5,15 +5,12 @@ use core::fmt::Debug;
 use groove_core::{
     generators::{SteppedEnvelope, SteppedEnvelopeFunction, SteppedEnvelopeStep},
     midi::HandlesMidi,
-    time::{BeatValue, Clock, ClockNano, ClockTimeUnit, TimeSignature},
+    time::{BeatValue, Clock, ClockParams, ClockTimeUnit, TimeSignature, TimeSignatureParams},
     traits::{IsController, Performs, Resets, Ticks, TicksWithMessages},
     ParameterType, SignalType,
 };
-use groove_proc_macros::{Nano, Uid};
+use groove_proc_macros::{Control, Params, Uid};
 use std::ops::Range;
-use std::str::FromStr;
-use strum::EnumCount;
-use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -46,14 +43,17 @@ pub enum ControlStep {
 ///
 /// A ControlTrip is one automation track, which can run as long as the whole
 /// song. For now, it controls one parameter of one target.
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct ControlTrip {
     uid: usize,
-    #[nano]
+    #[control]
+    #[params]
     time_signature_top: usize,
-    #[nano]
+    #[control]
+    #[params]
     time_signature_bottom: usize,
-    #[nano]
+    #[control]
+    #[params]
     bpm: ParameterType,
 
     time_signature: TimeSignature,
@@ -83,7 +83,7 @@ impl Performs for ControlTrip {
 impl ControlTrip {
     const CURSOR_BEGIN: f64 = 0.0;
 
-    pub fn new_with(params: ControlTripNano) -> Self {
+    pub fn new_with(params: &ControlTripParams) -> Self {
         Self {
             uid: usize::default(),
             time_signature_top: params.time_signature_top,
@@ -93,10 +93,10 @@ impl ControlTrip {
                 bottom: params.time_signature_bottom,
             },
             bpm: params.bpm(),
-            clock: Clock::new_with(ClockNano {
+            clock: Clock::new_with(&ClockParams {
                 bpm: params.bpm(),
                 midi_ticks_per_second: 0,
-                time_signature: TimeSignature {
+                time_signature: TimeSignatureParams {
                     top: params.time_signature_top(),
                     bottom: params.time_signature_bottom(),
                 },
@@ -161,6 +161,7 @@ impl ControlTrip {
         self.is_finished = false;
     }
 
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: ControlTripMessage) {
         match message {
             ControlTripMessage::ControlTrip(_s) => todo!(),
@@ -299,7 +300,7 @@ mod tests {
         // let _ = o.link_control(
         //     controller_uid,
         //     effect_uid,
-        //     &ToyEffectControlNano::MyValue.to_string(),
+        //     &ToyEffectControlParams::MyValue.to_string(),
         // );
 
         // let mut sample_buffer = [StereoSample::SILENCE; 64];
@@ -358,7 +359,7 @@ mod tests {
         // let _ = o.link_control(
         //     controller_uid,
         //     instrument_uid,
-        //     &ToyInstrumentControlNano::FakeValue.to_string(),
+        //     &ToyInstrumentControlParams::FakeValue.to_string(),
         // );
 
         // let mut sample_buffer = [StereoSample::SILENCE; 64];

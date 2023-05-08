@@ -16,19 +16,21 @@ struct OneThing {
 
 fn build_lists<'a>(
     things: impl Iterator<Item = &'a OneThing>,
-) -> (Vec<Ident>, Vec<syn::Type>, Vec<Ident>) {
+) -> (Vec<Ident>, Vec<syn::Type>, Vec<Ident>, Vec<Ident>) {
     let mut structs = Vec::default();
     let mut types = Vec::default();
     let mut params = Vec::default();
+    let mut messages = Vec::default();
     for thing in things {
-        params.push(format_ident!("{}Params", thing.base_name.to_string()));
+        params.push(format_ident!("{}Nano", thing.base_name.to_string()));
+        messages.push(format_ident!("{}Message", thing.base_name.to_string()));
         types.push(thing.ty.clone());
         structs.push(thing.base_name.clone());
     }
-    (structs, types, params)
+    (structs, types, params, messages)
 }
 
-pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenStream {
+pub(crate) fn parse_and_generate_nano_entities(data: &Data) -> proc_macro2::TokenStream {
     let things = match data {
         Data::Enum(DataEnum { variants, .. }) => {
             let mut v = Vec::default();
@@ -41,7 +43,7 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
                 for attr in &variant.attrs {
                     if let Ok(meta) = attr.parse_meta() {
                         if let Meta::List(list) = meta {
-                            if list.path.is_ident("everything") {
+                            if list.path.is_ident("nano_entities") {
                                 for i in list.nested.iter() {
                                     if let NestedMeta::Meta(m) = i {
                                         if m.path().is_ident("controller") {
@@ -86,175 +88,229 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
     };
 
     let core_crate = format_ident!("{}", core_crate_name());
-    let (structs, types, params) = build_lists(things.iter());
+    let (structs, types, params, messages) = build_lists(things.iter());
     let entity_enum = quote! {
         #[derive(Debug)]
-        pub enum Entity {
+        pub enum NanoEntity {
             #( #structs(Box<#types>) ),*
         }
 
         #[derive(Debug)]
-        pub enum EntityParams {
+        pub enum NanoEntityParams {
             #( #structs(Box<#params>) ),*
         }
+
+        #[derive(Clone, Debug, PartialEq)]
+        pub enum NanoEntityMessage {
+            #( #structs(#messages) ),*
+        }
+
     };
 
     let common_dispatchers = quote! {
-        impl Entity {
+        impl NanoEntity {
             pub fn name(&self) -> &str {
                 match self {
-                    #( Entity::#structs(e) => e.name(), )*
+                    #( NanoEntity::#structs(e) => e.name(), )*
                 }
             }
             pub fn as_has_uid(&self) -> &dyn HasUid {
                 match self {
-                #( Entity::#structs(e) => e.as_ref(), )*
+                #( NanoEntity::#structs(e) => e.as_ref(), )*
                 }
             }
             pub fn as_has_uid_mut(&mut self) -> &mut dyn HasUid {
                 match self {
-                #( Entity::#structs(e) => e.as_mut(), )*
+                #( NanoEntity::#structs(e) => e.as_mut(), )*
                 }
             }
             pub fn as_resets_mut(&mut self) -> &mut dyn Resets {
                 match self {
-                #( Entity::#structs(e) => e.as_mut(), )*
+                #( NanoEntity::#structs(e) => e.as_mut(), )*
+                }
+            }
+            pub fn update(&mut self, message: NanoEntityMessage) {
+                match self {
+                #(
+                    NanoEntity::#structs(e) => {
+                        if let NanoEntityMessage::#structs(message) = message {
+                            e.update(message);
+                        }
+                    }
+                )*
+                }
+            }
+            pub fn message_for(
+                &self,
+                param_index: usize,
+                value: #core_crate::control::F32ControlValue,
+            ) -> Option<NanoEntityMessage> {
+                match self {
+                #(
+                    NanoEntity::#structs(e) => {
+                        if let Some(message) = e.message_for_index(param_index, value) {
+                            return Some(NanoEntityMessage::#structs(message));
+                        }
+                    }
+                )*
+                }
+                None
+            }
+            pub fn full_message(&self) -> NanoEntityMessage {
+                match self {
+                #(
+                    NanoEntity::#structs(e) => {
+                        return NanoEntityMessage::#structs(e.full_message());
+                    }
+                )*
                 }
             }
         }
-        // impl EntityParams {
-        //     pub fn name(&self) -> &'static str {
-        //         match self {
-        //             #(EntityParams::#structs(e) => {stringify!(#structs)} ),*
-        //         }
-        //     }
-        // }
+        impl NanoEntityParams {
+            pub fn name(&self) -> &'static str {
+                match self {
+                    #( NanoEntityParams::#structs(e) => {stringify!(#structs)} ),*
+                }
+            }
+            pub fn update(&mut self, message: NanoEntityMessage) {
+                match self {
+                #(
+                    NanoEntityParams::#structs(e) => {
+                        if let NanoEntityMessage::#structs(message) = message {
+                            e.update(message);
+                        }
+                    }
+                )*
+                }
+            }
+
+        }
     };
 
-    let (structs, _, _) = build_lists(things.iter().filter(|thing| thing.is_controller));
+    let (structs, _, _, _) = build_lists(things.iter().filter(|thing| thing.is_controller));
     let controller_dispatchers = quote! {
-        impl Entity {
+        impl NanoEntity {
             pub fn is_controller(&self) -> bool {
                 match self {
-                    #( Entity::#structs(_) => true, )*
+                    #( NanoEntity::#structs(_) => true, )*
                     _ => false,
                 }
             }
             pub fn as_is_controller(&self) -> Option<&dyn #core_crate::traits::IsController<Message=MsgType>> {
                 match self {
-                    #( Entity::#structs(e) => Some(e.as_ref()), )*
+                    #( NanoEntity::#structs(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
             pub fn as_is_controller_mut(&mut self) -> Option<&mut dyn #core_crate::traits::IsController<Message=MsgType>> {
                 match self {
-                    #( Entity::#structs(e) => Some(e.as_mut()), )*
+                    #( NanoEntity::#structs(e) => Some(e.as_mut()), )*
                     _ => None,
                 }
             }
         }
-        // impl EntityParams {
-        //     pub fn is_controller(&self) -> bool {
-        //         match self {
-        //             #( EntityParams::#structs(_) => true, )*
-        //             _ => false,
-        //         }
-        //     }
-        // }
+        impl NanoEntityParams {
+            pub fn is_controller(&self) -> bool {
+                match self {
+                    #( NanoEntityParams::#structs(_) => true, )*
+                    _ => false,
+                }
+            }
+        }
     };
 
-    let (structs, _, _) = build_lists(things.iter().filter(|thing| thing.is_controllable));
+    let (structs, _, _, _) = build_lists(things.iter().filter(|thing| thing.is_controllable));
     let controllable_dispatchers = quote! {
-        impl Entity {
+        impl NanoEntity {
             pub fn is_controllable(&self) -> bool {
                 match self {
-                    #( Entity::#structs(_) => true, )*
+                    #( NanoEntity::#structs(_) => true, )*
                     _ => false,
                 }
             }
             pub fn as_controllable(&self) -> Option<&dyn #core_crate::traits::Controllable> {
                 match self {
-                    #( Entity::#structs(e) => Some(e.as_ref()), )*
+                    #( NanoEntity::#structs(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
             pub fn as_controllable_mut(&mut self) -> Option<&mut dyn #core_crate::traits::Controllable> {
                 match self {
-                    #( Entity::#structs(e) => Some(e.as_mut()), )*
+                    #( NanoEntity::#structs(e) => Some(e.as_mut()), )*
                     _ => None,
                 }
             }
         }
-        // impl EntityParams {
-        //     pub fn is_controllable(&self) -> bool {
-        //         match self {
-        //             #( EntityParams::#structs(_) => true, )*
-        //             _ => false,
-        //         }
-        //     }
-        //     pub fn as_controllable(&self) -> Option<&dyn #core_crate::traits::Controllable> {
-        //         match self {
-        //             #( EntityParams::#structs(e) => Some(e.as_ref()), )*
-        //             _ => None,
-        //         }
-        //     }
-        //     pub fn as_controllable_mut(&mut self) -> Option<&mut dyn #core_crate::traits::Controllable> {
-        //         match self {
-        //             #( EntityParams::#structs(e) => Some(e.as_mut()), )*
-        //             _ => None,
-        //         }
-        //     }
-        // }
+        impl NanoEntityParams {
+            pub fn is_controllable(&self) -> bool {
+                match self {
+                    #( NanoEntityParams::#structs(_) => true, )*
+                    _ => false,
+                }
+            }
+            pub fn as_controllable(&self) -> Option<&dyn #core_crate::traits::Controllable> {
+                match self {
+                    #( NanoEntityParams::#structs(e) => Some(e.as_ref()), )*
+                    _ => None,
+                }
+            }
+            pub fn as_controllable_mut(&mut self) -> Option<&mut dyn #core_crate::traits::Controllable> {
+                match self {
+                    #( NanoEntityParams::#structs(e) => Some(e.as_mut()), )*
+                    _ => None,
+                }
+            }
+        }
     };
 
-    let (structs, _, _) = build_lists(things.iter().filter(|thing| thing.is_effect));
+    let (structs, _, _, _) = build_lists(things.iter().filter(|thing| thing.is_effect));
     let effect_dispatchers = quote! {
-        impl Entity {
+        impl NanoEntity {
             pub fn as_is_effect(&self) -> Option<&dyn #core_crate::traits::IsEffect> {
                 match self {
-                    #( Entity::#structs(e) => Some(e.as_ref()), )*
+                    #( NanoEntity::#structs(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
             pub fn as_is_effect_mut(&mut self) -> Option<&mut dyn #core_crate::traits::IsEffect> {
                 match self {
-                    #( Entity::#structs(e) => Some(e.as_mut()), )*
+                    #( NanoEntity::#structs(e) => Some(e.as_mut()), )*
                     _ => None,
                 }
             }
         }
     };
 
-    let (structs, _, _) = build_lists(things.iter().filter(|thing| thing.is_instrument));
+    let (structs, _, _, _) = build_lists(things.iter().filter(|thing| thing.is_instrument));
     let instrument_dispatchers = quote! {
-        impl Entity {
+        impl NanoEntity {
             pub fn as_is_instrument(&self) -> Option<&dyn #core_crate::traits::IsInstrument> {
                 match self {
-                    #( Entity::#structs(e) => Some(e.as_ref()), )*
+                    #( NanoEntity::#structs(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
             pub fn as_is_instrument_mut(&mut self) -> Option<&mut dyn #core_crate::traits::IsInstrument> {
                 match self {
-                    #( Entity::#structs(e) => Some(e.as_mut()), )*
+                    #( NanoEntity::#structs(e) => Some(e.as_mut()), )*
                     _ => None,
                 }
             }
         }
     };
 
-    let (structs, _, _) = build_lists(things.iter().filter(|thing| thing.handles_midi));
+    let (structs, _, _, _) = build_lists(things.iter().filter(|thing| thing.handles_midi));
     let handles_midi_dispatchers = quote! {
-        impl Entity {
+        impl NanoEntity {
             pub fn as_handles_midi(&self) -> Option<&dyn #core_crate::traits::HandlesMidi> {
                 match self {
-                    #( Entity::#structs(e) => Some(e.as_ref()), )*
+                    #( NanoEntity::#structs(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
             pub fn as_handles_midi_mut(&mut self) -> Option<&mut dyn #core_crate::traits::HandlesMidi> {
                 match self {
-                    #( Entity::#structs(e) => Some(e.as_mut()), )*
+                    #( NanoEntity::#structs(e) => Some(e.as_mut()), )*
                     _ => None,
                 }
             }

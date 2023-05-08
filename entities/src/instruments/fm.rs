@@ -9,9 +9,9 @@ use groove_core::{
         Resets, Ticks,
     },
     voices::StealingVoiceStore,
-    BipolarNormal, Dca, DcaNano, FrequencyHz, Normal, ParameterType, Ratio, Sample, StereoSample,
+    BipolarNormal, Dca, DcaParams, FrequencyHz, Normal, ParameterType, Ratio, Sample, StereoSample,
 };
-use groove_proc_macros::{Nano, Uid};
+use groove_proc_macros::{Control, Nano, Params, Uid};
 use std::{fmt::Debug, str::FromStr};
 use strum::EnumCount;
 use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
@@ -128,20 +128,20 @@ impl Ticks for FmVoice {
     }
 }
 impl FmVoice {
-    pub fn new_with(params: FmSynthNano) -> Self {
+    pub fn new_with(params: &FmSynthParams) -> Self {
         Self {
             sample_rate: Default::default(),
             sample: Default::default(),
-            carrier: Oscillator::new_with(OscillatorParams::default_with_waveform(Waveform::Sine)),
-            modulator: Oscillator::new_with(OscillatorParams::default_with_waveform(
+            carrier: Oscillator::new_with(&OscillatorParams::default_with_waveform(Waveform::Sine)),
+            modulator: Oscillator::new_with(&OscillatorParams::default_with_waveform(
                 Waveform::Sine,
             )),
             modulator_depth: params.depth,
             modulator_ratio: params.ratio,
             modulator_beta: params.beta,
-            carrier_envelope: Envelope::new_with(params.carrier_envelope().clone()),
-            modulator_envelope: Envelope::new_with(params.modulator_envelope().clone()),
-            dca: Dca::new_with(DcaNano {
+            carrier_envelope: Envelope::new_with(&params.carrier_envelope),
+            modulator_envelope: Envelope::new_with(&params.modulator_envelope),
+            dca: Dca::new_with(&DcaParams {
                 gain: params.gain(),
                 pan: params.pan(),
             }),
@@ -193,12 +193,12 @@ impl FmVoice {
 
     // TODO: we'll have to be smarter about subbing in a new envelope, possibly
     // while the voice is playing.
-    pub fn set_carrier_envelope(&mut self, params: EnvelopeParams) {
-        self.carrier_envelope = Envelope::new_with(params)
+    pub fn set_carrier_envelope(&mut self, envelope: Envelope) {
+        self.carrier_envelope = envelope;
     }
 
-    pub fn set_modulator_envelope(&mut self, params: EnvelopeParams) {
-        self.modulator_envelope = Envelope::new_with(params)
+    pub fn set_modulator_envelope(&mut self, envelope: Envelope) {
+        self.modulator_envelope = envelope;
     }
 
     fn set_gain(&mut self, gain: Normal) {
@@ -210,27 +210,34 @@ impl FmVoice {
     }
 }
 
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct FmSynth {
-    #[nano]
+    #[control]
+    #[params]
     depth: Normal,
 
-    #[nano]
+    #[control]
+    #[params]
     ratio: Ratio,
 
-    #[nano]
+    #[control]
+    #[params]
     beta: ParameterType,
 
-    #[nano(control = false, no_copy = true)]
-    carrier_envelope: EnvelopeParams,
+    #[control]
+    #[params]
+    carrier_envelope: Envelope,
 
-    #[nano(control = false, no_copy = true)]
-    modulator_envelope: EnvelopeParams,
+    #[control]
+    #[params]
+    modulator_envelope: Envelope,
 
-    #[nano]
+    #[control]
+    #[params]
     gain: Normal,
 
-    #[nano]
+    #[control]
+    #[params]
     pan: BipolarNormal,
 
     uid: usize,
@@ -265,10 +272,10 @@ impl HandlesMidi for FmSynth {
     }
 }
 impl FmSynth {
-    pub fn new_with(params: FmSynthNano) -> Self {
+    pub fn new_with(params: &FmSynthParams) -> Self {
         const VOICE_CAPACITY: usize = 8;
         let voice_store = StealingVoiceStore::<FmVoice>::new_with_voice(VOICE_CAPACITY, || {
-            FmVoice::new_with(params.clone())
+            FmVoice::new_with(&params)
         });
 
         Self {
@@ -277,8 +284,8 @@ impl FmSynth {
             depth: params.depth(),
             ratio: params.ratio(),
             beta: params.beta(),
-            carrier_envelope: params.carrier_envelope().clone(),
-            modulator_envelope: params.modulator_envelope().clone(),
+            carrier_envelope: Envelope::new_with(&params.carrier_envelope),
+            modulator_envelope: Envelope::new_with(&params.modulator_envelope),
             gain: params.gain(),
             pan: params.pan(),
         }
@@ -317,6 +324,7 @@ impl FmSynth {
         self.beta
     }
 
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: FmSynthMessage) {
         match message {
             FmSynthMessage::FmSynth(_s) => {
@@ -326,18 +334,18 @@ impl FmSynth {
         }
     }
 
-    pub fn set_carrier_envelope(&mut self, carrier_envelope: EnvelopeParams) {
+    pub fn set_carrier_envelope(&mut self, carrier_envelope: Envelope) {
         self.carrier_envelope = carrier_envelope;
-        self.inner_synth
-            .voices_mut()
-            .for_each(|v| v.set_carrier_envelope(self.carrier_envelope.clone()));
+        self.inner_synth.voices_mut().for_each(|v| {
+            v.set_carrier_envelope(Envelope::new_with(&self.carrier_envelope.as_params()))
+        });
     }
 
-    pub fn set_modulator_envelope(&mut self, modulator_envelope: EnvelopeParams) {
+    pub fn set_modulator_envelope(&mut self, modulator_envelope: Envelope) {
         self.modulator_envelope = modulator_envelope;
-        self.inner_synth
-            .voices_mut()
-            .for_each(|v| v.set_modulator_envelope(self.modulator_envelope.clone()));
+        self.inner_synth.voices_mut().for_each(|v| {
+            v.set_modulator_envelope(Envelope::new_with(&self.modulator_envelope.as_params()))
+        });
     }
 
     pub fn set_gain(&mut self, gain: Normal) {

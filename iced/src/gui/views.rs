@@ -6,54 +6,56 @@ use super::{
 };
 //use groove::{app_version, Orchestrator};
 use groove_core::{
-    time::{Clock, ClockMessage, ClockNano, TimeSignature},
+    time::{Clock, ClockMessage, ClockParams, TimeSignature},
     traits::{HasUid, MessageBounds},
     BipolarNormal, Normal, ParameterType, StereoSample,
 };
 use groove_entities::{
     controllers::{
-        Arpeggiator, ArpeggiatorMessage, ArpeggiatorNano, ControlTrip, ControlTripMessage,
-        ControlTripNano, LfoController, LfoControllerMessage, LfoControllerNano, MidiTickSequencer,
-        MidiTickSequencerMessage, MidiTickSequencerNano, Note, Pattern, PatternManager,
-        PatternManagerMessage, PatternManagerNano, PatternMessage, Sequencer, SequencerMessage,
-        SequencerNano, SignalPassthroughController, SignalPassthroughControllerMessage,
-        SignalPassthroughControllerNano, Timer, TimerMessage, TimerNano, Trigger, TriggerMessage,
-        TriggerNano,
+        Arpeggiator, ArpeggiatorMessage, ArpeggiatorParams, ControlTrip, ControlTripMessage,
+        ControlTripParams, LfoController, LfoControllerMessage, LfoControllerParams, MidiTickSequencer,
+        MidiTickSequencerMessage, MidiTickSequencerParams, Note, Pattern, PatternManager,
+        PatternManagerMessage, PatternManagerParams, PatternMessage, Sequencer, SequencerMessage,
+        SequencerParams, SignalPassthroughController, SignalPassthroughControllerMessage,
+        SignalPassthroughControllerParams, Timer, TimerMessage, TimerParams, Trigger, TriggerMessage,
+        TriggerParams,
     },
     effects::{
-        BiQuadFilterAllPass, BiQuadFilterAllPassMessage, BiQuadFilterAllPassNano,
-        BiQuadFilterBandPass, BiQuadFilterBandPassMessage, BiQuadFilterBandPassNano,
-        BiQuadFilterBandStop, BiQuadFilterBandStopMessage, BiQuadFilterBandStopNano,
-        BiQuadFilterHighPass, BiQuadFilterHighPassMessage, BiQuadFilterHighPassNano,
-        BiQuadFilterHighShelf, BiQuadFilterHighShelfMessage, BiQuadFilterHighShelfNano,
-        BiQuadFilterLowPass12db, BiQuadFilterLowPass12dbMessage, BiQuadFilterLowPass12dbNano,
-        BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbMessage, BiQuadFilterLowPass24dbNano,
-        BiQuadFilterLowShelf, BiQuadFilterLowShelfMessage, BiQuadFilterLowShelfNano,
-        BiQuadFilterNone, BiQuadFilterNoneMessage, BiQuadFilterNoneNano, BiQuadFilterPeakingEq,
-        BiQuadFilterPeakingEqMessage, BiQuadFilterPeakingEqNano, Bitcrusher, BitcrusherMessage,
-        BitcrusherNano, Chorus, ChorusMessage, ChorusNano, Compressor, CompressorMessage,
-        CompressorNano, Delay, DelayMessage, DelayNano, Gain, GainMessage, GainNano, Limiter,
-        LimiterMessage, LimiterNano, Mixer, MixerMessage, MixerNano, Reverb, ReverbMessage,
-        ReverbNano,
+        BiQuadFilterAllPass, BiQuadFilterAllPassMessage, BiQuadFilterAllPassParams,
+        BiQuadFilterBandPass, BiQuadFilterBandPassMessage, BiQuadFilterBandPassParams,
+        BiQuadFilterBandStop, BiQuadFilterBandStopMessage, BiQuadFilterBandStopParams,
+        BiQuadFilterHighPass, BiQuadFilterHighPassMessage, BiQuadFilterHighPassParams,
+        BiQuadFilterHighShelf, BiQuadFilterHighShelfMessage, BiQuadFilterHighShelfParams,
+        BiQuadFilterLowPass12db, BiQuadFilterLowPass12dbMessage, BiQuadFilterLowPass12dbParams,
+        BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbMessage, BiQuadFilterLowPass24dbParams,
+        BiQuadFilterLowShelf, BiQuadFilterLowShelfMessage, BiQuadFilterLowShelfParams,
+        BiQuadFilterNone, BiQuadFilterNoneMessage, BiQuadFilterNoneParams, BiQuadFilterPeakingEq,
+        BiQuadFilterPeakingEqMessage, BiQuadFilterPeakingEqParams, Bitcrusher, BitcrusherMessage,
+        BitcrusherParams, Chorus, ChorusMessage, ChorusParams, Compressor, CompressorMessage,
+        CompressorParams, Delay, DelayMessage, DelayParams, Gain, GainMessage, GainParams, Limiter,
+        LimiterMessage, LimiterParams, Mixer, MixerMessage, MixerParams, Reverb, ReverbMessage,
+        ReverbParams,
     },
     instruments::{
-        Drumkit, DrumkitMessage, DrumkitNano, FmSynth, FmSynthMessage, FmSynthNano, Metronome,
-        MetronomeMessage, MetronomeNano, Sampler, SamplerMessage, SamplerNano, WelshSynth,
-        WelshSynthMessage, WelshSynthNano,
+        Drumkit, DrumkitMessage, DrumkitParams, FmSynth, FmSynthMessage, FmSynthParams, Metronome,
+        MetronomeMessage, MetronomeParams, Sampler, SamplerMessage, SamplerParams, WelshSynth,
+        WelshSynthMessage, WelshSynthParams,
     },
     EntityMessage,
 };
 use groove_orchestration::{
-    messages::ControlLink, Entity, EntityNano, Orchestrator, OtherEntityMessage,
+    messages::ControlLink, Entity, EntityParams, Orchestrator, OtherEntityMessage,
 };
 use groove_proc_macros::Views;
 use groove_toys::{
-    DebugSynth, DebugSynthMessage, DebugSynthNano, ToyAudioSource, ToyAudioSourceMessage,
-    ToyAudioSourceNano, ToyController, ToyControllerMessage, ToyControllerNano, ToyEffect,
-    ToyEffectMessage, ToyEffectNano, ToyInstrument, ToyInstrumentMessage, ToyInstrumentNano,
-    ToySynth,
+    DebugSynth, DebugSynthMessage, DebugSynthParams, ToyAudioSource, ToyAudioSourceMessage,
+    ToyAudioSourceParams, ToyEffect, ToyEffectMessage, ToyEffectParams, ToyInstrument,
+    ToyInstrumentMessage, ToyInstrumentParams, ToySynth,
 };
-use groove_toys::{ToySynthMessage, ToySynthNano};
+#[cfg(toy_controller_disabled)]
+use groove_toys::{ToyController, ToyControllerMessage, ToyControllerParams};
+
+use groove_toys::{ToySynthMessage, ToySynthParams};
 use iced::{
     alignment, theme,
     widget::{
@@ -235,6 +237,7 @@ impl ControlBar {
             .into()
     }
 
+ #[cfg(feature="iced-framework")]
     pub fn update(&mut self, message: ControlBarInput) {
         match message {
             ControlBarInput::SetClock(frames) => self.set_clock(frames),
@@ -544,13 +547,13 @@ where
 
 #[derive(Debug, Default)]
 struct EntityStore {
-    entities: FxHashMap<usize, Box<EntityNano>>,
+    entities: FxHashMap<usize, Box<EntityParams>>,
 }
 impl EntityStore {
-    fn get(&self, uid: &usize) -> Option<&Box<EntityNano>> {
+    fn get(&self, uid: &usize) -> Option<&Box<EntityParams>> {
         self.entities.get(uid)
     }
-    fn get_mut(&mut self, uid: &usize) -> Option<&mut Box<EntityNano>> {
+    fn get_mut(&mut self, uid: &usize) -> Option<&mut Box<EntityParams>> {
         self.entities.get_mut(uid)
     }
 }
@@ -1000,6 +1003,7 @@ impl Viewable for Timer {
 impl Viewable for ToyAudioSource {
     type Message = ToyAudioSourceMessage;
 }
+#[cfg(toy_controller_disabled)]
 impl<M: MessageBounds> Viewable for ToyController<M> {
     type Message = ToyControllerMessage;
 }
@@ -1469,6 +1473,7 @@ impl View {
     //     container(overall_view.push(view_column).push(mixer)).into()
     // }
 
+ #[cfg(feature="iced-framework")]
     pub fn update(
         &mut self,
         orchestrator: &mut Orchestrator,
@@ -1547,7 +1552,7 @@ impl View {
         }
     }
 
-    // fn add_entity(&mut self, uid: usize, item: EntityNano) {
+    // fn add_entity(&mut self, uid: usize, item: EntityParams) {
     //     if item.is_controller() {
     //         self.controller_uids.push(uid);
     //     }
@@ -1686,6 +1691,7 @@ enum ViewableEntities {
     #[views(instrument, midi)]
     ToyAudioSource(ToyAudioSource),
 
+    #[cfg(toy_controller_disabled)]
     #[views(controller, midi)]
     ToyController(ToyController<EntityMessage>),
 

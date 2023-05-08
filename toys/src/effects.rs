@@ -5,7 +5,7 @@ use groove_core::{
     traits::{IsEffect, Resets, TransformsAudio},
     Normal, Sample,
 };
-use groove_proc_macros::{Nano, Uid};
+use groove_proc_macros::{Control, Nano, Params, Uid};
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::str::FromStr;
@@ -16,11 +16,12 @@ use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, I
 use serde::{Deserialize, Serialize};
 
 /// An [IsEffect](groove_core::traits::IsEffect) that negates the input signal.
-#[derive(Debug, Default, Nano, Uid)]
+#[derive(Debug, Default, Control, Params, Uid)]
 pub struct ToyEffect {
     uid: usize,
 
-    #[nano]
+    #[control]
+    #[params]
     my_value: Normal,
 
     pub checkpoint_values: VecDeque<f32>,
@@ -77,7 +78,7 @@ impl ToyEffect {
         }
     }
 
-    pub fn new_with(params: ToyEffectNano) -> Self {
+    pub fn new_with(params: &ToyEffectParams) -> Self {
         Self {
             uid: Default::default(),
             my_value: params.my_value(),
@@ -88,6 +89,7 @@ impl ToyEffect {
         }
     }
 
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: ToyEffectMessage) {
         match message {
             ToyEffectMessage::ToyEffect(s) => *self = Self::new_with(s),

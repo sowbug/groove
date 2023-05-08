@@ -3,6 +3,7 @@
 //! The suite of instruments, effects, and controllers supplied with Groove.
 
 pub use messages::EntityMessage;
+#[cfg(toy_controller_disabled)]
 pub use messages::ToyMessageMaker;
 
 /// Controllers implement the [IsController](groove_core::traits::IsController)

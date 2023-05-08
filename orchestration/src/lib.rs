@@ -4,13 +4,16 @@
 //! generation of audio from all the [Entities](entities::Entity) in the
 //! system.
 
-pub use entities::{Entity, EntityNano, OtherEntityMessage};
+pub use entities::{Entity, EntityParams};
 pub use orchestrator::{Orchestrator, Performance};
+
+#[cfg(feature = "iced-framework")]
+pub use entities::OtherEntityMessage;
 
 pub mod helpers;
 pub mod messages;
 
-mod entities;
+mod entities_EXPANDED;
 mod orchestrator;
 mod util;
 
@@ -25,6 +28,7 @@ mod tests {
     pub const DEFAULT_BPM: ParameterType = 128.0;
     pub const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
 
+    #[cfg(feature = "iced-framework")]
     mod nano {
         use groove_core::{
             control::F32ControlValue,
@@ -220,12 +224,12 @@ mod tests {
         }
         impl Resets for Misc {}
         impl Misc {
-            pub fn new_with(params: MiscNano) -> Self {
+            pub fn new_with(nano: MiscNano) -> Self {
                 Self {
                     uid: Default::default(),
-                    cat_count: params.cat_count(),
-                    dog_count: params.dog_count(),
-                    stuff: params.stuff().clone(),
+                    cat_count: nano.cat_count(),
+                    dog_count: nano.dog_count(),
+                    stuff: nano.stuff().clone(),
                 }
             }
             pub fn update(&mut self, message: MiscMessage) {

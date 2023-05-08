@@ -5,15 +5,13 @@ use crate::{
     ParameterType,
 };
 use anyhow::{anyhow, Error};
-use groove_proc_macros::{Nano, Uid};
-use std::str::FromStr;
+use groove_proc_macros::{Control, Params, Uid};
 use std::{
     cmp::Ordering,
     fmt::Display,
     ops::{Add, Mul},
 };
-use strum::EnumCount;
-use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
+use strum_macros::FromRepr;
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -32,15 +30,18 @@ pub enum ClockTimeUnit {
 }
 
 /// A timekeeper that operates in terms of sample rate.
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct Clock {
-    #[nano]
+    #[control]
+    #[params]
     bpm: ParameterType,
 
-    #[nano]
+    #[control]
+    #[params]
     midi_ticks_per_second: usize,
 
-    #[nano(control = false, no_copy = true)]
+    #[control]
+    #[params]
     time_signature: TimeSignature,
 
     /// The number of frames per second. Usually 44.1KHz for CD-quality audio.
@@ -79,12 +80,12 @@ pub struct Clock {
 }
 
 impl Clock {
-    pub fn new_with(params: ClockNano) -> Self {
+    pub fn new_with(params: &ClockParams) -> Self {
         Self {
             sample_rate: Default::default(),
             bpm: params.bpm(),
             midi_ticks_per_second: params.midi_ticks_per_second(),
-            time_signature: params.time_signature().clone(),
+            time_signature: TimeSignature::new(&params.time_signature).unwrap(),
             frames: Default::default(),
             seconds: Default::default(),
             beats: Default::default(),
@@ -187,6 +188,7 @@ impl Clock {
         }
     }
 
+    #[cfg(feature="iced-framework")]
     pub fn update(&mut self, message: ClockMessage) {
         match message {
             ClockMessage::Clock(s) => *self = Self::new_with(s),
@@ -414,7 +416,7 @@ impl BeatValue {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Control, Params, Debug, Eq, PartialEq)]
 #[cfg_attr(
     feature = "serialization",
     derive(Serialize, Deserialize),
@@ -451,10 +453,19 @@ pub struct TimeSignature {
     //   The only relevance seems to be whether we'd round a 5-slot pattern in a
     //   4/4 song to the next even measure, or just tack the next pattern
     //   directly onto the sixth beat.
+    #[control]
+    #[params]
     pub top: usize,
+
+    #[control]
+    #[params]
     pub bottom: usize,
 }
 impl TimeSignature {
+    pub fn new(params: &TimeSignatureParams) -> anyhow::Result<Self, Error> {
+        Self::new_with(params.top, params.bottom)
+    }
+
     pub fn new_with(top: usize, bottom: usize) -> anyhow::Result<Self, Error> {
         if top == 0 {
             Err(anyhow!("Time signature top can't be zero."))
@@ -469,6 +480,14 @@ impl TimeSignature {
         // It's safe to unwrap because the constructor already blew up if the
         // bottom were out of range.
         BeatValue::from_divisor(self.bottom as f32).unwrap()
+    }
+
+    pub fn set_top(&mut self, top: usize) {
+        self.top = top;
+    }
+
+    pub fn set_bottom(&mut self, bottom: usize) {
+        self.bottom = bottom;
     }
 }
 impl Default for TimeSignature {
@@ -487,10 +506,10 @@ mod tests {
 
     impl Clock {
         pub fn new_test() -> Self {
-            Clock::new_with(ClockNano {
+            Clock::new_with(&ClockParams {
                 bpm: DEFAULT_BPM,
                 midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-                time_signature: TimeSignature { top: 4, bottom: 4 },
+                time_signature: TimeSignatureParams { top: 4, bottom: 4 },
             })
         }
 

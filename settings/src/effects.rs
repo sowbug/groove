@@ -1,58 +1,58 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_entities::effects::{
-    BiQuadFilterAllPass, BiQuadFilterAllPassNano, BiQuadFilterBandPass, BiQuadFilterBandPassNano,
-    BiQuadFilterBandStop, BiQuadFilterBandStopNano, BiQuadFilterHighPass, BiQuadFilterHighPassNano,
-    BiQuadFilterHighShelf, BiQuadFilterHighShelfNano, BiQuadFilterLowPass12db,
-    BiQuadFilterLowPass12dbNano, BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbNano,
-    BiQuadFilterLowShelf, BiQuadFilterLowShelfNano, BiQuadFilterPeakingEq,
-    BiQuadFilterPeakingEqNano, Bitcrusher, BitcrusherNano, Chorus, ChorusNano, Compressor,
-    CompressorNano, Delay, DelayNano, Gain, GainNano, Limiter, LimiterNano, Mixer, MixerNano,
-    Reverb, ReverbNano,
+    BiQuadFilterAllPass, BiQuadFilterAllPassParams, BiQuadFilterBandPass, BiQuadFilterBandPassParams,
+    BiQuadFilterBandStop, BiQuadFilterBandStopParams, BiQuadFilterHighPass, BiQuadFilterHighPassParams,
+    BiQuadFilterHighShelf, BiQuadFilterHighShelfParams, BiQuadFilterLowPass12db,
+    BiQuadFilterLowPass12dbParams, BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbParams,
+    BiQuadFilterLowShelf, BiQuadFilterLowShelfParams, BiQuadFilterPeakingEq,
+    BiQuadFilterPeakingEqParams, Bitcrusher, BitcrusherParams, Chorus, ChorusParams, Compressor,
+    CompressorParams, Delay, DelayParams, Gain, GainParams, Limiter, LimiterParams, Mixer, MixerParams,
+    Reverb, ReverbParams,
 };
 use groove_orchestration::Entity;
-use groove_toys::{ToyEffect, ToyEffectNano};
+use groove_toys::{ToyEffect, ToyEffectParams};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum EffectSettings {
     #[serde(rename_all = "kebab-case")]
-    Toy(ToyEffectNano),
+    Toy(ToyEffectParams),
     #[serde(rename_all = "kebab-case")]
-    Mixer(MixerNano),
+    Mixer(MixerParams),
     #[serde(rename_all = "kebab-case")]
-    Gain(GainNano),
+    Gain(GainParams),
     #[serde(rename_all = "kebab-case")]
-    Limiter(LimiterNano),
+    Limiter(LimiterParams),
     #[serde(rename_all = "kebab-case")]
-    Bitcrusher(BitcrusherNano),
+    Bitcrusher(BitcrusherParams),
     #[serde(rename_all = "kebab-case")]
-    Chorus(ChorusNano),
+    Chorus(ChorusParams),
     #[serde(rename_all = "kebab-case")]
-    Compressor(CompressorNano),
+    Compressor(CompressorParams),
     #[serde(rename_all = "kebab-case")]
-    Delay(DelayNano),
+    Delay(DelayParams),
     #[serde(rename_all = "kebab-case")]
-    Reverb(ReverbNano),
+    Reverb(ReverbParams),
     #[serde(rename = "filter-low-pass-12db")]
-    FilterLowPass12db(BiQuadFilterLowPass12dbNano),
+    FilterLowPass12db(BiQuadFilterLowPass12dbParams),
     #[serde(rename = "filter-low-pass-24db")]
-    FilterLowPass24db(BiQuadFilterLowPass24dbNano),
+    FilterLowPass24db(BiQuadFilterLowPass24dbParams),
     #[serde(rename = "filter-high-pass-12db")]
-    FilterHighPass12db(BiQuadFilterHighPassNano),
+    FilterHighPass12db(BiQuadFilterHighPassParams),
     #[serde(rename = "filter-band-pass-12db")]
-    FilterBandPass12db(BiQuadFilterBandPassNano),
+    FilterBandPass12db(BiQuadFilterBandPassParams),
     #[serde(rename = "filter-band-stop-12db")]
-    FilterBandStop12db(BiQuadFilterBandStopNano),
+    FilterBandStop12db(BiQuadFilterBandStopParams),
     #[serde(rename = "filter-all-pass-12db")]
-    FilterAllPass12db(BiQuadFilterAllPassNano),
+    FilterAllPass12db(BiQuadFilterAllPassParams),
     #[serde(rename = "filter-peaking-eq-12db")]
-    FilterPeakingEq12db(BiQuadFilterPeakingEqNano),
+    FilterPeakingEq12db(BiQuadFilterPeakingEqParams),
     #[serde(rename = "filter-low-shelf-12db")]
-    FilterLowShelf12db(BiQuadFilterLowShelfNano),
+    FilterLowShelf12db(BiQuadFilterLowShelfParams),
     #[serde(rename = "filter-high-shelf-12db")]
-    FilterHighShelf12db(BiQuadFilterHighShelfNano),
+    FilterHighShelf12db(BiQuadFilterHighShelfParams),
 }
 
 impl EffectSettings {

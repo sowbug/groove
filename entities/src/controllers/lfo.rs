@@ -8,22 +8,22 @@ use groove_core::{
     traits::{Generates, IsController, Performs, Resets, Ticks, TicksWithMessages},
     FrequencyHz, Normal, ParameterType,
 };
-use groove_proc_macros::{Nano, Uid};
-use std::{ops::RangeInclusive, str::FromStr};
-use strum::EnumCount;
-use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
+use groove_proc_macros::{Control, Params, Uid};
+use std::ops::RangeInclusive;
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
 /// Uses an internal LFO as a control source.
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct LfoController {
     uid: usize,
 
-    #[nano]
+    #[control]
+    #[params]
     waveform: Waveform,
-    #[nano]
+    #[control]
+    #[params]
     frequency: FrequencyHz,
 
     oscillator: Oscillator,
@@ -67,10 +67,10 @@ impl Performs for LfoController {
     }
 }
 impl LfoController {
-    pub fn new_with(params: LfoControllerNano) -> Self {
+    pub fn new_with(params: &LfoControllerParams) -> Self {
         Self {
             uid: Default::default(),
-            oscillator: Oscillator::new_with(OscillatorParams {
+            oscillator: Oscillator::new_with(&OscillatorParams {
                 waveform: params.waveform,
                 frequency: params.frequency,
                 ..Default::default()
@@ -105,6 +105,7 @@ impl LfoController {
         self.oscillator.set_frequency(frequency);
     }
 
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: LfoControllerMessage) {
         match message {
             LfoControllerMessage::LfoController(s) => *self = Self::new_with(s),

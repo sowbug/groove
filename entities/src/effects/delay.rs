@@ -4,7 +4,7 @@ use groove_core::{
     traits::{IsEffect, Resets, TransformsAudio},
     Normal, ParameterType, Sample, SignalType,
 };
-use groove_proc_macros::{Nano, Uid};
+use groove_proc_macros::{Control, Nano, Params, Uid};
 use std::str::FromStr;
 use strum::EnumCount;
 use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
@@ -197,11 +197,11 @@ impl Resets for AllPassDelayLine {
     }
 }
 
-#[derive(Debug, Default, Nano, Uid)]
+#[derive(Debug, Default, Control, Params, Uid)]
 pub struct Delay {
     uid: usize,
 
-    #[nano]
+    #[control] #[params]
     seconds: ParameterType,
 
     delay: DelayLine,
@@ -223,7 +223,7 @@ impl Delay {
         Self::default()
     }
 
-    pub fn new_with(params: DelayNano) -> Self {
+    pub fn new_with(params: &DelayParams) -> Self {
         Self {
             seconds: params.seconds(),
             delay: DelayLine::new_with(params.seconds(), 1.0),
@@ -239,6 +239,7 @@ impl Delay {
         self.delay.set_delay_seconds(seconds);
     }
 
+ #[cfg(feature="iced-framework")]
     pub fn update(&mut self, message: DelayMessage) {
         match message {
             DelayMessage::Delay(s) => *self = Self::new_with(s),
@@ -262,7 +263,7 @@ mod tests {
 
     #[test]
     fn basic_delay() {
-        let mut fx = Delay::new_with(DelayNano { seconds: 1.0 });
+        let mut fx = Delay::new_with(&DelayParams { seconds: 1.0 });
         fx.reset(DEFAULT_SAMPLE_RATE);
 
         // Add a unique first sample.
@@ -287,7 +288,7 @@ mod tests {
 
     #[test]
     fn delay_zero() {
-        let mut fx = Delay::new_with(DelayNano { seconds: 0.0 });
+        let mut fx = Delay::new_with(&DelayParams { seconds: 0.0 });
         fx.reset(DEFAULT_SAMPLE_RATE);
 
         // We should keep getting back what we put in.

@@ -2,16 +2,16 @@
 
 use super::MidiChannel;
 use crate::patches::WelshPatchSettings;
-use groove_core::Normal;
+use groove_core::{DcaParams, Normal};
 use groove_entities::{
-    controllers::MidiChannelInputNano,
+    controllers::MidiChannelInputParams,
     instruments::{
-        Drumkit, DrumkitNano, FmSynth, FmSynthNano, Sampler, SamplerNano, WelshSynth,
-        WelshSynthNano,
+        Drumkit, DrumkitParams, FmSynth, FmSynthParams, Sampler, SamplerParams, WelshSynth,
+        WelshSynthParams,
     },
 };
 use groove_orchestration::Entity;
-use groove_toys::{ToyInstrument, ToyInstrumentNano};
+use groove_toys::{ToyInstrument, ToyInstrumentParams};
 use groove_utils::Paths;
 use serde::{Deserialize, Serialize};
 
@@ -24,17 +24,17 @@ pub struct WelshPatchWrapper {
 #[serde(rename_all = "kebab-case")]
 pub enum InstrumentSettings {
     #[serde(rename_all = "kebab-case")]
-    ToyInstrument(MidiChannelInputNano, ToyInstrumentNano),
+    ToyInstrument(MidiChannelInputParams, ToyInstrumentParams),
     #[serde(rename_all = "kebab-case")]
-    Welsh(MidiChannelInputNano, WelshPatchWrapper),
+    Welsh(MidiChannelInputParams, WelshPatchWrapper),
     #[serde(rename_all = "kebab-case")]
-    WelshRaw(MidiChannelInputNano, WelshSynthNano),
+    WelshRaw(MidiChannelInputParams, WelshSynthParams),
     #[serde(rename_all = "kebab-case")]
-    Drumkit(MidiChannelInputNano, DrumkitNano),
+    Drumkit(MidiChannelInputParams, DrumkitParams),
     #[serde(rename_all = "kebab-case")]
-    Sampler(MidiChannelInputNano, SamplerNano),
+    Sampler(MidiChannelInputParams, SamplerParams),
     #[serde(rename_all = "kebab-case")]
-    FmSynthesizer(MidiChannelInputNano, FmSynthNano),
+    FmSynthesizer(MidiChannelInputParams, FmSynthParams),
 }
 
 impl InstrumentSettings {
@@ -54,25 +54,26 @@ impl InstrumentSettings {
             };
             return (
                 midi_input_channel,
-                Entity::ToyInstrument(Box::new(ToyInstrument::new_with(ToyInstrumentNano {
+                Entity::ToyInstrument(Box::new(ToyInstrument::new_with(&ToyInstrumentParams {
                     fake_value: Normal::from(0.23498239),
+                    dca: DcaParams::default(),
                 }))),
             );
         }
         match self {
             InstrumentSettings::ToyInstrument(midi, params) => (
                 midi.midi_in,
-                Entity::ToyInstrument(Box::new(ToyInstrument::new_with(params.clone()))),
+                Entity::ToyInstrument(Box::new(ToyInstrument::new_with(&params))),
             ),
             InstrumentSettings::Welsh(midi, patch) => (
                 midi.midi_in,
                 Entity::WelshSynth(Box::new(WelshSynth::new_with(
-                    WelshPatchSettings::by_name(paths, &patch.name).derive_welsh_synth_nano(),
+                    &WelshPatchSettings::by_name(paths, &patch.name).derive_welsh_synth_params(),
                 ))),
             ),
             InstrumentSettings::WelshRaw(midi, params) => (
                 midi.midi_in,
-                Entity::WelshSynth(Box::new(WelshSynth::new_with(params.clone()))),
+                Entity::WelshSynth(Box::new(WelshSynth::new_with(&params))),
             ),
             InstrumentSettings::Drumkit(midi, params) => (
                 midi.midi_in,
@@ -84,7 +85,7 @@ impl InstrumentSettings {
             ),
             InstrumentSettings::FmSynthesizer(midi, params) => (
                 midi.midi_in,
-                Entity::FmSynth(Box::new(FmSynth::new_with(params.clone()))),
+                Entity::FmSynth(Box::new(FmSynth::new_with(&params))),
             ),
         }
     }

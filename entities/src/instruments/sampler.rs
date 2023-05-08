@@ -8,7 +8,7 @@ use groove_core::{
     voices::VoiceStore,
     FrequencyHz, ParameterType, Sample, SampleType, StereoSample,
 };
-use groove_proc_macros::{Nano, Uid};
+use groove_proc_macros::{Control, Nano, Params, Uid};
 use groove_utils::Paths;
 use hound::WavReader;
 use std::{
@@ -115,15 +115,16 @@ impl SamplerVoice {
     }
 }
 
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct Sampler {
     uid: usize,
     inner_synth: Synthesizer<SamplerVoice>,
 
-    #[nano(control = false, no_copy = true)]
+    #[params]
     filename: String,
 
-    #[nano]
+    #[control]
+    #[params]
     root: FrequencyHz,
 
     calculated_root: FrequencyHz,
@@ -158,8 +159,8 @@ impl Resets for Sampler {
     }
 }
 impl Sampler {
-    pub fn new_with(paths: &Paths, params: SamplerNano) -> Self {
-        let path = paths.build_sample(&Vec::default(), Path::new(params.filename()));
+    pub fn new_with(paths: &Paths, params: SamplerParams) -> Self {
+        let path = paths.build_sample(&Vec::default(), Path::new(&params.filename()));
         if let Ok(file) = paths.search_and_open(path.as_path()) {
             if let Ok(mut f2) = file.try_clone() {
                 if let Ok(samples) = Self::read_samples_from_file(&file) {
@@ -312,6 +313,7 @@ impl Sampler {
         self.root
     }
 
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: SamplerMessage) {
         match message {
             SamplerMessage::Sampler(_) => todo!(),
@@ -357,7 +359,7 @@ mod tests {
         let paths = paths_with_test_data_dir();
         let sampler = Sampler::new_with(
             &paths,
-            SamplerNano {
+            SamplerParams {
                 filename: "stereo-pluck.wav".to_string(),
                 root: 0.0.into(),
             },
@@ -366,7 +368,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Re-enable when SamplerNano knows how to handle String"]
+    #[ignore = "Re-enable when SamplerParams knows how to handle String"]
     fn reading_acidized_metadata() {
         let filename = PathBuf::from("riff-acidized.wav");
         let mut file = std::fs::File::open(filename).unwrap();
@@ -395,7 +397,7 @@ mod tests {
         let paths = paths_with_test_data_dir();
         let sampler = Sampler::new_with(
             &paths,
-            SamplerNano {
+            SamplerParams {
                 filename: "riff-acidized.wav".to_string(),
                 root: 0.0.into(),
             },
@@ -409,7 +411,7 @@ mod tests {
 
         let sampler = Sampler::new_with(
             &paths,
-            SamplerNano {
+            SamplerParams {
                 filename: "riff-acidized.wav".to_string(),
                 root: 123.0.into(),
             },
@@ -422,7 +424,7 @@ mod tests {
 
         let sampler = Sampler::new_with(
             &paths,
-            SamplerNano {
+            SamplerParams {
                 filename: "riff-not-acidized.wav".to_string(),
                 root: 123.0.into(),
             },
@@ -435,7 +437,7 @@ mod tests {
 
         let sampler = Sampler::new_with(
             &paths,
-            SamplerNano {
+            SamplerParams {
                 filename: "riff-not-acidized.wav".to_string(),
                 root: 0.0.into(),
             },

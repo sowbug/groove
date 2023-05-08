@@ -5,7 +5,7 @@ use groove_core::{
     traits::{IsEffect, Resets, TransformsAudio},
     ParameterType, Sample, SampleType,
 };
-use groove_proc_macros::{Nano, Uid};
+use groove_proc_macros::{Control, Nano, Params, Uid};
 use std::str::FromStr;
 use strum::EnumCount;
 use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
@@ -15,14 +15,14 @@ use serde::{Deserialize, Serialize};
 
 /// Schroeder reverb. Uses four parallel recirculating delay lines feeding into
 /// a series of two all-pass delay lines.
-#[derive(Debug, Default, Nano, Uid)]
+#[derive(Debug, Default, Control, Params, Uid)]
 pub struct Chorus {
     uid: usize,
 
-    #[nano]
+    #[control] #[params]
     voices: usize,
 
-    #[nano]
+    #[control] #[params]
     delay_seconds: ParameterType,
 
     // what percentage of the output should be processed. 0.0 = all dry (no
@@ -30,7 +30,7 @@ pub struct Chorus {
     //
     // TODO: maybe handle the wet/dry more centrally. It seems like it'll be
     // repeated a lot.
-    #[nano]
+    #[control] #[params]
     wet_dry_mix: f32,
 
     delay: DelayLine,
@@ -58,7 +58,7 @@ impl Chorus {
         Self::default()
     }
 
-    pub fn new_with(params: ChorusNano) -> Self {
+    pub fn new_with(params: &ChorusParams) -> Self {
         // TODO: the delay_seconds param feels like a hack
         Self {
             uid: Default::default(),
@@ -73,6 +73,7 @@ impl Chorus {
         self.wet_dry_mix = wet_pct;
     }
 
+ #[cfg(feature="iced-framework")]
     pub fn update(&mut self, message: ChorusMessage) {
         match message {
             ChorusMessage::Chorus(s) => *self = Self::new_with(s),

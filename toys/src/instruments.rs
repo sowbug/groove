@@ -10,12 +10,10 @@ use groove_core::{
         Resets, Ticks,
     },
     voices::VoiceStore,
-    BipolarNormal, Dca, DcaNano, Normal, ParameterType, Sample, SampleType, StereoSample,
+    BipolarNormal, Dca, DcaParams, Normal, ParameterType, Sample, SampleType, StereoSample,
 };
-use groove_proc_macros::{Nano, Uid};
-use std::{collections::VecDeque, fmt::Debug, str::FromStr};
-use strum::EnumCount;
-use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
+use groove_proc_macros::{Control, Params, Uid};
+use std::{collections::VecDeque, fmt::Debug};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -24,16 +22,20 @@ use serde::{Deserialize, Serialize};
 /// Oscillator to produce sound. Its "envelope" is just a boolean that responds
 /// to MIDI NoteOn/NoteOff. [Controllable](groove_core::traits::Controllable) by
 /// two parameters: Oscillator waveform and frequency.
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct ToyInstrument {
     uid: usize,
 
-    #[nano]
+    #[control]
+    #[params]
     fake_value: Normal,
 
     sample: StereoSample,
 
     oscillator: Oscillator,
+
+    #[control]
+    #[params]
     dca: Dca,
     pub is_playing: bool,
     pub received_count: usize,
@@ -131,18 +133,15 @@ impl HandlesMidi for ToyInstrument {
 //     }
 // }
 impl ToyInstrument {
-    pub fn new_with(params: ToyInstrumentNano) -> Self {
+    pub fn new_with(params: &ToyInstrumentParams) -> Self {
         Self {
             uid: Default::default(),
             sample: Default::default(),
             fake_value: params.fake_value(),
-            oscillator: Oscillator::new_with(OscillatorParams::default_with_waveform(
+            oscillator: Oscillator::new_with(&OscillatorParams::default_with_waveform(
                 Waveform::Sine,
             )),
-            dca: Dca::new_with(DcaNano {
-                gain: 1.0.into(),
-                pan: BipolarNormal::zero(),
-            }),
+            dca: Dca::new_with(&params.dca),
             is_playing: Default::default(),
             received_count: Default::default(),
             handled_count: Default::default(),
@@ -160,8 +159,12 @@ impl ToyInstrument {
         checkpoint_delta: f32,
         time_unit: ClockTimeUnit,
     ) -> Self {
-        let mut r = Self::new_with(ToyInstrumentNano {
+        let mut r = Self::new_with(&ToyInstrumentParams {
             fake_value: Normal::maximum(),
+            dca: DcaParams {
+                gain: Normal::maximum(),
+                pan: BipolarNormal::default(),
+            },
         });
         r.checkpoint_values = VecDeque::from(Vec::from(values));
         r.checkpoint = checkpoint;
@@ -193,6 +196,7 @@ impl ToyInstrument {
         dbg!(&self.debug_messages);
     }
 
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: ToyInstrumentMessage) {
         match message {
             ToyInstrumentMessage::ToyInstrument(s) => *self = Self::new_with(s),
@@ -203,11 +207,12 @@ impl ToyInstrument {
 
 /// Another [IsInstrument](groove_core::traits::IsInstrument) that was designed
 /// for black-box debugging.
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct DebugSynth {
     uid: usize,
 
-    #[nano]
+    #[control]
+    #[params]
     fake_value: Normal,
 
     sample_rate: usize,
@@ -292,12 +297,13 @@ impl DebugSynth {
     pub fn new() -> Self {
         Self::new_with_components(
             Box::new(Oscillator::new_with(
-                OscillatorParams::default_with_waveform(Waveform::Sine),
+                &OscillatorParams::default_with_waveform(Waveform::Sine),
             )),
-            Box::new(Envelope::new_with(EnvelopeParams::safe_default())),
+            Box::new(Envelope::new_with(&EnvelopeParams::safe_default())),
         )
     }
 
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: DebugSynthMessage) {
         match message {
             DebugSynthMessage::DebugSynth(_) => *self = Self::new(),
@@ -314,18 +320,21 @@ impl DebugSynth {
     }
 }
 
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct ToySynth {
     uid: usize,
 
-    #[nano]
+    #[control]
+    #[params]
     voice_count: usize,
 
-    #[nano]
+    #[control]
+    #[params]
     waveform: Waveform,
 
-    #[nano(control = false, no_copy = true)]
-    envelope: EnvelopeParams,
+    #[control]
+    #[params]
+    envelope: Envelope,
 
     inner: Synthesizer<ToyVoice>,
 }
@@ -358,18 +367,20 @@ impl Resets for ToySynth {
     }
 }
 impl ToySynth {
-    pub fn new_with(params: ToySynthNano) -> Self {
+    pub fn new_with(params: &ToySynthParams) -> Self {
         let voice_store = VoiceStore::<ToyVoice>::new_with_voice(params.voice_count(), || {
-            ToyVoice::new_with(params.waveform(), params.envelope().clone())
+            ToyVoice::new_with(params.waveform(), &params.envelope)
         });
         Self {
             uid: Default::default(),
             voice_count: params.voice_count(),
             waveform: params.waveform(),
-            envelope: params.envelope().clone(),
+            envelope: Envelope::new_with(&params.envelope),
             inner: Synthesizer::<ToyVoice>::new_with(Box::new(voice_store)),
         }
     }
+
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: ToySynthMessage) {
         match message {
             ToySynthMessage::ToySynth(_s) => todo!(),
@@ -393,11 +404,11 @@ impl ToySynth {
         self.waveform = waveform;
     }
 
-    pub fn envelope(&self) -> &EnvelopeParams {
+    pub fn envelope(&self) -> &Envelope {
         &self.envelope
     }
 
-    pub fn set_envelope(&mut self, envelope: EnvelopeParams) {
+    pub fn set_envelope(&mut self, envelope: Envelope) {
         self.envelope = envelope;
     }
 }
@@ -453,9 +464,9 @@ impl Resets for ToyVoice {
     }
 }
 impl ToyVoice {
-    fn new_with(waveform: Waveform, envelope: EnvelopeParams) -> Self {
+    fn new_with(waveform: Waveform, envelope: &EnvelopeParams) -> Self {
         Self {
-            oscillator: Oscillator::new_with(OscillatorParams::default_with_waveform(waveform)),
+            oscillator: Oscillator::new_with(&OscillatorParams::default_with_waveform(waveform)),
             envelope: Envelope::new_with(envelope),
             value: Default::default(),
         }
@@ -464,13 +475,14 @@ impl ToyVoice {
 
 /// Produces a constant audio signal. Used for ensuring that a known signal
 /// value gets all the way through the pipeline.
-#[derive(Debug, Default, Nano, Uid)]
+#[derive(Debug, Default, Control, Params, Uid)]
 pub struct ToyAudioSource {
     uid: usize,
 
     // This should be a Normal, but we use this audio source for testing edge
     // conditions. Thus we need to let it go out of range.
-    #[nano]
+    #[control]
+    #[params]
     level: ParameterType,
 }
 impl IsInstrument for ToyAudioSource {}
@@ -499,13 +511,14 @@ impl ToyAudioSource {
     pub const QUIET: SampleType = -1.0;
     pub const TOO_QUIET: SampleType = -1.1;
 
-    pub fn new_with(params: ToyAudioSourceNano) -> Self {
+    pub fn new_with(params: &ToyAudioSourceParams) -> Self {
         Self {
             level: params.level(),
             ..Default::default()
         }
     }
 
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: ToyAudioSourceMessage) {
         match message {
             ToyAudioSourceMessage::ToyAudioSource(s) => *self = Self::new_with(s),
@@ -524,10 +537,10 @@ impl ToyAudioSource {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::{instruments::ToyInstrumentNano, ToyInstrument};
+    use crate::{instruments::ToyInstrumentParams, ToyInstrument};
     use groove_core::{
         traits::{Generates, Ticks},
-        Normal,
+        DcaParams, Normal,
     };
     use rand::random;
 
@@ -537,8 +550,12 @@ pub mod tests {
     // for non-consecutive time slices.
     #[test]
     fn sources_audio_random_access() {
-        let mut instrument = ToyInstrument::new_with(ToyInstrumentNano {
+        let mut instrument = ToyInstrument::new_with(&ToyInstrumentParams {
             fake_value: Normal::from(0.42),
+            dca: DcaParams {
+                gain: Default::default(),
+                pan: Default::default(),
+            },
         });
         for _ in 0..100 {
             instrument.tick(random::<usize>() % 10);

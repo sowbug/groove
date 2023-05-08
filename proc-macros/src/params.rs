@@ -55,7 +55,7 @@ pub(crate) fn impl_params_derive(input: TokenStream, primitives: &HashSet<Ident>
         let mut field_types = Vec::default();
         let mut variant_names = Vec::default();
         let mut getter_methods = Vec::default();
-        let mut setters = Vec::default();
+        let mut setter_methods = Vec::default();
         let _core_crate = format_ident!("{}", core_crate_name());
         for (field_name, field_type, is_leaf) in attr_fields {
             let field_name_pascal_case =
@@ -70,20 +70,35 @@ pub(crate) fn impl_params_derive(input: TokenStream, primitives: &HashSet<Ident>
             };
 
             getter_methods.push(if is_leaf_or_primitive {
-                quote! {
-                    pub fn #field_name(&self) -> #field_params_type { self.#field_name }
+                if field_type == "String" {
+                    quote! {
+                        pub fn #field_name(&self) -> &str { self.#field_name.as_ref() }
+                    }
+                } else {
+                    quote! {
+                        pub fn #field_name(&self) -> #field_params_type { self.#field_name }
+                    }
                 }
             } else {
                 quote! {
                     pub fn #field_name(&self) -> &#field_params_type { &self.#field_name }
                 }
             });
-            field_types.push(field_params_type);
-            setters.push(format_ident!("set_{}", field_name.to_string(),));
+            field_types.push(field_params_type.clone());
+            let setter_method_name = format_ident!("set_{}", field_name.to_string());
+            if field_type == "String" {
+                setter_methods.push(quote! {
+                    pub fn #setter_method_name(&mut self, #field_name: &str) { self.#field_name = #field_name.to_string(); }
+                });
+            } else {
+                setter_methods.push(quote! {
+                    pub fn #setter_method_name(&mut self, #field_name: #field_params_type) { self.#field_name = #field_name; }
+                });
+            }
         }
 
         let params_struct_block = quote! {
-            #[derive(Clone, Debug, Default, PartialEq)]
+            #[derive(Debug, Default, PartialEq)]
             #[cfg_attr(
                 feature = "serialization",
                 derive(Serialize, Deserialize),
@@ -101,7 +116,7 @@ pub(crate) fn impl_params_derive(input: TokenStream, primitives: &HashSet<Ident>
                    #getter_methods
                 )*
                 #(
-                   pub fn #setters(&mut self, #field_names: #field_types) { self.#field_names = #field_names.clone(); }
+                   #setter_methods
                 )*
             }
         };

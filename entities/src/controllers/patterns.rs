@@ -7,10 +7,8 @@ use groove_core::{
     time::{BeatValue, PerfectTimeUnit, TimeSignature},
     traits::{IsController, Performs, Resets, TicksWithMessages},
 };
-use groove_proc_macros::{Nano, Uid};
-use std::{cmp, fmt::Debug, str::FromStr};
-use strum::EnumCount;
-use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
+use groove_proc_macros::{Control,  Params, Uid};
+use std::{cmp, fmt::Debug};
 
 /// [PatternMessage] specifies interactions that can happen between
 /// [PatternManager] and other components such as an application GUI.
@@ -58,7 +56,7 @@ use serde::{Deserialize, Serialize};
 // There is so much paperwork for a vector because this will eventually become a
 // substantial part of the GUI experience.
 /// [PatternManager] stores all the [Patterns] that make up a song.
-#[derive(Clone, Debug, Default, Nano, Uid)]
+#[derive(Clone, Debug, Default, Control, Params, Uid)]
 pub struct PatternManager {
     uid: usize,
     patterns: Vec<Pattern<Note>>,
@@ -92,6 +90,7 @@ impl PatternManager {
         &self.patterns
     }
 
+    #[cfg(feature = "iced-framework")]
     #[allow(unreachable_patterns)]
     pub fn update(&mut self, message: PatternManagerMessage) {
         match message {
@@ -196,13 +195,15 @@ impl PatternProgrammer {
 
 #[cfg(test)]
 mod tests {
+    use crate::controllers::SequencerParams;
+
     use super::*;
     use groove_core::time::{BeatValue, TimeSignature};
 
     #[test]
     fn pattern_mainline() {
         let time_signature = TimeSignature::default();
-        let mut sequencer = Sequencer::new_with(crate::controllers::SequencerNano { bpm: 128.0 });
+        let mut sequencer = Sequencer::new_with(&SequencerParams { bpm: 128.0 });
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         // note that this is five notes, but the time signature is 4/4. This
@@ -260,7 +261,7 @@ mod tests {
     #[test]
     fn multi_pattern_track() {
         let time_signature = TimeSignature::new_with(7, 8).expect("failed");
-        let mut sequencer = Sequencer::new_with(crate::controllers::SequencerNano { bpm: 128.0 });
+        let mut sequencer = Sequencer::new_with(&SequencerParams { bpm: 128.0 });
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         // since these patterns are denominated in a quarter notes, but the time

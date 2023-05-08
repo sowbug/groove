@@ -290,7 +290,7 @@ impl<V: IsStereoSampleVoice> VoicePerNoteStore<V> {
 #[cfg(test)]
 pub(crate) mod tests {
     use crate::{
-        generators::{Envelope, EnvelopeParams, Oscillator, Waveform},
+        generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams, Waveform},
         midi::{note_to_frequency, u7},
         traits::{GeneratesEnvelope, IsVoice, PlaysNotes, StoresVoices, Ticks},
         voices::{Generates, IsStereoSampleVoice, Resets, StealingVoiceStore, VoiceStore},
@@ -380,10 +380,10 @@ pub(crate) mod tests {
         pub(crate) fn new() -> Self {
             Self {
                 sample_rate: Default::default(),
-                oscillator: Oscillator::new_with(
-                    crate::generators::OscillatorParams::default_with_waveform(Waveform::Sine),
-                ),
-                envelope: Envelope::new_with(EnvelopeParams::safe_default()),
+                oscillator: Oscillator::new_with(&OscillatorParams::default_with_waveform(
+                    Waveform::Sine,
+                )),
+                envelope: Envelope::new_with(&EnvelopeParams::safe_default()),
                 sample: Default::default(),
                 note_on_key: Default::default(),
                 note_on_velocity: Default::default(),

@@ -5,6 +5,7 @@ use groove_core::{
     midi::{MidiChannel, MidiMessage},
     traits::MessageBounds,
 };
+#[cfg(toy_controller_disabled)]
 use groove_toys::MessageMaker;
 use std::fmt::Debug;
 
@@ -44,8 +45,10 @@ impl MessageBounds for EntityMessage {}
 // crate to also include a mapper of abstract messages to concrete
 // EntityMessages. If this becomes too much of an architectural sore thumb, it's
 // OK for everyone using ToyController to create their own ToyMessageMaker.
+#[cfg(toy_controller_disabled)]
 #[derive(Debug)]
 pub struct ToyMessageMaker {}
+#[cfg(toy_controller_disabled)]
 impl MessageMaker for ToyMessageMaker {
     type Message = EntityMessage;
 

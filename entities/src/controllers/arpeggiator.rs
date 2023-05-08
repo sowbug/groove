@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::sequencers::Sequencer;
+use super::{sequencers::Sequencer, SequencerParams};
 use crate::EntityMessage;
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage},
@@ -8,10 +8,7 @@ use groove_core::{
     traits::{IsController, Performs, Resets, TicksWithMessages},
     ParameterType,
 };
-use groove_proc_macros::{Nano, Uid};
-use std::str::FromStr;
-use strum::EnumCount;
-use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
+use groove_proc_macros::{Uid, Control, Params};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -22,13 +19,13 @@ use serde::{Deserialize, Serialize};
 /// order." You can also think of it as a hybrid MIDI instrument and MIDI
 /// controller; you play it with MIDI, but instead of producing audio, it
 /// produces more MIDI.
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct Arpeggiator {
     uid: usize,
     midi_channel_out: MidiChannel,
     sequencer: Sequencer,
 
-    #[nano]
+    #[control] #[params]
     bpm: ParameterType,
 
     // A poor-man's semaphore that allows note-off events to overlap with the
@@ -108,12 +105,12 @@ impl Performs for Arpeggiator {
 }
 
 impl Arpeggiator {
-    pub fn new_with(midi_channel_out: MidiChannel, params: ArpeggiatorNano) -> Self {
+    pub fn new_with(midi_channel_out: MidiChannel, params: ArpeggiatorParams) -> Self {
         Self {
             uid: Default::default(),
             midi_channel_out,
             bpm: params.bpm,
-            sequencer: Sequencer::new_with(super::SequencerNano { bpm: params.bpm() }),
+            sequencer: Sequencer::new_with(&SequencerParams { bpm: params.bpm() }),
             note_semaphore: Default::default(),
         }
     }
@@ -181,6 +178,7 @@ impl Arpeggiator {
         );
     }
 
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: ArpeggiatorMessage) {
         match message {
             ArpeggiatorMessage::Arpeggiator(s) => *self = Self::new_with(self.midi_channel_out, s),

@@ -4,7 +4,7 @@ use groove_core::{
     traits::{IsEffect, Resets, TransformsAudio},
     Normal, Sample,
 };
-use groove_proc_macros::{Nano, Uid};
+use groove_proc_macros::{Control, Nano, Params, Uid};
 use std::str::FromStr;
 use strum::EnumCount;
 use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
@@ -12,13 +12,13 @@ use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, I
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct Limiter {
     uid: usize,
 
-    #[nano]
+    #[control] #[params]
     min: Normal,
-    #[nano]
+    #[control] #[params]
     max: Normal,
 }
 impl Default for Limiter {
@@ -47,7 +47,7 @@ impl TransformsAudio for Limiter {
     }
 }
 impl Limiter {
-    pub fn new_with(params: LimiterNano) -> Self {
+    pub fn new_with(params: &LimiterParams) -> Self {
         Self {
             min: params.min(),
             max: params.max(),
@@ -55,6 +55,7 @@ impl Limiter {
         }
     }
 
+ #[cfg(feature="iced-framework")]
     pub fn update(&mut self, message: LimiterMessage) {
         match message {
             LimiterMessage::Limiter(s) => *self = Self::new_with(s),
@@ -119,42 +120,42 @@ mod gui {
 mod tests {
     use super::*;
     use groove_core::{traits::Generates, StereoSample};
-    use groove_toys::{ToyAudioSource, ToyAudioSourceNano};
+    use groove_toys::{ToyAudioSource, ToyAudioSourceParams};
     use more_asserts::{assert_gt, assert_lt};
 
     #[test]
     fn limiter_mainline() {
         // audio sources are at or past boundaries
         assert_gt!(
-            ToyAudioSource::new_with(ToyAudioSourceNano {
+            ToyAudioSource::new_with(&ToyAudioSourceParams {
                 level: ToyAudioSource::TOO_LOUD
             })
             .value(),
             StereoSample::MAX
         );
         assert_eq!(
-            ToyAudioSource::new_with(ToyAudioSourceNano {
+            ToyAudioSource::new_with(&ToyAudioSourceParams {
                 level: ToyAudioSource::LOUD
             })
             .value(),
             StereoSample::MAX
         );
         assert_eq!(
-            ToyAudioSource::new_with(ToyAudioSourceNano {
+            ToyAudioSource::new_with(&ToyAudioSourceParams {
                 level: ToyAudioSource::SILENT
             })
             .value(),
             StereoSample::SILENCE
         );
         assert_eq!(
-            ToyAudioSource::new_with(ToyAudioSourceNano {
+            ToyAudioSource::new_with(&ToyAudioSourceParams {
                 level: ToyAudioSource::QUIET
             })
             .value(),
             StereoSample::MIN
         );
         assert_lt!(
-            ToyAudioSource::new_with(ToyAudioSourceNano {
+            ToyAudioSource::new_with(&ToyAudioSourceParams {
                 level: ToyAudioSource::TOO_QUIET
             })
             .value(),
@@ -165,7 +166,7 @@ mod tests {
         let mut limiter = Limiter::default();
         assert_eq!(
             limiter.transform_audio(
-                ToyAudioSource::new_with(ToyAudioSourceNano {
+                ToyAudioSource::new_with(&ToyAudioSourceParams {
                     level: ToyAudioSource::TOO_LOUD
                 })
                 .value()
@@ -174,7 +175,7 @@ mod tests {
         );
         assert_eq!(
             limiter.transform_audio(
-                ToyAudioSource::new_with(ToyAudioSourceNano {
+                ToyAudioSource::new_with(&ToyAudioSourceParams {
                     level: ToyAudioSource::LOUD
                 })
                 .value()
@@ -183,7 +184,7 @@ mod tests {
         );
         assert_eq!(
             limiter.transform_audio(
-                ToyAudioSource::new_with(ToyAudioSourceNano {
+                ToyAudioSource::new_with(&ToyAudioSourceParams {
                     level: ToyAudioSource::SILENT
                 })
                 .value()
@@ -192,7 +193,7 @@ mod tests {
         );
         assert_eq!(
             limiter.transform_audio(
-                ToyAudioSource::new_with(ToyAudioSourceNano {
+                ToyAudioSource::new_with(&ToyAudioSourceParams {
                     level: ToyAudioSource::QUIET
                 })
                 .value()
@@ -201,7 +202,7 @@ mod tests {
         );
         assert_eq!(
             limiter.transform_audio(
-                ToyAudioSource::new_with(ToyAudioSourceNano {
+                ToyAudioSource::new_with(&ToyAudioSourceParams {
                     level: ToyAudioSource::TOO_QUIET
                 })
                 .value()
@@ -212,7 +213,7 @@ mod tests {
 
     #[test]
     fn limiter_bias() {
-        let mut limiter = Limiter::new_with(LimiterNano {
+        let mut limiter = Limiter::new_with(&LimiterParams {
             min: 0.2.into(),
             max: 0.8.into(),
         });

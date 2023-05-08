@@ -4,7 +4,7 @@ use groove_core::{
     traits::{IsEffect, Resets, TransformsAudio},
     FrequencyHz, Normal, ParameterType, Sample,
 };
-use groove_proc_macros::{Nano, Uid};
+use groove_proc_macros::{Control, Nano, Params, Uid};
 use std::{f64::consts::PI, str::FromStr};
 use strum::EnumCount;
 use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
@@ -12,11 +12,13 @@ use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, I
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct BiQuadFilterLowPass24db {
-    #[nano]
+    #[control]
+    #[params]
     cutoff: FrequencyHz,
-    #[nano]
+    #[control]
+    #[params]
     passband_ripple: ParameterType,
 
     uid: usize,
@@ -39,7 +41,7 @@ impl TransformsAudio for BiQuadFilterLowPass24db {
     }
 }
 impl BiQuadFilterLowPass24db {
-    pub fn new_with(params: BiQuadFilterLowPass24dbNano) -> Self {
+    pub fn new_with(params: &BiQuadFilterLowPass24dbParams) -> Self {
         let mut r = Self {
             cutoff: params.cutoff(),
             passband_ripple: params.passband_ripple(),
@@ -78,6 +80,7 @@ impl BiQuadFilterLowPass24db {
         }
     }
 
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: BiQuadFilterLowPass24dbMessage) {
         match message {
             BiQuadFilterLowPass24dbMessage::BiQuadFilterLowPass24db(e) => *self = Self::new_with(e),
@@ -151,11 +154,13 @@ impl BiQuadFilterLowPass24dbChannel {
     }
 }
 
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct BiQuadFilterLowPass12db {
-    #[nano]
+    #[control]
+    #[params]
     cutoff: FrequencyHz,
-    #[nano]
+    #[control]
+    #[params]
     q: ParameterType,
 
     uid: usize,
@@ -178,7 +183,7 @@ impl TransformsAudio for BiQuadFilterLowPass12db {
     }
 }
 impl BiQuadFilterLowPass12db {
-    pub fn new_with(params: BiQuadFilterLowPass12dbNano) -> Self {
+    pub fn new_with(params: &BiQuadFilterLowPass12dbParams) -> Self {
         Self {
             cutoff: params.cutoff(),
             q: params.q(),
@@ -214,6 +219,8 @@ impl BiQuadFilterLowPass12db {
             self.update_coefficients();
         }
     }
+
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: BiQuadFilterLowPass12dbMessage) {
         match message {
             BiQuadFilterLowPass12dbMessage::BiQuadFilterLowPass12db(e) => *self = Self::new_with(e),
@@ -247,11 +254,13 @@ impl BiQuadFilterLowPass12dbChannel {
     }
 }
 
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct BiQuadFilterHighPass {
-    #[nano]
+    #[control]
+    #[params]
     cutoff: FrequencyHz,
-    #[nano]
+    #[control]
+    #[params]
     q: ParameterType,
 
     uid: usize,
@@ -274,7 +283,7 @@ impl TransformsAudio for BiQuadFilterHighPass {
     }
 }
 impl BiQuadFilterHighPass {
-    pub fn new_with(params: BiQuadFilterHighPassNano) -> Self {
+    pub fn new_with(params: &BiQuadFilterHighPassParams) -> Self {
         let mut r = Self {
             cutoff: params.cutoff(),
             q: params.q(),
@@ -312,6 +321,8 @@ impl BiQuadFilterHighPass {
             self.update_coefficients();
         }
     }
+
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: BiQuadFilterHighPassMessage) {
         match message {
             BiQuadFilterHighPassMessage::BiQuadFilterHighPass(e) => *self = Self::new_with(e),
@@ -345,11 +356,13 @@ impl BiQuadFilterHighPassChannel {
     }
 }
 
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct BiQuadFilterAllPass {
-    #[nano]
+    #[control]
+    #[params]
     cutoff: FrequencyHz,
-    #[nano]
+    #[control]
+    #[params]
     q: ParameterType,
 
     uid: usize,
@@ -372,7 +385,7 @@ impl TransformsAudio for BiQuadFilterAllPass {
     }
 }
 impl BiQuadFilterAllPass {
-    pub fn new_with(params: BiQuadFilterAllPassNano) -> Self {
+    pub fn new_with(params: &BiQuadFilterAllPassParams) -> Self {
         Self {
             cutoff: params.cutoff(),
             q: params.q(),
@@ -408,6 +421,8 @@ impl BiQuadFilterAllPass {
             self.update_coefficients();
         }
     }
+
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: BiQuadFilterAllPassMessage) {
         match message {
             BiQuadFilterAllPassMessage::BiQuadFilterAllPass(e) => *self = Self::new_with(e),
@@ -440,11 +455,13 @@ impl BiQuadFilterAllPassChannel {
     }
 }
 
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct BiQuadFilterBandPass {
-    #[nano]
+    #[control]
+    #[params]
     cutoff: FrequencyHz,
-    #[nano]
+    #[control]
+    #[params]
     bandwidth: ParameterType, // TODO: maybe this should be FrequencyHz
 
     uid: usize,
@@ -467,7 +484,7 @@ impl TransformsAudio for BiQuadFilterBandPass {
     }
 }
 impl BiQuadFilterBandPass {
-    pub fn new_with(params: BiQuadFilterBandPassNano) -> Self {
+    pub fn new_with(params: &BiQuadFilterBandPassParams) -> Self {
         Self {
             cutoff: params.cutoff(),
             bandwidth: params.bandwidth(),
@@ -503,6 +520,8 @@ impl BiQuadFilterBandPass {
             self.update_coefficients();
         }
     }
+
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: BiQuadFilterBandPassMessage) {
         match message {
             BiQuadFilterBandPassMessage::BiQuadFilterBandPass(e) => *self = Self::new_with(e),
@@ -540,11 +559,13 @@ impl BiQuadFilterBandPassChannel {
     }
 }
 
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct BiQuadFilterBandStop {
-    #[nano]
+    #[control]
+    #[params]
     cutoff: FrequencyHz,
-    #[nano]
+    #[control]
+    #[params]
     bandwidth: ParameterType, // TODO: maybe this should be FrequencyHz
 
     uid: usize,
@@ -567,7 +588,7 @@ impl TransformsAudio for BiQuadFilterBandStop {
     }
 }
 impl BiQuadFilterBandStop {
-    pub fn new_with(params: BiQuadFilterBandStopNano) -> Self {
+    pub fn new_with(params: &BiQuadFilterBandStopParams) -> Self {
         Self {
             cutoff: params.cutoff(),
             bandwidth: params.bandwidth(),
@@ -603,6 +624,8 @@ impl BiQuadFilterBandStop {
             self.update_coefficients();
         }
     }
+
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: BiQuadFilterBandStopMessage) {
         match message {
             BiQuadFilterBandStopMessage::BiQuadFilterBandStop(e) => *self = Self::new_with(e),
@@ -641,14 +664,16 @@ impl BiQuadFilterBandStopChannel {
     }
 }
 
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct BiQuadFilterPeakingEq {
-    #[nano]
+    #[control]
+    #[params]
     cutoff: FrequencyHz,
 
     // I didn't know what to call this. RBJ says "...except for peakingEQ in
     // which A*Q is the classic EE Q." I think Q is close enough to get the gist.
-    #[nano]
+    #[control]
+    #[params]
     q: ParameterType,
 
     uid: usize,
@@ -671,7 +696,7 @@ impl TransformsAudio for BiQuadFilterPeakingEq {
     }
 }
 impl BiQuadFilterPeakingEq {
-    pub fn new_with(params: BiQuadFilterPeakingEqNano) -> Self {
+    pub fn new_with(params: &BiQuadFilterPeakingEqParams) -> Self {
         let mut r = Self {
             cutoff: params.cutoff(),
             q: params.q(),
@@ -709,6 +734,8 @@ impl BiQuadFilterPeakingEq {
             self.update_coefficients();
         }
     }
+
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: BiQuadFilterPeakingEqMessage) {
         match message {
             BiQuadFilterPeakingEqMessage::BiQuadFilterPeakingEq(e) => *self = Self::new_with(e),
@@ -746,11 +773,13 @@ impl BiQuadFilterPeakingEqChannel {
     }
 }
 
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct BiQuadFilterLowShelf {
-    #[nano]
+    #[control]
+    #[params]
     cutoff: FrequencyHz,
-    #[nano]
+    #[control]
+    #[params]
     db_gain: ParameterType,
 
     uid: usize,
@@ -773,7 +802,7 @@ impl TransformsAudio for BiQuadFilterLowShelf {
     }
 }
 impl BiQuadFilterLowShelf {
-    pub fn new_with(params: BiQuadFilterLowShelfNano) -> Self {
+    pub fn new_with(params: &BiQuadFilterLowShelfParams) -> Self {
         Self {
             cutoff: params.cutoff(),
             db_gain: params.db_gain(),
@@ -809,6 +838,8 @@ impl BiQuadFilterLowShelf {
             self.update_coefficients();
         }
     }
+
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: BiQuadFilterLowShelfMessage) {
         match message {
             BiQuadFilterLowShelfMessage::BiQuadFilterLowShelf(e) => *self = Self::new_with(e),
@@ -848,11 +879,13 @@ impl BiQuadFilterLowShelfChannel {
     }
 }
 
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct BiQuadFilterHighShelf {
-    #[nano]
+    #[control]
+    #[params]
     cutoff: FrequencyHz,
-    #[nano]
+    #[control]
+    #[params]
     db_gain: ParameterType,
 
     uid: usize,
@@ -875,7 +908,7 @@ impl TransformsAudio for BiQuadFilterHighShelf {
     }
 }
 impl BiQuadFilterHighShelf {
-    pub fn new_with(params: BiQuadFilterHighShelfNano) -> Self {
+    pub fn new_with(params: &BiQuadFilterHighShelfParams) -> Self {
         Self {
             cutoff: params.cutoff(),
             db_gain: params.db_gain(),
@@ -911,6 +944,8 @@ impl BiQuadFilterHighShelf {
             self.update_coefficients();
         }
     }
+
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: BiQuadFilterHighShelfMessage) {
         match message {
             BiQuadFilterHighShelfMessage::BiQuadFilterHighShelf(e) => *self = Self::new_with(e),
@@ -952,7 +987,7 @@ impl BiQuadFilterHighShelfChannel {
 
 /// This filter does nothing, expensively. It exists for debugging. I might
 /// delete it later.
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct BiQuadFilterNone {
     uid: usize,
     sample_rate: usize,
@@ -973,7 +1008,7 @@ impl TransformsAudio for BiQuadFilterNone {
     }
 }
 impl BiQuadFilterNone {
-    pub fn new_with(_: BiQuadFilterNoneNano) -> Self {
+    pub fn new_with(_: BiQuadFilterNoneParams) -> Self {
         Self {
             uid: Default::default(),
             sample_rate: Default::default(),
@@ -981,6 +1016,7 @@ impl BiQuadFilterNone {
         }
     }
 
+    #[cfg(feature = "iced-framework")]
     #[allow(unreachable_patterns)]
     pub fn update(&mut self, message: BiQuadFilterNoneMessage) {
         match message {
@@ -1142,12 +1178,12 @@ impl BiQuadFilter {
 #[cfg(feature = "egui-framework")]
 mod gui {
     use super::BiQuadFilterLowPass24db;
-    use super::BiQuadFilterLowPass24dbNano;
+    use super::BiQuadFilterLowPass24dbParams;
     use eframe::egui::Slider;
     use eframe::egui::Ui;
     use groove_core::{traits::gui::Shows, FrequencyHz};
 
-    impl Shows for BiQuadFilterLowPass24dbNano {
+    impl Shows for BiQuadFilterLowPass24dbParams {
         fn show(&mut self, ui: &mut Ui) {
             let mut cutoff = self.cutoff().value();
             let mut pbr = self.passband_ripple();
@@ -1168,7 +1204,7 @@ mod gui {
     impl Shows for BiQuadFilterLowPass24db {
         // TODO ugh, is there a better way?
         fn show(&mut self, ui: &mut Ui) {
-            BiQuadFilterLowPass24dbNano {
+            BiQuadFilterLowPass24dbParams {
                 cutoff: self.cutoff,
                 passband_ripple: self.passband_ripple,
             }

@@ -11,18 +11,16 @@ use groove_core::{
     voices::VoicePerNoteStore,
     StereoSample,
 };
-use groove_proc_macros::{Nano, Uid};
+use groove_proc_macros::{Control, Params, Uid};
 use groove_utils::Paths;
-use std::{path::Path, str::FromStr, sync::Arc};
-use strum::EnumCount;
-use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
+use std::{path::Path, sync::Arc};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct Drumkit {
-    #[nano(control = false, no_copy = true)]
+    #[params]
     name: String,
 
     uid: usize,
@@ -119,12 +117,13 @@ impl Drumkit {
         }
     }
 
-    pub fn new_with(paths: &Paths, params: DrumkitNano) -> Self {
+    pub fn new_with(paths: &Paths, params: DrumkitParams) -> Self {
         // TODO: we're hardcoding samples/. Figure out a way to use the
         // system.
-        Self::new_from_files(paths, &params.name())
+        Self::new_from_files(paths, params.name.as_ref())
     }
 
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: DrumkitMessage) {
         match message {
             DrumkitMessage::Drumkit(s) => *self = Self::new_with(&self.paths, s),
@@ -140,8 +139,8 @@ impl Drumkit {
         self.name.as_ref()
     }
 
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
+    pub fn set_name(&mut self, name: &str) {
+        self.name = name.to_string();
     }
 }
 

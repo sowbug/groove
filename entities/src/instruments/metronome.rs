@@ -3,11 +3,11 @@
 use groove_core::{
     generators::{Oscillator, OscillatorParams, Waveform},
     midi::{HandlesMidi, MidiChannel, MidiMessage},
-    time::{Clock, ClockNano},
+    time::{Clock, ClockParams},
     traits::{Generates, IsInstrument, Resets, Ticks},
     ParameterType, StereoSample,
 };
-use groove_proc_macros::{Nano, Uid};
+use groove_proc_macros::{Control, Nano, Params, Uid};
 use std::{fmt::Debug, str::FromStr};
 use strum::EnumCount;
 use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
@@ -15,9 +15,9 @@ use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, I
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct Metronome {
-    #[nano]
+    #[control] #[params]
     bpm: ParameterType,
 
     clock: Clock,
@@ -78,16 +78,16 @@ impl HandlesMidi for Metronome {
     }
 }
 impl Metronome {
-    pub fn new_with(params: MetronomeNano) -> Self {
+    pub fn new_with(params: &MetronomeParams) -> Self {
         let mut oscillator_nano = OscillatorParams::default();
         oscillator_nano.waveform = Waveform::Square;
-        let mut clock_params = ClockNano::default();
+        let mut clock_params = ClockParams::default();
         clock_params.set_bpm(params.bpm());
         Self {
             bpm: params.bpm(),
-            clock: Clock::new_with(clock_params),
+            clock: Clock::new_with(&clock_params),
             uid: Default::default(),
-            oscillator: Oscillator::new_with(oscillator_nano),
+            oscillator: Oscillator::new_with(&oscillator_nano),
             is_playing: false,
             when_to_stop_playing: Default::default(),
             current_measure: usize::MAX,
@@ -95,6 +95,7 @@ impl Metronome {
         }
     }
 
+ #[cfg(feature="iced-framework")]
     pub fn update(&mut self, message: MetronomeMessage) {
         match message {
             MetronomeMessage::Metronome(_s) => {

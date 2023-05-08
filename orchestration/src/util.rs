@@ -31,25 +31,28 @@ pub mod tests {
     use groove_core::{
         generators::Waveform,
         midi::MidiChannel,
-        time::{ClockNano, TimeSignature},
+        time::{ClockParams, TimeSignatureParams},
         traits::Resets,
-        FrequencyHz, Normal, StereoSample, SAMPLE_BUFFER_SIZE,
+        DcaParams, FrequencyHz, Normal, StereoSample, SAMPLE_BUFFER_SIZE,
     };
-    use groove_entities::{
-        controllers::{LfoController, Timer, TimerNano},
-        ToyMessageMaker,
+    use groove_entities::controllers::{
+        Arpeggiator, ArpeggiatorParams, LfoController, LfoControllerParams, Timer, TimerParams,
     };
-    use groove_toys::{
-        DebugSynth, ToyController, ToyControllerNano, ToyEffect, ToyInstrument, ToyInstrumentNano,
-    };
+    #[cfg(feature = "iced-framework")]
+    use groove_entities::ToyMessageMaker;
+    #[cfg(feature = "iced-framework")]
+    use groove_toys::ToyInstrumentParams;
+    use groove_toys::{DebugSynth, ToyEffect, ToyInstrument, ToyInstrumentParams};
+    #[cfg(toy_controller_disabled)]
+    use groove_toys::{ToyController, ToyControllerParams};
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
 
     #[test]
     fn audio_routing_works() {
-        let mut o = Orchestrator::new_with(ClockNano {
+        let mut o = Orchestrator::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         o.reset(DEFAULT_SAMPLE_RATE);
 
@@ -67,7 +70,7 @@ pub mod tests {
 
         // Run the main loop for a while.
         const SECONDS: usize = 1;
-        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(TimerNano {
+        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             seconds: SECONDS as f64,
         }))));
 
@@ -99,16 +102,16 @@ pub mod tests {
 
     #[test]
     fn control_routing_works() {
-        let mut o = Orchestrator::new_with(ClockNano {
+        let mut o = Orchestrator::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         o.reset(DEFAULT_SAMPLE_RATE);
 
         // The synth's frequency is modulated by the LFO.
         let synth_1_uid = o.add(Entity::DebugSynth(Box::new(DebugSynth::new())));
-        let lfo = LfoController::new_with(groove_entities::controllers::LfoControllerNano {
+        let lfo = LfoController::new_with(&LfoControllerParams {
             waveform: Waveform::Sine,
             frequency: FrequencyHz::from(2.0),
         });
@@ -119,7 +122,7 @@ pub mod tests {
         let _ = o.connect_to_main_mixer(synth_1_uid);
 
         const SECONDS: usize = 1;
-        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(TimerNano {
+        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             seconds: SECONDS as f64,
         }))));
 
@@ -152,26 +155,26 @@ pub mod tests {
     fn midi_routing_works() {
         const TEST_MIDI_CHANNEL: MidiChannel = 7;
         const ARP_MIDI_CHANNEL: MidiChannel = 5;
-        let mut o = Orchestrator::new_with(ClockNano {
+        let mut o = Orchestrator::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         o.reset(DEFAULT_SAMPLE_RATE);
 
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
         let instrument_uid = o.add(Entity::ToyInstrument(Box::new(ToyInstrument::new_with(
-            ToyInstrumentNano {
+            &ToyInstrumentParams {
                 fake_value: Normal::from(0.34598),
+                dca: DcaParams {
+                    gain: Default::default(),
+                    pan: Default::default(),
+                },
             },
         ))));
-        let arpeggiator_uid = o.add(Entity::ToyController(Box::new(ToyController::new_with(
-            ToyControllerNano {
-                bpm: DEFAULT_BPM,
-                tempo: 99999999999.0,
-            },
+        let arpeggiator_uid = o.add(Entity::Arpeggiator(Box::new(Arpeggiator::new_with(
             TEST_MIDI_CHANNEL,
-            Box::new(ToyMessageMaker {}),
+            ArpeggiatorParams { bpm: DEFAULT_BPM },
         ))));
 
         // We'll hear the instrument.
@@ -183,7 +186,7 @@ pub mod tests {
         o.connect_midi_downstream(arpeggiator_uid, ARP_MIDI_CHANNEL);
 
         const SECONDS: usize = 1;
-        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(TimerNano {
+        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             seconds: SECONDS as f64,
         }))));
 
@@ -260,10 +263,10 @@ pub mod tests {
 
     #[test]
     fn groove_can_be_instantiated_in_new_generic_world() {
-        let mut o = Orchestrator::new_with(ClockNano {
+        let mut o = Orchestrator::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         o.reset(DEFAULT_SAMPLE_RATE);
 
@@ -282,7 +285,7 @@ pub mod tests {
 
         // Run the main loop for a while.
         const SECONDS: usize = 1;
-        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(TimerNano {
+        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             seconds: SECONDS as f64,
         }))));
 

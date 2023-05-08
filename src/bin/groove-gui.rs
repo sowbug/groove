@@ -9,7 +9,7 @@ use groove::{
     app_version, Orchestrator, {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
 };
 use groove_core::{
-    time::{Clock, ClockNano, TimeSignature},
+    time::{Clock, ClockParams, TimeSignature},
     traits::Resets,
     Sample, StereoSample, SAMPLE_BUFFER_SIZE,
 };
@@ -117,7 +117,7 @@ impl Default for GrooveApp {
     fn default() -> Self {
         // TODO: these are (probably) temporary until the project is
         // loaded. Make sure they really need to be instantiated.
-        let clock_params = ClockNano {
+        let clock_params = ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignature { top: 4, bottom: 4 },

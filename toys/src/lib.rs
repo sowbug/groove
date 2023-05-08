@@ -4,12 +4,20 @@
 //! implement Groove traits, usually in a simple fashion. They aren't likely to
 //! be useful in real music prduction.
 
-pub use controllers::{MessageMaker, ToyController, ToyControllerMessage, ToyControllerNano};
-pub use effects::{ToyEffect, ToyEffectMessage, ToyEffectNano};
+#[cfg(feature = "iced-framework")]
+pub use crate::{
+    effects::{ToyEffectMessage, ToyEffectParams},
+    instruments::{
+        DebugSynthMessage, ToyAudioSourceMessage, ToyAudioSourceParams, ToyInstrumentMessage,
+        ToyInstrumentParams, ToySynthMessage, ToySynthParams,
+    },
+};
+#[cfg(toy_controller_disabled)]
+pub use controllers::{MessageMaker, ToyController, ToyControllerMessage, ToyControllerParams};
+pub use effects::ToyEffect;
 pub use instruments::{
-    DebugSynth, DebugSynthMessage, DebugSynthNano, ToyAudioSource, ToyAudioSourceMessage,
-    ToyAudioSourceNano, ToyInstrument, ToyInstrumentMessage, ToyInstrumentNano, ToySynth,
-    ToySynthMessage, ToySynthNano,
+    DebugSynth, DebugSynthParams, ToyAudioSource, ToyAudioSourceParams, ToyInstrument,
+    ToyInstrumentParams, ToySynth, ToySynthParams,
 };
 
 mod controllers;

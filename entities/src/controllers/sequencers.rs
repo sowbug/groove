@@ -4,11 +4,11 @@ use crate::EntityMessage;
 use btreemultimap::BTreeMultiMap;
 use groove_core::{
     midi::{new_note_off, u7, HandlesMidi, MidiChannel, MidiMessage},
-    time::{Clock, ClockNano, MidiTicks, PerfectTimeUnit, TimeSignature},
+    time::{Clock, ClockParams, MidiTicks, PerfectTimeUnit, TimeSignatureParams},
     traits::{IsController, Performs, Resets, TicksWithMessages},
     ParameterType,
 };
-use groove_proc_macros::{Nano, Uid};
+use groove_proc_macros::{Control, Nano, Params, Uid};
 use midly::TrackEventKind;
 use rustc_hash::FxHashMap;
 use std::str::FromStr;
@@ -27,10 +27,10 @@ pub(crate) type BeatEventsMap = BTreeMultiMap<PerfectTimeUnit, (MidiChannel, Mid
 
 /// [Sequencer] produces MIDI according to a programmed sequence. Its unit of
 /// time is the beat.
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct Sequencer {
     uid: usize,
-    #[nano]
+    #[control] #[params]
     bpm: ParameterType,
     next_instant: PerfectTimeUnit,
     events: BeatEventsMap,
@@ -62,7 +62,7 @@ impl Performs for Sequencer {
     }
 }
 impl Sequencer {
-    pub fn new_with(params: SequencerNano) -> Self {
+    pub fn new_with(params: &SequencerParams) -> Self {
         Self {
             uid: Default::default(),
             bpm: params.bpm(),
@@ -73,10 +73,10 @@ impl Sequencer {
             is_performing: Default::default(),
             should_stop_pending_notes: Default::default(),
             on_notes: Default::default(),
-            temp_hack_clock: Clock::new_with(ClockNano {
+            temp_hack_clock: Clock::new_with(&ClockParams {
                 bpm: params.bpm(),
                 midi_ticks_per_second: 0,
-                time_signature: TimeSignature { top: 4, bottom: 4 }, // TODO
+                time_signature: TimeSignatureParams { top: 4, bottom: 4 }, // TODO
             }),
         }
     }
@@ -186,6 +186,7 @@ impl Sequencer {
         println!("{:?}", self.events);
     }
 
+ #[cfg(feature="iced-framework")]
     pub fn update(&mut self, message: SequencerMessage) {
         match message {
             SequencerMessage::Sequencer(s) => *self = Self::new_with(s),
@@ -267,11 +268,11 @@ pub(crate) type MidiTickEventsMap = BTreeMultiMap<MidiTicks, (MidiChannel, MidiM
 /// [MidiTickSequencer] is another kind of sequencer whose time unit is the MIDI
 /// tick. It exists to make it easy for [MidiSmfReader] to turn MIDI files into
 /// sequences.
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct MidiTickSequencer {
     uid: usize,
 
-    #[nano]
+    #[control] #[params]
     midi_ticks_per_second: usize,
 
     next_instant: MidiTicks,
@@ -300,7 +301,7 @@ impl Performs for MidiTickSequencer {
 }
 
 impl MidiTickSequencer {
-    pub fn new_with(params: MidiTickSequencerNano) -> Self {
+    pub fn new_with(params: &MidiTickSequencerParams) -> Self {
         Self {
             uid: Default::default(),
             midi_ticks_per_second: params.midi_ticks_per_second(),
@@ -309,10 +310,10 @@ impl MidiTickSequencer {
             last_event_time: Default::default(),
             is_disabled: Default::default(),
             is_performing: Default::default(),
-            temp_hack_clock: Clock::new_with(ClockNano {
+            temp_hack_clock: Clock::new_with(&ClockParams {
                 bpm: 0.0,
                 midi_ticks_per_second: params.midi_ticks_per_second(),
-                time_signature: TimeSignature { top: 4, bottom: 4 }, // TODO
+                time_signature: TimeSignatureParams { top: 4, bottom: 4 }, // TODO
             }),
         }
     }
@@ -345,6 +346,7 @@ impl MidiTickSequencer {
         self.next_instant > self.last_event_time
     }
 
+ #[cfg(feature="iced-framework")]
     pub fn update(&mut self, message: MidiTickSequencerMessage) {
         match message {
             MidiTickSequencerMessage::MidiTickSequencer(s) => *self = Self::new_with(s),
@@ -497,7 +499,7 @@ mod tests {
     };
     use groove_core::{
         midi::MidiChannel,
-        time::{Clock, ClockNano, MidiTicks, TimeSignature},
+        time::{Clock, ClockParams, MidiTicks, TimeSignatureParams},
         traits::{IsController, Ticks},
     };
 
@@ -547,10 +549,10 @@ mod tests {
     #[test]
     fn sequencer_mainline() {
         const DEVICE_MIDI_CHANNEL: MidiChannel = 7;
-        let mut clock = Clock::new_with(ClockNano {
+        let mut clock = Clock::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         // let mut o = Orchestrator::new_with(DEFAULT_BPM);
         // let mut sequencer = Box::new(MidiTickSequencer::new_with(

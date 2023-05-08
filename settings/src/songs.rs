@@ -5,9 +5,9 @@ use super::{
     ControlSettings, DeviceId, DeviceSettings, PatternSettings, TrackSettings,
 };
 use anyhow::Result;
-use groove_core::time::{ClockNano, TimeSignature};
+use groove_core::time::{ClockParams, TimeSignature};
 use groove_entities::controllers::{
-    ControlPath, ControlTrip, ControlTripNano, Note, Pattern, PatternProgrammer,
+    ControlPath, ControlTrip, ControlTripParams, Note, Pattern, PatternProgrammer,
 };
 use groove_orchestration::{Entity, Orchestrator};
 use groove_utils::Paths;
@@ -24,7 +24,7 @@ pub struct SongSettings {
     pub title: Option<String>,
 
     /// Information about timing. BPM, time signature, etc.
-    pub clock: ClockNano,
+    pub clock: ClockParams,
 
     /// Controllers, Effects, and Instruments
     pub devices: Vec<DeviceSettings>,
@@ -92,7 +92,7 @@ impl SongSettings {
         &self,
         paths: &Paths,
         orchestrator: &mut Orchestrator,
-        clock: &ClockNano,
+        clock: &ClockParams,
         load_only_test_entities: bool,
     ) {
         for device in &self.devices {
@@ -255,7 +255,7 @@ impl SongSettings {
             let trip_uvid = control_trip_settings.id.as_str();
             if let Some(target_uid) = orchestrator.get_uid_by_uvid(&control_trip_settings.target.id)
             {
-                let mut control_trip = Box::new(ControlTrip::new_with(ControlTripNano {
+                let mut control_trip = Box::new(ControlTrip::new_with(&ControlTripParams {
                     time_signature_top: orchestrator.time_signature().top,
                     time_signature_bottom: orchestrator.time_signature().bottom,
                     bpm: orchestrator.bpm(),

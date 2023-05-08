@@ -1,23 +1,25 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+#[cfg(feature = "iced-framework")]
+use crate::OtherEntityMessage;
 use crate::{
     entities::Entity,
     messages::{ControlLink, GrooveEvent, GrooveInput, Internal, Response},
-    OtherEntityMessage,
 };
+
 use anyhow::anyhow;
 use core::fmt::Debug;
 use crossbeam::deque::Worker;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
-    time::{Clock, ClockNano, TimeSignature},
+    time::{Clock, ClockParams, TimeSignature},
     traits::{Performs, Resets},
     ParameterType, StereoSample,
 };
 use groove_entities::{
-    controllers::{PatternManager, Sequencer, SequencerNano},
+    controllers::{PatternManager, Sequencer, SequencerParams},
     effects::Mixer,
-    instruments::{Metronome, MetronomeNano},
+    instruments::{Metronome, MetronomeParams},
     EntityMessage,
 };
 use groove_proc_macros::Uid;
@@ -508,11 +510,11 @@ impl Orchestrator {
         self.title = title;
     }
 
-    pub fn new_with(clock_params: ClockNano) -> Self {
+    pub fn new_with(clock_params: &ClockParams) -> Self {
         let mut r = Self {
             uid: Default::default(),
             title: Some("Untitled".to_string()),
-            clock: Clock::new_with(clock_params),
+            clock: Clock::new_with(&clock_params),
             is_performing: Default::default(),
             store: Default::default(),
             main_mixer_uid: Default::default(),
@@ -536,7 +538,7 @@ impl Orchestrator {
             Self::PATTERN_MANAGER_UVID,
         );
         r.sequencer_uid = r.add_with_uvid(
-            Entity::Sequencer(Box::new(Sequencer::new_with(SequencerNano {
+            Entity::Sequencer(Box::new(Sequencer::new_with(&SequencerParams {
                 bpm: r.bpm(),
             }))),
             Self::BEAT_SEQUENCER_UVID,
@@ -544,7 +546,7 @@ impl Orchestrator {
         if false {
             // See https://github.com/sowbug/groove/issues/127. This is clunky
             r.metronome_uid = r.add_with_uvid(
-                Entity::Metronome(Box::new(Metronome::new_with(MetronomeNano {
+                Entity::Metronome(Box::new(Metronome::new_with(&MetronomeParams {
                     bpm: r.bpm(),
                 }))),
                 Self::METRONOME_UVID,
@@ -580,6 +582,7 @@ impl Orchestrator {
                             self.broadcast_midi_messages(&[(channel, message)]);
                         }
                         EntityMessage::ControlF32(value) => {
+                            #[cfg(feature = "iced-framework")]
                             messages.extend(self.generate_control_update_messages(uid, value));
                         }
                         _ => todo!(),
@@ -603,6 +606,7 @@ impl Orchestrator {
                             link.control_index,
                         );
                     }
+                    #[cfg(feature = "iced-framework")]
                     GrooveInput::Update(uid, message) => self.update_controllable(uid, message),
                     GrooveInput::Play => self.play(),
                     GrooveInput::Stop => self.stop(),
@@ -682,6 +686,7 @@ impl Orchestrator {
         }
     }
 
+    #[cfg(feature = "iced-framework")]
     fn generate_control_update_messages(&mut self, uid: usize, value: f32) -> Vec<GrooveInput> {
         if let Some(control_links) = self.store.control_links(uid) {
             return control_links
@@ -837,6 +842,7 @@ impl Orchestrator {
         )
     }
 
+    #[cfg(feature = "iced-framework")]
     fn update_controllable(&mut self, uid: usize, message: OtherEntityMessage) {
         if let Some(entity) = self.store.get_mut(uid) {
             entity.update(message)
@@ -1064,6 +1070,7 @@ mod gui {
             Entity::ToyAudioSource(e) => {
                 ui.label(entity.as_has_uid().name());
             }
+            #[cfg(toy_controller_disabled)]
             Entity::ToyController(e) => {
                 ui.label(entity.as_has_uid().name());
             }
@@ -1081,6 +1088,9 @@ mod gui {
             }
             Entity::WelshSynth(e) => {
                 e.show(ui);
+            }
+            _ => {
+                panic!("something about toy controller")
             }
         }
     }
@@ -1306,18 +1316,20 @@ pub mod tests {
     };
     use groove_core::{
         midi::{MidiChannel, MidiMessage},
-        time::{BeatValue, Clock, ClockNano, PerfectTimeUnit, TimeSignature},
+        time::{
+            BeatValue, Clock, ClockParams, PerfectTimeUnit, TimeSignature, TimeSignatureParams,
+        },
         traits::{Performs, Resets},
-        Normal, StereoSample,
+        DcaParams, Normal, StereoSample,
     };
     use groove_entities::{
         controllers::{
-            Arpeggiator, ArpeggiatorNano, Note, Pattern, PatternProgrammer, Sequencer,
-            SequencerNano, Timer, TimerNano,
+            Arpeggiator, ArpeggiatorParams, Note, Pattern, PatternProgrammer, Sequencer,
+            SequencerParams, Timer, TimerParams,
         },
-        effects::{Gain, GainNano},
+        effects::{Gain, GainParams},
     };
-    use groove_toys::{ToyAudioSource, ToyAudioSourceNano, ToyInstrument, ToyInstrumentNano};
+    use groove_toys::{ToyAudioSource, ToyAudioSourceParams, ToyInstrument, ToyInstrumentParams};
 
     impl Orchestrator {
         /// Warning! This method exists only as a debug shortcut to
@@ -1348,16 +1360,16 @@ pub mod tests {
 
     #[test]
     fn gather_audio_basic() {
-        let mut o = Orchestrator::new_with(ClockNano {
+        let mut o = Orchestrator::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         let level_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            ToyAudioSourceNano { level: 0.1 },
+            &ToyAudioSourceParams { level: 0.1 },
         ))));
         let level_2_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            ToyAudioSourceNano { level: 0.2 },
+            &ToyAudioSourceParams { level: 0.2 },
         ))));
 
         // Nothing connected: should output silence.
@@ -1383,27 +1395,25 @@ pub mod tests {
 
     #[test]
     fn gather_audio() {
-        let mut o = Orchestrator::new_with(ClockNano {
+        let mut o = Orchestrator::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         let level_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            ToyAudioSourceNano { level: 0.1 },
+            &ToyAudioSourceParams { level: 0.1 },
         ))));
-        let gain_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(
-            groove_entities::effects::GainNano {
-                ceiling: Normal::new(0.5),
-            },
-        ))));
+        let gain_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(&GainParams {
+            ceiling: Normal::new(0.5),
+        }))));
         let level_2_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            ToyAudioSourceNano { level: 0.2 },
+            &ToyAudioSourceParams { level: 0.2 },
         ))));
         let level_3_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            ToyAudioSourceNano { level: 0.3 },
+            &ToyAudioSourceParams { level: 0.3 },
         ))));
         let level_4_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            ToyAudioSourceNano { level: 0.4 },
+            &ToyAudioSourceParams { level: 0.4 },
         ))));
 
         // Nothing connected: should output silence.
@@ -1456,37 +1466,37 @@ pub mod tests {
 
     #[test]
     fn gather_audio_2() {
-        let mut o = Orchestrator::new_with(ClockNano {
+        let mut o = Orchestrator::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         let piano_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            ToyAudioSourceNano { level: 0.1 },
+            &ToyAudioSourceParams { level: 0.1 },
         ))));
-        let low_pass_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(GainNano {
+        let low_pass_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(&GainParams {
             ceiling: Normal::new(0.2),
         }))));
-        let gain_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(GainNano {
+        let gain_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(&GainParams {
             ceiling: Normal::new(0.4),
         }))));
 
         let bassline_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            ToyAudioSourceNano { level: 0.3 },
+            &ToyAudioSourceParams { level: 0.3 },
         ))));
-        let gain_2_uid = o.add(Entity::Gain(Box::new(Gain::new_with(GainNano {
+        let gain_2_uid = o.add(Entity::Gain(Box::new(Gain::new_with(&GainParams {
             ceiling: Normal::new(0.6),
         }))));
 
         let synth_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            ToyAudioSourceNano { level: 0.5 },
+            &ToyAudioSourceParams { level: 0.5 },
         ))));
-        let gain_3_uid = o.add(Entity::Gain(Box::new(Gain::new_with(GainNano {
+        let gain_3_uid = o.add(Entity::Gain(Box::new(Gain::new_with(&GainParams {
             ceiling: Normal::new(0.8),
         }))));
 
         let drum_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            ToyAudioSourceNano { level: 0.7 },
+            &ToyAudioSourceParams { level: 0.7 },
         ))));
 
         // First chain.
@@ -1550,22 +1560,22 @@ pub mod tests {
 
     #[test]
     fn gather_audio_with_branches() {
-        let mut o = Orchestrator::new_with(ClockNano {
+        let mut o = Orchestrator::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         o.reset(DEFAULT_SAMPLE_RATE);
         let instrument_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            ToyAudioSourceNano { level: 0.1 },
+            &ToyAudioSourceParams { level: 0.1 },
         ))));
         let instrument_2_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            ToyAudioSourceNano { level: 0.3 },
+            &ToyAudioSourceParams { level: 0.3 },
         ))));
         let instrument_3_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            ToyAudioSourceNano { level: 0.5 },
+            &ToyAudioSourceParams { level: 0.5 },
         ))));
-        let effect_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(GainNano {
+        let effect_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(&GainParams {
             ceiling: Normal::new(0.5),
         }))));
 
@@ -1580,13 +1590,13 @@ pub mod tests {
 
     #[test]
     fn run_buffer_size_can_be_odd_number() {
-        let mut o = Orchestrator::new_with(ClockNano {
+        let mut o = Orchestrator::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         o.reset(DEFAULT_SAMPLE_RATE);
-        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(TimerNano {
+        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             seconds: 1.0,
         }))));
 
@@ -1599,13 +1609,13 @@ pub mod tests {
 
     #[test]
     fn orchestrator_sample_count_is_accurate_for_zero_timer() {
-        let mut o = Orchestrator::new_with(ClockNano {
+        let mut o = Orchestrator::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         o.reset(DEFAULT_SAMPLE_RATE);
-        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(TimerNano {
+        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             seconds: 0.0,
         }))));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
@@ -1618,17 +1628,15 @@ pub mod tests {
 
     #[test]
     fn orchestrator_sample_count_is_accurate_for_short_timer() {
-        let mut o = Orchestrator::new_with(ClockNano {
+        let mut o = Orchestrator::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         o.reset(DEFAULT_SAMPLE_RATE);
-        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
-            groove_entities::controllers::TimerNano {
-                seconds: 1.0 / DEFAULT_SAMPLE_RATE as f64,
-            },
-        ))));
+        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
+            seconds: 1.0 / DEFAULT_SAMPLE_RATE as f64,
+        }))));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples) = o.run(&mut sample_buffer) {
             assert_eq!(samples.len(), 1);
@@ -1639,13 +1647,13 @@ pub mod tests {
 
     #[test]
     fn orchestrator_sample_count_is_accurate_for_ordinary_timer() {
-        let mut o = Orchestrator::new_with(ClockNano {
+        let mut o = Orchestrator::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         o.reset(DEFAULT_SAMPLE_RATE);
-        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(TimerNano {
+        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             seconds: 1.0,
         }))));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
@@ -1658,10 +1666,10 @@ pub mod tests {
 
     #[test]
     fn patch_fails_with_bad_id() {
-        let mut o = Orchestrator::new_with(ClockNano {
+        let mut o = Orchestrator::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         assert!(o.patch(3, 2).is_err());
     }
@@ -1673,7 +1681,7 @@ pub mod tests {
     #[test]
     fn pattern_default_note_value() {
         let time_signature = TimeSignature::new_with(7, 4).expect("failed");
-        let mut sequencer = Sequencer::new_with(SequencerNano { bpm: 128.0 });
+        let mut sequencer = Sequencer::new_with(&SequencerParams { bpm: 128.0 });
         let mut programmer = PatternProgrammer::new_with(&time_signature);
         let pattern = Pattern {
             note_value: None,
@@ -1694,13 +1702,13 @@ pub mod tests {
     #[test]
     fn random_access() {
         const INSTRUMENT_MIDI_CHANNEL: MidiChannel = 7;
-        let mut o = Orchestrator::new_with(ClockNano {
+        let mut o = Orchestrator::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         o.reset(DEFAULT_SAMPLE_RATE);
-        let mut sequencer = Box::new(Sequencer::new_with(SequencerNano { bpm: DEFAULT_BPM }));
+        let mut sequencer = Box::new(Sequencer::new_with(&SequencerParams { bpm: DEFAULT_BPM }));
         let mut programmer = PatternProgrammer::new_with(&TimeSignature::default());
         let mut pattern = Pattern::<Note>::default();
 
@@ -1734,8 +1742,9 @@ pub mod tests {
         ]);
         programmer.insert_pattern_at_cursor(&mut sequencer, &INSTRUMENT_MIDI_CHANNEL, &pattern);
 
-        let midi_recorder = Box::new(ToyInstrument::new_with(ToyInstrumentNano {
+        let midi_recorder = Box::new(ToyInstrument::new_with(&ToyInstrumentParams {
             fake_value: Normal::from(0.22222),
+            dca: DcaParams::default(),
         }));
         let midi_recorder_uid = o.add(Entity::ToyInstrument(midi_recorder));
         o.connect_midi_downstream(midi_recorder_uid, INSTRUMENT_MIDI_CHANNEL);
@@ -1743,10 +1752,10 @@ pub mod tests {
         // Test recorder has seen nothing to start with.
         // TODO assert!(midi_recorder.debug_messages.is_empty());
 
-        let mut o = Orchestrator::new_with(ClockNano {
+        let mut o = Orchestrator::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         o.reset(DEFAULT_SAMPLE_RATE);
         let _sequencer_uid = o.add(Entity::Sequencer(sequencer));
@@ -1810,7 +1819,7 @@ pub mod tests {
 
         // Keep going until just before half of second beat. We should see the
         // first note off (not on!) and the second note on/off.
-        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(TimerNano {
+        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             seconds: 2.0,
         }))));
         assert!(o.run(&mut sample_buffer).is_ok());
@@ -1827,7 +1836,7 @@ pub mod tests {
     #[test]
     fn empty_pattern() {
         let time_signature = TimeSignature::default();
-        let mut sequencer = Box::new(Sequencer::new_with(SequencerNano { bpm: DEFAULT_BPM }));
+        let mut sequencer = Box::new(Sequencer::new_with(&SequencerParams { bpm: DEFAULT_BPM }));
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         let note_pattern = vec![Note {
@@ -1850,10 +1859,10 @@ pub mod tests {
         );
         assert_eq!(sequencer.debug_events().len(), 0);
 
-        let mut o = Orchestrator::new_with(ClockNano {
+        let mut o = Orchestrator::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         o.reset(DEFAULT_SAMPLE_RATE);
         let _ = o.add(Entity::Sequencer(sequencer));
@@ -1882,25 +1891,26 @@ pub mod tests {
     // that note-on is skipped.
     #[test]
     fn sequencer_to_arp_to_instrument_works() {
-        let mut clock = Clock::new_with(ClockNano {
+        let mut clock = Clock::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
-        let mut sequencer = Box::new(Sequencer::new_with(SequencerNano { bpm: clock.bpm() }));
+        let mut sequencer = Box::new(Sequencer::new_with(&SequencerParams { bpm: clock.bpm() }));
         const MIDI_CHANNEL_SEQUENCER_TO_ARP: MidiChannel = 7;
         const MIDI_CHANNEL_ARP_TO_INSTRUMENT: MidiChannel = 8;
         let mut arpeggiator = Box::new(Arpeggiator::new_with(
             MIDI_CHANNEL_ARP_TO_INSTRUMENT,
-            ArpeggiatorNano { bpm: clock.bpm() },
+            ArpeggiatorParams { bpm: clock.bpm() },
         ));
-        let instrument = Box::new(ToyInstrument::new_with(ToyInstrumentNano {
+        let instrument = Box::new(ToyInstrument::new_with(&ToyInstrumentParams {
             fake_value: Normal::from(0.332948),
+            dca: Default::default(),
         }));
-        let mut o = Orchestrator::new_with(ClockNano {
+        let mut o = Orchestrator::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         arpeggiator.reset(DEFAULT_SAMPLE_RATE);
         o.reset(DEFAULT_SAMPLE_RATE);

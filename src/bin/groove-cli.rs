@@ -8,7 +8,7 @@ use groove::{
     app_version, {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
 };
 use groove_core::{
-    time::{ClockNano, TimeSignature},
+    time::{ClockParams, TimeSignature},
     traits::Resets,
     StereoSample, SAMPLE_BUFFER_SIZE,
 };
@@ -79,7 +79,7 @@ fn main() -> anyhow::Result<()> {
 
             // TODO: this is temporary, to return the right type
             #[cfg(not(feature = "scripting"))]
-            Orchestrator::new_with(ClockNano {
+            Orchestrator::new_with(&ClockParams {
                 bpm: DEFAULT_BPM,
                 midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
                 time_signature: TimeSignature { top: 4, bottom: 4 },
@@ -100,7 +100,7 @@ fn main() -> anyhow::Result<()> {
             }
             r
         } else {
-            Orchestrator::new_with(ClockNano {
+            Orchestrator::new_with(&ClockParams {
                 bpm: DEFAULT_BPM,
                 midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
                 time_signature: TimeSignature { top: 4, bottom: 4 },

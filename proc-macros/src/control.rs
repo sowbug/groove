@@ -74,18 +74,16 @@ pub(crate) fn impl_control_derive(input: TokenStream, primitives: &HashSet<Ident
 
         let mut size_const_ids = Vec::default();
         let mut size_const_values = Vec::default();
-        attr_fields
-            .iter()
-            .for_each(|(ident, ident_type, _is_leaf)| {
-                let size_const_name = size_const_id(ident);
-                size_const_ids.push(size_const_name.clone());
+        attr_fields.iter().for_each(|(ident, ident_type, is_leaf)| {
+            let size_const_name = size_const_id(ident);
+            size_const_ids.push(size_const_name.clone());
 
-                if primitives.contains(ident_type) {
-                    size_const_values.push(quote! { 1 });
-                } else {
-                    size_const_values.push(quote! { #ident_type::STRUCT_SIZE });
-                }
-            });
+            if primitives.contains(ident_type) || *is_leaf {
+                size_const_values.push(quote! { 1 });
+            } else {
+                size_const_values.push(quote! { #ident_type::STRUCT_SIZE });
+            }
+        });
         let size_const_body = quote! {
             #( const #size_const_ids: usize = #size_const_values; )*
         };
@@ -137,8 +135,14 @@ pub(crate) fn impl_control_derive(input: TokenStream, primitives: &HashSet<Ident
         let range_const_body = quote! {
             #( pub const #index_const_range_end_ids: usize = #index_const_values + #size_const_values - 1; )*
         };
-        let struct_size_const_body = quote! {
-            pub const STRUCT_SIZE: usize = 0 + #( Self::#size_const_ids )+* ;
+        let struct_size_const_body = if size_const_ids.is_empty() {
+            quote! {
+                pub const STRUCT_SIZE: usize = 0;
+            }
+        } else {
+            quote! {
+                pub const STRUCT_SIZE: usize = 0 + #( Self::#size_const_ids )+* ;
+            }
         };
 
         let mut id_bodies = Vec::default();
@@ -160,7 +164,7 @@ pub(crate) fn impl_control_derive(input: TokenStream, primitives: &HashSet<Ident
         let control_name_for_index_body = quote! {
             fn control_name_for_index(&self, index: usize) -> Option<String> {
                 match index {
-                    #( Self::#index_const_ids..=Self::#index_const_range_end_ids => {#id_bodies} ),*
+                    #( Self::#index_const_ids..=Self::#index_const_range_end_ids => {#id_bodies}, )*
                     _ => {None},
                 }
             }
@@ -168,7 +172,7 @@ pub(crate) fn impl_control_derive(input: TokenStream, primitives: &HashSet<Ident
         let control_set_param_by_index_bodies = quote! {
             fn control_set_param_by_index(&mut self, index: usize, value: #core_crate::control::F32ControlValue) {
                 match index {
-                    #( Self::#index_const_ids..=Self::#index_const_range_end_ids => {#setter_bodies} ),*
+                    #( Self::#index_const_ids..=Self::#index_const_range_end_ids => {#setter_bodies}, )*
                     _ => {},
                 }
             }

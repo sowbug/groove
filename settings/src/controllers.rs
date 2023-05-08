@@ -4,13 +4,14 @@ use super::{BeatValueSettings, DeviceId, MidiChannel};
 use groove_core::{ParameterType, SignalType};
 use groove_entities::{
     controllers::{
-        Arpeggiator, ArpeggiatorNano, ControlPath, ControlStep, LfoController, LfoControllerNano,
-        MidiChannelNano, SignalPassthroughController,
+        Arpeggiator, ArpeggiatorParams, ControlPath, ControlStep, LfoController, LfoControllerParams,
+        MidiChannelParams, SignalPassthroughController,
     },
     ToyMessageMaker,
 };
 use groove_orchestration::Entity;
-use groove_toys::{ToyController, ToyControllerNano};
+#[cfg(toy_controller_disabled)]
+use groove_toys::{ToyController, ToyControllerParams};
 use serde::{Deserialize, Serialize};
 
 /// A ControlTrip contains successive ControlSteps. A ControlStep describes how
@@ -105,13 +106,13 @@ pub struct ControlTripSettings {
 #[serde(rename_all = "kebab-case")]
 pub enum ControllerSettings {
     #[serde(rename_all = "kebab-case")]
-    Test(MidiChannelNano),
+    Test(MidiChannelParams),
     #[serde(rename_all = "kebab-case")]
-    Arpeggiator(MidiChannelNano, ArpeggiatorNano),
+    Arpeggiator(MidiChannelParams, ArpeggiatorParams),
     #[serde(rename_all = "kebab-case", rename = "lfo")]
-    LfoController(MidiChannelNano, LfoControllerNano),
+    LfoController(MidiChannelParams, LfoControllerParams),
     #[serde(rename_all = "kebab-case", rename = "signal-passthrough-controller")]
-    SignalPassthroughController(MidiChannelNano),
+    SignalPassthroughController(MidiChannelParams),
 }
 
 impl ControllerSettings {
@@ -123,28 +124,28 @@ impl ControllerSettings {
         if load_only_test_entities {
             let (midi_input_channel, midi_output_channel) = match self {
                 ControllerSettings::Test(
-                    MidiChannelNano {
+                    MidiChannelParams {
                         midi_in: midi_input_channel,
                         midi_out: midi_output_channel,
                     },
                     ..,
                 )
                 | ControllerSettings::Arpeggiator(
-                    MidiChannelNano {
+                    MidiChannelParams {
                         midi_in: midi_input_channel,
                         midi_out: midi_output_channel,
                     },
                     ..,
                 )
                 | ControllerSettings::LfoController(
-                    MidiChannelNano {
+                    MidiChannelParams {
                         midi_in: midi_input_channel,
                         midi_out: midi_output_channel,
                     },
                     ..,
                 )
                 | ControllerSettings::SignalPassthroughController(
-                    MidiChannelNano {
+                    MidiChannelParams {
                         midi_in: midi_input_channel,
                         midi_out: midi_output_channel,
                     },
@@ -155,7 +156,7 @@ impl ControllerSettings {
                 *midi_input_channel,
                 *midi_output_channel,
                 Entity::ToyController(Box::new(ToyController::new_with(
-                    groove_toys::ToyControllerNano {
+                    groove_toys::ToyControllerParams {
                         bpm,
                         tempo: 999999.0,
                     },
@@ -169,7 +170,7 @@ impl ControllerSettings {
                 midi.midi_in,
                 midi.midi_out,
                 Entity::ToyController(Box::new(ToyController::new_with(
-                    ToyControllerNano {
+                    ToyControllerParams {
                         bpm,
                         tempo: 999999.0,
                     },

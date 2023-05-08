@@ -4,7 +4,7 @@ use groove_core::{
     traits::{IsEffect, Resets, TransformsAudio},
     Normal, Sample,
 };
-use groove_proc_macros::{Nano, Uid};
+use groove_proc_macros::{Control, Nano, Params, Uid};
 use std::str::FromStr;
 use strum::EnumCount;
 use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
@@ -12,11 +12,11 @@ use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, I
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Nano, Uid)]
+#[derive(Debug, Default, Control, Params, Uid)]
 pub struct Gain {
     uid: usize,
 
-    #[nano]
+    #[control] #[params]
     ceiling: Normal,
 }
 impl IsEffect for Gain {}
@@ -29,7 +29,7 @@ impl TransformsAudio for Gain {
     }
 }
 impl Gain {
-    pub fn new_with(params: GainNano) -> Self {
+    pub fn new_with(params: &GainParams) -> Self {
         Self {
             uid: Default::default(),
             ceiling: params.ceiling,
@@ -44,6 +44,7 @@ impl Gain {
         self.ceiling = ceiling;
     }
 
+ #[cfg(feature="iced-framework")]
     pub fn update(&mut self, message: GainMessage) {
         match message {
             GainMessage::Gain(s) => *self = Self::new_with(s),
@@ -80,16 +81,16 @@ mod gui {
 mod tests {
     use super::*;
     use groove_core::{traits::Generates, StereoSample};
-    use groove_toys::{ToyAudioSource, ToyAudioSourceNano};
+    use groove_toys::{ToyAudioSource, ToyAudioSourceParams};
 
     #[test]
     fn gain_mainline() {
-        let mut gain = Gain::new_with(GainNano {
+        let mut gain = Gain::new_with(&GainParams {
             ceiling: Normal::new(0.5),
         });
         assert_eq!(
             gain.transform_audio(
-                ToyAudioSource::new_with(ToyAudioSourceNano {
+                ToyAudioSource::new_with(&ToyAudioSourceParams {
                     level: ToyAudioSource::LOUD
                 })
                 .value()

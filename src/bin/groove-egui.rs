@@ -17,7 +17,7 @@ use groove::{
     egui_widgets::{AudioPanel, ControlBar, MidiPanel, Preferences, ThingBrowser},
     Message,
 };
-use groove_core::{time::ClockNano, traits::gui::Shows};
+use groove_core::{time::ClockParams, traits::gui::Shows};
 use groove_orchestration::{messages::GrooveInput, Orchestrator};
 use groove_utils::Paths;
 use std::{
@@ -144,7 +144,7 @@ impl GrooveApp {
 
         let (sender, receiver) = crossbeam_channel::unbounded();
 
-        let clock_settings = ClockNano::default();
+        let clock_settings = ClockParams::default();
         let orchestrator = Arc::new(Mutex::new(Orchestrator::new_with(clock_settings)));
 
         let paths = Paths::default();

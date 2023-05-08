@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::effects::{BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbNano};
+use crate::effects::{BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbParams};
 use core::fmt::Debug;
 use groove_core::{
     generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams},
@@ -11,9 +11,9 @@ use groove_core::{
         Resets, Ticks, TransformsAudio,
     },
     voices::StealingVoiceStore,
-    BipolarNormal, Dca, DcaNano, FrequencyHz, Normal, Sample, StereoSample,
+    BipolarNormal, Dca, DcaParams, FrequencyHz, Normal, Sample, StereoSample,
 };
-use groove_proc_macros::{Nano, Uid};
+use groove_proc_macros::{Control, Nano, Params, Uid};
 use std::str::FromStr;
 use strum::EnumCount;
 use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
@@ -220,26 +220,26 @@ impl WelshVoice {
         });
     }
 
-    pub fn new_with(params: WelshSynthNano) -> Self {
+    pub fn new_with(params: &WelshSynthParams) -> Self {
         Self {
             oscillators: vec![
-                Oscillator::new_with(params.oscillator_1().clone()),
-                Oscillator::new_with(params.oscillator_2().clone()),
+                Oscillator::new_with(&params.oscillator_1),
+                Oscillator::new_with(&params.oscillator_2),
             ],
             oscillator_2_sync: params.oscillator_sync(),
             oscillator_mix: params.oscillator_mix(),
-            amp_envelope: Envelope::new_with(params.envelope().clone()),
-            dca: Dca::new_with(DcaNano {
+            amp_envelope: Envelope::new_with(&params.envelope),
+            dca: Dca::new_with(&DcaParams {
                 gain: params.gain(),
                 pan: params.pan(),
             }),
-            lfo: Oscillator::new_with(params.lfo().clone()),
+            lfo: Oscillator::new_with(&params.lfo),
             lfo_routing: params.lfo_routing(),
             lfo_depth: params.lfo_depth(),
-            filter: BiQuadFilterLowPass24db::new_with(params.low_pass_filter().clone()),
+            filter: BiQuadFilterLowPass24db::new_with(&params.low_pass_filter),
             filter_cutoff_start: params.filter_cutoff_start(),
             filter_cutoff_end: params.filter_cutoff_end(),
-            filter_envelope: Envelope::new_with(params.filter_envelope().clone()),
+            filter_envelope: Envelope::new_with(&params.filter_envelope),
             note_on_key: Default::default(),
             note_on_velocity: Default::default(),
             steal_is_underway: Default::default(),
@@ -257,46 +257,64 @@ impl WelshVoice {
     }
 }
 
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct WelshSynth {
     uid: usize,
     inner_synth: Synthesizer<WelshVoice>,
 
-    #[nano(control = false, no_copy = true)]
-    oscillator_1: OscillatorParams,
-    #[nano(control = false, no_copy = true)]
-    oscillator_2: OscillatorParams,
-    #[nano]
+    #[control]
+    #[params]
+    oscillator_1: Oscillator,
+
+    #[control]
+    #[params]
+    oscillator_2: Oscillator,
+
+    #[control]
+    #[params]
     oscillator_sync: bool,
-    #[nano]
+
+    #[control]
+    #[params]
     oscillator_mix: Normal,
 
-    #[nano(control = false, no_copy = true)]
-    envelope: EnvelopeParams,
+    #[control]
+    #[params]
+    envelope: Envelope,
 
-    #[nano(control = false, no_copy = true)]
-    lfo: OscillatorParams,
-    #[nano(control = false)]
+    #[control]
+    #[params]
+    lfo: Oscillator,
+
+    #[params(leaf = true)]
     lfo_routing: LfoRouting,
-    #[nano]
+
+    #[control]
+    #[params]
     lfo_depth: Normal,
 
-    #[nano(control = false, no_copy = true)]
-    low_pass_filter: BiQuadFilterLowPass24dbNano,
+    #[control]
+    #[params]
+    low_pass_filter: BiQuadFilterLowPass24db,
 
-    #[nano]
+    #[control]
+    #[params]
     filter_cutoff_start: Normal,
 
-    #[nano]
+    #[control]
+    #[params]
     filter_cutoff_end: Normal,
 
-    #[nano(control = false, no_copy = true)]
-    filter_envelope: EnvelopeParams,
+    #[control]
+    #[params]
+    filter_envelope: Envelope,
 
-    #[nano]
+    #[control]
+    #[params]
     gain: Normal,
 
-    #[nano]
+    #[control]
+    #[params]
     pan: BipolarNormal,
 
     dca: Dca,
@@ -344,30 +362,30 @@ impl HandlesMidi for WelshSynth {
     }
 }
 impl WelshSynth {
-    pub fn new_with(params: WelshSynthNano) -> Self {
+    pub fn new_with(params: &WelshSynthParams) -> Self {
         const VOICE_CAPACITY: usize = 8;
         let voice_store = StealingVoiceStore::<WelshVoice>::new_with_voice(VOICE_CAPACITY, || {
-            WelshVoice::new_with(params.clone())
+            WelshVoice::new_with(&params)
         });
         Self {
             uid: Default::default(),
             inner_synth: Synthesizer::<WelshVoice>::new_with(Box::new(voice_store)),
-            dca: Dca::new_with(DcaNano {
+            dca: Dca::new_with(&DcaParams {
                 gain: params.gain(),
                 pan: params.pan(),
             }),
             gain: params.gain(),
             pan: params.pan(),
-            envelope: params.envelope().clone(),
-            filter_envelope: params.filter_envelope().clone(),
-            oscillator_1: params.oscillator_1().clone(),
-            oscillator_2: params.oscillator_2().clone(),
+            envelope: Envelope::new_with(&params.envelope),
+            filter_envelope: Envelope::new_with(&params.filter_envelope),
+            oscillator_1: Oscillator::new_with(&params.oscillator_1),
+            oscillator_2: Oscillator::new_with(&params.oscillator_2),
             oscillator_sync: params.oscillator_sync(),
             oscillator_mix: params.oscillator_mix(),
-            lfo: params.lfo().clone(),
+            lfo: Oscillator::new_with(&params.lfo),
             lfo_routing: params.lfo_routing(),
             lfo_depth: params.lfo_depth(),
-            low_pass_filter: params.low_pass_filter().clone(),
+            low_pass_filter: BiQuadFilterLowPass24db::new_with(&params.low_pass_filter),
             filter_cutoff_start: params.filter_cutoff_start(),
             filter_cutoff_end: params.filter_cutoff_end(),
         }
@@ -415,6 +433,7 @@ impl WelshSynth {
 
     // TODO: this pattern sucks. I knew it was going to be icky. Think about how
     // to make it less copy/paste.
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: WelshSynthMessage) {
         match message {
             WelshSynthMessage::WelshSynth(_e) => {
@@ -424,27 +443,31 @@ impl WelshSynth {
         }
     }
 
-    pub fn envelope(&self) -> &EnvelopeParams {
+    pub fn envelope(&self) -> &Envelope {
         &self.envelope
     }
 
-    pub fn filter_envelope(&self) -> &EnvelopeParams {
+    pub fn filter_envelope(&self) -> &Envelope {
         &self.filter_envelope
     }
 
-    pub fn set_envelope(&mut self, envelope: EnvelopeParams) {
+    pub fn lfo(&self) -> &Oscillator {
+        &self.lfo
+    }
+
+    pub fn set_envelope(&mut self, envelope: Envelope) {
         self.envelope = envelope;
     }
 
-    pub fn set_filter_envelope(&mut self, filter_envelope: EnvelopeParams) {
+    pub fn set_filter_envelope(&mut self, filter_envelope: Envelope) {
         self.filter_envelope = filter_envelope;
     }
 
-    pub fn set_oscillator_1(&mut self, oscillator_1: OscillatorParams) {
+    pub fn set_oscillator_1(&mut self, oscillator_1: Oscillator) {
         self.oscillator_1 = oscillator_1;
     }
 
-    pub fn set_oscillator_2(&mut self, oscillator_2: OscillatorParams) {
+    pub fn set_oscillator_2(&mut self, oscillator_2: Oscillator) {
         self.oscillator_2 = oscillator_2;
     }
 
@@ -456,7 +479,7 @@ impl WelshSynth {
         self.oscillator_mix = oscillator_mix;
     }
 
-    pub fn set_lfo(&mut self, lfo: OscillatorParams) {
+    pub fn set_lfo(&mut self, lfo: Oscillator) {
         self.lfo = lfo;
     }
 
@@ -468,7 +491,7 @@ impl WelshSynth {
         self.lfo_depth = lfo_depth;
     }
 
-    pub fn set_low_pass_filter(&mut self, low_pass_filter: BiQuadFilterLowPass24dbNano) {
+    pub fn set_low_pass_filter(&mut self, low_pass_filter: BiQuadFilterLowPass24db) {
         self.low_pass_filter = low_pass_filter;
     }
 
@@ -478,10 +501,6 @@ impl WelshSynth {
 
     pub fn set_filter_cutoff_end(&mut self, filter_cutoff_end: Normal) {
         self.filter_cutoff_end = filter_cutoff_end;
-    }
-
-    pub fn lfo(&self) -> &OscillatorParams {
-        &self.lfo
     }
 }
 
@@ -532,7 +551,7 @@ mod tests {
     use crate::tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND};
     use convert_case::{Case, Casing};
     use groove_core::{
-        time::{Clock, ClockNano, TimeSignature},
+        time::{Clock, ClockParams, TimeSignature, TimeSignatureParams},
         util::tests::TestOnlyPaths,
         SampleType,
     };
@@ -552,10 +571,10 @@ mod tests {
     // TODO: refactor out to common test utilities
     #[allow(dead_code)]
     fn write_voice(voice: &mut WelshVoice, duration: f64, basename: &str) {
-        let mut clock = Clock::new_with(ClockNano {
+        let mut clock = Clock::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
 
         let spec = hound::WavSpec {

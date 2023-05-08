@@ -11,7 +11,7 @@
 //! # use groove_core::{
 //! #     generators::{EnvelopeParams, Waveform},
 //! #     midi::{MidiChannel, new_note_off, new_note_on},
-//! #     time::{Clock, ClockNano, PerfectTimeUnit, TimeSignature},
+//! #     time::{Clock, ClockParams, PerfectTimeUnit, TimeSignature},
 //! #     traits::Resets,
 //! #     Normal,
 //! #     SAMPLE_BUFFER_SIZE,
@@ -19,11 +19,11 @@
 //! # };
 //! # use groove_entities::{
 //! #     controllers::Sequencer,
-//! #     controllers::SequencerNano,
+//! #     controllers::SequencerParams,
 //! #     effects::Compressor,
-//! #     effects::CompressorNano,
+//! #     effects::CompressorParams,
 //! # };
-//! # use groove_toys::{ToySynth, ToySynthNano};
+//! # use groove_toys::{ToySynth, ToySynthParams};
 //! #
 //! # const SAMPLE_RATE: usize = 44100;
 //! # const BPM: f64 = 128.0;
@@ -33,21 +33,21 @@
 //! let mut buffer = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
 //!
 //! // ToySynth is a MIDI instrument that makes simple sounds.
-//! let synth = ToySynth::new_with(ToySynthNano {
+//! let synth = ToySynth::new_with(&ToySynthParams {
 //!     voice_count: 4,
 //!     waveform: Waveform::Sine,
 //!     envelope: EnvelopeParams::new_with(0.0, 0.0, Normal::maximum(), 0.0),
 //! });
 //!
 //! // Sequencer sends MIDI commands to the synth.
-//! let mut sequencer = Sequencer::new_with(SequencerNano { bpm: 128.0 });
+//! let mut sequencer = Sequencer::new_with(&SequencerParams { bpm: 128.0 });
 //!
 //! // There are lots of different ways to populate the sequencer with notes.
 //! sequencer.insert(PerfectTimeUnit(0.0), MIDI_0, new_note_on(69, 100));
 //! sequencer.insert(PerfectTimeUnit(1.0), MIDI_0, new_note_off(69, 100));
 //!
 //! // An effect takes the edge off the synth.
-//! let compressor = Compressor::new_with(CompressorNano {
+//! let compressor = Compressor::new_with(&CompressorParams {
 //!     threshold: Normal::from(0.8),
 //!     ratio: 0.5,
 //!     attack: 0.05,
@@ -57,7 +57,7 @@
 //! // Orchestrator understands the relationships among the
 //! // instruments, controllers, and effects, and uses them to
 //! // produce a song.
-//! let mut orchestrator = Orchestrator::new_with(ClockNano {
+//! let mut orchestrator = Orchestrator::new_with(&ClockParams {
 //!     bpm: 128.0,
 //!     midi_ticks_per_second: 960,
 //!     time_signature: TimeSignature { top: 4, bottom: 4 },

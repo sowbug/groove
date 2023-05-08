@@ -1,18 +1,24 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-pub use arpeggiator::{Arpeggiator, ArpeggiatorMessage, ArpeggiatorNano};
-pub use control_trip::{
-    ControlPath, ControlStep, ControlTrip, ControlTripMessage, ControlTripNano,
-};
-pub use lfo::{LfoController, LfoControllerMessage, LfoControllerNano};
+#[cfg(feature = "iced-framework")]
+pub use arpeggiator::ArpeggiatorMessage;
+pub use arpeggiator::{Arpeggiator, ArpeggiatorParams};
+#[cfg(feature = "iced-framework")]
+pub use control_trip::ControlTripMessage;
+pub use control_trip::{ControlPath, ControlStep, ControlTrip, ControlTripParams};
+#[cfg(feature = "iced-framework")]
+pub use lfo::LfoControllerMessage;
+pub use lfo::{LfoController, LfoControllerParams};
 pub use patterns::{
-    Note, Pattern, PatternManager, PatternManagerMessage, PatternManagerNano, PatternMessage,
-    PatternProgrammer,
+    Note, Pattern, PatternManager, PatternManagerParams, PatternMessage, PatternProgrammer,
 };
+#[cfg(feature = "iced-framework")]
+pub use patterns::{PatternManagerMessage, PatternMessage};
 pub use sequencers::{
-    MidiSmfReader, MidiTickSequencer, MidiTickSequencerMessage, MidiTickSequencerNano, Sequencer,
-    SequencerMessage, SequencerNano,
+    MidiSmfReader, MidiTickSequencer, MidiTickSequencerParams, Sequencer, SequencerParams,
 };
+#[cfg(feature = "iced-framework")]
+pub use sequencers::{MidiTickSequencerMessage, SequencerMessage};
 
 mod arpeggiator;
 mod control_trip;
@@ -26,10 +32,7 @@ use groove_core::{
     traits::{IsController, IsEffect, Performs, Resets, TicksWithMessages, TransformsAudio},
     BipolarNormal, ParameterType, Sample, StereoSample,
 };
-use groove_proc_macros::{Nano, Uid};
-use std::str::FromStr;
-use strum::EnumCount;
-use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
+use groove_proc_macros::{Control, Params, Uid};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -40,7 +43,7 @@ use serde::{Deserialize, Serialize};
     derive(Serialize, Deserialize),
     serde(rename = "midi", rename_all = "kebab-case")
 )]
-pub struct MidiChannelNano {
+pub struct MidiChannelParams {
     pub midi_in: MidiChannel,
     pub midi_out: MidiChannel,
 }
@@ -50,7 +53,7 @@ pub struct MidiChannelNano {
     derive(Serialize, Deserialize),
     serde(rename = "midi-in", rename_all = "kebab-case")
 )]
-pub struct MidiChannelInputNano {
+pub struct MidiChannelInputParams {
     pub midi_in: MidiChannel,
 }
 #[derive(Clone, Copy, Debug)]
@@ -59,18 +62,19 @@ pub struct MidiChannelInputNano {
     derive(Serialize, Deserialize),
     serde(rename = "midi-out", rename_all = "kebab-case")
 )]
-pub struct MidiChannelOutputNano {
+pub struct MidiChannelOutputParams {
     pub midi_out: MidiChannel,
 }
 
 /// [Timer] runs for a specified amount of time, then indicates that it's done.
 /// It is useful when you need something to happen after a certain amount of
 /// wall-clock time, rather than musical time.
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct Timer {
     uid: usize,
 
-    #[nano]
+    #[control]
+    #[params]
     seconds: ParameterType,
 
     sample_rate: usize,
@@ -80,7 +84,7 @@ pub struct Timer {
     is_performing: bool,
 }
 impl Timer {
-    pub fn new_with(params: TimerNano) -> Self {
+    pub fn new_with(params: &TimerParams) -> Self {
         Self {
             uid: Default::default(),
             sample_rate: Default::default(),
@@ -100,6 +104,7 @@ impl Timer {
         self.seconds = seconds;
     }
 
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: TimerMessage) {
         match message {
             TimerMessage::Timer(s) => *self = Self::new_with(s),
@@ -148,14 +153,16 @@ impl Performs for Timer {
 
 // TODO: needs tests!
 /// [Trigger] issues a control signal after a specified amount of time.
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct Trigger {
     uid: usize,
 
-    #[nano]
+    #[control]
+    #[params]
     seconds: ParameterType,
 
-    #[nano]
+    #[control]
+    #[params]
     value: f32,
 
     timer: Timer,
@@ -204,10 +211,10 @@ impl Performs for Trigger {
     }
 }
 impl Trigger {
-    pub fn new_with(params: TriggerNano) -> Self {
+    pub fn new_with(params: &TriggerParams) -> Self {
         Self {
             uid: Default::default(),
-            timer: Timer::new_with(TimerNano {
+            timer: Timer::new_with(&TimerParams {
                 seconds: params.seconds(),
             }),
             has_triggered: false,
@@ -233,6 +240,7 @@ impl Trigger {
         self.value = value;
     }
 
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: TriggerMessage) {
         match message {
             TriggerMessage::Trigger(s) => *self = Self::new_with(s),
@@ -242,7 +250,7 @@ impl Trigger {
 }
 
 /// Uses an input signal as a control source.
-#[derive(Debug, Nano, Uid)]
+#[derive(Control, Debug, Params, Uid)]
 pub struct SignalPassthroughController {
     uid: usize,
     signal: BipolarNormal,
@@ -323,6 +331,7 @@ impl SignalPassthroughController {
         }
     }
 
+    #[cfg(feature = "iced-framework")]
     #[allow(unreachable_patterns)]
     pub fn update(&mut self, message: SignalPassthroughControllerMessage) {
         match message {
@@ -337,14 +346,14 @@ impl SignalPassthroughController {
 #[cfg(test)]
 mod tests {
     use crate::{
-        controllers::{Trigger, TriggerNano},
+        controllers::{Trigger, TriggerParams},
         tests::DEFAULT_SAMPLE_RATE,
     };
     use groove_core::traits::{Resets, TicksWithMessages};
 
     #[test]
     fn instantiate_trigger() {
-        let mut trigger = Trigger::new_with(TriggerNano {
+        let mut trigger = Trigger::new_with(&TriggerParams {
             seconds: 1.0,
             value: 0.5,
         });

@@ -3,16 +3,13 @@
 //! Fundamental structs and traits.
 
 use control::F32ControlValue;
-use groove_proc_macros::Nano;
+use groove_proc_macros::{Control, Params};
 use std::ops::RangeInclusive;
-use std::str::FromStr;
 use std::{
     fmt::Display,
     iter::Sum,
     ops::{Add, AddAssign, Div, Mul, Neg, Sub},
 };
-use strum::EnumCount;
-use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -438,15 +435,17 @@ impl Into<f32> for Normal {
 /// of synths.
 ///
 /// See DSSPC++, Section 7.9 for requirements. TODO: implement
-#[derive(Debug, Nano)]
+#[derive(Debug, Control, Params)]
 pub struct Dca {
-    #[nano]
+    #[control]
+    #[params]
     gain: Normal,
-    #[nano]
+    #[control]
+    #[params]
     pan: BipolarNormal,
 }
 impl Dca {
-    pub fn new_with(params: DcaNano) -> Self {
+    pub fn new_with(params: &DcaParams) -> Self {
         Self {
             gain: params.gain(),
             pan: params.pan(),
@@ -841,7 +840,7 @@ mod tests {
 
     #[test]
     fn dca_mainline() {
-        let mut dca = Dca::new_with(DcaNano {
+        let mut dca = Dca::new_with(&DcaParams {
             gain: 1.0.into(),
             pan: BipolarNormal::zero(),
         });

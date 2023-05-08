@@ -5,7 +5,7 @@ use groove_core::{
     traits::{IsEffect, Resets, TransformsAudio},
     Normal, ParameterType, Sample,
 };
-use groove_proc_macros::{Nano, Uid};
+use groove_proc_macros::{Control, Nano, Params, Uid};
 use std::str::FromStr;
 use strum::EnumCount;
 use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
@@ -15,16 +15,18 @@ use serde::{Deserialize, Serialize};
 
 /// Schroeder reverb. Uses four parallel recirculating delay lines feeding into
 /// a series of two all-pass delay lines.
-#[derive(Debug, Nano, Uid)]
+#[derive(Debug, Control, Params, Uid)]
 pub struct Reverb {
     uid: usize,
     sample_rate: usize,
 
     /// How much the effect should attenuate the input.
-    #[nano]
+    #[control]
+    #[params]
     attenuation: Normal,
 
-    #[nano]
+    #[control]
+    #[params]
     seconds: ParameterType,
 
     // TODO: maybe handle the wet/dry more centrally. It seems like it'll be
@@ -32,7 +34,8 @@ pub struct Reverb {
     //
     /// what percentage should be unprocessed. 0.0 = all effect. 0.0 = all
     /// unchanged.
-    #[nano]
+    #[control]
+    #[params]
     wet_dry_mix: f32,
 
     channels: [ReverbChannel; 2],
@@ -52,7 +55,7 @@ impl TransformsAudio for Reverb {
     }
 }
 impl Reverb {
-    pub fn new_with(params: ReverbNano) -> Self {
+    pub fn new_with(params: &ReverbParams) -> Self {
         // Thanks to https://basicsynth.com/ (page 133 of paperback) for
         // constants.
         Self {
@@ -62,7 +65,7 @@ impl Reverb {
             seconds: params.seconds(),
             wet_dry_mix: params.wet_dry_mix(),
             channels: [
-                ReverbChannel::new_with(params.clone()),
+                ReverbChannel::new_with(params),
                 ReverbChannel::new_with(params),
             ],
         }
@@ -75,6 +78,7 @@ impl Reverb {
             .for_each(|c| c.set_wet_dry_mix(mix));
     }
 
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: ReverbMessage) {
         match message {
             ReverbMessage::Reverb(s) => *self = Self::new_with(s),
@@ -146,7 +150,7 @@ impl Resets for ReverbChannel {
     }
 }
 impl ReverbChannel {
-    pub fn new_with(params: ReverbNano) -> Self {
+    pub fn new_with(params: &ReverbParams) -> Self {
         // Thanks to https://basicsynth.com/ (page 133 of paperback) for
         // constants.
         Self {
@@ -209,7 +213,7 @@ impl ReverbChannel {
 #[cfg(test)]
 mod tests {
     use super::Reverb;
-    use crate::{effects::ReverbNano, tests::DEFAULT_SAMPLE_RATE};
+    use crate::{effects::ReverbParams, tests::DEFAULT_SAMPLE_RATE};
     use groove_core::{
         traits::{Resets, TransformsAudio},
         Normal, Sample,
@@ -217,7 +221,7 @@ mod tests {
 
     #[test]
     fn reverb_dry_works() {
-        let mut fx = Reverb::new_with(crate::effects::ReverbNano {
+        let mut fx = Reverb::new_with(&ReverbParams {
             attenuation: Normal::from(0.5),
             seconds: 1.5,
             wet_dry_mix: 0.0,
@@ -239,7 +243,7 @@ mod tests {
         // to 0.5 seconds, we start getting back nonzero samples (first
         // 0.47767496) at samples: 29079, seconds: 0.65938777. This doesn't look
         // wrong, but I couldn't have predicted that exact number.
-        let mut fx = Reverb::new_with(ReverbNano {
+        let mut fx = Reverb::new_with(&ReverbParams {
             attenuation: Normal::from(0.9),
             seconds: 0.5,
             wet_dry_mix: 1.0,

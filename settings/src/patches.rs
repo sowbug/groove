@@ -8,8 +8,8 @@ use groove_core::{
     FrequencyHz, Normal, ParameterType, Ratio,
 };
 use groove_entities::{
-    effects::{BiQuadFilter, BiQuadFilterLowPass24dbNano},
-    instruments::{LfoRouting, WelshSynthNano},
+    effects::{BiQuadFilter, BiQuadFilterLowPass24dbParams},
+    instruments::{LfoRouting, WelshSynthParams},
 };
 use groove_utils::Paths;
 use serde::{Deserialize, Serialize};
@@ -83,7 +83,7 @@ impl WelshPatchSettings {
         panic!("couldn't read patch file named {:?}", &path);
     }
 
-    pub fn derive_welsh_synth_nano(&self) -> WelshSynthNano {
+    pub fn derive_welsh_synth_params(&self) -> WelshSynthParams {
         let mut oscillators = Vec::default();
         if !matches!(self.oscillator_1.waveform, Waveform::None) {
             oscillators.push(self.oscillator_1.derive_oscillator());
@@ -100,13 +100,13 @@ impl WelshPatchSettings {
             oscillators.push(o);
         }
         if self.noise > 0.0 {
-            oscillators.push(Oscillator::new_with(OscillatorParams {
+            oscillators.push(Oscillator::new_with(&OscillatorParams {
                 waveform: Waveform::Noise,
                 ..Default::default()
             }));
         }
 
-        WelshSynthNano {
+        WelshSynthParams {
             oscillator_1: OscillatorParams {
                 waveform: self.oscillator_1.waveform.into(),
                 frequency_tune: self.oscillator_1.tune.into(),
@@ -136,7 +136,7 @@ impl WelshPatchSettings {
             },
             lfo_routing: self.lfo.routing.into(),
             lfo_depth: self.lfo.depth.into(),
-            low_pass_filter: BiQuadFilterLowPass24dbNano {
+            low_pass_filter: BiQuadFilterLowPass24dbParams {
                 cutoff: self.filter_type_24db.cutoff_hz.into(),
                 passband_ripple: BiQuadFilter::denormalize_q(self.filter_resonance.into()),
             },
@@ -239,7 +239,7 @@ impl OscillatorSettings {
     }
 
     pub fn derive_oscillator(&self) -> Oscillator {
-        let mut r = Oscillator::new_with(OscillatorParams::default_with_waveform(
+        let mut r = Oscillator::new_with(&OscillatorParams::default_with_waveform(
             self.waveform.into(),
         ));
         r.set_frequency_tune(self.tune.into());
@@ -705,7 +705,7 @@ mod tests {
     use float_cmp::approx_eq;
     use groove_core::{
         generators::{EnvelopeParams, Waveform},
-        time::{Clock, ClockNano, TimeSignature},
+        time::{Clock, ClockParams, TimeSignature},
         traits::{Generates, PlaysNotes, Resets, Ticks},
         util::tests::TestOnlyPaths,
         Normal, ParameterType, Ratio, SampleType, StereoSample,
@@ -718,7 +718,7 @@ mod tests {
 
     impl WelshPatchSettings {
         pub fn derive_welsh_voice(&self) -> WelshVoice {
-            WelshVoice::new_with(self.derive_welsh_synth_nano())
+            WelshVoice::new_with(&self.derive_welsh_synth_params())
         }
     }
 
@@ -919,7 +919,7 @@ mod tests {
 
     #[test]
     fn basic_synth_patch() {
-        let mut clock = Clock::new_with(ClockNano {
+        let mut clock = Clock::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignature { top: 4, bottom: 4 },
@@ -934,7 +934,7 @@ mod tests {
 
     #[test]
     fn basic_cello_patch() {
-        let mut clock = Clock::new_with(ClockNano {
+        let mut clock = Clock::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignature { top: 4, bottom: 4 },
