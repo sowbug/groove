@@ -17,7 +17,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Control, Params, Uid)]
 pub struct Metronome {
-    #[control] #[params]
+    #[control]
+    #[params]
     bpm: ParameterType,
 
     clock: Clock,
@@ -95,7 +96,7 @@ impl Metronome {
         }
     }
 
- #[cfg(feature="iced-framework")]
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: MetronomeMessage) {
         match message {
             MetronomeMessage::Metronome(_s) => {

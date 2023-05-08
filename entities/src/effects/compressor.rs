@@ -18,7 +18,8 @@ pub struct Compressor {
 
     /// The level above which compression takes effect. Range is 0.0..=1.0, 0.0
     /// corresponds to quietest, and 1.0 corresponds to 0dB.
-    #[control] #[params]
+    #[control]
+    #[params]
     threshold: Normal,
 
     /// How much to compress the audio above the threshold. For example, 2:1
@@ -27,17 +28,20 @@ pub struct Compressor {
     /// divided by 2), and 1:4 is 0.25 (1 divided by 4). Thus, 1.0 means no
     /// compression, and 0.0 is infinite compression (the output remains a
     /// constant amplitude no matter what).
-    #[control] #[params]
+    #[control]
+    #[params]
     ratio: ParameterType,
 
     /// How soon the compressor activates after the level exceeds the threshold.
     /// Time in seconds.
-    #[control] #[params]
+    #[control]
+    #[params]
     attack: ParameterType,
 
     /// How soon the compressor deactivates after the level drops below the
     /// threshold. Time in seconds.
-    #[control] #[params]
+    #[control]
+    #[params]
     release: ParameterType,
 
     // TODO
@@ -74,7 +78,7 @@ impl Compressor {
         }
     }
 
- #[cfg(feature="iced-framework")]
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: CompressorMessage) {
         match message {
             CompressorMessage::Compressor(s) => *self = Self::new_with(s),

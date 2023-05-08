@@ -201,7 +201,8 @@ impl Resets for AllPassDelayLine {
 pub struct Delay {
     uid: usize,
 
-    #[control] #[params]
+    #[control]
+    #[params]
     seconds: ParameterType,
 
     delay: DelayLine,
@@ -239,7 +240,7 @@ impl Delay {
         self.delay.set_delay_seconds(seconds);
     }
 
- #[cfg(feature="iced-framework")]
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: DelayMessage) {
         match message {
             DelayMessage::Delay(s) => *self = Self::new_with(s),

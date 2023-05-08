@@ -188,7 +188,7 @@ impl Clock {
         }
     }
 
-    #[cfg(feature="iced-framework")]
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: ClockMessage) {
         match message {
             ClockMessage::Clock(s) => *self = Self::new_with(s),

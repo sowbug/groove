@@ -16,9 +16,11 @@ use serde::{Deserialize, Serialize};
 pub struct Limiter {
     uid: usize,
 
-    #[control] #[params]
+    #[control]
+    #[params]
     min: Normal,
-    #[control] #[params]
+    #[control]
+    #[params]
     max: Normal,
 }
 impl Default for Limiter {
@@ -55,7 +57,7 @@ impl Limiter {
         }
     }
 
- #[cfg(feature="iced-framework")]
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: LimiterMessage) {
         match message {
             LimiterMessage::Limiter(s) => *self = Self::new_with(s),

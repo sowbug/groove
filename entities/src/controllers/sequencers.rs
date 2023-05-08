@@ -30,7 +30,8 @@ pub(crate) type BeatEventsMap = BTreeMultiMap<PerfectTimeUnit, (MidiChannel, Mid
 #[derive(Debug, Control, Params, Uid)]
 pub struct Sequencer {
     uid: usize,
-    #[control] #[params]
+    #[control]
+    #[params]
     bpm: ParameterType,
     next_instant: PerfectTimeUnit,
     events: BeatEventsMap,
@@ -186,7 +187,7 @@ impl Sequencer {
         println!("{:?}", self.events);
     }
 
- #[cfg(feature="iced-framework")]
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: SequencerMessage) {
         match message {
             SequencerMessage::Sequencer(s) => *self = Self::new_with(s),
@@ -272,7 +273,8 @@ pub(crate) type MidiTickEventsMap = BTreeMultiMap<MidiTicks, (MidiChannel, MidiM
 pub struct MidiTickSequencer {
     uid: usize,
 
-    #[control] #[params]
+    #[control]
+    #[params]
     midi_ticks_per_second: usize,
 
     next_instant: MidiTicks,
@@ -346,7 +348,7 @@ impl MidiTickSequencer {
         self.next_instant > self.last_event_time
     }
 
- #[cfg(feature="iced-framework")]
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: MidiTickSequencerMessage) {
         match message {
             MidiTickSequencerMessage::MidiTickSequencer(s) => *self = Self::new_with(s),

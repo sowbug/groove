@@ -35,14 +35,16 @@ mod toy_controller_disabled {
     pub struct ToyController<M: MessageBounds> {
         uid: usize,
 
-        #[control] #[params]
+        #[control]
+        #[params]
         bpm: ParameterType,
 
         midi_channel_out: MidiChannel,
 
         clock: Clock,
 
-        #[control] #[params]
+        #[control]
+        #[params]
         tempo: f32,
 
         is_enabled: bool,

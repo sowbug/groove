@@ -8,7 +8,7 @@ use groove_core::{
     traits::{IsController, Performs, Resets, TicksWithMessages},
     ParameterType,
 };
-use groove_proc_macros::{Uid, Control, Params};
+use groove_proc_macros::{Control, Params, Uid};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -25,7 +25,8 @@ pub struct Arpeggiator {
     midi_channel_out: MidiChannel,
     sequencer: Sequencer,
 
-    #[control] #[params]
+    #[control]
+    #[params]
     bpm: ParameterType,
 
     // A poor-man's semaphore that allows note-off events to overlap with the

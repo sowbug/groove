@@ -19,7 +19,8 @@ use serde::{Deserialize, Serialize};
 pub struct Bitcrusher {
     uid: usize,
 
-    #[control] #[params]
+    #[control]
+    #[params]
     bits: u8,
 
     c: SampleType,
@@ -60,7 +61,7 @@ impl Bitcrusher {
 
     // TODO - write a custom type for range 0..16
 
- #[cfg(feature="iced-framework")]
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: BitcrusherMessage) {
         match message {
             BitcrusherMessage::Bitcrusher(s) => *self = Self::new_with(s),

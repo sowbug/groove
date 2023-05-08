@@ -19,10 +19,12 @@ use serde::{Deserialize, Serialize};
 pub struct Chorus {
     uid: usize,
 
-    #[control] #[params]
+    #[control]
+    #[params]
     voices: usize,
 
-    #[control] #[params]
+    #[control]
+    #[params]
     delay_seconds: ParameterType,
 
     // what percentage of the output should be processed. 0.0 = all dry (no
@@ -30,7 +32,8 @@ pub struct Chorus {
     //
     // TODO: maybe handle the wet/dry more centrally. It seems like it'll be
     // repeated a lot.
-    #[control] #[params]
+    #[control]
+    #[params]
     wet_dry_mix: f32,
 
     delay: DelayLine,
@@ -73,7 +76,7 @@ impl Chorus {
         self.wet_dry_mix = wet_pct;
     }
 
- #[cfg(feature="iced-framework")]
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: ChorusMessage) {
         match message {
             ChorusMessage::Chorus(s) => *self = Self::new_with(s),

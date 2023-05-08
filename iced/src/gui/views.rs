@@ -13,12 +13,12 @@ use groove_core::{
 use groove_entities::{
     controllers::{
         Arpeggiator, ArpeggiatorMessage, ArpeggiatorParams, ControlTrip, ControlTripMessage,
-        ControlTripParams, LfoController, LfoControllerMessage, LfoControllerParams, MidiTickSequencer,
-        MidiTickSequencerMessage, MidiTickSequencerParams, Note, Pattern, PatternManager,
-        PatternManagerMessage, PatternManagerParams, PatternMessage, Sequencer, SequencerMessage,
-        SequencerParams, SignalPassthroughController, SignalPassthroughControllerMessage,
-        SignalPassthroughControllerParams, Timer, TimerMessage, TimerParams, Trigger, TriggerMessage,
-        TriggerParams,
+        ControlTripParams, LfoController, LfoControllerMessage, LfoControllerParams,
+        MidiTickSequencer, MidiTickSequencerMessage, MidiTickSequencerParams, Note, Pattern,
+        PatternManager, PatternManagerMessage, PatternManagerParams, PatternMessage, Sequencer,
+        SequencerMessage, SequencerParams, SignalPassthroughController,
+        SignalPassthroughControllerMessage, SignalPassthroughControllerParams, Timer, TimerMessage,
+        TimerParams, Trigger, TriggerMessage, TriggerParams,
     },
     effects::{
         BiQuadFilterAllPass, BiQuadFilterAllPassMessage, BiQuadFilterAllPassParams,
@@ -237,7 +237,7 @@ impl ControlBar {
             .into()
     }
 
- #[cfg(feature="iced-framework")]
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: ControlBarInput) {
         match message {
             ControlBarInput::SetClock(frames) => self.set_clock(frames),
@@ -1473,7 +1473,7 @@ impl View {
     //     container(overall_view.push(view_column).push(mixer)).into()
     // }
 
- #[cfg(feature="iced-framework")]
+    #[cfg(feature = "iced-framework")]
     pub fn update(
         &mut self,
         orchestrator: &mut Orchestrator,

@@ -16,7 +16,8 @@ use serde::{Deserialize, Serialize};
 pub struct Gain {
     uid: usize,
 
-    #[control] #[params]
+    #[control]
+    #[params]
     ceiling: Normal,
 }
 impl IsEffect for Gain {}
@@ -44,7 +45,7 @@ impl Gain {
         self.ceiling = ceiling;
     }
 
- #[cfg(feature="iced-framework")]
+    #[cfg(feature = "iced-framework")]
     pub fn update(&mut self, message: GainMessage) {
         match message {
             GainMessage::Gain(s) => *self = Self::new_with(s),
