@@ -30,7 +30,7 @@ groove-audio = { path = "audio" }
 groove-core = { path = "core", features = ["serialization"] }
 groove-egui = { path = "egui", optional = true }
 groove-entities = { path = "entities", features = ["serialization"] }
-groove-iced = { path = "iced" }
+groove-iced = { path = "iced", optional = true }
 groove-macros = { path = "macros" }
 groove-midi = { path = "midi", optional = true }
 groove-orchestration = { path = "orchestration" }
@@ -85,7 +85,6 @@ name = "groove-cli"
 [[bin]]
 name = "groove-gui"
 required-features = ["iced-framework"]
-
 [[bin]]
 name = "groove-egui"
 required-features = ["egui-framework", "groove-midi"]
@@ -107,7 +106,7 @@ panic = "abort"
 # We want all the binaries to build on a plain `cargo build --workspace`. That's
 # why default features includes both framework features.
 [features]
-default = ["serialization", "egui-framework", "groove-midi", "iced-framework"]
+default = ["serialization", "egui-framework", "groove-midi"]
 egui-framework = [
     "eframe",
     "egui_extras",
@@ -116,7 +115,7 @@ egui-framework = [
     "groove-entities/egui-framework",
     "groove-orchestration/egui-framework"
 ]
-iced-framework = ["iced", "iced_audio", "iced_aw", "iced_native"]
+iced-framework = ["iced", "iced_audio", "iced_aw", "iced_native", "groove-iced"]
 serialization = [
     "serde",
     "groove-core/serialization",
