@@ -173,8 +173,8 @@ pub mod tests {
             },
         ))));
         let arpeggiator_uid = o.add(Entity::Arpeggiator(Box::new(Arpeggiator::new_with(
+            &ArpeggiatorParams { bpm: DEFAULT_BPM },
             TEST_MIDI_CHANNEL,
-            ArpeggiatorParams { bpm: DEFAULT_BPM },
         ))));
 
         // We'll hear the instrument.

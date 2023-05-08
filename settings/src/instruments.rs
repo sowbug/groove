@@ -20,7 +20,7 @@ pub struct WelshPatchWrapper {
     name: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum InstrumentSettings {
     #[serde(rename_all = "kebab-case")]
@@ -63,7 +63,7 @@ impl InstrumentSettings {
         match self {
             InstrumentSettings::ToyInstrument(midi, params) => (
                 midi.midi_in,
-                Entity::ToyInstrument(Box::new(ToyInstrument::new_with(&params))),
+                Entity::ToyInstrument(Box::new(ToyInstrument::new_with(params))),
             ),
             InstrumentSettings::Welsh(midi, patch) => (
                 midi.midi_in,
@@ -73,19 +73,19 @@ impl InstrumentSettings {
             ),
             InstrumentSettings::WelshRaw(midi, params) => (
                 midi.midi_in,
-                Entity::WelshSynth(Box::new(WelshSynth::new_with(&params))),
+                Entity::WelshSynth(Box::new(WelshSynth::new_with(params))),
             ),
             InstrumentSettings::Drumkit(midi, params) => (
                 midi.midi_in,
-                Entity::Drumkit(Box::new(Drumkit::new_with(paths, params.clone()))),
+                Entity::Drumkit(Box::new(Drumkit::new_with(params, paths))),
             ),
             InstrumentSettings::Sampler(midi, params) => (
                 midi.midi_in,
-                Entity::Sampler(Box::new(Sampler::new_with(paths, params.clone()))),
+                Entity::Sampler(Box::new(Sampler::new_with(params, paths))),
             ),
             InstrumentSettings::FmSynthesizer(midi, params) => (
                 midi.midi_in,
-                Entity::FmSynth(Box::new(FmSynth::new_with(&params))),
+                Entity::FmSynth(Box::new(FmSynth::new_with(params))),
             ),
         }
     }

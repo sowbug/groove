@@ -21,7 +21,7 @@ fn build_lists<'a>(
     let mut types = Vec::default();
     let mut params = Vec::default();
     for thing in things {
-        params.push(format_ident!("{}Params", thing.base_name.to_string()));
+        //params.push(format_ident!("{}Params", thing.base_name.to_string()));
         types.push(thing.ty.clone());
         structs.push(thing.base_name.clone());
     }
@@ -86,17 +86,17 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
     };
 
     let core_crate = format_ident!("{}", core_crate_name());
-    let (structs, types, params) = build_lists(things.iter());
+    let (structs, types, _params) = build_lists(things.iter());
     let entity_enum = quote! {
         #[derive(Debug)]
         pub enum Entity {
             #( #structs(Box<#types>) ),*
         }
 
-        #[derive(Debug)]
-        pub enum EntityParams {
-            #( #structs(Box<#params>) ),*
-        }
+        // #[derive(Debug)]
+        // pub enum EntityParams {
+        //     #( #structs(Box<#params>) ),*
+        // }
     };
 
     let common_dispatchers = quote! {
@@ -106,17 +106,17 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
                     #( Entity::#structs(e) => e.name(), )*
                 }
             }
-            pub fn as_has_uid(&self) -> &dyn HasUid {
+            pub fn as_has_uid(&self) -> &dyn #core_crate::traits::HasUid {
                 match self {
                 #( Entity::#structs(e) => e.as_ref(), )*
                 }
             }
-            pub fn as_has_uid_mut(&mut self) -> &mut dyn HasUid {
+            pub fn as_has_uid_mut(&mut self) -> &mut dyn #core_crate::traits::HasUid {
                 match self {
                 #( Entity::#structs(e) => e.as_mut(), )*
                 }
             }
-            pub fn as_resets_mut(&mut self) -> &mut dyn Resets {
+            pub fn as_resets_mut(&mut self) -> &mut dyn #core_crate::traits::Resets {
                 match self {
                 #( Entity::#structs(e) => e.as_mut(), )*
                 }

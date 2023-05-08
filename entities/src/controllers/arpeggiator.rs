@@ -105,7 +105,7 @@ impl Performs for Arpeggiator {
 }
 
 impl Arpeggiator {
-    pub fn new_with(midi_channel_out: MidiChannel, params: ArpeggiatorParams) -> Self {
+    pub fn new_with(params: &ArpeggiatorParams, midi_channel_out: MidiChannel) -> Self {
         Self {
             uid: Default::default(),
             midi_channel_out,

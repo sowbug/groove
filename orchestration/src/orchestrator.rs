@@ -1089,6 +1089,7 @@ mod gui {
             Entity::WelshSynth(e) => {
                 e.show(ui);
             }
+            #[allow(unreachable_patterns)]
             _ => {
                 panic!("something about toy controller")
             }
@@ -1316,9 +1317,7 @@ pub mod tests {
     };
     use groove_core::{
         midi::{MidiChannel, MidiMessage},
-        time::{
-            BeatValue, Clock, ClockParams, PerfectTimeUnit, TimeSignature, TimeSignatureParams,
-        },
+        time::{BeatValue, Clock, ClockParams, PerfectTimeUnit, TimeSignatureParams},
         traits::{Performs, Resets},
         DcaParams, Normal, StereoSample,
     };
@@ -1680,7 +1679,7 @@ pub mod tests {
 
     #[test]
     fn pattern_default_note_value() {
-        let time_signature = TimeSignature::new_with(7, 4).expect("failed");
+        let time_signature = TimeSignatureParams { top: 7, bottom: 4 };
         let mut sequencer = Sequencer::new_with(&SequencerParams { bpm: 128.0 });
         let mut programmer = PatternProgrammer::new_with(&time_signature);
         let pattern = Pattern {
@@ -1709,7 +1708,8 @@ pub mod tests {
         });
         o.reset(DEFAULT_SAMPLE_RATE);
         let mut sequencer = Box::new(Sequencer::new_with(&SequencerParams { bpm: DEFAULT_BPM }));
-        let mut programmer = PatternProgrammer::new_with(&TimeSignature::default());
+        let mut programmer =
+            PatternProgrammer::new_with(&TimeSignatureParams { top: 4, bottom: 4 });
         let mut pattern = Pattern::<Note>::default();
 
         const NOTE_VALUE: BeatValue = BeatValue::Quarter;
@@ -1835,7 +1835,7 @@ pub mod tests {
     // A pattern of all zeroes should last as long as a pattern of nonzeroes.
     #[test]
     fn empty_pattern() {
-        let time_signature = TimeSignature::default();
+        let time_signature = TimeSignatureParams { top: 4, bottom: 4 };
         let mut sequencer = Box::new(Sequencer::new_with(&SequencerParams { bpm: DEFAULT_BPM }));
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
@@ -1900,8 +1900,8 @@ pub mod tests {
         const MIDI_CHANNEL_SEQUENCER_TO_ARP: MidiChannel = 7;
         const MIDI_CHANNEL_ARP_TO_INSTRUMENT: MidiChannel = 8;
         let mut arpeggiator = Box::new(Arpeggiator::new_with(
+            &ArpeggiatorParams { bpm: clock.bpm() },
             MIDI_CHANNEL_ARP_TO_INSTRUMENT,
-            ArpeggiatorParams { bpm: clock.bpm() },
         ));
         let instrument = Box::new(ToyInstrument::new_with(&ToyInstrumentParams {
             fake_value: Normal::from(0.332948),

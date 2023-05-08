@@ -6,7 +6,7 @@
 
 #[cfg(feature = "iced-framework")]
 pub use crate::{
-    effects::{ToyEffectMessage, ToyEffectParams},
+    effects::ToyEffectMessage,
     instruments::{
         DebugSynthMessage, ToyAudioSourceMessage, ToyAudioSourceParams, ToyInstrumentMessage,
         ToyInstrumentParams, ToySynthMessage, ToySynthParams,
@@ -14,7 +14,7 @@ pub use crate::{
 };
 #[cfg(toy_controller_disabled)]
 pub use controllers::{MessageMaker, ToyController, ToyControllerMessage, ToyControllerParams};
-pub use effects::ToyEffect;
+pub use effects::{ToyEffect, ToyEffectParams};
 pub use instruments::{
     DebugSynth, DebugSynthParams, ToyAudioSource, ToyAudioSourceParams, ToyInstrument,
     ToyInstrumentParams, ToySynth, ToySynthParams,

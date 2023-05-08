@@ -72,6 +72,8 @@ use groove_toys::{ToyController, ToyControllerMessage, ToyControllerParams};
 // An [Entity] wraps a musical device, giving it the ability to be managed by
 // [Orchestrator] and automated by other devices in the system.
 
+type MsgType = EntityMessage;
+
 /// The #[derive] macro uses [Everything] to generate a lot of boilerplate code.
 /// The enum itself is otherwise unused.
 #[cfg(not(feature = "iced-framework"))]
@@ -196,9 +198,6 @@ enum Everything {
     #[everything(instrument, midi, controllable)]
     WelshSynth(WelshSynth),
 }
-
-#[cfg(feature = "iced-framework")]
-type MsgType = EntityMessage;
 
 /// The #[derive] macro uses [Everything] to generate a lot of boilerplate code.
 /// The enum itself is otherwise unused.

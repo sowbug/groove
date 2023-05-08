@@ -8,18 +8,15 @@ use groove_core::{
     voices::VoiceStore,
     FrequencyHz, ParameterType, Sample, SampleType, StereoSample,
 };
-use groove_proc_macros::{Control, Nano, Params, Uid};
+use groove_proc_macros::{Control, Params, Uid};
 use groove_utils::Paths;
 use hound::WavReader;
 use std::{
     fs::File,
     io::{BufReader, Read, Seek, SeekFrom},
     path::Path,
-    str::FromStr,
     sync::Arc,
 };
-use strum::EnumCount;
-use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -159,7 +156,7 @@ impl Resets for Sampler {
     }
 }
 impl Sampler {
-    pub fn new_with(paths: &Paths, params: SamplerParams) -> Self {
+    pub fn new_with(params: &SamplerParams, paths: &Paths) -> Self {
         let path = paths.build_sample(&Vec::default(), Path::new(&params.filename()));
         if let Ok(file) = paths.search_and_open(path.as_path()) {
             if let Ok(mut f2) = file.try_clone() {
@@ -358,11 +355,11 @@ mod tests {
     fn loading() {
         let paths = paths_with_test_data_dir();
         let sampler = Sampler::new_with(
-            &paths,
-            SamplerParams {
+            &SamplerParams {
                 filename: "stereo-pluck.wav".to_string(),
                 root: 0.0.into(),
             },
+            &paths,
         );
         assert_eq!(sampler.calculated_root(), FrequencyHz::from(440.0));
     }
@@ -396,11 +393,11 @@ mod tests {
     fn loading_with_root_frequency() {
         let paths = paths_with_test_data_dir();
         let sampler = Sampler::new_with(
-            &paths,
-            SamplerParams {
+            &SamplerParams {
                 filename: "riff-acidized.wav".to_string(),
                 root: 0.0.into(),
             },
+            &paths,
         );
         eprintln!("calculated {} ", sampler.calculated_root());
         assert_eq!(
@@ -410,11 +407,11 @@ mod tests {
         );
 
         let sampler = Sampler::new_with(
-            &paths,
-            SamplerParams {
+            &SamplerParams {
                 filename: "riff-acidized.wav".to_string(),
                 root: 123.0.into(),
             },
+            &paths,
         );
         assert_eq!(
             sampler.calculated_root(),
@@ -423,11 +420,11 @@ mod tests {
         );
 
         let sampler = Sampler::new_with(
-            &paths,
-            SamplerParams {
+            &SamplerParams {
                 filename: "riff-not-acidized.wav".to_string(),
                 root: 123.0.into(),
             },
+            &paths,
         );
         assert_eq!(
             sampler.calculated_root(),
@@ -436,11 +433,11 @@ mod tests {
         );
 
         let sampler = Sampler::new_with(
-            &paths,
-            SamplerParams {
+            &SamplerParams {
                 filename: "riff-not-acidized.wav".to_string(),
                 root: 0.0.into(),
             },
+            &paths,
         );
         assert_eq!(
             sampler.calculated_root(),

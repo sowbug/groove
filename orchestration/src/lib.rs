@@ -4,7 +4,8 @@
 //! generation of audio from all the [Entities](entities::Entity) in the
 //! system.
 
-pub use entities::{Entity, EntityParams};
+// pub use entities::{Entity, EntityParams};
+pub use entities::Entity;
 pub use orchestrator::{Orchestrator, Performance};
 
 #[cfg(feature = "iced-framework")]
@@ -13,7 +14,7 @@ pub use entities::OtherEntityMessage;
 pub mod helpers;
 pub mod messages;
 
-mod entities_EXPANDED;
+mod entities;
 mod orchestrator;
 mod util;
 

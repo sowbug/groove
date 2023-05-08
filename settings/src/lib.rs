@@ -37,7 +37,7 @@ pub enum LoadError {
     FormatError,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum DeviceSettings {
     Instrument(DeviceId, InstrumentSettings),

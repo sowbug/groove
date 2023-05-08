@@ -30,7 +30,7 @@ impl TransformsAudio for Mixer {
     }
 }
 impl Mixer {
-    pub fn new_with(_params: MixerParams) -> Self {
+    pub fn new_with(_params: &MixerParams) -> Self {
         Self {
             ..Default::default()
         }

@@ -5,7 +5,7 @@ use super::{
     ControlSettings, DeviceId, DeviceSettings, PatternSettings, TrackSettings,
 };
 use anyhow::Result;
-use groove_core::time::{ClockParams, TimeSignature};
+use groove_core::time::{ClockParams, TimeSignature, TimeSignatureParams};
 use groove_entities::controllers::{
     ControlPath, ControlTrip, ControlTripParams, Note, Pattern, PatternProgrammer,
 };
@@ -17,7 +17,7 @@ use std::path::Path;
 
 type PatchCable = Vec<DeviceId>; // first is source, last is sink
 
-#[derive(Serialize, Deserialize, Default, Clone, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 #[serde(rename_all = "kebab-case")]
 pub struct SongSettings {
     /// The user-visible name of this project
@@ -78,7 +78,7 @@ impl SongSettings {
         paths: &Paths,
         load_only_test_entities: bool,
     ) -> Result<Orchestrator> {
-        let mut o: Orchestrator = Orchestrator::new_with(self.clock.clone());
+        let mut o: Orchestrator = Orchestrator::new_with(&self.clock);
         o.set_title(self.title.clone());
         self.instantiate_devices(paths, &mut o, &self.clock, load_only_test_entities);
         self.instantiate_patch_cables(&mut o)?;
@@ -237,7 +237,7 @@ impl SongSettings {
     fn instantiate_control_trips(
         &self,
         orchestrator: &mut Orchestrator,
-        time_signature: &TimeSignature,
+        time_signature: &TimeSignatureParams,
     ) {
         if self.trips.is_empty() {
             // There's no need to instantiate the paths if there are no trips to use them.
@@ -262,7 +262,8 @@ impl SongSettings {
                 }));
                 for path_id in &control_trip_settings.path_ids {
                     if let Some(control_path) = ids_to_paths.get(path_id) {
-                        control_trip.add_path(time_signature, control_path);
+                        control_trip
+                            .add_path(&TimeSignature::new(&time_signature).unwrap(), control_path);
                     } else {
                         eprintln!(
                             "Warning: trip {} refers to nonexistent path {}",

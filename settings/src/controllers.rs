@@ -2,17 +2,17 @@
 
 use super::{BeatValueSettings, DeviceId, MidiChannel};
 use groove_core::{ParameterType, SignalType};
-use groove_entities::{
-    controllers::{
-        Arpeggiator, ArpeggiatorParams, ControlPath, ControlStep, LfoController, LfoControllerParams,
-        MidiChannelParams, SignalPassthroughController,
-    },
-    ToyMessageMaker,
+use groove_entities::controllers::{
+    Arpeggiator, ArpeggiatorParams, ControlPath, ControlStep, LfoController, LfoControllerParams,
+    MidiChannelParams, SignalPassthroughController,
 };
 use groove_orchestration::Entity;
 #[cfg(toy_controller_disabled)]
 use groove_toys::{ToyController, ToyControllerParams};
 use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "iced-framework")]
+use groove_entities::ToyMessageMaker;
 
 /// A ControlTrip contains successive ControlSteps. A ControlStep describes how
 /// to get from point A in time to point B in time, while controlling/automating
@@ -102,11 +102,11 @@ pub struct ControlTripSettings {
     pub path_ids: Vec<DeviceId>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ControllerSettings {
-    #[serde(rename_all = "kebab-case")]
-    Test(MidiChannelParams),
+    // #[serde(rename_all = "kebab-case")]
+    // Test(MidiChannelParams),
     #[serde(rename_all = "kebab-case")]
     Arpeggiator(MidiChannelParams, ArpeggiatorParams),
     #[serde(rename_all = "kebab-case", rename = "lfo")]
@@ -121,75 +121,72 @@ impl ControllerSettings {
         bpm: ParameterType,
         load_only_test_entities: bool,
     ) -> (MidiChannel, MidiChannel, Entity) {
-        if load_only_test_entities {
-            let (midi_input_channel, midi_output_channel) = match self {
-                ControllerSettings::Test(
-                    MidiChannelParams {
-                        midi_in: midi_input_channel,
-                        midi_out: midi_output_channel,
-                    },
-                    ..,
-                )
-                | ControllerSettings::Arpeggiator(
-                    MidiChannelParams {
-                        midi_in: midi_input_channel,
-                        midi_out: midi_output_channel,
-                    },
-                    ..,
-                )
-                | ControllerSettings::LfoController(
-                    MidiChannelParams {
-                        midi_in: midi_input_channel,
-                        midi_out: midi_output_channel,
-                    },
-                    ..,
-                )
-                | ControllerSettings::SignalPassthroughController(
-                    MidiChannelParams {
-                        midi_in: midi_input_channel,
-                        midi_out: midi_output_channel,
-                    },
-                    ..,
-                ) => (midi_input_channel, midi_output_channel),
-            };
-            return (
-                *midi_input_channel,
-                *midi_output_channel,
-                Entity::ToyController(Box::new(ToyController::new_with(
-                    groove_toys::ToyControllerParams {
-                        bpm,
-                        tempo: 999999.0,
-                    },
-                    *midi_output_channel,
-                    Box::new(ToyMessageMaker {}),
-                ))),
-            );
-        }
+        // if load_only_test_entities {
+        //     let (midi_input_channel, midi_output_channel) = match self {
+        //         ControllerSettings::Test(
+        //             MidiChannelParams {
+        //                 midi_in: midi_input_channel,
+        //                 midi_out: midi_output_channel,
+        //             },
+        //             ..,
+        //         )
+        //         | ControllerSettings::Arpeggiator(
+        //             MidiChannelParams {
+        //                 midi_in: midi_input_channel,
+        //                 midi_out: midi_output_channel,
+        //             },
+        //             ..,
+        //         )
+        //         | ControllerSettings::LfoController(
+        //             MidiChannelParams {
+        //                 midi_in: midi_input_channel,
+        //                 midi_out: midi_output_channel,
+        //             },
+        //             ..,
+        //         )
+        //         | ControllerSettings::SignalPassthroughController(
+        //             MidiChannelParams {
+        //                 midi_in: midi_input_channel,
+        //                 midi_out: midi_output_channel,
+        //             },
+        //             ..,
+        //         ) => (midi_input_channel, midi_output_channel),
+        //     };
+        //     return (
+        //         *midi_input_channel,
+        //         *midi_output_channel,
+        //         Entity::ToyController(Box::new(ToyController::new_with(
+        //             groove_toys::ToyControllerParams {
+        //                 bpm,
+        //                 tempo: 999999.0,
+        //             },
+        //             *midi_output_channel,
+        //             Box::new(ToyMessageMaker {}),
+        //         ))),
+        //     );
+        // }
         match self {
-            ControllerSettings::Test(midi) => (
-                midi.midi_in,
-                midi.midi_out,
-                Entity::ToyController(Box::new(ToyController::new_with(
-                    ToyControllerParams {
-                        bpm,
-                        tempo: 999999.0,
-                    },
-                    midi.midi_out,
-                    Box::new(ToyMessageMaker {}),
-                ))),
-            ),
+            // ControllerSettings::Test(midi) => (
+            //     midi.midi_in,
+            //     midi.midi_out,
+            //     Entity::ToyController(Box::new(ToyController::new_with(
+            //         ToyControllerParams {
+            //             bpm,
+            //             tempo: 999999.0,
+            //         },
+            //         midi.midi_out,
+            //         Box::new(ToyMessageMaker {}),
+            //     ))),
+            // ),
             ControllerSettings::Arpeggiator(midi, params) => (
                 midi.midi_in,
                 midi.midi_out,
-                Entity::Arpeggiator(Box::new(Arpeggiator::new_with(
-                    midi.midi_out,
-                    params.clone(),
-                ))),
+                Entity::Arpeggiator(Box::new(Arpeggiator::new_with(&params, midi.midi_out))),
             ),
             ControllerSettings::LfoController(midi, params) => (
                 midi.midi_in,
                 midi.midi_out,
-                Entity::LfoController(Box::new(LfoController::new_with(params.clone()))),
+                Entity::LfoController(Box::new(LfoController::new_with(&params))),
             ),
             ControllerSettings::SignalPassthroughController(midi) => (
                 midi.midi_in,

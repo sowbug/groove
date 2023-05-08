@@ -4,10 +4,10 @@ use super::Sequencer;
 use crate::messages::EntityMessage;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage},
-    time::{BeatValue, PerfectTimeUnit, TimeSignature},
+    time::{BeatValue, PerfectTimeUnit, TimeSignature, TimeSignatureParams},
     traits::{IsController, Performs, Resets, TicksWithMessages},
 };
-use groove_proc_macros::{Control,  Params, Uid};
+use groove_proc_macros::{Control, Params, Uid};
 use std::{cmp, fmt::Debug};
 
 /// [PatternMessage] specifies interactions that can happen between
@@ -111,9 +111,12 @@ pub struct PatternProgrammer {
 impl PatternProgrammer {
     const CURSOR_BEGIN: PerfectTimeUnit = PerfectTimeUnit(0.0);
 
-    pub fn new_with(time_signature: &TimeSignature) -> Self {
+    pub fn new_with(time_signature: &TimeSignatureParams) -> Self {
         Self {
-            time_signature: time_signature.clone(),
+            time_signature: TimeSignature {
+                top: time_signature.top,
+                bottom: time_signature.bottom,
+            },
             cursor_beats: Self::CURSOR_BEGIN,
         }
     }
@@ -202,7 +205,7 @@ mod tests {
 
     #[test]
     fn pattern_mainline() {
-        let time_signature = TimeSignature::default();
+        let time_signature = TimeSignatureParams { top: 4, bottom: 4 };
         let mut sequencer = Sequencer::new_with(&SequencerParams { bpm: 128.0 });
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
@@ -260,7 +263,7 @@ mod tests {
 
     #[test]
     fn multi_pattern_track() {
-        let time_signature = TimeSignature::new_with(7, 8).expect("failed");
+        let time_signature = TimeSignatureParams { top: 7, bottom: 7 };
         let mut sequencer = Sequencer::new_with(&SequencerParams { bpm: 128.0 });
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 

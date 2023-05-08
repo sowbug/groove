@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::{io::Read, path::Path};
 use strum_macros::IntoStaticStr;
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct WelshPatchSettings {
     pub name: String,
@@ -128,7 +128,12 @@ impl WelshPatchSettings {
                 let total = self.oscillator_1.mix + self.oscillator_2.mix;
                 Normal::from(self.oscillator_1.mix / total)
             },
-            envelope: self.amp_envelope.clone(),
+            envelope: EnvelopeParams {
+                attack: self.amp_envelope.attack(),
+                decay: self.amp_envelope.decay(),
+                sustain: self.amp_envelope.sustain(),
+                release: self.amp_envelope.decay(),
+            },
             lfo: OscillatorParams {
                 waveform: self.lfo.waveform,
                 frequency: self.lfo.frequency.into(),
@@ -144,7 +149,13 @@ impl WelshPatchSettings {
                 self.filter_type_12db.cutoff_hz.into(),
             ),
             filter_cutoff_end: self.filter_envelope_weight.into(),
-            filter_envelope: self.filter_envelope.clone(),
+            filter_envelope: EnvelopeParams {
+                attack: self.filter_envelope.attack(),
+                decay: self.filter_envelope.decay(),
+                sustain: self.filter_envelope.sustain(),
+                release: self.filter_envelope.decay(),
+            },
+
             gain: 1.0.into(),
             pan: Default::default(),
         }
@@ -669,7 +680,7 @@ impl WelshPatchSettings {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct FmSynthesizerSettings {
     pub ratio: ParameterType, // TODO: needs a ratio type, which I suppose would range from 0..infinity.
@@ -705,7 +716,7 @@ mod tests {
     use float_cmp::approx_eq;
     use groove_core::{
         generators::{EnvelopeParams, Waveform},
-        time::{Clock, ClockParams, TimeSignature},
+        time::{Clock, ClockParams, TimeSignatureParams},
         traits::{Generates, PlaysNotes, Resets, Ticks},
         util::tests::TestOnlyPaths,
         Normal, ParameterType, Ratio, SampleType, StereoSample,
@@ -922,7 +933,7 @@ mod tests {
         let mut clock = Clock::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         let mut voice = boring_test_patch().derive_welsh_voice();
         clock.reset(DEFAULT_SAMPLE_RATE);
@@ -937,7 +948,7 @@ mod tests {
         let mut clock = Clock::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         let mut voice = cello_patch().derive_welsh_voice();
         clock.reset(DEFAULT_SAMPLE_RATE);

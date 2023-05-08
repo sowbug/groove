@@ -117,7 +117,7 @@ impl Drumkit {
         }
     }
 
-    pub fn new_with(paths: &Paths, params: DrumkitParams) -> Self {
+    pub fn new_with(params: &DrumkitParams, paths: &Paths) -> Self {
         // TODO: we're hardcoding samples/. Figure out a way to use the
         // system.
         Self::new_from_files(paths, params.name.as_ref())
