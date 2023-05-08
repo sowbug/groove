@@ -11,7 +11,7 @@ groove-core = { path = "../core", features = ["serialization"] }
 groove-entities = { path = "../entities", features = ["serialization"] }
 groove-macros = { path = "../macros" }
 groove-orchestration = { path = "../orchestration" }
-groove-toys = { path = "../toys" }
+groove-toys = { path = "../toys", features = ["serialization"] }
 groove-utils = { path = "../utils" }
 hound = "3.5"
 rustc-hash = "1.1.0"
