@@ -705,18 +705,22 @@ mod gui {
     use std::ops::RangeInclusive;
 
     impl FrequencyHz {
-        pub fn show(&mut self, ui: &mut Ui, range: RangeInclusive<f64>) {
+        pub fn show(&mut self, ui: &mut Ui, range: RangeInclusive<f64>) -> bool {
             let mut frequency = self.0;
             if ui
                 .add(
                     DragValue::new(&mut frequency)
                         .clamp_range(range)
+                        .speed(0.1)
                         .suffix(" Hz"),
                 )
                 .changed()
             {
                 self.0 = frequency;
-            };
+                true
+            } else {
+                false
+            }
         }
     }
     impl Shows for Dca {

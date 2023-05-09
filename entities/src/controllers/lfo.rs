@@ -122,8 +122,14 @@ mod gui {
 
     impl Shows for LfoController {
         fn show(&mut self, ui: &mut Ui) {
-            self.frequency.show(ui, Self::frequency_range());
-            self.waveform.show(ui);
+            // TODO: come up with a better pattern for .changed() to happen at
+            // the same level as whoever called show().
+            if self.frequency.show(ui, Self::frequency_range()) {
+                self.set_frequency(self.frequency);
+            }
+            if self.waveform.show(ui) {
+                self.set_waveform(self.waveform);
+            }
             self.waveform_widget.show(ui);
         }
     }

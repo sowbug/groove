@@ -817,8 +817,9 @@ mod gui {
     use eframe::egui::{ComboBox, DragValue, Ui};
     use strum::IntoEnumIterator;
 
-    impl Shows for Waveform {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Waveform {
+        pub fn show(&mut self, ui: &mut Ui) -> bool {
+            let mut changed = false;
             let mut waveform = *self;
             ComboBox::new(ui.next_auto_id(), "Waveform")
                 .selected_text(waveform.to_string())
@@ -828,10 +829,12 @@ mod gui {
                             .selectable_value(&mut waveform, w, w.to_string())
                             .clicked()
                         {
-                            *self = w
+                            *self = w;
+                            changed = true;
                         };
                     }
                 });
+            return changed;
         }
     }
 
