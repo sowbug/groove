@@ -1097,7 +1097,6 @@ mod gui {
             Entity::ToyAudioSource(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            #[cfg(toy_controller_disabled)]
             Entity::ToyController(e) => {
                 ui.label(entity.as_has_uid().name());
             }

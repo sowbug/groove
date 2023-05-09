@@ -12,8 +12,6 @@ pub use crate::{
         ToyInstrumentParams, ToySynthMessage, ToySynthParams,
     },
 };
-#[cfg(toy_controller_disabled)]
-pub use controllers::{MessageMaker, ToyController, ToyControllerMessage, ToyControllerParams};
 pub use effects::{ToyEffect, ToyEffectParams};
 pub use instruments::{
     DebugSynth, DebugSynthParams, ToyAudioSource, ToyAudioSourceParams, ToyInstrument,

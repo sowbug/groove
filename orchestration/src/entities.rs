@@ -10,7 +10,7 @@ use groove_core::{time::Clock, traits::HasUid};
 use groove_entities::{
     controllers::{
         Arpeggiator, ControlTrip, LfoController, MidiTickSequencer, PatternManager, Sequencer,
-        SignalPassthroughController, Timer, Trigger,
+        SignalPassthroughController, Timer, ToyController, Trigger,
     },
     effects::{
         BiQuadFilterAllPass, BiQuadFilterBandPass, BiQuadFilterBandStop, BiQuadFilterHighPass,
@@ -29,7 +29,7 @@ use groove_entities::{
     controllers::{
         ArpeggiatorMessage, ControlTripMessage, LfoControllerMessage, MidiTickSequencerMessage,
         PatternManagerMessage, SequencerMessage, SignalPassthroughControllerMessage, TimerMessage,
-        TriggerMessage,
+        ToyControllerMessage, TriggerMessage,
     },
     effects::{
         BiQuadFilterAllPassMessage, BiQuadFilterBandPassMessage, BiQuadFilterBandStopMessage,
@@ -50,8 +50,6 @@ use groove_toys::{
     DebugSynthMessage, ToyAudioSourceMessage, ToyEffectMessage, ToyInstrumentMessage,
     ToySynthMessage,
 };
-#[cfg(toy_controller_disabled)]
-use groove_toys::{ToyController, ToyControllerMessage, ToyControllerParams};
 
 // PRO TIP: use `cargo expand --lib entities` to see what's being generated
 
@@ -162,9 +160,8 @@ enum Everything {
     #[everything(instrument, midi)]
     ToyAudioSource(ToyAudioSource),
 
-    #[cfg(toy_controller_disabled)]
     #[everything(controller, midi)]
-    ToyController(ToyController<EntityMessage>),
+    ToyController(ToyController),
 
     #[everything(effect, controllable)]
     ToyEffect(ToyEffect),
@@ -287,9 +284,8 @@ enum Everything {
     #[everything(instrument, midi)]
     ToyAudioSource(ToyAudioSource),
 
-    #[cfg(toy_controller_disabled)]
     #[everything(controller, midi)]
-    ToyController(ToyController<EntityMessage>),
+    ToyController(ToyController),
 
     #[everything(effect, controllable)]
     ToyEffect(ToyEffect),

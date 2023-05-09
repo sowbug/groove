@@ -36,15 +36,14 @@ pub mod tests {
         DcaParams, FrequencyHz, Normal, StereoSample, SAMPLE_BUFFER_SIZE,
     };
     use groove_entities::controllers::{
-        Arpeggiator, ArpeggiatorParams, LfoController, LfoControllerParams, Timer, TimerParams,
+        LfoController, LfoControllerParams, Timer, TimerParams, ToyController, ToyControllerParams,
     };
+
     #[cfg(feature = "iced-framework")]
     use groove_entities::ToyMessageMaker;
     #[cfg(feature = "iced-framework")]
     use groove_toys::ToyInstrumentParams;
     use groove_toys::{DebugSynth, ToyEffect, ToyInstrument, ToyInstrumentParams};
-    #[cfg(toy_controller_disabled)]
-    use groove_toys::{ToyController, ToyControllerParams};
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
 
     #[test]
@@ -172,8 +171,11 @@ pub mod tests {
                 },
             },
         ))));
-        let arpeggiator_uid = o.add(Entity::Arpeggiator(Box::new(Arpeggiator::new_with(
-            &ArpeggiatorParams { bpm: DEFAULT_BPM },
+        let arpeggiator_uid = o.add(Entity::ToyController(Box::new(ToyController::new_with(
+            ToyControllerParams {
+                bpm: DEFAULT_BPM,
+                tempo: 99999999999.0,
+            },
             TEST_MIDI_CHANNEL,
         ))));
 
