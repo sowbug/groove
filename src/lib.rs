@@ -11,7 +11,12 @@
 //! # use groove_core::{
 //! #     generators::{EnvelopeParams, Waveform},
 //! #     midi::{MidiChannel, new_note_off, new_note_on},
-//! #     time::{Clock, ClockParams, PerfectTimeUnit, TimeSignature},
+//! #     time::{
+//! #         Clock,
+//! #         ClockParams,
+//! #         PerfectTimeUnit,
+//! #         TimeSignatureParams
+//! #     },
 //! #     traits::Resets,
 //! #     Normal,
 //! #     SAMPLE_BUFFER_SIZE,
@@ -60,7 +65,7 @@
 //! let mut orchestrator = Orchestrator::new_with(&ClockParams {
 //!     bpm: 128.0,
 //!     midi_ticks_per_second: 960,
-//!     time_signature: TimeSignature { top: 4, bottom: 4 },
+//!     time_signature: TimeSignatureParams { top: 4, bottom: 4 },
 //! });
 //!
 //! // Orchestrator owns the sample rate and propagates it to the devices
