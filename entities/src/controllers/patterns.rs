@@ -262,7 +262,7 @@ mod tests {
 
     #[test]
     fn multi_pattern_track() {
-        let time_signature = TimeSignatureParams { top: 7, bottom: 7 };
+        let time_signature = TimeSignatureParams { top: 7, bottom: 8 };
         let mut sequencer = Sequencer::new_with(&SequencerParams { bpm: 128.0 });
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 

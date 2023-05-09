@@ -75,7 +75,7 @@ I use VSCode on Ubuntu 20.04 for development.
   of this README's last update, most of them sound OK, though they could all use
   some tuning. Portamento/unison aren't implemented, and some sounds are
   inoperable because I haven't yet implemented less common LFO routing paths.
-- A single-operator FM synthesizer. The modulator has its own envelope!
+- A single-operator FM synthesizer. The modulator even has its own envelope!
 - Sampler. If it can figure out the root frequency from the WAV file's metadata,
   then it will play the sample at the right adjusted frequency for whichever
   note it's playing. That means there will be sampling artifacts.
@@ -88,7 +88,8 @@ I use VSCode on Ubuntu 20.04 for development.
   reverb, filters). Some of them are just plain wrong.
 - Basic automation.
 - Output to WAV file or speaker.
-- An [Iced](https://iced.rs/)-based GUI that is read-only and very incomplete.
+- An [egui](https://www.egui.rs/)-based GUI that is read-only and very
+  incomplete.
 - Plenty of bugs.
 
 ## On the roadmap

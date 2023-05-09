@@ -4,8 +4,6 @@
 
 use control::impl_control_derive;
 use everything::parse_and_generate_everything;
-use nano::impl_nano_derive;
-use nano_entities::parse_and_generate_nano_entities;
 use params::impl_params_derive;
 use proc_macro::TokenStream;
 use proc_macro_crate::crate_name;
@@ -17,8 +15,6 @@ use views::parse_and_generate_views;
 
 mod control;
 mod everything;
-mod nano;
-mod nano_entities;
 mod params;
 mod uid;
 mod views;
@@ -29,22 +25,6 @@ mod views;
 #[proc_macro_derive(Uid)]
 pub fn uid_derive(input: TokenStream) -> TokenStream {
     impl_uid_derive(input)
-}
-
-/// The [Nano] macro helps sync system data. If you have a struct Foo, then this
-/// macro generates a FooNano struct, along with methods and messages that make
-/// it easy to propagate changes between the two.
-#[proc_macro_derive(Nano, attributes(nano))]
-pub fn nano_derive(input: TokenStream) -> TokenStream {
-    impl_nano_derive(input)
-}
-
-/// The [NanoEntities] macro derives the code that ties all Entities together.
-#[proc_macro_derive(NanoEntities, attributes(nanos))]
-pub fn derive_nano_entities(input: TokenStream) -> TokenStream {
-    TokenStream::from(parse_and_generate_nano_entities(
-        &(parse_macro_input!(input as DeriveInput)).data,
-    ))
 }
 
 /// The [Params] macro generates helper structs that are useful for handing

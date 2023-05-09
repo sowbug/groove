@@ -78,15 +78,15 @@ impl HandlesMidi for Metronome {
 }
 impl Metronome {
     pub fn new_with(params: &MetronomeParams) -> Self {
-        let mut oscillator_nano = OscillatorParams::default();
-        oscillator_nano.waveform = Waveform::Square;
+        let mut oscillator_params = OscillatorParams::default();
+        oscillator_params.waveform = Waveform::Square;
         let mut clock_params = ClockParams::default();
         clock_params.set_bpm(params.bpm());
         Self {
             bpm: params.bpm(),
             clock: Clock::new_with(&clock_params),
             uid: Default::default(),
-            oscillator: Oscillator::new_with(&oscillator_nano),
+            oscillator: Oscillator::new_with(&oscillator_params),
             is_playing: false,
             when_to_stop_playing: Default::default(),
             current_measure: usize::MAX,

@@ -162,11 +162,13 @@ mod tests {
         let mut paths = Paths::default();
         paths.push_hive(&Paths::hive(PathType::Test));
 
+        let path = Path::new("kitchen-sink.yaml");
         let yaml = paths
-            .search_and_read_to_string(Path::new("kitchen-sink.yaml"))
+            .search_and_read_to_string(path)
             .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
-        let song_settings = SongSettings::new_from_yaml(yaml.as_str())
-            .unwrap_or_else(|err| panic!("parsing settings failed: {:?}", err));
+        let song_settings = SongSettings::new_from_yaml(yaml.as_str()).unwrap_or_else(|err| {
+            panic!("parsing settings for {} failed: {:?}", path.display(), err)
+        });
         let mut orchestrator = song_settings
             .instantiate(&paths, false)
             .unwrap_or_else(|err| panic!("instantiation failed: {:?}", err));
@@ -194,11 +196,13 @@ mod tests {
         let mut paths = Paths::default();
         paths.push_hive(&Paths::hive(PathType::Test));
 
+        let path = Path::new("perf-1.yaml");
         let yaml = paths
-            .search_and_read_to_string(Path::new("perf-1.yaml"))
+            .search_and_read_to_string(path)
             .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
-        let song_settings = SongSettings::new_from_yaml(yaml.as_str())
-            .unwrap_or_else(|err| panic!("parsing settings failed: {:?}", err));
+        let song_settings = SongSettings::new_from_yaml(yaml.as_str()).unwrap_or_else(|err| {
+            panic!("parsing settings for {} failed: {:?}", path.display(), err)
+        });
         let mut orchestrator = song_settings
             .instantiate(&paths, false)
             .unwrap_or_else(|err| panic!("instantiation failed: {:?}", err));
@@ -238,11 +242,13 @@ usec/frame : {:.2?} (goal <{:.2?})",
         let mut paths = Paths::default();
         paths.push_hive(&Paths::hive(PathType::Test));
 
+        let path = Path::new("instruments-have-no-inputs.yaml");
         let yaml = paths
-            .search_and_read_to_string(Path::new("instruments-have-no-inputs.yaml"))
+            .search_and_read_to_string(path)
             .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
-        let song_settings = SongSettings::new_from_yaml(yaml.as_str())
-            .unwrap_or_else(|err| panic!("parsing settings failed: {:?}", err));
+        let song_settings = SongSettings::new_from_yaml(yaml.as_str()).unwrap_or_else(|err| {
+            panic!("parsing settings for {} failed: {:?}", path.display(), err)
+        });
         let r = song_settings.instantiate(&paths, false);
         assert_eq!(
             r.unwrap_err().to_string(),

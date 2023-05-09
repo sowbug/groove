@@ -69,25 +69,6 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Iced app",
-      "cargo": {
-        "args": [
-          "build",
-          "--bin=groove-gui",
-          "--package=groove",
-          "--features=iced-framework"
-        ],
-        "filter": {
-          "name": "groove-gui",
-          "kind": "bin"
-        }
-      },
-      "args": [],
-      "cwd": "${workspaceFolder}"
-    },
-    {
-      "type": "lldb",
-      "request": "launch",
       "name": "YAML: current task",
       "cargo": {
         "args": [
