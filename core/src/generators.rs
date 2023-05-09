@@ -458,7 +458,7 @@ pub struct Envelope {
     time: TimeUnit,
 
     uncorrected_amplitude: KahanSum<f64>,
-    corrected_amplitude: Normal,
+    corrected_amplitude: f64,
     delta: f64,
     amplitude_target: f64,
     time_target: TimeUnit,
@@ -495,7 +495,7 @@ impl GeneratesEnvelope for Envelope {
 }
 impl Generates<Normal> for Envelope {
     fn value(&self) -> Normal {
-        self.corrected_amplitude
+        Normal::new(self.corrected_amplitude)
     }
 
     fn batch_values(&mut self, values: &mut [Normal]) {
@@ -536,11 +536,11 @@ impl Ticks for Envelope {
             } else {
                 self.uncorrected_amplitude.sum()
             };
-            self.corrected_amplitude = Normal::new(match self.state {
+            self.corrected_amplitude = match self.state {
                 State::Attack => self.transform_linear_to_convex(linear_amplitude),
                 State::Decay | State::Release => self.transform_linear_to_concave(linear_amplitude),
                 _ => linear_amplitude,
-            });
+            };
         }
     }
 }
@@ -557,7 +557,7 @@ impl Envelope {
             ticks: Default::default(),
             time: Default::default(),
             uncorrected_amplitude: Default::default(),
-            corrected_amplitude: Default::default(),
+            corrected_amplitude: 0.0,
             delta: Default::default(),
             amplitude_target: Default::default(),
             time_target: Default::default(),
@@ -1599,7 +1599,6 @@ pub mod tests {
 
     #[test]
     fn generates_envelope_trait_attack_decay_duration() {
-        // An even sample rate means we can easily calculate how much time was spent in each state.
         let mut clock = Clock::new_test();
         const ATTACK: f64 = 0.1;
         const DECAY: f64 = 0.2;
@@ -1608,6 +1607,7 @@ pub mod tests {
         let mut envelope =
             Envelope::new_with(&EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE));
 
+        // An even sample rate means we can easily calculate how much time was spent in each state.
         clock.reset(100);
         envelope.reset(100);
 

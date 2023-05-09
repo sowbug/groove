@@ -4,11 +4,10 @@
 
 use control::F32ControlValue;
 use groove_proc_macros::{Control, Params};
-use std::ops::RangeInclusive;
 use std::{
     fmt::Display,
     iter::Sum,
-    ops::{Add, AddAssign, Div, Mul, Neg, Sub},
+    ops::{Add, AddAssign, Div, Mul, Neg, RangeInclusive, Sub},
 };
 
 #[cfg(feature = "serialization")]
@@ -239,7 +238,7 @@ impl From<f64> for StereoSample {
 /// values, etc., -- and somewhat OK at pure math. But we might decide to clamp
 /// (heh) down on out-of-bounds conditions later on, so if you want to do math,
 /// prefer f64 sourced from [RangedF64] rather than [RangedF64] itself.
-#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct RangedF64<const LOWER: i8, const UPPER: i8>(f64);
 impl<const LOWER: i8, const UPPER: i8> RangedF64<LOWER, UPPER> {
@@ -293,6 +292,11 @@ impl<const LOWER: i8, const UPPER: i8> RangedF64<LOWER, UPPER> {
         Self(percentage / 100.0)
     }
 }
+impl<const LOWER: i8, const UPPER: i8> Display for RangedF64<LOWER, UPPER> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}", self.0))
+    }
+}
 impl<const LOWER: i8, const UPPER: i8> Add for RangedF64<LOWER, UPPER> {
     type Output = Self;
 
@@ -344,12 +348,25 @@ impl Normal {
         0.0..=1.0
     }
 }
+impl Default for Normal {
+    // I'm deciding by royal fiat that a Normal defaults to 1.0. I keep running
+    // into cases where a Normal gets default-constructed and zeroing out a
+    // signal.
+    fn default() -> Self {
+        Self(1.0)
+    }
+}
 
 /// A BipolarNormal is a [RangedF64] whose range is [-1.0, 1.0].
 pub type BipolarNormal = RangedF64<-1, 1>;
 impl BipolarNormal {
     pub const fn range() -> RangeInclusive<f64> {
         -1.0..=1.0
+    }
+}
+impl Default for BipolarNormal {
+    fn default() -> Self {
+        Self(0.0)
     }
 }
 
