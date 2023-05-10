@@ -87,7 +87,8 @@ impl<V: IsStereoSampleVoice> Synthesizer<V> {
         if let Some(vs) = self.voice_store.as_mut() {
             vs.voices_mut()
         } else {
-            panic!()
+            eprintln!("TODO: this is horribly lame");
+            Box::new(std::iter::empty())
         }
     }
 

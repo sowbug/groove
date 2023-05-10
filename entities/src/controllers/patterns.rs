@@ -99,6 +99,36 @@ impl PatternManager {
         }
     }
 }
+#[cfg(feature = "egui-framework")]
+mod gui {
+    use super::PatternManager;
+    use super::{Note, Pattern};
+    use groove_core::traits::gui::Shows;
+
+    impl Shows for Pattern<Note> {
+        fn show(&mut self, ui: &mut eframe::egui::Ui) {
+            if let Some(v) = &self.note_value {
+                let s: &'static str = v.into();
+                ui.label(format!("Note value {}", s));
+            }
+            for notes in &self.notes {
+                let note_descriptions: Vec<String> = notes
+                    .iter()
+                    .map(|n| format!("{} {}", n.key, n.duration))
+                    .collect();
+                ui.label(note_descriptions.join("-"));
+            }
+        }
+    }
+
+    impl Shows for PatternManager {
+        fn show(&mut self, ui: &mut eframe::egui::Ui) {
+            for pattern in self.patterns.iter_mut() {
+                pattern.show(ui);
+            }
+        }
+    }
+}
 
 /// [PatternProgrammer] knows how to insert a given [Pattern] into a given
 /// [Sequencer], respecting the [groove_core::time::TimeSignature] that it was

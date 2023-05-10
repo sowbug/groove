@@ -1058,7 +1058,7 @@ mod gui {
                 ui.label(entity.as_has_uid().name());
             }
             Entity::Compressor(e) => {
-                ui.label(entity.as_has_uid().name());
+                e.show(ui);
             }
             Entity::ControlTrip(e) => {
                 ui.label(entity.as_has_uid().name());
@@ -1094,7 +1094,7 @@ mod gui {
                 e.show(ui);
             }
             Entity::PatternManager(e) => {
-                ui.label(entity.as_has_uid().name());
+                e.show(ui);
             }
             Entity::Reverb(e) => {
                 ui.label(entity.as_has_uid().name());

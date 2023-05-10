@@ -256,12 +256,19 @@ impl TicksWithMessages for Sequencer {
 #[cfg(feature = "egui-framework")]
 mod gui {
     use super::Sequencer;
-    use eframe::egui::Ui;
-    use groove_core::traits::gui::Shows;
+    use eframe::egui::{RichText, Ui};
+    use groove_core::{time::PerfectTimeUnit, traits::gui::Shows};
 
     impl Shows for Sequencer {
         fn show(&mut self, ui: &mut Ui) {
-            ui.label("Coming soon!");
+            for (when, (channel, message)) in &self.events {
+                let has_played = when < &PerfectTimeUnit::from(self.temp_hack_clock.beats() as f32);
+                let mut text = RichText::new(format!("{}: {} -> {:?}", when, channel, message));
+                if has_played {
+                    text = text.italics();
+                }
+                ui.label(text);
+            }
         }
     }
 }

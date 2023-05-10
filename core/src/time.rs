@@ -11,7 +11,7 @@ use std::{
     fmt::Display,
     ops::{Add, Mul},
 };
-use strum_macros::FromRepr;
+use strum_macros::{FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -395,7 +395,7 @@ impl Ord for MidiTicks {
 }
 impl Eq for MidiTicks {}
 
-#[derive(Clone, Debug, Default, FromRepr, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, FromRepr, Serialize, Deserialize, IntoStaticStr)]
 pub enum BeatValue {
     Octuple = 128,   // large/maxima
     Quadruple = 256, // long

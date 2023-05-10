@@ -117,6 +117,70 @@ impl Compressor {
     }
 }
 
+#[cfg(feature = "egui-framework")]
+mod gui {
+    use super::Compressor;
+    use eframe::egui::DragValue;
+    use groove_core::{traits::gui::Shows, Normal};
+
+    impl Shows for Compressor {
+        fn show(&mut self, ui: &mut eframe::egui::Ui) {
+            let mut threshold = self.threshold().value();
+            let mut ratio = self.ratio();
+            let mut attack = self.attack();
+            let mut release = self.release();
+            if ui
+                .add(
+                    DragValue::new(&mut threshold)
+                        .fixed_decimals(2)
+                        .clamp_range(Normal::range())
+                        .speed(0.01)
+                        .prefix("Threshold: "),
+                )
+                .changed()
+            {
+                self.set_threshold(threshold.into());
+            };
+            if ui
+                .add(
+                    DragValue::new(&mut ratio)
+                        .fixed_decimals(2)
+                        .clamp_range(Normal::range())
+                        .speed(0.01)
+                        .prefix("Ratio: "),
+                )
+                .changed()
+            {
+                self.set_ratio(ratio.into());
+            };
+            if ui
+                .add(
+                    DragValue::new(&mut attack)
+                        .fixed_decimals(2)
+                        .clamp_range(Normal::range())
+                        .speed(0.01)
+                        .prefix("Attack: "),
+                )
+                .changed()
+            {
+                self.set_attack(attack.into());
+            };
+            if ui
+                .add(
+                    DragValue::new(&mut release)
+                        .fixed_decimals(2)
+                        .clamp_range(Normal::range())
+                        .speed(0.01)
+                        .prefix("Release: "),
+                )
+                .changed()
+            {
+                self.set_release(release.into());
+            };
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::effects::compressor::{Compressor, CompressorParams};
