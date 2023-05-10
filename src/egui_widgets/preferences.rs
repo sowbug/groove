@@ -12,7 +12,8 @@ use std::{
 };
 
 /// User-specific preferences for the whole app
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Preferences {
     /// The last-selected MIDI input
     selected_midi_input: Option<String>,
@@ -25,9 +26,9 @@ pub struct Preferences {
     /// The last-loaded project filename.
     last_project_filename: Option<PathBuf>,
 
-    // #[serde(skip)]
+    // #[cfg_attr(feature = "serialization", serde(skip))]
     // current_project_filename: Arc<Mutex<String>>,
-    #[serde(skip)]
+    #[cfg_attr(feature = "serialization", serde(skip))]
     is_saved: bool,
 }
 impl Preferences {

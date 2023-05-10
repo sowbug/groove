@@ -11,6 +11,7 @@ use std::f64::consts::PI;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterLowPass24db {
     #[control]
     #[params]
@@ -21,7 +22,19 @@ pub struct BiQuadFilterLowPass24db {
 
     uid: usize,
     sample_rate: usize,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterLowPass24dbChannel; 2],
+}
+impl Default for BiQuadFilterLowPass24db {
+    fn default() -> Self {
+        Self {
+            cutoff: FrequencyHz::from(1000.0),
+            passband_ripple: 1.0,
+            uid: Default::default(),
+            sample_rate: Default::default(),
+            channels: Default::default(),
+        }
+    }
 }
 impl IsEffect for BiQuadFilterLowPass24db {}
 impl Resets for BiQuadFilterLowPass24db {
@@ -153,6 +166,7 @@ impl BiQuadFilterLowPass24dbChannel {
 }
 
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterLowPass12db {
     #[control]
     #[params]
@@ -163,6 +177,7 @@ pub struct BiQuadFilterLowPass12db {
 
     uid: usize,
     sample_rate: usize,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterLowPass12dbChannel; 2],
 }
 impl IsEffect for BiQuadFilterLowPass12db {}
@@ -253,6 +268,7 @@ impl BiQuadFilterLowPass12dbChannel {
 }
 
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterHighPass {
     #[control]
     #[params]
@@ -263,6 +279,7 @@ pub struct BiQuadFilterHighPass {
 
     uid: usize,
     sample_rate: usize,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterHighPassChannel; 2],
 }
 impl IsEffect for BiQuadFilterHighPass {}
@@ -355,6 +372,7 @@ impl BiQuadFilterHighPassChannel {
 }
 
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterAllPass {
     #[control]
     #[params]
@@ -365,6 +383,8 @@ pub struct BiQuadFilterAllPass {
 
     uid: usize,
     sample_rate: usize,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterAllPassChannel; 2],
 }
 impl IsEffect for BiQuadFilterAllPass {}
@@ -454,6 +474,7 @@ impl BiQuadFilterAllPassChannel {
 }
 
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterBandPass {
     #[control]
     #[params]
@@ -464,6 +485,8 @@ pub struct BiQuadFilterBandPass {
 
     uid: usize,
     sample_rate: usize,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterBandPassChannel; 2],
 }
 impl IsEffect for BiQuadFilterBandPass {}
@@ -558,6 +581,7 @@ impl BiQuadFilterBandPassChannel {
 }
 
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterBandStop {
     #[control]
     #[params]
@@ -568,6 +592,8 @@ pub struct BiQuadFilterBandStop {
 
     uid: usize,
     sample_rate: usize,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterBandStopChannel; 2],
 }
 impl IsEffect for BiQuadFilterBandStop {}
@@ -663,6 +689,7 @@ impl BiQuadFilterBandStopChannel {
 }
 
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterPeakingEq {
     #[control]
     #[params]
@@ -676,6 +703,8 @@ pub struct BiQuadFilterPeakingEq {
 
     uid: usize,
     sample_rate: usize,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterPeakingEqChannel; 2],
 }
 impl IsEffect for BiQuadFilterPeakingEq {}
@@ -772,6 +801,7 @@ impl BiQuadFilterPeakingEqChannel {
 }
 
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterLowShelf {
     #[control]
     #[params]
@@ -782,6 +812,8 @@ pub struct BiQuadFilterLowShelf {
 
     uid: usize,
     sample_rate: usize,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterLowShelfChannel; 2],
 }
 impl IsEffect for BiQuadFilterLowShelf {}
@@ -878,6 +910,7 @@ impl BiQuadFilterLowShelfChannel {
 }
 
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterHighShelf {
     #[control]
     #[params]
@@ -888,6 +921,8 @@ pub struct BiQuadFilterHighShelf {
 
     uid: usize,
     sample_rate: usize,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterHighShelfChannel; 2],
 }
 impl IsEffect for BiQuadFilterHighShelf {}
@@ -986,9 +1021,12 @@ impl BiQuadFilterHighShelfChannel {
 /// This filter does nothing, expensively. It exists for debugging. I might
 /// delete it later.
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterNone {
     uid: usize,
     sample_rate: usize,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilter; 2],
 }
 impl IsEffect for BiQuadFilterNone {}

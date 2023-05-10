@@ -24,18 +24,24 @@ pub(crate) type BeatEventsMap = BTreeMultiMap<PerfectTimeUnit, (MidiChannel, Mid
 /// [Sequencer] produces MIDI according to a programmed sequence. Its unit of
 /// time is the beat.
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Sequencer {
     uid: usize,
     #[control]
     #[params]
     bpm: ParameterType,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     next_instant: PerfectTimeUnit,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     events: BeatEventsMap,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     last_event_time: PerfectTimeUnit,
     is_disabled: bool,
     is_performing: bool,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     should_stop_pending_notes: bool,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     on_notes: FxHashMap<u7, MidiChannel>,
 
     temp_hack_clock: Clock,
@@ -266,6 +272,7 @@ pub(crate) type MidiTickEventsMap = BTreeMultiMap<MidiTicks, (MidiChannel, MidiM
 /// tick. It exists to make it easy for [MidiSmfReader] to turn MIDI files into
 /// sequences.
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct MidiTickSequencer {
     uid: usize,
 
@@ -273,8 +280,11 @@ pub struct MidiTickSequencer {
     #[params]
     midi_ticks_per_second: usize,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     next_instant: MidiTicks,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     events: MidiTickEventsMap,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     last_event_time: MidiTicks,
     is_disabled: bool,
     is_performing: bool,

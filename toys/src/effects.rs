@@ -14,16 +14,22 @@ use serde::{Deserialize, Serialize};
 
 /// An [IsEffect](groove_core::traits::IsEffect) that negates the input signal.
 #[derive(Debug, Default, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToyEffect {
+    #[cfg_attr(feature = "serialization", serde(skip))]
     uid: usize,
 
     #[control]
     #[params]
     my_value: Normal,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     pub checkpoint_values: VecDeque<f32>,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     pub checkpoint: f32,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     pub checkpoint_delta: f32,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     pub time_unit: ClockTimeUnit,
 }
 impl IsEffect for ToyEffect {}

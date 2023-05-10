@@ -13,6 +13,7 @@ use groove_proc_macros::{Control, Params, Uid};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Metronome {
     #[control]
     #[params]

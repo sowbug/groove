@@ -195,6 +195,7 @@ impl Resets for AllPassDelayLine {
 }
 
 #[derive(Debug, Default, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Delay {
     uid: usize,
 
@@ -202,6 +203,7 @@ pub struct Delay {
     #[params]
     seconds: ParameterType,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     delay: DelayLine,
 }
 impl IsEffect for Delay {}

@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 /// below 13, and it destroys the waveform at 15. It doesn't do any simulation
 /// of sample-rate reduction, either.
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Bitcrusher {
     uid: usize,
 

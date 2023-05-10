@@ -204,12 +204,6 @@ pub trait PlaysNotes {
     fn note_off(&mut self, velocity: u8);
 }
 
-// TODO: I didn't want StoresVoices to know anything about audio (i.e.,
-// SourcesAudio), but I couldn't figure out how to return an IterMut from a
-// HashMap, so I couldn't define a trait method that allowed the implementation
-// to return an iterator from either a Vec or a HashMap.
-//
-// Maybe what I really want is for Synthesizers to have the StoresVoices trait.
 pub trait StoresVoices: Generates<StereoSample> + Send + std::fmt::Debug {
     type Voice;
 

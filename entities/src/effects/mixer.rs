@@ -9,7 +9,7 @@ use groove_proc_macros::{Control, Params, Uid};
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Control, Params, Uid)]
+#[derive(Debug, Default, Control, Params, Uid, Serialize, Deserialize)]
 pub struct Mixer {
     uid: usize,
 }

@@ -16,7 +16,7 @@ use groove_proc_macros::{Control, Params, Uid};
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct FmVoice {
     sample: StereoSample,
     carrier: Oscillator,
@@ -205,6 +205,7 @@ impl FmVoice {
 }
 
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct FmSynth {
     #[control]
     #[params]
@@ -231,6 +232,7 @@ pub struct FmSynth {
     dca: Dca,
 
     uid: usize,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     inner_synth: Synthesizer<FmVoice>,
 }
 impl IsInstrument for FmSynth {}

@@ -35,10 +35,12 @@ mod tests {
             traits::{Controllable, Resets},
         };
         use groove_proc_macros::{Control, Params, Uid};
+        use serde::{Deserialize, Serialize};
         use strum::EnumCount;
         use strum_macros::{EnumCount as EnumCountMacro, FromRepr};
 
         #[derive(Clone, Copy, Debug, Default, EnumCountMacro, FromRepr, PartialEq)]
+        #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
         pub enum Abnormal {
             #[default]
             Foo,
@@ -56,6 +58,7 @@ mod tests {
         }
 
         #[derive(Clone, Copy, Debug, Default, EnumCountMacro, FromRepr, PartialEq)]
+        #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
         pub enum Cherry {
             #[default]
             Bing,

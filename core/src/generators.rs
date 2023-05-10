@@ -91,6 +91,7 @@ impl OscillatorParams {
 }
 
 #[derive(Clone, Debug, Control, Params)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Oscillator {
     #[control]
     #[params]
@@ -102,7 +103,7 @@ pub struct Oscillator {
     frequency: FrequencyHz,
 
     /// if not zero, then ignores the `frequency` field and uses this one
-    /// instead.
+    /// instead. TODO: Option<>
     #[control]
     #[params]
     fixed_frequency: FrequencyHz,
@@ -128,11 +129,15 @@ pub struct Oscillator {
     noise_x2: u32,
 
     /// An internal copy of the current sample rate.
+    #[cfg_attr(feature = "serialization", serde(skip))]
     sample_rate: usize,
 
     /// The internal clock. Advances once per tick().
+    ///
+    #[cfg_attr(feature = "serialization", serde(skip))]
     ticks: usize,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     signal: BipolarNormal,
 
     // It's important for us to remember the "cursor" in the current waveform,
@@ -141,21 +146,50 @@ pub struct Oscillator {
     // pops, transients, and suckage.
     //
     // Needs Kahan summation algorithm to avoid accumulation of FP errors.
+    #[cfg_attr(feature = "serialization", serde(skip))]
     cycle_position: KahanSum<f64>,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     delta: f64,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     delta_needs_update: bool,
 
     // Whether this oscillator's owner should sync other oscillators to this
     // one. Calculated during tick().
+    #[cfg_attr(feature = "serialization", serde(skip))]
     should_sync: bool,
 
     // If this is a synced oscillator, then whether we should reset our waveform
     // to the start.
+    #[cfg_attr(feature = "serialization", serde(skip))]
     is_sync_pending: bool,
 
     // Set on init and reset().
+    #[cfg_attr(feature = "serialization", serde(skip))]
     is_reset_pending: bool,
+}
+impl Default for Oscillator {
+    fn default() -> Self {
+        Self {
+            waveform: Default::default(),
+            frequency: FrequencyHz(440.0),
+            fixed_frequency: Default::default(),
+            frequency_tune: Default::default(),
+            frequency_modulation: Default::default(),
+            linear_frequency_modulation: Default::default(),
+            noise_x1: 0x70f4f854,
+            noise_x2: 0xe1e9f0a7,
+            sample_rate: Default::default(),
+            ticks: Default::default(),
+            signal: Default::default(),
+            cycle_position: Default::default(),
+            delta: Default::default(),
+            delta_needs_update: true,
+            should_sync: Default::default(),
+            is_sync_pending: Default::default(),
+            is_reset_pending: true,
+        }
+    }
 }
 impl Generates<BipolarNormal> for Oscillator {
     fn value(&self) -> BipolarNormal {
@@ -199,25 +233,15 @@ impl Ticks for Oscillator {
 
 impl Oscillator {
     pub fn new_with(params: &OscillatorParams) -> Self {
-        Self {
-            waveform: params.waveform(),
-            frequency: params.frequency(),
-            fixed_frequency: params.fixed_frequency(),
-            frequency_tune: params.frequency_tune(),
-            frequency_modulation: params.frequency_modulation(),
-            linear_frequency_modulation: Default::default(),
-            noise_x1: 0x70f4f854,
-            noise_x2: 0xe1e9f0a7,
-            ticks: Default::default(),
-            signal: Default::default(),
-            cycle_position: Default::default(),
-            delta: Default::default(),
-            delta_needs_update: true,
-            should_sync: Default::default(),
-            is_sync_pending: Default::default(),
-            is_reset_pending: true,
-            sample_rate: Default::default(),
-        }
+        let mut r = Self::default();
+        r.waveform = params.waveform();
+        r.frequency = params.frequency();
+        r.fixed_frequency = params.fixed_frequency();
+        r.frequency_tune = params.frequency_tune();
+        r.frequency_modulation = params.frequency_modulation();
+        r.delta_needs_update = true;
+        r.is_reset_pending = true;
+        r
     }
 
     fn adjusted_frequency(&self) -> FrequencyHz {
@@ -435,7 +459,8 @@ impl EnvelopeParams {
     }
 }
 
-#[derive(Debug, Control, Params)]
+#[derive(Debug, Default, Control, Params)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Envelope {
     #[control]
     #[params]
@@ -450,33 +475,50 @@ pub struct Envelope {
     #[params]
     release: ParameterType,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     sample_rate: f64,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     state: State,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     was_reset: bool,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     ticks: usize,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     time: TimeUnit,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     uncorrected_amplitude: KahanSum<f64>,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     corrected_amplitude: f64,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     delta: f64,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     amplitude_target: f64,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     time_target: TimeUnit,
 
     // Whether the amplitude was set to an explicit value during this frame,
     // which means that the caller is expecting to get an amplitude of that
     // exact value, which means that we should return the PRE-update value
     // rather than the usual post-update value.
+    #[cfg_attr(feature = "serialization", serde(skip))]
     amplitude_was_set: bool,
 
     // Polynomial coefficients for convex
+    #[cfg_attr(feature = "serialization", serde(skip))]
     convex_a: f64,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     convex_b: f64,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     convex_c: f64,
 
     // Polynomial coefficients for concave
+    #[cfg_attr(feature = "serialization", serde(skip))]
     concave_a: f64,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     concave_b: f64,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     concave_c: f64,
 }
 impl GeneratesEnvelope for Envelope {
@@ -908,6 +950,7 @@ mod gui {
 }
 
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub enum SteppedEnvelopeFunction {
     #[default]
     Linear,
@@ -916,6 +959,7 @@ pub enum SteppedEnvelopeFunction {
 }
 
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct SteppedEnvelopeStep {
     pub interval: Range<SignalType>,
     pub start_value: SignalType,
@@ -924,6 +968,7 @@ pub struct SteppedEnvelopeStep {
 }
 
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct SteppedEnvelope {
     time_unit: ClockTimeUnit,
     steps: Vec<SteppedEnvelopeStep>,

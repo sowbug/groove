@@ -16,7 +16,8 @@ use serde::{Deserialize, Serialize};
 use std::{io::Read, path::Path};
 use strum_macros::IntoStaticStr;
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Default)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 #[serde(rename_all = "kebab-case")]
 pub struct WelshPatchSettings {
     pub name: String,
@@ -182,7 +183,8 @@ pub enum WaveformType {
 
 pub type GlideSettings = f32;
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 #[serde(rename_all = "kebab-case")]
 pub enum PolyphonySettings {
     #[default]
@@ -191,7 +193,8 @@ pub enum PolyphonySettings {
     MultiLimit(u8),
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 #[serde(rename_all = "kebab-case")]
 pub enum OscillatorTune {
     Note(u8),
@@ -216,7 +219,8 @@ impl From<OscillatorTune> for Ratio {
 //     }
 // }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 #[serde(rename_all = "kebab-case")]
 pub struct OscillatorSettings {
     pub waveform: Waveform,
@@ -258,7 +262,8 @@ impl OscillatorSettings {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 #[serde(rename_all = "kebab-case")]
 pub enum LfoRoutingType {
     #[default]
@@ -281,7 +286,8 @@ impl Into<LfoRouting> for LfoRoutingType {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 #[serde(rename_all = "kebab-case")]
 pub enum LfoDepth {
     None,
@@ -305,7 +311,8 @@ impl From<LfoDepth> for Normal {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 #[serde(rename_all = "kebab-case")]
 pub struct LfoPreset {
     pub routing: LfoRoutingType,
@@ -318,7 +325,8 @@ pub struct LfoPreset {
 // Thus we can use defaults cutoff 0.0 and weight 0.0 as a hack for a passthrough.
 // Eventually we'll want this preset to be richer, and then we'll need an explicit
 // notion of a None filter type.
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 #[serde(rename_all = "kebab-case")]
 pub struct FilterPreset {
     pub cutoff_hz: f32,
@@ -680,7 +688,8 @@ impl WelshPatchSettings {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 #[serde(rename_all = "kebab-case")]
 pub struct FmSynthesizerSettings {
     pub ratio: ParameterType, // TODO: needs a ratio type, which I suppose would range from 0..infinity.

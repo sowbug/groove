@@ -9,6 +9,7 @@ use groove_core::{
     traits::MessageBounds,
 };
 use groove_entities::EntityMessage;
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 #[derive(Debug)]
@@ -65,6 +66,7 @@ impl MessageBounds for GrooveEvent {}
 /// The point_index determines which of the target entity's controllable fields
 /// that this link controls.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ControlLink {
     pub source_uid: usize,
     pub target_uid: usize,

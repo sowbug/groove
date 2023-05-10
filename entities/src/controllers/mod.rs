@@ -73,6 +73,7 @@ pub struct MidiChannelOutputParams {
 /// It is useful when you need something to happen after a certain amount of
 /// wall-clock time, rather than musical time.
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Timer {
     uid: usize,
 
@@ -157,6 +158,7 @@ impl Performs for Timer {
 // TODO: needs tests!
 /// [Trigger] issues a control signal after a specified amount of time.
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Trigger {
     uid: usize,
 
@@ -253,11 +255,14 @@ impl Trigger {
 }
 
 /// Uses an input signal as a control source.
-#[derive(Control, Debug, Params, Uid)]
+#[derive(Control, Debug, Params, Uid, Serialize, Deserialize)]
 pub struct SignalPassthroughController {
     uid: usize,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     signal: BipolarNormal,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     has_signal_changed: bool,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     is_performing: bool,
 }
 impl IsController for SignalPassthroughController {}
@@ -358,6 +363,7 @@ enum TestControllerAction {
 /// An [IsController](groove_core::traits::IsController) that emits a MIDI
 /// note-on event on each beat, and a note-off event on each half-beat.
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToyController {
     uid: usize,
 

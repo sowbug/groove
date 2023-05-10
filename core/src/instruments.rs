@@ -15,11 +15,11 @@ use crate::{
 ///
 /// [Synthesizer] exists so that this crate's synthesizer voices can be used in
 /// other projects without needing all the other crates.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Synthesizer<V: IsStereoSampleVoice> {
     sample_rate: usize,
 
-    voice_store: Box<dyn StoresVoices<Voice = V>>,
+    voice_store: Option<Box<dyn StoresVoices<Voice = V>>>,
 
     /// Ranges from -1.0..=1.0. Applies to all notes.
     pitch_bend: f32,
@@ -33,28 +33,40 @@ pub struct Synthesizer<V: IsStereoSampleVoice> {
 }
 impl<V: IsStereoSampleVoice> Generates<StereoSample> for Synthesizer<V> {
     fn value(&self) -> StereoSample {
-        self.voice_store.value()
+        if let Some(vs) = &self.voice_store {
+            vs.value()
+        } else {
+            StereoSample::default()
+        }
     }
 
     fn batch_values(&mut self, values: &mut [StereoSample]) {
-        self.voice_store.batch_values(values);
+        if let Some(vs) = self.voice_store.as_mut() {
+            vs.batch_values(values);
+        } else {
+            todo!()
+        }
     }
 }
 impl<V: IsStereoSampleVoice> Resets for Synthesizer<V> {
     fn reset(&mut self, sample_rate: usize) {
         self.sample_rate = sample_rate;
-        self.voice_store.reset(sample_rate);
+        if let Some(vs) = self.voice_store.as_mut() {
+            vs.reset(sample_rate);
+        }
     }
 }
 impl<V: IsStereoSampleVoice> Ticks for Synthesizer<V> {
     fn tick(&mut self, tick_count: usize) {
-        self.voice_store.tick(tick_count);
+        if let Some(vs) = self.voice_store.as_mut() {
+            vs.tick(tick_count);
+        }
     }
 }
 impl<V: IsStereoSampleVoice> Synthesizer<V> {
     pub fn new_with(voice_store: Box<dyn StoresVoices<Voice = V>>) -> Self {
         Self {
-            voice_store,
+            voice_store: Some(voice_store),
             sample_rate: Default::default(),
             pitch_bend: Default::default(),
             channel_aftertouch: Default::default(),
@@ -64,11 +76,19 @@ impl<V: IsStereoSampleVoice> Synthesizer<V> {
     }
 
     pub fn voices<'a>(&'a self) -> Box<dyn Iterator<Item = &Box<V>> + 'a> {
-        self.voice_store.voices()
+        if let Some(vs) = self.voice_store.as_ref() {
+            vs.voices()
+        } else {
+            panic!()
+        }
     }
 
     pub fn voices_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut Box<V>> + 'a> {
-        self.voice_store.voices_mut()
+        if let Some(vs) = self.voice_store.as_mut() {
+            vs.voices_mut()
+        } else {
+            panic!()
+        }
     }
 
     pub fn set_pitch_bend(&mut self, pitch_bend: f32) {
@@ -104,30 +124,32 @@ impl<V: IsStereoSampleVoice> HandlesMidi for Synthesizer<V> {
         &mut self,
         message: &MidiMessage,
     ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
-        match message {
-            MidiMessage::NoteOff { key, vel } => {
-                if let Ok(voice) = self.voice_store.get_voice(key) {
-                    voice.note_off(vel.as_int());
+        if let Some(vs) = self.voice_store.as_mut() {
+            match message {
+                MidiMessage::NoteOff { key, vel } => {
+                    if let Ok(voice) = vs.get_voice(key) {
+                        voice.note_off(vel.as_int());
+                    }
                 }
-            }
-            MidiMessage::NoteOn { key, vel } => {
-                if let Ok(voice) = self.voice_store.get_voice(key) {
-                    voice.note_on(key.as_int(), vel.as_int());
+                MidiMessage::NoteOn { key, vel } => {
+                    if let Ok(voice) = vs.get_voice(key) {
+                        voice.note_on(key.as_int(), vel.as_int());
+                    }
                 }
-            }
-            MidiMessage::Aftertouch { key, vel } => {
-                if let Ok(voice) = self.voice_store.get_voice(key) {
-                    voice.aftertouch(vel.as_int());
+                MidiMessage::Aftertouch { key, vel } => {
+                    if let Ok(voice) = vs.get_voice(key) {
+                        voice.aftertouch(vel.as_int());
+                    }
                 }
+                #[allow(unused_variables)]
+                MidiMessage::Controller { controller, value } => todo!(),
+                #[allow(unused_variables)]
+                MidiMessage::ProgramChange { program } => todo!(),
+                #[allow(unused_variables)]
+                MidiMessage::ChannelAftertouch { vel } => todo!(),
+                #[allow(unused_variables)]
+                MidiMessage::PitchBend { bend } => self.set_pitch_bend(bend.as_f32()),
             }
-            #[allow(unused_variables)]
-            MidiMessage::Controller { controller, value } => todo!(),
-            #[allow(unused_variables)]
-            MidiMessage::ProgramChange { program } => todo!(),
-            #[allow(unused_variables)]
-            MidiMessage::ChannelAftertouch { vel } => todo!(),
-            #[allow(unused_variables)]
-            MidiMessage::PitchBend { bend } => self.set_pitch_bend(bend.as_f32()),
         }
         None
     }

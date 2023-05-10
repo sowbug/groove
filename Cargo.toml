@@ -105,7 +105,8 @@ egui-framework = [
 serialization = [
     "serde",
     "groove-core/serialization",
-    "groove-entities/serialization"
+    "groove-entities/serialization",
+    "groove-orchestration/serialization"
 ]
 visualization = ["dep:plotters", "dep:spectrum-analyzer"]
 

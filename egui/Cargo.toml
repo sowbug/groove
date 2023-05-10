@@ -21,3 +21,7 @@ crossbeam-channel = "0.5"
 crossbeam-utils = "0.8.15"
 eframe = "0.21.3"
 groove-core = { path = "../core", features = ["egui-framework"] }
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[features]
+"serialization" = ["serde"]

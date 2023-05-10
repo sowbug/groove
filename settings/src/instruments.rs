@@ -15,12 +15,14 @@ use groove_toys::{ToyInstrument, ToyInstrumentParams};
 use groove_utils::Paths;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct WelshPatchWrapper {
     name: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 #[serde(rename_all = "kebab-case")]
 pub enum InstrumentSettings {
     #[serde(rename_all = "kebab-case")]

@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 /// Schroeder reverb. Uses four parallel recirculating delay lines feeding into
 /// a series of two all-pass delay lines.
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Reverb {
     uid: usize,
     sample_rate: usize,
@@ -35,6 +36,7 @@ pub struct Reverb {
     #[params]
     wet_dry_mix: f32,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [ReverbChannel; 2],
 }
 
@@ -110,7 +112,7 @@ impl Reverb {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct ReverbChannel {
     attenuation: Normal,
 

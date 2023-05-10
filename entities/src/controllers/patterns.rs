@@ -20,7 +20,7 @@ pub enum PatternMessage {
 
 /// A [Note] represents a key-down and key-up event pair that lasts for a
 /// specified duration.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Note {
     pub key: u8,
     pub velocity: u8,
@@ -29,7 +29,7 @@ pub struct Note {
 
 /// A [Pattern] is a series of [Note] rows that play simultaneously.
 /// [PatternManager] uses [Patterns](Pattern) to program a [Sequencer].
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Pattern<T: Default> {
     pub note_value: Option<BeatValue>,
     pub notes: Vec<Vec<T>>,
@@ -56,7 +56,7 @@ use serde::{Deserialize, Serialize};
 // There is so much paperwork for a vector because this will eventually become a
 // substantial part of the GUI experience.
 /// [PatternManager] stores all the [Patterns] that make up a song.
-#[derive(Clone, Debug, Default, Control, Params, Uid)]
+#[derive(Clone, Debug, Default, Control, Params, Uid, Serialize, Deserialize)]
 pub struct PatternManager {
     uid: usize,
     patterns: Vec<Pattern<Note>>,

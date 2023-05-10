@@ -44,6 +44,7 @@ pub enum ControlStep {
 /// A ControlTrip is one automation track, which can run as long as the whole
 /// song. For now, it controls one parameter of one target.
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ControlTrip {
     uid: usize,
     #[control]

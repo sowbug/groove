@@ -19,13 +19,16 @@ use std::{path::Path, sync::Arc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Drumkit {
     #[params]
     name: String,
 
     uid: usize,
     sample_rate: usize,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     paths: Paths,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     inner_synth: Synthesizer<SamplerVoice>,
 }
 impl IsInstrument for Drumkit {}

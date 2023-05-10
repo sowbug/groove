@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 /// controller; you play it with MIDI, but instead of producing audio, it
 /// produces more MIDI.
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Arpeggiator {
     uid: usize,
     midi_channel_out: MidiChannel,

@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 
 /// Uses an internal LFO as a control source.
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct LfoController {
     uid: usize,
 

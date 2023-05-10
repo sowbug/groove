@@ -34,7 +34,8 @@ pub enum LfoRouting {
     FilterCutoff,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct WelshVoice {
     oscillators: Vec<Oscillator>,
     oscillator_2_sync: bool,
@@ -51,11 +52,16 @@ pub struct WelshVoice {
     filter_cutoff_end: Normal,
     filter_envelope: Envelope,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     note_on_key: u8,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     note_on_velocity: u8,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     steal_is_underway: bool,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     sample: StereoSample,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     ticks: usize,
 }
 impl IsStereoSampleVoice for WelshVoice {}
@@ -256,8 +262,11 @@ impl WelshVoice {
 }
 
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct WelshSynth {
     uid: usize,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
     inner_synth: Synthesizer<WelshVoice>,
 
     #[control]

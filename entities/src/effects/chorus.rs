@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 /// Schroeder reverb. Uses four parallel recirculating delay lines feeding into
 /// a series of two all-pass delay lines.
 #[derive(Debug, Default, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Chorus {
     uid: usize,
 
@@ -33,6 +34,7 @@ pub struct Chorus {
     #[params]
     wet_dry_mix: f32,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     delay: DelayLine,
 }
 impl IsEffect for Chorus {}

@@ -18,9 +18,11 @@ hound = "3.5"
 more-asserts = "0.3.1"
 rand = "0.8.5"
 rustc-hash = "1.1.0"
+serde = { version = "1.0", features = ["derive"], optional = true }
 strum = "0.24.1"
 strum_macros = "0.24.2"
 
 [features]
 egui-framework = ["eframe", "groove-core/egui-framework"]
 metrics = ["dep:dipstick"]
+serialization = ["serde"]

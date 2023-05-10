@@ -26,5 +26,9 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 
 [features]
 # https://stackoverflow.com/a/62972981/344467
-"serialization" = ["serde", "groove-core/serialization"]
+"serialization" = [
+    "serde",
+    "groove-core/serialization",
+    "groove-egui/serialization"
+]
 "egui-framework" = ["eframe", "groove-core/egui-framework", "groove-egui"]

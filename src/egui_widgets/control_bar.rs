@@ -1,5 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use std::path::Path;
+
 use eframe::egui::{self, DragValue};
 use groove_core::traits::Performs;
 use groove_orchestration::Orchestrator;
@@ -31,6 +33,25 @@ impl ControlBar {
             }
             if ui.button("pause").clicked() {
                 orchestrator.stop();
+            }
+            if ui.button("load (BROKEN)").clicked() {
+                let s =
+                    std::fs::read_to_string(Path::new("/home/miket/orchestrator-serialized.yaml"));
+                if let Ok(contents) = s {
+                    if let Ok(new_orchestrator) = serde_yaml::from_str(&contents) {
+                        *orchestrator = new_orchestrator;
+                    }
+                }
+            }
+
+            if ui.button("save").clicked() {
+                let s = serde_yaml::to_string(orchestrator);
+                if let Ok(contents) = s {
+                    let _ = std::fs::write(
+                        Path::new("/home/miket/orchestrator-serialized.yaml"),
+                        contents,
+                    );
+                }
             }
 
             let clock = orchestrator.clock();

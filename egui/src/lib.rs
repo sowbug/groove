@@ -7,7 +7,12 @@ use eframe::{
 };
 use groove_core::traits::gui::Shows;
 
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Default)]
+#[cfg(feature = "serialization")]
+#[derive(Serialize, Deserialize)]
 pub struct Waveform {}
 impl Shows for Waveform {
     fn show(&mut self, ui: &mut eframe::egui::Ui) {

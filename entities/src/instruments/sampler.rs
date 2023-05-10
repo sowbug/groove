@@ -21,7 +21,7 @@ use std::{
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct SamplerVoice {
     sample_rate: usize,
     samples: Arc<Vec<StereoSample>>,
@@ -113,8 +113,11 @@ impl SamplerVoice {
 }
 
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Sampler {
     uid: usize,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
     inner_synth: Synthesizer<SamplerVoice>,
 
     #[params]

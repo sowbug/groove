@@ -452,7 +452,8 @@ impl Into<f32> for Normal {
 /// of synths.
 ///
 /// See DSSPC++, Section 7.9 for requirements. TODO: implement
-#[derive(Debug, Control, Params)]
+#[derive(Debug, Default, Control, Params)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Dca {
     #[control]
     #[params]

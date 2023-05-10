@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 /// to MIDI NoteOn/NoteOff. [Controllable](groove_core::traits::Controllable) by
 /// two parameters: Oscillator waveform and frequency.
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToyInstrument {
     uid: usize,
 
@@ -30,6 +31,7 @@ pub struct ToyInstrument {
     #[params]
     fake_value: Normal,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     sample: StereoSample,
 
     oscillator: Oscillator,
@@ -37,15 +39,24 @@ pub struct ToyInstrument {
     #[control]
     #[params]
     dca: Dca,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
     pub is_playing: bool,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     pub received_count: usize,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     pub handled_count: usize,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     pub checkpoint_values: VecDeque<f32>,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     pub checkpoint: f32,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     pub checkpoint_delta: f32,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     pub time_unit: ClockTimeUnit,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     pub debug_messages: Vec<MidiMessage>,
 }
 impl IsInstrument for ToyInstrument {}
@@ -208,6 +219,7 @@ impl ToyInstrument {
 /// Another [IsInstrument](groove_core::traits::IsInstrument) that was designed
 /// for black-box debugging.
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct DebugSynth {
     uid: usize,
 
@@ -216,12 +228,13 @@ pub struct DebugSynth {
     fake_value: Normal,
 
     sample_rate: usize,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     sample: StereoSample,
 
     // #[controllable]
     // oscillator_modulation: BipolarNormal,
     oscillator: Box<Oscillator>,
-    envelope: Box<dyn GeneratesEnvelope>,
+    envelope: Box<Envelope>,
 }
 impl IsInstrument for DebugSynth {}
 impl Generates<StereoSample> for DebugSynth {
@@ -269,10 +282,7 @@ impl HandlesMidi for DebugSynth {
     }
 }
 impl DebugSynth {
-    pub fn new_with_components(
-        oscillator: Box<Oscillator>,
-        envelope: Box<dyn GeneratesEnvelope>,
-    ) -> Self {
+    pub fn new_with_components(oscillator: Box<Oscillator>, envelope: Box<Envelope>) -> Self {
         Self {
             uid: Default::default(),
             sample_rate: Default::default(),
@@ -321,6 +331,7 @@ impl DebugSynth {
 }
 
 #[derive(Debug, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToySynth {
     uid: usize,
 
@@ -336,6 +347,7 @@ pub struct ToySynth {
     #[params]
     envelope: Envelope,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     inner: Synthesizer<ToyVoice>,
 }
 impl IsInstrument for ToySynth {}
@@ -413,7 +425,7 @@ impl ToySynth {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct ToyVoice {
     oscillator: Oscillator,
     envelope: Envelope,
@@ -476,6 +488,7 @@ impl ToyVoice {
 /// Produces a constant audio signal. Used for ensuring that a known signal
 /// value gets all the way through the pipeline.
 #[derive(Debug, Default, Control, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToyAudioSource {
     uid: usize,
 

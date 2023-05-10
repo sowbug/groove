@@ -25,6 +25,7 @@ use groove_entities::{
 };
 use groove_proc_macros::Uid;
 use rustc_hash::{FxHashMap, FxHashSet};
+use serde::{Deserialize, Serialize};
 use std::io::{self, Write};
 
 #[cfg(feature = "metrics")]
@@ -56,28 +57,44 @@ impl Performance {
 /// musical capabilities, but all the entities were designed to work smoothly
 /// with it.
 #[derive(Debug, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Orchestrator {
+    #[cfg_attr(feature = "serialization", serde(skip))]
     uid: usize,
+
     title: Option<String>,
+
     store: Store,
 
     // This is the master clock.
     clock: Clock,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
     is_performing: bool,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     main_mixer_uid: usize,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     pattern_manager_uid: usize,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     sequencer_uid: usize,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     metronome_uid: usize,
 
     #[cfg(feature = "metrics")]
+    #[cfg_attr(feature = "serialization", serde(skip))]
     metrics: DipstickWrapper,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     should_output_perf: bool,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     last_track_samples: Vec<StereoSample>,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     last_entity_samples: Vec<StereoSample>,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     main_mixer_source_uids: FxHashSet<usize>,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     last_samples: FxHashMap<usize, StereoSample>,
 }
 impl Orchestrator {
@@ -1126,6 +1143,7 @@ mod gui {
 /// Keeps all [Entity] in one place, and manages their relationships, such as
 /// patch cables.
 #[derive(Debug, Default)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub(crate) struct Store {
     last_uid: usize,
     uid_to_item: FxHashMap<usize, Entity>,
