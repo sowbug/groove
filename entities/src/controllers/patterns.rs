@@ -60,6 +60,7 @@ use serde::{Deserialize, Serialize};
 pub struct PatternManager {
     uid: usize,
     patterns: Vec<Pattern<Note>>,
+    selected_pattern: usize,
 }
 impl IsController for PatternManager {}
 impl HandlesMidi for PatternManager {}
@@ -101,31 +102,76 @@ impl PatternManager {
 }
 #[cfg(feature = "egui-framework")]
 mod gui {
-    use super::PatternManager;
-    use super::{Note, Pattern};
-    use groove_core::traits::gui::Shows;
+    use super::{Note, Pattern, PatternManager};
+    use eframe::{
+        egui::{Frame, ScrollArea},
+        epaint::{Color32, Stroke},
+    };
+    use egui_extras::Size;
+    use egui_grid::GridBuilder;
+    use groove_core::{time::BeatValue, traits::gui::Shows};
+
+    impl Pattern<Note> {
+        pub const CELL_WIDTH: f32 = 32.0;
+        pub const CELL_HEIGHT: f32 = 24.0;
+    }
 
     impl Shows for Pattern<Note> {
         fn show(&mut self, ui: &mut eframe::egui::Ui) {
-            if let Some(v) = &self.note_value {
-                let s: &'static str = v.into();
-                ui.label(format!("Note value {}", s));
+            if let Some(v) = self.note_value.as_mut() {
+                v.show(ui);
+            } else {
+                // We want to inherit the beat value from orchestrator, but we
+                // don't have it! TODO
+                //
+                // TODO again: actually, what does it mean for a pattern to
+                // inherit a beat value? The pattern isn't going to change
+                // automatically if the time signature changes. I don't think
+                // this makes sense to be optional.
+                BeatValue::show_inherited(ui);
             }
-            for notes in &self.notes {
-                let note_descriptions: Vec<String> = notes
-                    .iter()
-                    .map(|n| format!("{} {}", n.key, n.duration))
-                    .collect();
-                ui.label(note_descriptions.join("-"));
+            let mut g = GridBuilder::new().spacing(0.0, 0.0);
+            for notes in self.notes.iter() {
+                g = g
+                    .new_row(Size::exact(Self::CELL_HEIGHT))
+                    .cells(Size::exact(Self::CELL_WIDTH), notes.len() as i32);
             }
+            g.show(ui, |mut grid| {
+                for notes in self.notes.iter_mut() {
+                    for note in notes.iter_mut() {
+                        grid.cell(|ui| {
+                            Frame::none()
+                                .stroke(Stroke::new(2.0, Color32::GRAY))
+                                .fill(Color32::DARK_GRAY)
+                                .show(ui, |ui| {
+                                    let mut text = format!("{}", note.key);
+                                    if ui.text_edit_singleline(&mut text).changed() {
+                                        if let Ok(key) = text.parse() {
+                                            note.key = key;
+                                        }
+                                    };
+                                });
+                        });
+                    }
+                }
+            });
         }
     }
 
     impl Shows for PatternManager {
         fn show(&mut self, ui: &mut eframe::egui::Ui) {
-            for pattern in self.patterns.iter_mut() {
-                pattern.show(ui);
-            }
+            ui.set_min_width(16.0 * Pattern::CELL_WIDTH + 8.0); //  8 pixels margin
+            ScrollArea::vertical().show(ui, |ui| {
+                let mut is_first = true;
+                for pattern in self.patterns.iter_mut() {
+                    if is_first {
+                        is_first = false;
+                    } else {
+                        ui.separator();
+                    }
+                    pattern.show(ui);
+                }
+            });
         }
     }
 }

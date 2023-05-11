@@ -410,7 +410,7 @@ pub enum BeatValue {
     SixtyFourth = 65536, // hemidemisemiquaver
     OneHundredTwentyEighth = 131072, // semihemidemisemiquaver / quasihemidemisemiquaver
     TwoHundredFiftySixth = 262144, // demisemihemidemisemiquaver
-    FiveHundredTwelfth = 524288, // winner winner chicken dinner
+    FiveHundredTwelfth = 524288, // winner winner chicken dinner,
 }
 
 impl BeatValue {
@@ -504,6 +504,46 @@ impl TimeSignature {
 impl Default for TimeSignature {
     fn default() -> Self {
         Self { top: 4, bottom: 4 }
+    }
+}
+
+#[cfg(feature = "egui-framework")]
+mod gui {
+    use super::BeatValue;
+    use crate::traits::gui::Shows;
+    use eframe::{
+        egui::{Frame, Margin},
+        epaint::{Color32, Stroke, Vec2},
+    };
+
+    impl Shows for BeatValue {
+        fn show(&mut self, ui: &mut eframe::egui::Ui) {
+            ui.allocate_ui(Vec2::new(60.0, 24.0), |ui| {
+                Self::show_beat_value(ui, &format!("{} beats", BeatValue::divisor(self.clone())));
+            });
+        }
+    }
+
+    impl BeatValue {
+        fn show_beat_value(ui: &mut eframe::egui::Ui, label: &str) {
+            Frame::none()
+                .stroke(Stroke::new(2.0, Color32::GRAY))
+                .fill(Color32::DARK_GRAY)
+                .inner_margin(Margin::same(2.0))
+                .outer_margin(Margin {
+                    left: 0.0,
+                    right: 0.0,
+                    top: 0.0,
+                    bottom: 5.0,
+                })
+                .show(ui, |ui| {
+                    ui.label(label);
+                });
+        }
+
+        pub fn show_inherited(ui: &mut eframe::egui::Ui) {
+            Self::show_beat_value(ui, "inherited");
+        }
     }
 }
 

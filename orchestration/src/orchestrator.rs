@@ -979,31 +979,33 @@ mod gui {
                         for uid in uids {
                             let entity = self.get_mut(uid).unwrap();
                             ui.allocate_ui(Vec2::new(256.0, ui.available_height()), |ui| {
-                                let frame =
-                                    Frame::none()
-                                        .stroke(Stroke::new(2.0, Color32::GRAY))
-                                        .fill(Color32::DARK_GRAY)
-                                        .inner_margin(Margin::same(2.0))
-                                        .outer_margin(Margin {
-                                            left: 0.0,
-                                            right: 0.0,
-                                            top: 0.0,
-                                            bottom: 5.0,
-                                        })
-                                        .show(ui, |ui| {
-                                            CollapsingHeader::new(
-                                                RichText::new(entity.name())
-                                                    .color(Color32::YELLOW)
-                                                    .text_style(eframe::egui::TextStyle::Heading),
-                                            )
-                                            .id_source(ui.next_auto_id())
-                                            .default_open(true)
-                                            .show_unindented(ui, |ui| {
+                                Frame::none()
+                                    .stroke(Stroke::new(2.0, Color32::GRAY))
+                                    .fill(Color32::DARK_GRAY)
+                                    .inner_margin(Margin::same(2.0))
+                                    .outer_margin(Margin {
+                                        left: 0.0,
+                                        right: 0.0,
+                                        top: 0.0,
+                                        bottom: 5.0,
+                                    })
+                                    .show(ui, |ui| {
+                                        CollapsingHeader::new(
+                                            RichText::new(entity.name())
+                                                .color(Color32::YELLOW)
+                                                .text_style(eframe::egui::TextStyle::Heading),
+                                        )
+                                        .id_source(ui.next_auto_id())
+                                        .default_open(true)
+                                        .show_unindented(
+                                            ui,
+                                            |ui| {
                                                 ui.vertical(|ui| {
                                                     show_for_entity(entity, ui);
                                                 })
-                                            });
-                                        });
+                                            },
+                                        );
+                                    });
                             });
                         }
                     },
