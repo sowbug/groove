@@ -24,6 +24,7 @@ enum ButtonState {
     #[default]
     Idle,
     Held,
+    Blinking,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -78,6 +79,12 @@ pub struct Integrated {
 
     #[cfg_attr(feature = "serialization", serde(skip))]
     active_pattern: u8,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    active_sound: u8,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    blink_is_on: bool,
 }
 impl IsController for Integrated {}
 impl IsInstrument for Integrated {}
@@ -152,6 +159,8 @@ impl Default for Integrated {
             render_state: Default::default(),
             button_state: [ButtonState::Idle; Self::BUTTON_COUNT],
             active_pattern: Default::default(),
+            active_sound: Default::default(),
+            blink_is_on: Default::default(),
         }
     }
 }
@@ -165,7 +174,23 @@ impl Integrated {
     }
 
     fn handle_pad_click(&mut self, number: u8) {
-        eprintln!("clicked {}", number);
+        match self.render_state {
+            RenderState::Normal => {
+                eprintln!("demoing sound {}", number);
+            }
+            RenderState::Sound => {
+                self.active_sound = number;
+                eprintln!("selected sound {}", self.active_sound);
+            }
+            RenderState::Pattern => {
+                self.active_pattern = number;
+                eprintln!("selected pattern {}", self.active_pattern);
+            }
+            RenderState::Bpm => todo!(),
+            RenderState::Solo => todo!(),
+            RenderState::Fx => todo!(),
+            RenderState::Write => todo!(),
+        }
     }
 
     fn handle_play_click(&mut self) {
@@ -344,6 +369,14 @@ mod gui {
                 match state {
                     ButtonState::Idle => Color32::DARK_GRAY,
                     ButtonState::Held => Color32::GRAY,
+                    ButtonState::Blinking => {
+                        self.blink_is_on = !self.blink_is_on;
+                        if self.blink_is_on {
+                            Color32::RED
+                        } else {
+                            Color32::DARK_RED
+                        }
+                    }
                 }
             };
             ui.add_sized(cell_size, Button::new(label).fill(color))
@@ -406,8 +439,9 @@ mod gui {
                 ];
                 let cell_size = Vec2::new(60.0, 60.0);
                 for (index, label) in labels.iter().enumerate() {
+                    let pad_index = button_index[index];
                     let is_highlighted = if let Some(hb) = highlighted_button {
-                        button_index[index] == hb
+                        pad_index == hb
                     } else {
                         false
                     };
@@ -536,8 +570,17 @@ mod gui {
                                     | ButtonLabel::Pad13
                                     | ButtonLabel::Pad14
                                     | ButtonLabel::Pad15
-                                    | ButtonLabel::Pad16 => ButtonState::Idle,
-
+                                    | ButtonLabel::Pad16 => {
+                                        if self.render_state == RenderState::Pattern {
+                                            if self.active_pattern == pad_index {
+                                                ButtonState::Blinking
+                                            } else {
+                                                ButtonState::Idle
+                                            }
+                                        } else {
+                                            ButtonState::Idle
+                                        }
+                                    }
                                     ButtonLabel::A => ButtonState::Idle,
                                     ButtonLabel::B => ButtonState::Idle,
                                 }
