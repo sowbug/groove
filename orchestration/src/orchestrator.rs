@@ -1134,10 +1134,7 @@ mod gui {
             Entity::WelshSynth(e) => {
                 e.show(ui);
             }
-            #[allow(unreachable_patterns)]
-            _ => {
-                panic!("something about toy controller")
-            }
+            Entity::Integrated(e) => e.show(ui),
         }
     }
 }

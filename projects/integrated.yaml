@@ -1,0 +1,17 @@
+---
+title: "Integrated"
+clock:
+  bpm: 128.0
+  midi-ticks-per-second: 960
+  time-signature:
+    - 4
+    - 4
+devices:
+  - controller:
+      - integrated-1
+      - integrated:
+          - midi-in: 0
+            midi-out: 0
+          - {}
+patch-cables:
+  - [integrated-1, main-mixer]

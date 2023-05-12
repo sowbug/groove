@@ -6,6 +6,7 @@ pub use arpeggiator::{Arpeggiator, ArpeggiatorParams};
 #[cfg(feature = "iced-framework")]
 pub use control_trip::ControlTripMessage;
 pub use control_trip::{ControlPath, ControlStep, ControlTrip, ControlTripParams};
+pub use integrated::{Integrated, IntegratedParams};
 #[cfg(feature = "iced-framework")]
 pub use lfo::LfoControllerMessage;
 pub use lfo::{LfoController, LfoControllerParams};
@@ -22,6 +23,7 @@ pub use sequencers::{MidiTickSequencerMessage, SequencerMessage};
 
 mod arpeggiator;
 mod control_trip;
+mod integrated;
 mod lfo;
 mod patterns;
 mod sequencers;
@@ -255,7 +257,8 @@ impl Trigger {
 }
 
 /// Uses an input signal as a control source.
-#[derive(Control, Debug, Params, Uid, Serialize, Deserialize)]
+#[derive(Control, Debug, Params, Uid)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct SignalPassthroughController {
     uid: usize,
     #[cfg_attr(feature = "serialization", serde(skip))]

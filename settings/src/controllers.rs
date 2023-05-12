@@ -3,8 +3,9 @@
 use super::{BeatValueSettings, DeviceId, MidiChannel};
 use groove_core::{ParameterType, SignalType};
 use groove_entities::controllers::{
-    Arpeggiator, ArpeggiatorParams, ControlPath, ControlStep, LfoController, LfoControllerParams,
-    MidiChannelParams, SignalPassthroughController, ToyController, ToyControllerParams,
+    Arpeggiator, ArpeggiatorParams, ControlPath, ControlStep, Integrated, IntegratedParams,
+    LfoController, LfoControllerParams, MidiChannelParams, SignalPassthroughController,
+    ToyController, ToyControllerParams,
 };
 use groove_orchestration::Entity;
 use serde::{Deserialize, Serialize};
@@ -115,6 +116,8 @@ pub enum ControllerSettings {
     LfoController(MidiChannelParams, LfoControllerParams),
     #[serde(rename_all = "kebab-case", rename = "signal-passthrough-controller")]
     SignalPassthroughController(MidiChannelParams),
+    #[serde(rename_all = "kebab-case", rename = "integrated")]
+    Integrated(MidiChannelParams, IntegratedParams),
 }
 
 impl ControllerSettings {
@@ -147,6 +150,13 @@ impl ControllerSettings {
                     ..,
                 )
                 | ControllerSettings::SignalPassthroughController(
+                    MidiChannelParams {
+                        midi_in: midi_input_channel,
+                        midi_out: midi_output_channel,
+                    },
+                    ..,
+                ) => (midi_input_channel, midi_output_channel),
+                ControllerSettings::Integrated(
                     MidiChannelParams {
                         midi_in: midi_input_channel,
                         midi_out: midi_output_channel,
@@ -192,6 +202,11 @@ impl ControllerSettings {
                 midi.midi_in,
                 midi.midi_out,
                 Entity::SignalPassthroughController(Box::new(SignalPassthroughController::new())),
+            ),
+            ControllerSettings::Integrated(midi, params) => (
+                midi.midi_in,
+                midi.midi_out,
+                Entity::Integrated(Box::new(Integrated::new_with(&params))),
             ),
         }
     }
