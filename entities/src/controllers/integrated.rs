@@ -25,18 +25,20 @@ enum ButtonState {
     Idle,
     Held,
     Blinking,
+    Indicated,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 enum RenderState {
     #[default]
-    Normal,
-    Sound,
-    Pattern,
-    Bpm,
-    Solo,
-    Fx,
-    Write,
+    Normal, // No mode active
+    Sound,   // press a pad to select that sound
+    Pattern, // press a pad to select that pattern
+    Bpm,     // adjust swing/bpm with knobs
+    Solo,    // during play, toggle solo play for a pad to copy
+    Fx,      // press a pad to punch in effect
+    Write,   // during play, change sound params with knobs **over time**
+    Copy,    // hold write + pattern, press pad to copy active to that slot
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -62,7 +64,9 @@ pub struct Integrated {
     a: f32,
     b: f32,
     swing: u8,
+    volume: u8,
 
+    arrangements: Vec<u8>,
     patterns: [Pattern; 16],
 
     #[cfg_attr(feature = "serialization", serde(skip))]
@@ -75,16 +79,19 @@ pub struct Integrated {
     render_state: RenderState,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
-    button_state: [ButtonState; Self::BUTTON_COUNT],
-
-    #[cfg_attr(feature = "serialization", serde(skip))]
     active_pattern: u8,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
     active_sound: u8,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
-    blink_is_on: bool,
+    blink_counter: u8,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    write_mode: bool,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    sound_solo_states: [bool; 16],
 }
 impl IsController for Integrated {}
 impl IsInstrument for Integrated {}
@@ -152,20 +159,23 @@ impl Default for Integrated {
             a: 0.5,
             b: 0.5,
             swing: 0,
+            volume: 7, // half
+
+            arrangements: vec![u8::MAX; 128],
             patterns: Default::default(),
 
             value: Default::default(),
             engine_state: Default::default(),
             render_state: Default::default(),
-            button_state: [ButtonState::Idle; Self::BUTTON_COUNT],
             active_pattern: Default::default(),
             active_sound: Default::default(),
-            blink_is_on: Default::default(),
+            blink_counter: Default::default(),
+            write_mode: Default::default(),
+            sound_solo_states: Default::default(),
         }
     }
 }
 impl Integrated {
-    const BUTTON_COUNT: usize = 25;
     pub fn new_with(params: &IntegratedParams) -> Self {
         Self {
             clock: Clock::new_with(params.clock()),
@@ -186,10 +196,14 @@ impl Integrated {
                 self.active_pattern = number;
                 eprintln!("selected pattern {}", self.active_pattern);
             }
-            RenderState::Bpm => todo!(),
-            RenderState::Solo => todo!(),
-            RenderState::Fx => todo!(),
+            RenderState::Bpm => {
+                self.volume = number;
+                eprintln!("volume {}", self.volume);
+            }
+            RenderState::Solo => self.toggle_solo(number),
+            RenderState::Fx => self.punch_effect(number),
             RenderState::Write => todo!(),
+            RenderState::Copy => self.copy_active_pattern(number),
         }
     }
 
@@ -256,7 +270,7 @@ impl Integrated {
     }
 
     fn handle_write_click(&mut self) {
-        todo!()
+        self.write_mode = !self.write_mode;
     }
 
     fn change_render_state(&mut self, new_state: RenderState) {
@@ -265,6 +279,7 @@ impl Integrated {
         } else {
             self.render_state = new_state
         }
+        eprintln!("New render state: ")
     }
 
     pub fn a(&self) -> f32 {
@@ -300,18 +315,130 @@ impl Integrated {
     pub fn swing(&self) -> u8 {
         self.swing
     }
+
+    // Assumes active pattern and active sound
+    fn is_sound_selected(&self, index: u8) -> bool {
+        self.patterns[self.active_pattern as usize]
+            .is_sound_selected_at_index(self.active_sound, index)
+    }
+
+    fn copy_active_pattern(&mut self, number: u8) {
+        self.patterns[number as usize] = self.patterns[self.active_pattern as usize].clone();
+        eprintln!("copied pattern {} to slot {}", self.active_pattern, number);
+    }
+
+    fn toggle_solo(&mut self, number: u8) {
+        self.sound_solo_states[number as usize] = !self.sound_solo_states[number as usize];
+        eprintln!("toggled solo for {}", number);
+    }
+
+    fn punch_effect(&self, number: u8) {
+        todo!()
+    }
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 struct Pattern {
     notes: [Note; 16],
 }
+impl Default for Pattern {
+    fn default() -> Self {
+        Self {
+            notes: [
+                Note::new_with([
+                    true, false, true, false, true, false, true, false, true, false, true, false,
+                    true, false, true, false,
+                ]),
+                Note::new_with([
+                    false, true, false, true, false, true, false, true, false, true, false, true,
+                    false, true, false, true,
+                ]),
+                Note::new_with([
+                    true, true, false, false, true, true, false, false, true, true, false, false,
+                    true, true, false, false,
+                ]),
+                Note::new_with([
+                    false, false, true, true, false, false, true, true, false, false, true, true,
+                    false, false, true, true,
+                ]),
+                Note::new_with([
+                    true, false, true, false, true, false, true, false, true, false, true, false,
+                    true, false, true, false,
+                ]),
+                Note::new_with([
+                    false, true, false, true, false, true, false, true, false, true, false, true,
+                    false, true, false, true,
+                ]),
+                Note::new_with([
+                    true, true, false, false, true, true, false, false, true, true, false, false,
+                    true, true, false, false,
+                ]),
+                Note::new_with([
+                    false, false, true, true, false, false, true, true, false, false, true, true,
+                    false, false, true, true,
+                ]),
+                Note::new_with([
+                    true, false, true, false, true, false, true, false, true, false, true, false,
+                    true, false, true, false,
+                ]),
+                Note::new_with([
+                    false, true, false, true, false, true, false, true, false, true, false, true,
+                    false, true, false, true,
+                ]),
+                Note::new_with([
+                    true, true, false, false, true, true, false, false, true, true, false, false,
+                    true, true, false, false,
+                ]),
+                Note::new_with([
+                    false, false, true, true, false, false, true, true, false, false, true, true,
+                    false, false, true, true,
+                ]),
+                Note::new_with([
+                    true, false, true, false, true, false, true, false, true, false, true, false,
+                    true, false, true, false,
+                ]),
+                Note::new_with([
+                    false, true, false, true, false, true, false, true, false, true, false, true,
+                    false, true, false, true,
+                ]),
+                Note::new_with([
+                    true, true, false, false, true, true, false, false, true, true, false, false,
+                    true, true, false, false,
+                ]),
+                Note::new_with([
+                    false, false, true, true, false, false, true, true, false, false, true, true,
+                    false, false, true, true,
+                ]),
+            ],
+        }
+    }
+}
+impl Pattern {
+    fn is_sound_selected_at_index(&self, sound: u8, index: u8) -> bool {
+        self.notes[index as usize].is_sound_selected(sound)
+    }
+}
 
-#[derive(Debug, Default)]
+#[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 struct Note {
-    key: u8,
+    active_sounds: [bool; 16],
+}
+impl Default for Note {
+    fn default() -> Self {
+        Self {
+            active_sounds: [false; 16],
+        }
+    }
+}
+impl Note {
+    fn new_with(active_sounds: [bool; 16]) -> Self {
+        Self { active_sounds }
+    }
+    fn is_sound_selected(&self, index: u8) -> bool {
+        self.active_sounds[index as usize]
+    }
 }
 
 #[cfg(feature = "egui-framework")]
@@ -370,13 +497,14 @@ mod gui {
                     ButtonState::Idle => Color32::DARK_GRAY,
                     ButtonState::Held => Color32::GRAY,
                     ButtonState::Blinking => {
-                        self.blink_is_on = !self.blink_is_on;
-                        if self.blink_is_on {
+                        self.blink_counter = (self.blink_counter + 1) % 4;
+                        if self.blink_counter >= 2 {
                             Color32::RED
                         } else {
                             Color32::DARK_RED
                         }
                     }
+                    ButtonState::Indicated => Color32::DARK_RED,
                 }
             };
             ui.add_sized(cell_size, Button::new(label).fill(color))
@@ -392,17 +520,23 @@ mod gui {
             };
             ui.set_min_size(Vec2::new(320.0, 560.0)); // 1.75 aspect ratio
             ui.add_space(64.0);
-            Grid::new(ui.next_auto_id())
-                .num_columns(4)
-                .min_col_width(80.0)
-                .max_col_width(80.0)
-                .spacing(Vec2 { x: 0.0, y: 0.0 })
-                .show(ui, |ui| {
-                    ui.label(format!("A: {:<3}", (self.a() * 100.0) as u8));
-                    ui.label(format!("B: {:<3}", (self.b() * 100.0) as u8));
-                    ui.label(format!("Swing: {:<3}", self.swing()));
-                    ui.label(format!("BPM: {:<3}", self.bpm()));
-                });
+            ui.add(
+                SegmentedDisplayWidget::sixteen_segment(&format!(
+                    "W: {}",
+                    if self.write_mode { "+" } else { "-" }
+                ))
+                .digit_height(14.0),
+            );
+            ui.add(
+                SegmentedDisplayWidget::sixteen_segment(&format!(
+                    "A {:<3} B {:<3} SW {:<3} BPM {:<3}",
+                    (self.a() * 100.0) as u8,
+                    (self.b() * 100.0) as u8,
+                    self.swing(),
+                    self.bpm(),
+                ))
+                .digit_height(14.0),
+            );
             ui.add(SegmentedDisplayWidget::sixteen_segment("MUSIC").digit_height(72.0));
             ui.add_space(16.0);
             Grid::new(ui.next_auto_id()).num_columns(5).show(ui, |ui| {
@@ -469,7 +603,8 @@ mod gui {
                                         | RenderState::Pattern
                                         | RenderState::Solo
                                         | RenderState::Fx
-                                        | RenderState::Write => self.set_a(value),
+                                        | RenderState::Write
+                                        | RenderState::Copy => self.set_a(value),
                                         RenderState::Sound => {
                                             // nothing
                                         }
@@ -500,7 +635,8 @@ mod gui {
                                         | RenderState::Pattern
                                         | RenderState::Solo
                                         | RenderState::Fx
-                                        | RenderState::Write => self.set_b(value),
+                                        | RenderState::Write
+                                        | RenderState::Copy => self.set_b(value),
                                         RenderState::Sound => {
                                             // nothing
                                         }
@@ -570,17 +706,35 @@ mod gui {
                                     | ButtonLabel::Pad13
                                     | ButtonLabel::Pad14
                                     | ButtonLabel::Pad15
-                                    | ButtonLabel::Pad16 => {
-                                        if self.render_state == RenderState::Pattern {
+                                    | ButtonLabel::Pad16 => match self.render_state {
+                                        RenderState::Normal => ButtonState::Idle,
+                                        RenderState::Pattern => {
                                             if self.active_pattern == pad_index {
                                                 ButtonState::Blinking
                                             } else {
+                                                // TODO: bright if in anywhere in the chain, dim otherwise
                                                 ButtonState::Idle
                                             }
-                                        } else {
-                                            ButtonState::Idle
                                         }
-                                    }
+                                        RenderState::Sound => {
+                                            if self.is_sound_selected(pad_index) {
+                                                ButtonState::Indicated
+                                            } else {
+                                                ButtonState::Idle
+                                            }
+                                        }
+                                        RenderState::Bpm => {
+                                            if pad_index <= self.volume {
+                                                ButtonState::Indicated
+                                            } else {
+                                                ButtonState::Idle
+                                            }
+                                        }
+                                        RenderState::Solo => ButtonState::Idle,
+                                        RenderState::Fx => ButtonState::Idle,
+                                        RenderState::Write => ButtonState::Idle,
+                                        RenderState::Copy => ButtonState::Idle,
+                                    },
                                     ButtonLabel::A => ButtonState::Idle,
                                     ButtonLabel::B => ButtonState::Idle,
                                 }
@@ -624,7 +778,11 @@ mod gui {
                                         self.change_render_state(RenderState::Sound)
                                     }
                                     ButtonLabel::Pattern => {
-                                        self.change_render_state(RenderState::Pattern)
+                                        if self.render_state == RenderState::Write {
+                                            self.change_render_state(RenderState::Copy);
+                                        } else {
+                                            self.change_render_state(RenderState::Pattern);
+                                        }
                                     }
                                     ButtonLabel::Bpm => self.change_render_state(RenderState::Bpm),
                                     ButtonLabel::Solo => {
@@ -632,7 +790,11 @@ mod gui {
                                     }
                                     ButtonLabel::Fx => self.change_render_state(RenderState::Fx),
                                     ButtonLabel::Write => {
-                                        self.change_render_state(RenderState::Write)
+                                        if self.render_state == RenderState::Pattern {
+                                            self.change_render_state(RenderState::Copy);
+                                        } else {
+                                            self.change_render_state(RenderState::Write)
+                                        }
                                     }
                                     _ => {}
                                 }
