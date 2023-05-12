@@ -1,6 +1,7 @@
 use crate::EntityMessage;
 use groove_core::{
-    time::{Clock, ClockParams},
+    control,
+    time::{Clock, ClockParams, TimeSignatureParams},
     traits::{
         Generates, HandlesMidi, IsController, IsInstrument, Performs, Resets, Ticks,
         TicksWithMessages,
@@ -17,26 +18,31 @@ use serde::{Deserialize, Serialize};
 pub struct Integrated {
     uid: usize,
 
+    #[params]
     clock: Clock,
+
+    patterns: Vec<Pattern>,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
     value: StereoSample,
 
-    patterns: Vec<Pattern>,
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    is_playing: bool,
 }
 impl IsController for Integrated {}
 impl IsInstrument for Integrated {}
 impl Performs for Integrated {
     fn play(&mut self) {
-        todo!()
+        self.clock.seek(0);
+        self.is_playing = true;
     }
 
     fn stop(&mut self) {
-        todo!()
+        self.is_playing = false;
     }
 
     fn skip_to_start(&mut self) {
-        todo!()
+        self.play();
     }
 }
 impl HandlesMidi for Integrated {
@@ -74,13 +80,27 @@ impl Generates<StereoSample> for Integrated {
         todo!()
     }
 }
-impl Integrated {
-    pub fn new_with(_params: &IntegratedParams) -> Self {
+impl Default for Integrated {
+    fn default() -> Self {
         Self {
             uid: Default::default(),
-            clock: Clock::new_with(&ClockParams::default()),
-            value: Default::default(),
+            clock: Clock::new_with(&ClockParams {
+                bpm: 128.0,
+                midi_ticks_per_second: 960,
+                time_signature: TimeSignatureParams { top: 4, bottom: 4 },
+            }),
             patterns: Default::default(),
+
+            value: Default::default(),
+            is_playing: false,
+        }
+    }
+}
+impl Integrated {
+    pub fn new_with(params: &IntegratedParams) -> Self {
+        Self {
+            clock: Clock::new_with(params.clock()),
+            ..Default::default()
         }
     }
 }
@@ -100,17 +120,28 @@ struct Note {
 #[cfg(feature = "egui-framework")]
 mod gui {
     use super::Integrated;
-    use eframe::{egui::Button, epaint::Vec2};
+    use eframe::{
+        egui::Button,
+        epaint::{Color32, Vec2},
+    };
     use egui_extras::Size;
     use egui_extras_xt::displays::SegmentedDisplayWidget;
     use egui_grid::{Grid, GridBuilder};
     use groove_core::traits::gui::Shows;
 
     impl Integrated {
-        fn add_named_button(&mut self, grid: &mut Grid, label: &str) {
+        fn add_named_button(&mut self, grid: &mut Grid, label: &str, is_highlighted: bool) {
             let cell_size = Vec2::new(60.0, 60.0);
             grid.cell(|ui| {
-                if ui.add_sized(cell_size, Button::new(label)).clicked() {
+                let color = if is_highlighted {
+                    Color32::LIGHT_YELLOW
+                } else {
+                    Color32::DARK_GRAY
+                };
+                if ui
+                    .add_sized(cell_size, Button::new(label).fill(color))
+                    .clicked()
+                {
                     eprintln!("clicked {}", label);
                 };
             });
@@ -119,6 +150,7 @@ mod gui {
 
     impl Shows for Integrated {
         fn show(&mut self, ui: &mut eframe::egui::Ui) {
+            let highlighted_button = if self.is_playing { Some(0) } else { None };
             ui.set_min_size(Vec2::new(320.0, 560.0)); // 1.75 aspect ratio
             ui.add_space(64.0);
             ui.add(SegmentedDisplayWidget::sixteen_segment("MUSIC").digit_height(72.0));
@@ -129,9 +161,9 @@ mod gui {
             }
             g.show(ui, |mut grid| {
                 let cell_size = Vec2::new(60.0, 60.0);
-                self.add_named_button(&mut grid, "sound");
-                self.add_named_button(&mut grid, "pattern");
-                self.add_named_button(&mut grid, "bpm");
+                self.add_named_button(&mut grid, "sound", false);
+                self.add_named_button(&mut grid, "pattern", false);
+                self.add_named_button(&mut grid, "bpm", false);
                 grid.cell(|ui| {
                     ui.set_min_size(cell_size);
                     let mut value = 0.0;
@@ -168,8 +200,16 @@ mod gui {
                     "1", "2", "3", "4", "solo", "5", "6", "7", "8", "FX", "9", "10", "11", "12",
                     "play", "13", "14", "15", "16", "write",
                 ];
-                for label in labels {
-                    self.add_named_button(&mut grid, label);
+                let button_index = vec![
+                    0, 1, 2, 3, -1, 4, 5, 6, 7, -1, 8, 9, 10, 11, -1, 12, 13, 14, 15, -1,
+                ];
+                for (index, label) in labels.iter().enumerate() {
+                    let is_highlighted = if let Some(hb) = highlighted_button {
+                        button_index[index] == hb
+                    } else {
+                        false
+                    };
+                    self.add_named_button(&mut grid, label, is_highlighted);
                 }
             });
             // Frame::none()

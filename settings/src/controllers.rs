@@ -206,7 +206,7 @@ impl ControllerSettings {
             ControllerSettings::Integrated(midi, params) => (
                 midi.midi_in,
                 midi.midi_out,
-                Entity::Integrated(Box::new(Integrated::new_with(&params))),
+                Entity::Integrated(Box::new(Integrated::default())),
             ),
         }
     }

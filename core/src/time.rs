@@ -232,6 +232,8 @@ impl Clock {
 }
 impl Ticks for Clock {
     fn tick(&mut self, tick_count: usize) {
+        // TODO: I think this logic is wrong. If the caller asks for more than
+        // one tick after reset, then we swallow them without processing.
         if self.was_reset {
             // On a reset, we keep our tick counter at zero. This is so that a
             // loop can tick() us at the beginning, See
