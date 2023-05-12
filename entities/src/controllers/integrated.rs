@@ -121,101 +121,135 @@ struct Note {
 mod gui {
     use super::Integrated;
     use eframe::{
-        egui::Button,
+        egui::{Button, Grid, Response},
         epaint::{Color32, Vec2},
     };
-    use egui_extras::Size;
     use egui_extras_xt::displays::SegmentedDisplayWidget;
-    use egui_grid::{Grid, GridBuilder};
-    use groove_core::traits::gui::Shows;
+    use groove_core::traits::{gui::Shows, Performs};
 
     impl Integrated {
-        fn add_named_button(&mut self, grid: &mut Grid, label: &str, is_highlighted: bool) {
+        fn add_named_button(
+            &mut self,
+            ui: &mut eframe::egui::Ui,
+            label: &str,
+            is_highlighted: bool,
+        ) -> Response {
             let cell_size = Vec2::new(60.0, 60.0);
-            grid.cell(|ui| {
-                let color = if is_highlighted {
-                    Color32::LIGHT_YELLOW
-                } else {
-                    Color32::DARK_GRAY
-                };
-                if ui
-                    .add_sized(cell_size, Button::new(label).fill(color))
-                    .clicked()
-                {
-                    eprintln!("clicked {}", label);
-                };
-            });
+            let color = if is_highlighted {
+                Color32::LIGHT_YELLOW
+            } else {
+                Color32::DARK_GRAY
+            };
+            ui.add_sized(cell_size, Button::new(label).fill(color))
         }
     }
 
     impl Shows for Integrated {
         fn show(&mut self, ui: &mut eframe::egui::Ui) {
-            let highlighted_button = if self.is_playing { Some(0) } else { None };
+            let highlighted_button = if self.is_playing {
+                Some(((self.clock.beats() * 4.0).floor() as i32) % 16)
+            } else {
+                None
+            };
             ui.set_min_size(Vec2::new(320.0, 560.0)); // 1.75 aspect ratio
             ui.add_space(64.0);
             ui.add(SegmentedDisplayWidget::sixteen_segment("MUSIC").digit_height(72.0));
             ui.add_space(16.0);
-            let mut g = GridBuilder::new().spacing(3.0, 3.0);
-            for _ in 0..5 {
-                g = g.new_row(Size::exact(72.0)).cells(Size::exact(60.0), 5);
-            }
-            g.show(ui, |mut grid| {
-                let cell_size = Vec2::new(60.0, 60.0);
-                self.add_named_button(&mut grid, "sound", false);
-                self.add_named_button(&mut grid, "pattern", false);
-                self.add_named_button(&mut grid, "bpm", false);
-                grid.cell(|ui| {
-                    ui.set_min_size(cell_size);
-                    let mut value = 0.0;
-                    ui.centered_and_justified(|ui| {
-                        if ui
-                            .add(
-                                egui_extras_xt::knobs::AngleKnob::new(&mut value)
-                                    .diameter(cell_size.x / 2.0)
-                                    .animated(true),
-                            )
-                            .changed()
-                        {
-                            eprintln!("a is {}", value);
-                        };
-                    });
-                });
-                grid.cell(|ui| {
-                    ui.set_min_size(cell_size);
-                    let mut value = 0.0;
-                    ui.centered_and_justified(|ui| {
-                        if ui
-                            .add(
-                                egui_extras_xt::knobs::AngleKnob::new(&mut value)
-                                    .diameter(cell_size.x / 2.0)
-                                    .animated(true),
-                            )
-                            .changed()
-                        {
-                            eprintln!("b is {}", value);
-                        };
-                    });
-                });
+            Grid::new(ui.next_auto_id()).show(ui, |ui| {
                 let labels = vec![
-                    "1", "2", "3", "4", "solo", "5", "6", "7", "8", "FX", "9", "10", "11", "12",
-                    "play", "13", "14", "15", "16", "write",
+                    "sound", "pattern", "bpm", "A", "B", "1", "2", "3", "4", "solo", "5", "6", "7",
+                    "8", "FX", "9", "10", "11", "12", "play", "13", "14", "15", "16", "write",
                 ];
                 let button_index = vec![
-                    0, 1, 2, 3, -1, 4, 5, 6, 7, -1, 8, 9, 10, 11, -1, 12, 13, 14, 15, -1,
+                    -1, -1, -1, -1, -1, 0, 1, 2, 3, -1, 4, 5, 6, 7, -1, 8, 9, 10, 11, -1, 12, 13,
+                    14, 15, -1,
                 ];
+                let cell_size = Vec2::new(60.0, 60.0);
                 for (index, label) in labels.iter().enumerate() {
                     let is_highlighted = if let Some(hb) = highlighted_button {
                         button_index[index] == hb
                     } else {
                         false
                     };
-                    self.add_named_button(&mut grid, label, is_highlighted);
+                    if index == 3 || index == 4 {
+                        if index == 3 {
+                            ui.set_min_size(cell_size);
+                            let mut value = 0.0;
+                            ui.centered_and_justified(|ui| {
+                                if ui
+                                    .add(
+                                        egui_extras_xt::knobs::AngleKnob::new(&mut value)
+                                            .diameter(cell_size.x / 2.0)
+                                            .animated(true),
+                                    )
+                                    .changed()
+                                {
+                                    eprintln!("a is {}", value);
+                                };
+                            });
+                        }
+                        if index == 4 {
+                            ui.set_min_size(cell_size);
+                            let mut value = 0.0;
+                            ui.centered_and_justified(|ui| {
+                                if ui
+                                    .add(
+                                        egui_extras_xt::knobs::AngleKnob::new(&mut value)
+                                            .diameter(cell_size.x / 2.0)
+                                            .animated(true),
+                                    )
+                                    .changed()
+                                {
+                                    eprintln!("b is {}", value);
+                                };
+                            });
+                        }
+                    } else {
+                        let response = self.add_named_button(ui, label, is_highlighted);
+                        if response.clicked() {
+                            match index {
+                                0 => {}
+                                1 => {}
+                                2 => {}
+                                3 => panic!(),
+                                4 => panic!(),
+                                5 => {}
+                                6 => {}
+                                7 => {}
+                                8 => {}
+                                9 => {}
+                                10 => {}
+                                11 => {}
+                                12 => {}
+                                13 => {}
+                                14 => {}
+                                15 => {}
+                                16 => {}
+                                17 => {}
+                                18 => {}
+                                19 => {
+                                    // play
+                                    if self.is_playing {
+                                        self.stop()
+                                    } else {
+                                        self.play()
+                                    }
+                                }
+                                20 => {}
+                                21 => {}
+                                22 => {}
+                                23 => {}
+                                24 => { // write
+                                }
+                                _ => todo!(),
+                            }
+                        }
+                    }
+                    if (index + 1) % 5 == 0 {
+                        ui.end_row();
+                    }
                 }
             });
-            // Frame::none()
-            //     .stroke(Stroke::new(1.0, Color32::YELLOW))
-            //     .fill(Color32::DARK_GRAY)
-            //     .show(ui, |ui| );
         }
     }
 }

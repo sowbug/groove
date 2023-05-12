@@ -107,11 +107,9 @@ impl PatternManager {
 mod gui {
     use super::{Note, Pattern, PatternManager};
     use eframe::{
-        egui::{Frame, ScrollArea},
+        egui::{Frame, Grid, ScrollArea},
         epaint::{Color32, Stroke},
     };
-    use egui_extras::Size;
-    use egui_grid::GridBuilder;
     use groove_core::{time::BeatValue, traits::gui::Shows};
 
     impl Pattern<Note> {
@@ -133,28 +131,20 @@ mod gui {
                 // this makes sense to be optional.
                 BeatValue::show_inherited(ui);
             }
-            let mut g = GridBuilder::new().spacing(0.0, 0.0);
-            for notes in self.notes.iter() {
-                g = g
-                    .new_row(Size::exact(Self::CELL_HEIGHT))
-                    .cells(Size::exact(Self::CELL_WIDTH), notes.len() as i32);
-            }
-            g.show(ui, |mut grid| {
+            Grid::new(ui.next_auto_id()).show(ui, |ui| {
                 for notes in self.notes.iter_mut() {
                     for note in notes.iter_mut() {
-                        grid.cell(|ui| {
-                            Frame::none()
-                                .stroke(Stroke::new(2.0, Color32::GRAY))
-                                .fill(Color32::DARK_GRAY)
-                                .show(ui, |ui| {
-                                    let mut text = format!("{}", note.key);
-                                    if ui.text_edit_singleline(&mut text).changed() {
-                                        if let Ok(key) = text.parse() {
-                                            note.key = key;
-                                        }
-                                    };
-                                });
-                        });
+                        Frame::none()
+                            .stroke(Stroke::new(2.0, Color32::GRAY))
+                            .fill(Color32::DARK_GRAY)
+                            .show(ui, |ui| {
+                                let mut text = format!("{}", note.key);
+                                if ui.text_edit_singleline(&mut text).changed() {
+                                    if let Ok(key) = text.parse() {
+                                        note.key = key;
+                                    }
+                                };
+                            });
                     }
                 }
             });
