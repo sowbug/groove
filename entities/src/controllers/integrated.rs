@@ -85,6 +85,15 @@ struct IntegratedEngine {
     state: IntegratedEngineState,
 
     solo_states: [bool; 16],
+
+    // Which chain slot we're currently playing
+    pb_chain_index: u8,
+
+    // Which pattern we're currently playing (different from active pattern, which is used for editing)
+    pb_pattern_index: u8,
+
+    // Which step we're currently playing in the pattern
+    pb_step_index: u8,
 }
 impl Default for IntegratedEngine {
     fn default() -> Self {
@@ -106,6 +115,10 @@ impl Default for IntegratedEngine {
             state: IntegratedEngineState::Idle,
 
             solo_states: Default::default(),
+
+            pb_chain_index: Default::default(),
+            pb_pattern_index: Default::default(),
+            pb_step_index: Default::default(),
         }
     }
 }
@@ -292,6 +305,36 @@ impl IntegratedEngine {
     fn chains(&self, index: u8) -> u8 {
         self.chains[index as usize]
     }
+
+    fn next_step(&mut self) -> &Step {
+        if self.pb_chain_index == u8::MAX {
+            // We're about to start the song. We know pattern/step were already set to zero.
+            self.pb_chain_index = 0;
+        } else {
+            self.pb_step_index += 1;
+            if self.pb_step_index == 16 {
+                self.pb_step_index = 0;
+                self.pb_chain_index += 1;
+                if self.pb_chain_index == 128 {
+                    self.pb_chain_index = 127;
+                }
+                if self.chains(self.pb_chain_index) == u8::MAX {
+                    // "the entire sequence then repeats"
+                    self.pb_chain_index = 0;
+                }
+                self.pb_pattern_index = self.chains(self.pb_chain_index);
+                if self.pb_pattern_index == u8::MAX {
+                    // The user hasn't set up any chained patterns. We'll just
+                    // keep recycling the active one. This is a little more
+                    // elegant than initializing the chain memory with the
+                    // currently active pattern.
+                    self.pb_pattern_index = self.active_pattern();
+                }
+            }
+        }
+        let pattern = self.pattern(self.pb_pattern_index);
+        pattern.step(self.pb_step_index)
+    }
 }
 impl Performs for IntegratedEngine {
     fn play(&mut self) {
@@ -303,6 +346,9 @@ impl Performs for IntegratedEngine {
     }
 
     fn skip_to_start(&mut self) {
+        self.pb_chain_index = u8::MAX;
+        self.pb_pattern_index = 0;
+        self.pb_step_index = 0;
         self.play();
     }
 
@@ -358,12 +404,17 @@ pub struct Integrated {
     /// Whether the pattern is used anywhere in the current chain.
     #[cfg_attr(feature = "serialization", serde(skip))]
     pattern_usages: [bool; 16],
+
+    /// The last step we handled during playback.
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    last_handled_step: usize,
 }
 impl IsController for Integrated {}
 impl IsInstrument for Integrated {}
 impl Performs for Integrated {
     fn play(&mut self) {
-        self.clock.seek(0);
+        // We don't have resume, so play always skips to start.
+        self.skip_to_start();
         self.engine.play();
     }
 
@@ -372,6 +423,8 @@ impl Performs for Integrated {
     }
 
     fn skip_to_start(&mut self) {
+        self.clock.seek(0);
+        self.last_handled_step = usize::MAX;
         self.engine.skip_to_start();
     }
 
@@ -397,6 +450,7 @@ impl TicksWithMessages for Integrated {
 
     fn tick(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
         self.clock.tick(tick_count);
+        self.handle_tick();
         (None, tick_count)
     }
 }
@@ -431,6 +485,7 @@ impl Default for Integrated {
             blink_counter: Default::default(),
             write_mode: Default::default(),
             pattern_usages: Default::default(),
+            last_handled_step: Default::default(),
         }
     }
 }
@@ -582,6 +637,29 @@ impl Integrated {
 
     fn reset_pattern_usages(&mut self) {
         self.pattern_usages = Default::default();
+    }
+
+    // How many steps we are into the song.
+    fn total_steps(&self) -> usize {
+        ((self.clock.beats() * 4.0).floor() as i32) as usize
+    }
+
+    // How many steps we are into the current pattern.
+    fn current_step(&self) -> u8 {
+        (self.total_steps() % 16) as u8
+    }
+
+    fn handle_tick(&mut self) {
+        if self.is_performing() {
+            // We use this only as a marker whether it's time to do work. We don't use it as a song cursor.
+            let total_steps = self.total_steps();
+            if self.last_handled_step == total_steps {
+                return;
+            }
+            self.last_handled_step = total_steps;
+            let step = self.engine.next_step();
+            eprintln!("{} {} {:?}", total_steps, total_steps % 16, &step);
+        }
     }
 }
 
@@ -1073,10 +1151,6 @@ mod gui {
                 },
             }
         }
-
-        fn current_step(&self) -> u8 {
-            (((self.clock.beats() * 4.0).floor() as i32) % 16) as u8
-        }
     }
 
     impl Shows for Integrated {
@@ -1313,6 +1387,7 @@ mod tests {
         let mut e = IntegratedEngine::default();
 
         assert_eq!(e.chain_cursor(), 0, "chain cursor at zero at startup");
+
         e.set_active_pattern(7);
         e.chain_active_pattern();
         assert_eq!(e.chain_cursor(), 1, "chaining active should work");
