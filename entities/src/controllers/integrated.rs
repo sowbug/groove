@@ -203,8 +203,7 @@ impl IntegratedEngine {
 
     // Assumes active pattern and active sound
     fn is_sound_selected(&self, index: u8) -> bool {
-        self.patterns[self.active_pattern() as usize]
-            .is_sound_selected_at_index(self.active_sound(), index)
+        self.patterns[self.active_pattern() as usize].is_sound_selected(self.active_sound(), index)
     }
 
     fn active_sound(&self) -> u8 {
@@ -229,6 +228,13 @@ impl IntegratedEngine {
 
     fn clear_active_pattern(&mut self) {
         self.patterns[self.active_pattern() as usize].clear();
+    }
+
+    fn toggle_sound_at_step(&mut self, step_index: u8) {
+        let active_sound = self.active_sound();
+        let active_pattern = self.active_pattern();
+        self.pattern_mut(active_pattern)
+            .toggle_sound_at_step(active_sound, step_index);
     }
 }
 impl Performs for IntegratedEngine {
@@ -483,73 +489,73 @@ impl Integrated {
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 struct Pattern {
-    notes: [Note; 16],
+    steps: [Step; 16],
 }
 impl Default for Pattern {
     fn default() -> Self {
         Self {
-            notes: [
-                Note::new_with([
+            steps: [
+                Step::new_with([
                     true, false, true, false, true, false, true, false, true, false, true, false,
                     true, false, true, false,
                 ]),
-                Note::new_with([
+                Step::new_with([
                     false, true, false, true, false, true, false, true, false, true, false, true,
                     false, true, false, true,
                 ]),
-                Note::new_with([
+                Step::new_with([
                     true, true, false, false, true, true, false, false, true, true, false, false,
                     true, true, false, false,
                 ]),
-                Note::new_with([
+                Step::new_with([
                     false, false, true, true, false, false, true, true, false, false, true, true,
                     false, false, true, true,
                 ]),
-                Note::new_with([
+                Step::new_with([
                     true, false, true, false, true, false, true, false, true, false, true, false,
                     true, false, true, false,
                 ]),
-                Note::new_with([
+                Step::new_with([
                     false, true, false, true, false, true, false, true, false, true, false, true,
                     false, true, false, true,
                 ]),
-                Note::new_with([
+                Step::new_with([
                     true, true, false, false, true, true, false, false, true, true, false, false,
                     true, true, false, false,
                 ]),
-                Note::new_with([
+                Step::new_with([
                     false, false, true, true, false, false, true, true, false, false, true, true,
                     false, false, true, true,
                 ]),
-                Note::new_with([
+                Step::new_with([
                     true, false, true, false, true, false, true, false, true, false, true, false,
                     true, false, true, false,
                 ]),
-                Note::new_with([
+                Step::new_with([
                     false, true, false, true, false, true, false, true, false, true, false, true,
                     false, true, false, true,
                 ]),
-                Note::new_with([
+                Step::new_with([
                     true, true, false, false, true, true, false, false, true, true, false, false,
                     true, true, false, false,
                 ]),
-                Note::new_with([
+                Step::new_with([
                     false, false, true, true, false, false, true, true, false, false, true, true,
                     false, false, true, true,
                 ]),
-                Note::new_with([
+                Step::new_with([
                     true, false, true, false, true, false, true, false, true, false, true, false,
                     true, false, true, false,
                 ]),
-                Note::new_with([
+                Step::new_with([
                     false, true, false, true, false, true, false, true, false, true, false, true,
                     false, true, false, true,
                 ]),
-                Note::new_with([
+                Step::new_with([
                     true, true, false, false, true, true, false, false, true, true, false, false,
                     true, true, false, false,
                 ]),
-                Note::new_with([
+                Step::new_with([
                     false, false, true, true, false, false, true, true, false, false, true, true,
                     false, false, true, true,
                 ]),
@@ -558,47 +564,51 @@ impl Default for Pattern {
     }
 }
 impl Pattern {
-    pub fn notes(&self) -> &[Note; 16] {
-        &self.notes
+    pub fn steps(&self) -> &[Step; 16] {
+        &self.steps
     }
-    pub fn note(&self, index: u8) -> &Note {
-        &self.notes[index as usize]
+    pub fn step(&self, index: u8) -> &Step {
+        &self.steps[index as usize]
     }
-    pub fn set_note(&mut self, index: u8, key: Note) {
-        self.notes[index as usize] = key;
+    pub fn step_mut(&mut self, index: u8) -> &mut Step {
+        &mut self.steps[index as usize]
     }
-    fn is_sound_selected_at_index(&self, sound: u8, index: u8) -> bool {
-        self.notes[index as usize].is_set(sound)
+    fn is_sound_selected(&self, sound: u8, index: u8) -> bool {
+        self.steps[index as usize].is_sound_set(sound)
     }
     fn clear(&mut self) {
-        for note in &mut self.notes {
+        for note in &mut self.steps {
             note.clear();
         }
     }
     fn is_clear(&self) -> bool {
-        self.notes().iter().all(|n| n.is_clear())
+        self.steps().iter().all(|n| n.is_clear())
+    }
+
+    fn toggle_sound_at_step(&mut self, sound: u8, step: u8) {
+        self.step_mut(step).toggle_sound(sound);
     }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-struct Note {
+struct Step {
     sounds: [bool; 16],
 }
-impl Default for Note {
+impl Default for Step {
     fn default() -> Self {
         Self {
             sounds: [false; 16],
         }
     }
 }
-impl Note {
+impl Step {
     fn new_with(active_sounds: [bool; 16]) -> Self {
         Self {
             sounds: active_sounds,
         }
     }
-    fn is_set(&self, index: u8) -> bool {
+    fn is_sound_set(&self, index: u8) -> bool {
         self.sounds[index as usize]
     }
     fn set_sound(&mut self, index: u8, is_set: bool) {
@@ -612,6 +622,9 @@ impl Note {
     }
     fn is_clear(&self) -> bool {
         self.sounds.iter().all(|s| !s)
+    }
+    fn toggle_sound(&mut self, index: u8) {
+        self.set_sound(index, !self.is_sound_set(index));
     }
 }
 
@@ -986,7 +999,7 @@ mod gui {
 #[cfg(test)]
 mod tests {
     use super::IntegratedEngine;
-    use crate::controllers::integrated::{Note, Percentage, Tempo, TempoValue};
+    use crate::controllers::integrated::{Percentage, Step, Tempo, TempoValue};
     use groove_core::traits::Performs;
 
     #[test]
@@ -1102,7 +1115,7 @@ mod tests {
         );
 
         // Make Pattern #2 different
-        e.pattern_mut(2).set_note(0, Note { sounds: [true; 16] });
+        e.pattern_mut(2).toggle_sound_at_step(0, 0);
 
         assert!(
             *e.pattern(1) != *e.pattern(2),
