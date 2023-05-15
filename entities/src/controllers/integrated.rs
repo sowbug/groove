@@ -224,7 +224,7 @@ impl IntegratedEngine {
 
     // Assumes active pattern and active sound
     fn is_sound_selected(&self, index: u8) -> bool {
-        self.patterns[self.active_pattern() as usize].is_sound_selected(self.active_sound(), index)
+        self.patterns[self.active_pattern() as usize].sound_set_at_step(self.active_sound(), index)
     }
 
     fn active_sound(&self) -> u8 {
@@ -254,8 +254,10 @@ impl IntegratedEngine {
     fn toggle_sound_at_step(&mut self, step_index: u8) {
         let active_sound = self.active_sound();
         let active_pattern = self.active_pattern();
+        let a = self.a().clone();
+        let b = self.b().clone();
         self.pattern_mut(active_pattern)
-            .toggle_sound_at_step(active_sound, step_index);
+            .toggle_sound_at_step(active_sound, step_index, &a, &b);
     }
 
     fn is_solo(&self, index: u8) -> bool {
@@ -670,7 +672,7 @@ impl Pattern {
     pub fn step_mut(&mut self, index: u8) -> &mut Step {
         &mut self.steps[index as usize]
     }
-    fn is_sound_selected(&self, sound: u8, index: u8) -> bool {
+    fn sound_set_at_step(&self, sound: u8, index: u8) -> bool {
         self.steps[index as usize].is_sound_set(sound)
     }
     fn clear(&mut self) {
@@ -682,8 +684,30 @@ impl Pattern {
         self.steps().iter().all(|n| n.is_clear())
     }
 
-    fn toggle_sound_at_step(&mut self, sound: u8, step: u8) {
-        self.step_mut(step).toggle_sound(sound);
+    fn toggle_sound_at_step(&mut self, sound: u8, step: u8, a: &Percentage, b: &Percentage) {
+        self.step_mut(step).toggle_sound(sound, a, b);
+    }
+
+    fn set_sound_at_step(
+        &mut self,
+        sound: u8,
+        step: u8,
+        is_set: bool,
+        a: Percentage,
+        b: Percentage,
+    ) {
+        let step = self.step_mut(step);
+        step.set_sound(sound, is_set, &a, &b);
+    }
+
+    fn a_at_step(&self, sound: u8, step: u8) -> Percentage {
+        let step = self.step(step);
+        step.a[sound as usize]
+    }
+
+    fn b_at_step(&self, sound: u8, step: u8) -> Percentage {
+        let step = self.step(step);
+        step.b[sound as usize]
     }
 }
 
@@ -714,8 +738,11 @@ impl Step {
     fn is_sound_set(&self, index: u8) -> bool {
         self.sounds[index as usize]
     }
-    fn set_sound(&mut self, index: u8, is_set: bool) {
-        self.sounds[index as usize] = is_set;
+    fn set_sound(&mut self, index: u8, is_set: bool, a: &Percentage, b: &Percentage) {
+        let index = index as usize;
+        self.sounds[index] = is_set;
+        self.a[index] = *a;
+        self.b[index] = *b;
     }
     fn sounds(&self) -> &[bool; 16] {
         &self.sounds
@@ -726,8 +753,8 @@ impl Step {
     fn is_clear(&self) -> bool {
         self.sounds.iter().all(|s| !s)
     }
-    fn toggle_sound(&mut self, index: u8) {
-        self.set_sound(index, !self.is_sound_set(index));
+    fn toggle_sound(&mut self, index: u8, a: &Percentage, b: &Percentage) {
+        self.set_sound(index, !self.is_sound_set(index), a, b);
     }
 }
 
@@ -1046,12 +1073,16 @@ mod gui {
                 },
             }
         }
+
+        fn current_step(&self) -> u8 {
+            (((self.clock.beats() * 4.0).floor() as i32) % 16) as u8
+        }
     }
 
     impl Shows for Integrated {
         fn show(&mut self, ui: &mut eframe::egui::Ui) {
             let highlighted_button = if self.engine.state() == &IntegratedEngineState::Playing {
-                Some((((self.clock.beats() * 4.0).floor() as i32) % 16) as u8)
+                Some(self.current_step())
             } else {
                 None
             };
@@ -1221,7 +1252,8 @@ mod tests {
         );
 
         // Make Pattern #2 different
-        e.pattern_mut(2).toggle_sound_at_step(0, 0);
+        e.pattern_mut(2)
+            .toggle_sound_at_step(0, 0, &Percentage(33), &Percentage(66));
 
         assert!(
             *e.pattern(1) != *e.pattern(2),
@@ -1233,6 +1265,17 @@ mod tests {
             *e.pattern(1) == *e.pattern(2),
             "after copy-active operation, second and third patterns are identical"
         );
+
+        e.pattern_mut(2)
+            .set_sound_at_step(13, 15, false, Percentage(0), Percentage(0));
+        assert!(!e.pattern(2).sound_set_at_step(13, 15));
+        assert_ne!(e.pattern(2).a_at_step(13, 15).0, 42);
+        assert_ne!(e.pattern(2).b_at_step(13, 15).0, 84);
+        e.pattern_mut(2)
+            .set_sound_at_step(13, 15, true, Percentage(42), Percentage(84));
+        assert!(e.pattern(2).sound_set_at_step(13, 15));
+        assert_eq!(e.pattern(2).a_at_step(13, 15).0, 42);
+        assert_eq!(e.pattern(2).b_at_step(13, 15).0, 84);
 
         e.set_active_pattern(15);
         assert_eq!(e.active_pattern(), 15, "set active pattern works");
