@@ -27,7 +27,8 @@ impl Into<f32> for TempoValue {
 }
 
 /// Percentage is a u8 that ranges from 0..=100
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 struct Percentage(u8);
 impl From<u8> for Percentage {
     fn from(value: u8) -> Self {
@@ -42,6 +43,16 @@ impl From<f32> for Percentage {
 impl Into<f32> for Percentage {
     fn into(self) -> f32 {
         (self.0 as f32) / 100.0
+    }
+}
+impl Default for Percentage {
+    fn default() -> Self {
+        Self(50)
+    }
+}
+impl Percentage {
+    fn midway() -> Self {
+        Self(50)
     }
 }
 
@@ -66,9 +77,14 @@ struct IntegratedEngine {
     active_pattern: u8,
     patterns: [Pattern; 16],
 
+    chains: [u8; 128],
+    chain_cursor: u8,
+
     active_sound: u8,
 
     state: IntegratedEngineState,
+
+    solo_states: [bool; 16],
 }
 impl Default for IntegratedEngine {
     fn default() -> Self {
@@ -82,9 +98,14 @@ impl Default for IntegratedEngine {
 
             active_pattern: 0,
             patterns: [Pattern::default(); 16],
+            chains: [u8::MAX; 128],
+            chain_cursor: 0,
+
             active_sound: 0,
 
             state: IntegratedEngineState::Idle,
+
+            solo_states: Default::default(),
         }
     }
 }
@@ -236,6 +257,39 @@ impl IntegratedEngine {
         self.pattern_mut(active_pattern)
             .toggle_sound_at_step(active_sound, step_index);
     }
+
+    fn is_solo(&self, index: u8) -> bool {
+        self.solo_states[index as usize]
+    }
+
+    fn toggle_solo(&mut self, index: u8) {
+        self.solo_states[index as usize] = !self.solo_states[index as usize];
+    }
+
+    fn chain_pattern(&mut self, number: u8) {
+        self.chains[self.chain_cursor as usize] = number;
+        self.chain_cursor += 1;
+        if self.chain_cursor >= self.chains.len() as u8 {
+            self.chain_cursor = self.chains.len() as u8 - 1;
+        }
+    }
+
+    fn chain_active_pattern(&mut self) {
+        self.chain_pattern(self.active_pattern());
+    }
+
+    fn chain_cursor(&self) -> u8 {
+        self.chain_cursor
+    }
+
+    fn reset_chain_cursor(&mut self) {
+        self.chain_cursor = 0;
+        self.chains = [u8::MAX; 128];
+    }
+
+    fn chains(&self, index: u8) -> u8 {
+        self.chains[index as usize]
+    }
 }
 impl Performs for IntegratedEngine {
     fn play(&mut self) {
@@ -256,25 +310,16 @@ impl Performs for IntegratedEngine {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-enum ButtonState {
+enum UiState {
     #[default]
-    Idle,
-    Held,
-    Blinking,
-    Indicated,
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-enum RenderState {
-    #[default]
-    Normal, // No mode active
+    Normal, // press a pad to play that sound
     Sound,   // press a pad to select that sound
     Pattern, // press a pad to select that pattern
     Bpm,     // adjust swing/bpm with knobs
     Solo,    // during play, toggle solo play for a pad to copy
     Fx,      // press a pad to punch in effect
-    Write,   // during play, change sound params with knobs **over time**
-    Copy,    // hold write + pattern, press pad to copy active to that slot
+    //    Write,   // during play, change sound params with knobs **over time**
+    Copy, // hold write + pattern, press pad to copy active to that slot
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -296,13 +341,11 @@ pub struct Integrated {
     #[params]
     clock: Clock,
 
-    arrangements: Vec<u8>,
-
     #[cfg_attr(feature = "serialization", serde(skip))]
     value: StereoSample,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
-    render_state: RenderState,
+    ui_state: UiState,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
     blink_counter: u8,
@@ -310,8 +353,9 @@ pub struct Integrated {
     #[cfg_attr(feature = "serialization", serde(skip))]
     write_mode: bool,
 
+    /// Whether the pattern is used anywhere in the current chain.
     #[cfg_attr(feature = "serialization", serde(skip))]
-    sound_solo_states: [bool; 16],
+    pattern_usages: [bool; 16],
 }
 impl IsController for Integrated {}
 impl IsInstrument for Integrated {}
@@ -380,13 +424,11 @@ impl Default for Integrated {
             }),
             engine: Default::default(),
 
-            arrangements: vec![u8::MAX; 128],
-
             value: Default::default(),
-            render_state: Default::default(),
+            ui_state: Default::default(),
             blink_counter: Default::default(),
             write_mode: Default::default(),
-            sound_solo_states: Default::default(),
+            pattern_usages: Default::default(),
         }
     }
 }
@@ -399,26 +441,58 @@ impl Integrated {
     }
 
     fn handle_pad_click(&mut self, number: u8) {
-        match self.render_state {
-            RenderState::Normal => {
-                eprintln!("demoing sound {}", number);
+        match self.ui_state {
+            UiState::Normal => {
+                if self.write_mode {
+                    self.engine.toggle_sound_at_step(number);
+                } else {
+                    eprintln!("demoing sound {}", number);
+                }
             }
-            RenderState::Sound => {
+            UiState::Sound => {
                 self.engine.set_active_sound(number);
                 eprintln!("selected sound {}", self.engine.active_sound());
             }
-            RenderState::Pattern => {
-                self.engine.set_active_pattern(number);
-                eprintln!("selected pattern {}", self.engine.active_pattern());
+            UiState::Pattern => {
+                if self.write_mode {
+                    self.engine.copy_active_pattern_to(number);
+                    eprintln!(
+                        "copied active pattern {} to {}",
+                        self.engine.active_pattern(),
+                        number
+                    );
+                } else {
+                    // The active pattern changes only on the first pattern
+                    // selection. This is how the UI consistently shows that the
+                    // active pattern is the next one to be played.
+                    if self.engine.chain_cursor == 0 {
+                        self.engine.set_active_pattern(number);
+                    }
+                    // We save this so the debug output handles both 0 and 127
+                    // easily.
+                    let current_cursor = self.engine.chain_cursor;
+                    self.engine.chain_pattern(number);
+
+                    // TODO: check behavior when overwriting causes a pattern to
+                    // vanish from the chain. The way we're doing it now is
+                    // expensive to handle correctly.
+                    self.pattern_usages[number as usize] = true;
+
+                    eprintln!(
+                        "pattern {} active, pattern {} added at position {} to chain",
+                        self.engine.active_pattern(),
+                        number,
+                        current_cursor,
+                    );
+                }
             }
-            RenderState::Bpm => {
+            UiState::Bpm => {
                 self.engine.set_volume(number);
                 eprintln!("volume {}", self.engine.volume());
             }
-            RenderState::Solo => self.toggle_solo(number),
-            RenderState::Fx => self.punch_effect(number),
-            RenderState::Write => todo!(),
-            RenderState::Copy => self.engine.copy_active_pattern_to(number),
+            UiState::Solo => self.engine.toggle_solo(number),
+            UiState::Fx => self.punch_effect(number),
+            UiState::Copy => self.engine.copy_active_pattern_to(number),
         }
     }
 
@@ -439,7 +513,7 @@ impl Integrated {
     }
 
     fn handle_bpm_click(&mut self) {
-        if self.render_state == RenderState::Bpm {
+        if self.ui_state == UiState::Bpm {
             self.reset_render_state();
         }
         self.engine.advance_tempo();
@@ -448,7 +522,7 @@ impl Integrated {
     }
 
     fn reset_render_state(&mut self) {
-        self.render_state = RenderState::Normal;
+        self.ui_state = UiState::Normal;
     }
 
     fn update_bpm(&mut self) {
@@ -456,7 +530,7 @@ impl Integrated {
     }
 
     fn handle_solo_click(&mut self) {
-        todo!()
+        self.change_ui_state(UiState::Solo);
     }
 
     fn handle_fx_click(&mut self) {
@@ -467,22 +541,45 @@ impl Integrated {
         self.write_mode = !self.write_mode;
     }
 
-    fn change_render_state(&mut self, new_state: RenderState) {
-        if self.render_state == new_state {
-            self.render_state = RenderState::Normal;
+    fn change_ui_state(&mut self, new_state: UiState) {
+        if self.ui_state == new_state {
+            self.ui_state = UiState::Normal;
         } else {
-            self.render_state = new_state
+            self.ui_state = new_state
         }
         eprintln!("New render state: ")
     }
 
-    fn toggle_solo(&mut self, number: u8) {
-        self.sound_solo_states[number as usize] = !self.sound_solo_states[number as usize];
-        eprintln!("toggled solo for {}", number);
-    }
-
     fn punch_effect(&self, number: u8) {
         todo!()
+    }
+
+    fn handle_knob_b_change(&mut self, value: f32) {
+        match self.ui_state {
+            UiState::Normal | UiState::Pattern | UiState::Solo | UiState::Fx | UiState::Copy => {
+                self.engine.set_b(Percentage::from(value))
+            }
+            UiState::Sound => {
+                // nothing
+            }
+            UiState::Bpm => self.engine.set_tempo_by_value(TempoValue::from(value)),
+        }
+    }
+
+    fn handle_knob_a_change(&mut self, value: f32) {
+        match self.ui_state {
+            UiState::Normal | UiState::Pattern | UiState::Solo | UiState::Fx | UiState::Copy => {
+                self.engine.set_a(Percentage::from(value))
+            }
+            UiState::Sound => {
+                // nothing
+            }
+            UiState::Bpm => self.engine.set_swing(Percentage::from(value)),
+        }
+    }
+
+    fn reset_pattern_usages(&mut self) {
+        self.pattern_usages = Default::default();
     }
 }
 
@@ -594,11 +691,15 @@ impl Pattern {
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 struct Step {
     sounds: [bool; 16],
+    a: [Percentage; 16],
+    b: [Percentage; 16],
 }
 impl Default for Step {
     fn default() -> Self {
         Self {
             sounds: [false; 16],
+            a: [Percentage::midway(); 16],
+            b: [Percentage::midway(); 16],
         }
     }
 }
@@ -606,6 +707,8 @@ impl Step {
     fn new_with(active_sounds: [bool; 16]) -> Self {
         Self {
             sounds: active_sounds,
+            a: [Percentage::default(); 16],
+            b: [Percentage::default(); 16],
         }
     }
     fn is_sound_set(&self, index: u8) -> bool {
@@ -630,16 +733,24 @@ impl Step {
 
 #[cfg(feature = "egui-framework")]
 mod gui {
-    use super::{
-        ButtonState, Integrated, IntegratedEngineState, Percentage, RenderState, TempoValue,
-    };
+    use super::{Integrated, IntegratedEngineState, UiState};
     use eframe::{
-        egui::{Button, Grid, Response},
-        epaint::{Color32, Vec2},
+        egui::{Button, Grid, Response, Sense},
+        epaint::{Color32, Stroke, Vec2},
     };
     use egui_extras_xt::displays::SegmentedDisplayWidget;
     use groove_core::traits::gui::Shows;
     use strum_macros::FromRepr;
+
+    #[derive(Clone, Copy, Debug, Default, PartialEq)]
+    enum ButtonState {
+        #[default]
+        Idle, // Off
+        Held,      // This is only for modifier buttons like sound/pattern/bpm
+        Indicated, // on but dim
+        Active,    // on and bright
+        Blinking,  // on and attention-getting
+    }
 
     #[derive(FromRepr, PartialEq)]
     enum ButtonLabel {
@@ -671,32 +782,102 @@ mod gui {
     }
 
     impl Integrated {
-        fn add_named_button(
+        const BUTTON_INDEX_TO_PAD_INDEX: [u8; 25] = [
+            u8::MAX,
+            u8::MAX,
+            u8::MAX,
+            u8::MAX,
+            u8::MAX,
+            0,
+            1,
+            2,
+            3,
+            u8::MAX,
+            4,
+            5,
+            6,
+            7,
+            u8::MAX,
+            8,
+            9,
+            10,
+            11,
+            u8::MAX,
+            12,
+            13,
+            14,
+            15,
+            u8::MAX,
+        ];
+        const BUTTON_LABELS: [&'static str; 25] = [
+            "sound", "pattern", "bpm", "A", "B", "1", "2", "3", "4", "solo", "5", "6", "7", "8",
+            "FX", "9", "10", "11", "12", "play", "13", "14", "15", "16", "write",
+        ];
+        const CELL_SIZE: Vec2 = Vec2::new(60.0, 60.0);
+        const LED_SIZE: Vec2 = Vec2::splat(5.0);
+
+        fn create_button(
             &mut self,
             ui: &mut eframe::egui::Ui,
             label: &str,
             state: ButtonState,
             is_highlighted: bool,
+            has_led: bool,
         ) -> Response {
-            let cell_size = Vec2::new(60.0, 60.0);
-            let color = if is_highlighted {
-                Color32::LIGHT_YELLOW
+            let button_color = if state == ButtonState::Held {
+                Color32::DARK_BLUE
             } else {
-                match state {
-                    ButtonState::Idle => Color32::DARK_GRAY,
-                    ButtonState::Held => Color32::GRAY,
-                    ButtonState::Blinking => {
-                        self.blink_counter = (self.blink_counter + 1) % 4;
-                        if self.blink_counter >= 2 {
-                            Color32::RED
-                        } else {
-                            Color32::DARK_RED
-                        }
+                Color32::GRAY
+            };
+            let led_color = match state {
+                ButtonState::Idle => {
+                    if is_highlighted {
+                        Color32::RED
+                    } else {
+                        Color32::BLACK
                     }
-                    ButtonState::Indicated => Color32::DARK_RED,
+                }
+                ButtonState::Held => Color32::BLACK,
+                ButtonState::Indicated => Color32::RED,
+                ButtonState::Active => Color32::LIGHT_RED,
+                ButtonState::Blinking => {
+                    self.blink_counter = (self.blink_counter + 1) % 4;
+                    if self.blink_counter >= 2 {
+                        Color32::LIGHT_RED
+                    } else {
+                        Color32::RED
+                    }
                 }
             };
-            ui.add_sized(cell_size, Button::new(label).fill(color))
+            ui.vertical_centered(|ui| {
+                let (rect, _response) = ui.allocate_exact_size(Self::LED_SIZE, Sense::hover());
+                if has_led {
+                    ui.painter().rect(
+                        rect,
+                        ui.style().visuals.noninteractive().rounding,
+                        led_color,
+                        Stroke::NONE,
+                    );
+                }
+                ui.add_sized(Self::CELL_SIZE, Button::new(label).fill(button_color))
+            })
+            .inner
+        }
+
+        // TODO: I can't get this knob to be the same size as the other buttons,
+        // so the second button is not correctly centered on the grid.
+        fn create_knob(ui: &mut eframe::egui::Ui, value: &mut f32) -> Response {
+            ui.vertical_centered_justified(|ui| {
+                // This is clumsy to try to keep all the widgets evenly spaced
+                let (_rect, _response) = ui.allocate_exact_size(Self::LED_SIZE, Sense::hover());
+                ui.add_sized(
+                    Self::CELL_SIZE,
+                    egui_extras_xt::knobs::AudioKnob::new(value)
+                        .animated(true)
+                        .range(0.0..=1.0),
+                )
+            })
+            .inner
         }
 
         fn handle_button_click(&mut self, button: &ButtonLabel, pad_index: u8) {
@@ -718,38 +899,25 @@ mod gui {
 
         fn handle_second_button_click(&mut self, button: ButtonLabel) {
             match button {
-                ButtonLabel::Sound => self.change_render_state(RenderState::Sound),
+                ButtonLabel::Sound => self.change_ui_state(UiState::Sound),
                 ButtonLabel::Pattern => {
-                    if self.render_state == RenderState::Write {
-                        self.change_render_state(RenderState::Copy);
-                    } else {
-                        self.change_render_state(RenderState::Pattern);
+                    if self.ui_state != UiState::Pattern {
+                        self.engine.reset_chain_cursor();
+                        self.reset_pattern_usages();
                     }
+                    self.change_ui_state(UiState::Pattern);
                 }
-                ButtonLabel::Bpm => self.change_render_state(RenderState::Bpm),
-                ButtonLabel::Solo => self.change_render_state(RenderState::Solo),
-                ButtonLabel::Fx => self.change_render_state(RenderState::Fx),
+                ButtonLabel::Bpm => self.change_ui_state(UiState::Bpm),
+                ButtonLabel::Solo => self.change_ui_state(UiState::Solo),
+                ButtonLabel::Fx => self.change_ui_state(UiState::Fx),
                 ButtonLabel::Write => {
-                    if self.render_state == RenderState::Pattern {
-                        self.change_render_state(RenderState::Copy);
-                    } else {
-                        self.change_render_state(RenderState::Write)
-                    }
+                    self.handle_write_click();
                 }
                 _ => {}
             }
         }
-    }
 
-    impl Shows for Integrated {
-        fn show(&mut self, ui: &mut eframe::egui::Ui) {
-            let highlighted_button = if self.engine.state() == &IntegratedEngineState::Playing {
-                Some((((self.clock.beats() * 4.0).floor() as i32) % 16) as u8)
-            } else {
-                None
-            };
-            ui.set_min_size(Vec2::new(320.0, 560.0)); // 1.75 aspect ratio
-            ui.add_space(64.0);
+        fn create_dashboard(&self, ui: &mut eframe::egui::Ui) {
             ui.add(
                 SegmentedDisplayWidget::sixteen_segment(&format!(
                     "W: {}",
@@ -767,43 +935,134 @@ mod gui {
                 ))
                 .digit_height(14.0),
             );
+        }
+
+        fn create_knob_a(&mut self, ui: &mut eframe::egui::Ui) {
+            ui.set_min_size(Self::CELL_SIZE);
+            let mut value = if self.ui_state == UiState::Bpm {
+                self.engine.swing().clone().into()
+            } else {
+                self.engine.a().clone().into()
+            };
+            if Self::create_knob(ui, &mut value).changed() {
+                self.handle_knob_a_change(value);
+            }
+        }
+
+        fn create_knob_b(&mut self, ui: &mut eframe::egui::Ui) {
+            ui.set_min_size(Self::CELL_SIZE);
+            let mut value = if self.ui_state == UiState::Bpm {
+                self.engine.tempo_by_value().into()
+            } else {
+                self.engine.b().clone().into()
+            };
+            if Self::create_knob(ui, &mut value).changed() {
+                self.handle_knob_b_change(value);
+            }
+        }
+
+        fn calculate_button_state(&self, button: &ButtonLabel, pad_index: u8) -> ButtonState {
+            match *button {
+                ButtonLabel::Sound => {
+                    if self.ui_state == UiState::Sound {
+                        ButtonState::Held
+                    } else {
+                        ButtonState::Idle
+                    }
+                }
+                ButtonLabel::Pattern => {
+                    if self.ui_state == UiState::Pattern {
+                        ButtonState::Held
+                    } else {
+                        ButtonState::Idle
+                    }
+                }
+                ButtonLabel::Bpm => {
+                    if self.ui_state == UiState::Bpm {
+                        ButtonState::Held
+                    } else {
+                        ButtonState::Idle
+                    }
+                }
+                ButtonLabel::Fx => {
+                    if self.ui_state == UiState::Fx {
+                        ButtonState::Held
+                    } else {
+                        ButtonState::Idle
+                    }
+                }
+                ButtonLabel::Solo => {
+                    if self.ui_state == UiState::Solo {
+                        ButtonState::Held
+                    } else {
+                        ButtonState::Idle
+                    }
+                }
+                ButtonLabel::Write => {
+                    if self.write_mode {
+                        ButtonState::Held
+                    } else {
+                        ButtonState::Idle
+                    }
+                }
+                ButtonLabel::Play => ButtonState::Idle,
+                ButtonLabel::A => ButtonState::Idle,
+                ButtonLabel::B => ButtonState::Idle,
+                _ => match self.ui_state {
+                    UiState::Normal | UiState::Sound => {
+                        if self.engine.is_sound_selected(pad_index) {
+                            ButtonState::Indicated
+                        } else {
+                            ButtonState::Idle
+                        }
+                    }
+                    UiState::Pattern => {
+                        if self.engine.is_pattern_active(pad_index) {
+                            ButtonState::Blinking
+                        } else {
+                            if self.pattern_usages[pad_index as usize] {
+                                ButtonState::Indicated
+                            } else {
+                                ButtonState::Idle
+                            }
+                        }
+                    }
+                    UiState::Bpm => {
+                        if pad_index <= self.engine.volume() {
+                            ButtonState::Indicated
+                        } else {
+                            ButtonState::Idle
+                        }
+                    }
+                    UiState::Solo => {
+                        if self.engine.is_solo(pad_index) {
+                            ButtonState::Indicated
+                        } else {
+                            ButtonState::Idle
+                        }
+                    }
+                    UiState::Fx => ButtonState::Idle,
+                    UiState::Copy => ButtonState::Idle,
+                },
+            }
+        }
+    }
+
+    impl Shows for Integrated {
+        fn show(&mut self, ui: &mut eframe::egui::Ui) {
+            let highlighted_button = if self.engine.state() == &IntegratedEngineState::Playing {
+                Some((((self.clock.beats() * 4.0).floor() as i32) % 16) as u8)
+            } else {
+                None
+            };
+            ui.set_min_size(Vec2::new(320.0, 560.0)); // 1.75 aspect ratio
+            ui.add_space(64.0);
+            self.create_dashboard(ui);
             ui.add(SegmentedDisplayWidget::sixteen_segment("MUSIC").digit_height(72.0));
             ui.add_space(16.0);
             Grid::new(ui.next_auto_id()).num_columns(5).show(ui, |ui| {
-                let labels = vec![
-                    "sound", "pattern", "bpm", "A", "B", "1", "2", "3", "4", "solo", "5", "6", "7",
-                    "8", "FX", "9", "10", "11", "12", "play", "13", "14", "15", "16", "write",
-                ];
-                let button_to_pad_index = vec![
-                    u8::MAX,
-                    u8::MAX,
-                    u8::MAX,
-                    u8::MAX,
-                    u8::MAX,
-                    0,
-                    1,
-                    2,
-                    3,
-                    u8::MAX,
-                    4,
-                    5,
-                    6,
-                    7,
-                    u8::MAX,
-                    8,
-                    9,
-                    10,
-                    11,
-                    u8::MAX,
-                    12,
-                    13,
-                    14,
-                    15,
-                    u8::MAX,
-                ];
-                let cell_size = Vec2::new(60.0, 60.0);
-                for (index, label) in labels.iter().enumerate() {
-                    let pad_index = button_to_pad_index[index];
+                for (index, label) in Self::BUTTON_LABELS.iter().enumerate() {
+                    let pad_index = Self::BUTTON_INDEX_TO_PAD_INDEX[index];
                     let is_highlighted = if let Some(hb) = highlighted_button {
                         pad_index == hb
                     } else {
@@ -812,173 +1071,20 @@ mod gui {
                     let button = ButtonLabel::from_repr(index).unwrap();
                     match button {
                         ButtonLabel::A => {
-                            ui.set_min_size(cell_size);
-                            let mut value = if self.render_state == RenderState::Bpm {
-                                self.engine.swing().clone().into()
-                            } else {
-                                self.engine.a().clone().into()
-                            };
-                            ui.centered_and_justified(|ui| {
-                                if ui
-                                    .add(
-                                        egui_extras_xt::knobs::AudioKnob::new(&mut value)
-                                            .diameter(cell_size.x / 2.0)
-                                            .animated(true)
-                                            .range(0.0..=1.0),
-                                    )
-                                    .changed()
-                                {
-                                    match self.render_state {
-                                        RenderState::Normal
-                                        | RenderState::Pattern
-                                        | RenderState::Solo
-                                        | RenderState::Fx
-                                        | RenderState::Write
-                                        | RenderState::Copy => {
-                                            self.engine.set_a(Percentage::from(value))
-                                        }
-                                        RenderState::Sound => {
-                                            // nothing
-                                        }
-                                        RenderState::Bpm => {
-                                            self.engine.set_swing(Percentage::from(value))
-                                        }
-                                    }
-                                };
-                            });
+                            self.create_knob_a(ui);
                         }
                         ButtonLabel::B => {
-                            ui.set_min_size(cell_size);
-                            let mut value = if self.render_state == RenderState::Bpm {
-                                self.engine.tempo_by_value().into()
-                            } else {
-                                self.engine.b().clone().into()
-                            };
-                            ui.centered_and_justified(|ui| {
-                                if ui
-                                    .add(
-                                        egui_extras_xt::knobs::AudioKnob::new(&mut value)
-                                            .diameter(cell_size.x / 2.0)
-                                            .animated(true)
-                                            .range(0.0..=1.0),
-                                    )
-                                    .changed()
-                                {
-                                    match self.render_state {
-                                        RenderState::Normal
-                                        | RenderState::Pattern
-                                        | RenderState::Solo
-                                        | RenderState::Fx
-                                        | RenderState::Write
-                                        | RenderState::Copy => {
-                                            self.engine.set_b(Percentage::from(value))
-                                        }
-                                        RenderState::Sound => {
-                                            // nothing
-                                        }
-                                        RenderState::Bpm => {
-                                            self.engine.set_tempo_by_value(TempoValue::from(value))
-                                        }
-                                    }
-                                };
-                            });
+                            self.create_knob_b(ui);
                         }
                         _ => {
-                            let button_state = {
-                                match button {
-                                    ButtonLabel::Sound => {
-                                        if self.render_state == RenderState::Sound {
-                                            ButtonState::Held
-                                        } else {
-                                            ButtonState::Idle
-                                        }
-                                    }
-                                    ButtonLabel::Pattern => {
-                                        if self.render_state == RenderState::Pattern {
-                                            ButtonState::Held
-                                        } else {
-                                            ButtonState::Idle
-                                        }
-                                    }
-                                    ButtonLabel::Bpm => {
-                                        if self.render_state == RenderState::Bpm {
-                                            ButtonState::Held
-                                        } else {
-                                            ButtonState::Idle
-                                        }
-                                    }
-                                    ButtonLabel::Fx => {
-                                        if self.render_state == RenderState::Fx {
-                                            ButtonState::Held
-                                        } else {
-                                            ButtonState::Idle
-                                        }
-                                    }
-                                    ButtonLabel::Solo => {
-                                        if self.render_state == RenderState::Solo {
-                                            ButtonState::Held
-                                        } else {
-                                            ButtonState::Idle
-                                        }
-                                    }
-                                    ButtonLabel::Write => {
-                                        if self.render_state == RenderState::Write {
-                                            ButtonState::Held
-                                        } else {
-                                            ButtonState::Idle
-                                        }
-                                    }
-                                    ButtonLabel::Play => ButtonState::Idle,
-                                    ButtonLabel::Pad1
-                                    | ButtonLabel::Pad2
-                                    | ButtonLabel::Pad3
-                                    | ButtonLabel::Pad4
-                                    | ButtonLabel::Pad5
-                                    | ButtonLabel::Pad6
-                                    | ButtonLabel::Pad7
-                                    | ButtonLabel::Pad8
-                                    | ButtonLabel::Pad9
-                                    | ButtonLabel::Pad10
-                                    | ButtonLabel::Pad11
-                                    | ButtonLabel::Pad12
-                                    | ButtonLabel::Pad13
-                                    | ButtonLabel::Pad14
-                                    | ButtonLabel::Pad15
-                                    | ButtonLabel::Pad16 => match self.render_state {
-                                        RenderState::Normal => ButtonState::Idle,
-                                        RenderState::Pattern => {
-                                            if self.engine.is_pattern_active(pad_index) {
-                                                ButtonState::Blinking
-                                            } else {
-                                                // TODO: bright if in anywhere in the chain, dim otherwise
-                                                ButtonState::Idle
-                                            }
-                                        }
-                                        RenderState::Sound => {
-                                            if self.engine.is_sound_selected(pad_index) {
-                                                ButtonState::Indicated
-                                            } else {
-                                                ButtonState::Idle
-                                            }
-                                        }
-                                        RenderState::Bpm => {
-                                            if pad_index <= self.engine.volume() {
-                                                ButtonState::Indicated
-                                            } else {
-                                                ButtonState::Idle
-                                            }
-                                        }
-                                        RenderState::Solo => ButtonState::Idle,
-                                        RenderState::Fx => ButtonState::Idle,
-                                        RenderState::Write => ButtonState::Idle,
-                                        RenderState::Copy => ButtonState::Idle,
-                                    },
-                                    ButtonLabel::A => ButtonState::Idle,
-                                    ButtonLabel::B => ButtonState::Idle,
-                                }
-                            };
-                            let response =
-                                self.add_named_button(ui, label, button_state, is_highlighted);
+                            let button_state = self.calculate_button_state(&button, pad_index);
+                            let response = self.create_button(
+                                ui,
+                                label,
+                                button_state,
+                                is_highlighted,
+                                pad_index != u8::MAX,
+                            );
                             if response.clicked() {
                                 self.handle_button_click(&button, pad_index);
                             }
@@ -999,7 +1105,7 @@ mod gui {
 #[cfg(test)]
 mod tests {
     use super::IntegratedEngine;
-    use crate::controllers::integrated::{Percentage, Step, Tempo, TempoValue};
+    use crate::controllers::integrated::{Percentage, Tempo, TempoValue};
     use groove_core::traits::Performs;
 
     #[test]
@@ -1147,5 +1253,55 @@ mod tests {
             true,
             "resumes performing after skip_to_start()"
         );
+    }
+
+    #[test]
+    fn solo() {
+        let mut e = IntegratedEngine::default();
+        for index in 0..16 {
+            assert!(!e.is_solo(index), "no solos at startup");
+        }
+        e.toggle_solo(7);
+        assert!(e.is_solo(7), "toggle_solo() works");
+    }
+
+    #[test]
+    fn chaining() {
+        let mut e = IntegratedEngine::default();
+
+        assert_eq!(e.chain_cursor(), 0, "chain cursor at zero at startup");
+        e.set_active_pattern(7);
+        e.chain_active_pattern();
+        assert_eq!(e.chain_cursor(), 1, "chaining active should work");
+
+        e.reset_chain_cursor();
+        assert_eq!(e.chain_cursor(), 0, "chain cursor at zero after reset");
+
+        for _ in 0..128 {
+            e.chain_active_pattern();
+        }
+        for i in 0..128 {
+            assert_eq!(e.chains(i), 7, "successive chaining should work");
+        }
+        assert_eq!(e.chain_cursor(), 127, "chaining should work up to maximum");
+
+        e.set_active_pattern(8);
+        e.chain_active_pattern();
+        assert_eq!(
+            e.chains(127),
+            8,
+            "when at chain capacity, last one should overwrite itself"
+        );
+
+        e.reset_chain_cursor();
+        assert_eq!(e.chain_cursor(), 0, "chain cursor at zero after reset");
+
+        for i in 0..128 {
+            assert_eq!(
+                e.chains(i),
+                u8::MAX,
+                "resetting chain cursor also overwrites slots"
+            );
+        }
     }
 }
