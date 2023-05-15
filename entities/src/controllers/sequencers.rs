@@ -63,6 +63,10 @@ impl Performs for Sequencer {
         self.next_instant = PerfectTimeUnit::default();
         self.should_stop_pending_notes = true;
     }
+
+    fn is_performing(&self) -> bool {
+        self.is_performing
+    }
 }
 impl Sequencer {
     pub fn new_with(params: &SequencerParams) -> Self {
@@ -312,6 +316,10 @@ impl Performs for MidiTickSequencer {
     fn skip_to_start(&mut self) {
         self.temp_hack_clock.seek(0);
         self.next_instant = MidiTicks::MIN;
+    }
+
+    fn is_performing(&self) -> bool {
+        self.is_performing
     }
 }
 

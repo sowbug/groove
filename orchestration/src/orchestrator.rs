@@ -946,6 +946,10 @@ impl Performs for Orchestrator {
             }
         }
     }
+
+    fn is_performing(&self) -> bool {
+        self.is_performing
+    }
 }
 impl Resets for Orchestrator {
     fn reset(&mut self, sample_rate: usize) {

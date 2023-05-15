@@ -238,6 +238,11 @@ pub trait Performs {
 
     // Resets cursors to the beginning. This is set_cursor Lite (TODO).
     fn skip_to_start(&mut self);
+
+    // Whether the device is currently playing. This is part of the trait so
+    // that implementers don't have to leak their internal state to unit test
+    // code.
+    fn is_performing(&self) -> bool;
 }
 
 /// A synthesizer is composed of Voices. Ideally, a synth will know how to

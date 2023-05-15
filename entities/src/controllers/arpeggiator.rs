@@ -104,6 +104,10 @@ impl Performs for Arpeggiator {
     fn skip_to_start(&mut self) {
         self.sequencer.skip_to_start();
     }
+
+    fn is_performing(&self) -> bool {
+        self.sequencer.is_performing()
+    }
 }
 
 impl Arpeggiator {

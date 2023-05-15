@@ -80,6 +80,10 @@ impl Performs for ControlTrip {
     fn skip_to_start(&mut self) {
         self.clock.seek(0);
     }
+
+    fn is_performing(&self) -> bool {
+        self.is_performing
+    }
 }
 impl ControlTrip {
     const CURSOR_BEGIN: f64 = 0.0;

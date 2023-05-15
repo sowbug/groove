@@ -80,6 +80,9 @@ impl Performs for PatternManager {
     fn play(&mut self) {}
     fn stop(&mut self) {}
     fn skip_to_start(&mut self) {}
+    fn is_performing(&self) -> bool {
+        false
+    }
 }
 impl PatternManager {
     pub fn new() -> Self {

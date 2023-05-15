@@ -155,6 +155,10 @@ impl Performs for Timer {
     fn skip_to_start(&mut self) {
         self.ticks = 0;
     }
+
+    fn is_performing(&self) -> bool {
+        self.is_performing
+    }
 }
 
 // TODO: needs tests!
@@ -215,6 +219,10 @@ impl Performs for Trigger {
     fn skip_to_start(&mut self) {
         self.has_triggered = false;
         self.timer.skip_to_start();
+    }
+
+    fn is_performing(&self) -> bool {
+        self.is_performing
     }
 }
 impl Trigger {
@@ -308,6 +316,10 @@ impl Performs for SignalPassthroughController {
     }
 
     fn skip_to_start(&mut self) {}
+
+    fn is_performing(&self) -> bool {
+        self.is_performing
+    }
 }
 impl IsEffect for SignalPassthroughController {}
 impl TransformsAudio for SignalPassthroughController {
@@ -462,6 +474,10 @@ impl Performs for ToyController {
     }
 
     fn skip_to_start(&mut self) {}
+
+    fn is_performing(&self) -> bool {
+        self.is_performing
+    }
 }
 impl ToyController {
     pub fn new_with(params: ToyControllerParams, midi_channel_out: MidiChannel) -> Self {

@@ -66,6 +66,10 @@ impl Performs for LfoController {
     fn skip_to_start(&mut self) {
         // TODO: think how important it is for LFO oscillator to start at zero
     }
+
+    fn is_performing(&self) -> bool {
+        self.is_performing
+    }
 }
 impl LfoController {
     pub fn new_with(params: &LfoControllerParams) -> Self {
