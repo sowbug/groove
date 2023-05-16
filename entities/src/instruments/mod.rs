@@ -11,7 +11,7 @@ pub use metronome::MetronomeMessage;
 pub use metronome::{Metronome, MetronomeParams};
 #[cfg(feature = "iced-framework")]
 pub use sampler::SamplerMessage;
-pub use sampler::{Sampler, SamplerParams};
+pub use sampler::{Sampler, SamplerParams, SamplerVoice};
 #[cfg(feature = "iced-framework")]
 pub use welsh::WelshSynthMessage;
 pub use welsh::{LfoRouting, WelshSynth, WelshSynthParams, WelshVoice};

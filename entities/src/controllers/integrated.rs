@@ -1,14 +1,23 @@
-use crate::EntityMessage;
+use crate::{
+    instruments::{Sampler, SamplerVoice},
+    EntityMessage,
+};
 use groove_core::{
+    instruments::Synthesizer,
+    midi::note_to_frequency,
     time::{Clock, ClockParams, TimeSignatureParams},
     traits::{
         Generates, HandlesMidi, IsController, IsInstrument, Performs, Resets, Ticks,
         TicksWithMessages,
     },
+    voices::VoicePerNoteStore,
     ParameterType, StereoSample,
 };
 use groove_proc_macros::{Control, Params, Uid};
+use std::{path::Path, sync::Arc};
+use strum_macros::Display;
 
+use groove_utils::Paths;
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
@@ -237,15 +246,15 @@ impl IntegratedEngine {
 
     // Assumes active pattern and active sound
     fn is_sound_selected(&self, index: u8) -> bool {
-        self.patterns[self.active_pattern() as usize].sound_set_at_step(self.active_sound(), index)
+        self.patterns[self.active_pattern() as usize].is_active(self.active_sound(), index)
     }
 
     fn active_sound(&self) -> u8 {
         self.active_sound
     }
 
-    fn set_active_sound(&mut self, active_sound: u8) {
-        self.active_sound = active_sound;
+    fn set_active_sound(&mut self, sound: u8) {
+        self.active_sound = sound;
     }
 
     fn pattern(&self, index: u8) -> &Pattern {
@@ -267,10 +276,8 @@ impl IntegratedEngine {
     fn toggle_sound_at_step(&mut self, step_index: u8) {
         let active_sound = self.active_sound();
         let active_pattern = self.active_pattern();
-        let a = self.a().clone();
-        let b = self.b().clone();
         self.pattern_mut(active_pattern)
-            .toggle_sound_at_step(active_sound, step_index, &a, &b);
+            .toggle_active(active_sound, step_index);
     }
 
     fn is_solo(&self, index: u8) -> bool {
@@ -357,7 +364,7 @@ impl Performs for IntegratedEngine {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Display, PartialEq)]
 enum UiState {
     #[default]
     Normal, // press a pad to play that sound
@@ -390,9 +397,6 @@ pub struct Integrated {
     clock: Clock,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
-    value: StereoSample,
-
-    #[cfg_attr(feature = "serialization", serde(skip))]
     ui_state: UiState,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
@@ -405,9 +409,13 @@ pub struct Integrated {
     #[cfg_attr(feature = "serialization", serde(skip))]
     pattern_usages: [bool; 16],
 
-    /// The last step we handled during playback.
+    /// The last step we handled during playback. Used to tell whether it's time
+    /// to process a new step.
     #[cfg_attr(feature = "serialization", serde(skip))]
     last_handled_step: usize,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    inner_synth: Synthesizer<SamplerVoice>,
 }
 impl IsController for Integrated {}
 impl IsInstrument for Integrated {}
@@ -435,14 +443,14 @@ impl Performs for Integrated {
 impl HandlesMidi for Integrated {
     fn handle_midi_message(
         &mut self,
-        _message: &midly::MidiMessage,
+        message: &midly::MidiMessage,
     ) -> Option<Vec<(groove_core::midi::MidiChannel, midly::MidiMessage)>> {
-        None
+        self.inner_synth.handle_midi_message(message)
     }
 }
 impl Ticks for Integrated {
-    fn tick(&mut self, _tick_count: usize) {
-        self.value = StereoSample::SILENCE;
+    fn tick(&mut self, tick_count: usize) {
+        self.inner_synth.tick(tick_count);
     }
 }
 impl TicksWithMessages for Integrated {
@@ -461,11 +469,11 @@ impl Resets for Integrated {
 }
 impl Generates<StereoSample> for Integrated {
     fn value(&self) -> StereoSample {
-        self.value
+        self.inner_synth.value()
     }
 
-    fn batch_values(&mut self, _values: &mut [StereoSample]) {
-        todo!()
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        self.inner_synth.batch_values(values);
     }
 }
 impl Default for Integrated {
@@ -480,12 +488,12 @@ impl Default for Integrated {
             }),
             engine: Default::default(),
 
-            value: Default::default(),
             ui_state: Default::default(),
             blink_counter: Default::default(),
             write_mode: Default::default(),
             pattern_usages: Default::default(),
             last_handled_step: Default::default(),
+            inner_synth: Self::load_sampler_voices(),
         }
     }
 }
@@ -503,7 +511,7 @@ impl Integrated {
                 if self.write_mode {
                     self.engine.toggle_sound_at_step(number);
                 } else {
-                    eprintln!("demoing sound {}", number);
+                    self.trigger_note(number);
                 }
             }
             UiState::Sound => {
@@ -604,7 +612,7 @@ impl Integrated {
         } else {
             self.ui_state = new_state
         }
-        eprintln!("New render state: ")
+        eprintln!("New render state: {}", self.ui_state);
     }
 
     fn punch_effect(&self, number: u8) {
@@ -657,9 +665,72 @@ impl Integrated {
                 return;
             }
             self.last_handled_step = total_steps;
-            let step = self.engine.next_step();
-            eprintln!("{} {} {:?}", total_steps, total_steps % 16, &step);
+            let step = self.engine.next_step().clone(); // TODO: this is costly
+            for i in 0..16 {
+                if step.is_sound_active(i)
+                    && (self.ui_state != UiState::Solo || self.engine.is_solo(i))
+                {
+                    self.trigger_note(i.into());
+                }
+            }
         }
+    }
+
+    fn trigger_note(&mut self, key: u8) {
+        let key = key.into();
+        let vel = 127.into();
+        self.inner_synth
+            .handle_midi_message(&midly::MidiMessage::NoteOff { key, vel });
+        self.inner_synth
+            .handle_midi_message(&midly::MidiMessage::NoteOn { key, vel });
+    }
+
+    fn load_sampler_voices() -> Synthesizer<SamplerVoice> {
+        let samples = vec![
+            "Kick 1 R1",
+            "Kick 2 R1",
+            "Hat Closed R1",
+            "Hat Closed R2",
+            "Clap R1",
+            "Crash R1",
+            "Crash R2",
+            "Hat Open R1",
+            "Ride R1",
+            "Ride R2",
+            "Rim R1",
+            "Snare 2 R1",
+            "Cowbell R1",
+            "Cowbell R3",
+            "Tambourine R1",
+            "Snare 1 R1",
+        ];
+
+        let sample_dirs = vec!["elphnt.io", "707"];
+
+        let paths = Paths::default();
+
+        let voice_store = VoicePerNoteStore::<SamplerVoice>::new_with_voices(
+            samples.into_iter().enumerate().map(|(index, asset_name)| {
+                let filename =
+                    paths.build_sample(&sample_dirs, Path::new(&format!("{asset_name}.wav")));
+                if let Ok(file) = paths.search_and_open(filename.as_path()) {
+                    if let Ok(samples) = Sampler::read_samples_from_file(&file) {
+                        (
+                            (index as u8).into(),
+                            SamplerVoice::new_with_samples(
+                                Arc::new(samples),
+                                note_to_frequency(index as u8),
+                            ),
+                        )
+                    } else {
+                        panic!()
+                    }
+                } else {
+                    panic!()
+                }
+            }),
+        );
+        Synthesizer::<SamplerVoice>::new_with(Box::new(voice_store))
     }
 }
 
@@ -670,88 +741,122 @@ struct Pattern {
 }
 impl Default for Pattern {
     fn default() -> Self {
-        Self {
-            steps: [
-                Step::new_with([
-                    true, false, true, false, true, false, true, false, true, false, true, false,
-                    true, false, true, false,
-                ]),
-                Step::new_with([
-                    false, true, false, true, false, true, false, true, false, true, false, true,
-                    false, true, false, true,
-                ]),
-                Step::new_with([
-                    true, true, false, false, true, true, false, false, true, true, false, false,
-                    true, true, false, false,
-                ]),
-                Step::new_with([
-                    false, false, true, true, false, false, true, true, false, false, true, true,
-                    false, false, true, true,
-                ]),
-                Step::new_with([
-                    true, false, true, false, true, false, true, false, true, false, true, false,
-                    true, false, true, false,
-                ]),
-                Step::new_with([
-                    false, true, false, true, false, true, false, true, false, true, false, true,
-                    false, true, false, true,
-                ]),
-                Step::new_with([
-                    true, true, false, false, true, true, false, false, true, true, false, false,
-                    true, true, false, false,
-                ]),
-                Step::new_with([
-                    false, false, true, true, false, false, true, true, false, false, true, true,
-                    false, false, true, true,
-                ]),
-                Step::new_with([
-                    true, false, true, false, true, false, true, false, true, false, true, false,
-                    true, false, true, false,
-                ]),
-                Step::new_with([
-                    false, true, false, true, false, true, false, true, false, true, false, true,
-                    false, true, false, true,
-                ]),
-                Step::new_with([
-                    true, true, false, false, true, true, false, false, true, true, false, false,
-                    true, true, false, false,
-                ]),
-                Step::new_with([
-                    false, false, true, true, false, false, true, true, false, false, true, true,
-                    false, false, true, true,
-                ]),
-                Step::new_with([
-                    true, false, true, false, true, false, true, false, true, false, true, false,
-                    true, false, true, false,
-                ]),
-                Step::new_with([
-                    false, true, false, true, false, true, false, true, false, true, false, true,
-                    false, true, false, true,
-                ]),
-                Step::new_with([
-                    true, true, false, false, true, true, false, false, true, true, false, false,
-                    true, true, false, false,
-                ]),
-                Step::new_with([
-                    false, false, true, true, false, false, true, true, false, false, true, true,
-                    false, false, true, true,
-                ]),
+        let sound_patterns = vec![
+            // 1 - 5.25 floppy
+            vec![
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false,
             ],
+            // 2 - 3.5 eject
+            vec![
+                true, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false,
+            ],
+            // 3 - 3.5 floppy
+            vec![
+                false, false, false, false, true, false, false, false, true, false, false, false,
+                true, false, true, false,
+            ],
+            // 4 - keyboard
+            vec![
+                false, false, false, false, false, false, true, false, false, false, false, false,
+                false, false, false, false,
+            ],
+            // 5 - matrix printer
+            vec![
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false,
+            ],
+            // 6 - joystick
+            vec![
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false,
+            ],
+            // 7 - mouse click
+            vec![
+                false, false, false, false, false, false, false, false, false, true, false, true,
+                false, false, false, false,
+            ],
+            // 8 - toggle switch
+            vec![
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false,
+            ],
+            // 9 - bass drum
+            vec![
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false,
+            ],
+            // 10 - pc beeper
+            vec![
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false,
+            ],
+            // 11 - hardsync tone
+            vec![
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false,
+            ],
+            // 12 - hardsync noise
+            vec![
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false,
+            ],
+            // 13 - ring modulation
+            vec![
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false,
+            ],
+            // 14 - bass
+            vec![
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false,
+            ],
+            // 15 - glitch fx
+            vec![
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false,
+            ],
+            // 16 - noise fx
+            vec![
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false,
+            ],
+        ];
+        let mut r = Self {
+            steps: [Step::default(); 16],
+        };
+        for i in 0..16 {
+            let mut step = [false; 16];
+            for j in 0..16 {
+                step[j] = sound_patterns[j][i];
+            }
+            r.steps[i] = Step::new_with(step);
         }
+        r
     }
 }
 impl Pattern {
     pub fn steps(&self) -> &[Step; 16] {
         &self.steps
     }
-    pub fn step(&self, index: u8) -> &Step {
-        &self.steps[index as usize]
+    pub fn step(&self, step: u8) -> &Step {
+        &self.steps[step as usize]
     }
-    pub fn step_mut(&mut self, index: u8) -> &mut Step {
-        &mut self.steps[index as usize]
+    pub fn step_mut(&mut self, step: u8) -> &mut Step {
+        &mut self.steps[step as usize]
     }
-    fn sound_set_at_step(&self, sound: u8, index: u8) -> bool {
-        self.steps[index as usize].is_sound_set(sound)
+    fn is_active(&self, sound: u8, step: u8) -> bool {
+        self.steps[step as usize].is_sound_active(sound)
+    }
+    fn a(&self, sound: u8, step: u8) -> Percentage {
+        let step = self.step(step);
+        step.a[sound as usize]
+    }
+
+    fn b(&self, sound: u8, step: u8) -> Percentage {
+        let step = self.step(step);
+        step.b[sound as usize]
     }
     fn clear(&mut self) {
         for note in &mut self.steps {
@@ -761,31 +866,22 @@ impl Pattern {
     fn is_clear(&self) -> bool {
         self.steps().iter().all(|n| n.is_clear())
     }
-
-    fn toggle_sound_at_step(&mut self, sound: u8, step: u8, a: &Percentage, b: &Percentage) {
-        self.step_mut(step).toggle_sound(sound, a, b);
+    fn toggle_active(&mut self, sound: u8, step: u8) {
+        self.step_mut(step).toggle_sound(sound);
     }
-
-    fn set_sound_at_step(
-        &mut self,
-        sound: u8,
-        step: u8,
-        is_set: bool,
-        a: Percentage,
-        b: Percentage,
-    ) {
-        let step = self.step_mut(step);
-        step.set_sound(sound, is_set, &a, &b);
+    fn set_sound(&mut self, sound: u8, step: u8, is_active: bool) {
+        self.step_mut(step).set_active(sound, is_active);
     }
-
-    fn a_at_step(&self, sound: u8, step: u8) -> Percentage {
-        let step = self.step(step);
-        step.a[sound as usize]
+    fn set_a(&mut self, sound: u8, step: u8, a: &Percentage) {
+        self.step_mut(step).set_a(sound, a);
     }
-
-    fn b_at_step(&self, sound: u8, step: u8) -> Percentage {
-        let step = self.step(step);
-        step.b[sound as usize]
+    fn set_b(&mut self, sound: u8, step: u8, b: &Percentage) {
+        self.step_mut(step).set_b(sound, b);
+    }
+    fn set_all(&mut self, sound: u8, step: u8, is_set: bool, a: &Percentage, b: &Percentage) {
+        self.set_sound(sound, step, is_set);
+        self.set_a(sound, step, a);
+        self.set_b(sound, step, b);
     }
 }
 
@@ -806,24 +902,30 @@ impl Default for Step {
     }
 }
 impl Step {
-    fn new_with(active_sounds: [bool; 16]) -> Self {
+    fn new_with(sounds: [bool; 16]) -> Self {
         Self {
-            sounds: active_sounds,
+            sounds,
             a: [Percentage::default(); 16],
             b: [Percentage::default(); 16],
         }
     }
-    fn is_sound_set(&self, index: u8) -> bool {
-        self.sounds[index as usize]
+    fn is_sound_active(&self, sound: u8) -> bool {
+        self.sounds[sound as usize]
     }
-    fn set_sound(&mut self, index: u8, is_set: bool, a: &Percentage, b: &Percentage) {
-        let index = index as usize;
-        self.sounds[index] = is_set;
-        self.a[index] = *a;
-        self.b[index] = *b;
+    fn a(&self, sound: u8) -> Percentage {
+        self.a[sound as usize]
     }
-    fn sounds(&self) -> &[bool; 16] {
-        &self.sounds
+    fn b(&self, sound: u8) -> Percentage {
+        self.b[sound as usize]
+    }
+    fn set_active(&mut self, sound: u8, is_active: bool) {
+        self.sounds[sound as usize] = is_active;
+    }
+    fn set_a(&mut self, sound: u8, a: &Percentage) {
+        self.a[sound as usize] = *a;
+    }
+    fn set_b(&mut self, sound: u8, b: &Percentage) {
+        self.b[sound as usize] = *b;
     }
     fn clear(&mut self) {
         self.sounds = [false; 16];
@@ -831,8 +933,8 @@ impl Step {
     fn is_clear(&self) -> bool {
         self.sounds.iter().all(|s| !s)
     }
-    fn toggle_sound(&mut self, index: u8, a: &Percentage, b: &Percentage) {
-        self.set_sound(index, !self.is_sound_set(index), a, b);
+    fn toggle_sound(&mut self, sound: u8) {
+        self.set_active(sound, !self.is_sound_active(sound));
     }
 }
 
@@ -1326,8 +1428,10 @@ mod tests {
         );
 
         // Make Pattern #2 different
-        e.pattern_mut(2)
-            .toggle_sound_at_step(0, 0, &Percentage(33), &Percentage(66));
+        let mut p2 = e.pattern_mut(2);
+        p2.toggle_active(0, 0);
+        p2.set_a(0, 0, &Percentage(33));
+        p2.set_b(0, 0, &Percentage(66));
 
         assert!(
             *e.pattern(1) != *e.pattern(2),
@@ -1341,18 +1445,31 @@ mod tests {
         );
 
         e.pattern_mut(2)
-            .set_sound_at_step(13, 15, false, Percentage(0), Percentage(0));
-        assert!(!e.pattern(2).sound_set_at_step(13, 15));
-        assert_ne!(e.pattern(2).a_at_step(13, 15).0, 42);
-        assert_ne!(e.pattern(2).b_at_step(13, 15).0, 84);
+            .set_all(13, 15, false, &Percentage(0), &Percentage(0));
+        assert!(!e.pattern(2).is_active(13, 15));
+        assert_ne!(e.pattern(2).a(13, 15).0, 42);
+        assert_ne!(e.pattern(2).b(13, 15).0, 84);
         e.pattern_mut(2)
-            .set_sound_at_step(13, 15, true, Percentage(42), Percentage(84));
-        assert!(e.pattern(2).sound_set_at_step(13, 15));
-        assert_eq!(e.pattern(2).a_at_step(13, 15).0, 42);
-        assert_eq!(e.pattern(2).b_at_step(13, 15).0, 84);
+            .set_all(13, 15, true, &Percentage(42), &Percentage(84));
+        assert!(e.pattern(2).is_active(13, 15));
+        assert_eq!(e.pattern(2).a(13, 15).0, 42);
+        assert_eq!(e.pattern(2).b(13, 15).0, 84);
 
         e.set_active_pattern(15);
         assert_eq!(e.active_pattern(), 15, "set active pattern works");
+    }
+
+    #[test]
+    fn pattern_retrieval() {
+        let mut e = IntegratedEngine::default();
+
+        let p = super::Pattern::default();
+
+        //     for selected in p.step(0)
+
+        // e.set_active_pattern(0);
+        // e.set_active_sound(0);
+        // assert!(e.is_sound_selected(0))
     }
 
     #[test]

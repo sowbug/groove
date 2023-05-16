@@ -22,7 +22,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default)]
-pub(crate) struct SamplerVoice {
+pub struct SamplerVoice {
     sample_rate: usize,
     samples: Arc<Vec<StereoSample>>,
 
