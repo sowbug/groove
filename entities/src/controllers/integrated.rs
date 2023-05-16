@@ -14,10 +14,10 @@ use groove_core::{
     ParameterType, StereoSample,
 };
 use groove_proc_macros::{Control, Params, Uid};
+use groove_utils::Paths;
 use std::{path::Path, sync::Arc};
 use strum_macros::Display;
 
-use groove_utils::Paths;
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
@@ -308,12 +308,12 @@ impl IntegratedEngine {
         &mut self.patterns[index as usize]
     }
 
-    fn clear_pattern(&mut self, arg: u8) {
-        self.patterns[arg as usize].clear();
+    fn clear_pattern(&mut self, index: u8) {
+        self.patterns[index as usize].clear();
     }
 
     fn clear_active_pattern(&mut self) {
-        self.patterns[self.active_pattern() as usize].clear();
+        self.clear_pattern(self.active_pattern());
     }
 
     fn toggle_sound_at_step(&mut self, step_index: u8) {
@@ -333,10 +333,6 @@ impl IntegratedEngine {
 
     fn chain_pattern(&mut self, number: u8) {
         self.chains.add(number);
-    }
-
-    fn chain_active_pattern(&mut self) {
-        self.chain_pattern(self.active_pattern());
     }
 
     fn chain_cursor(&self) -> u8 {
@@ -406,8 +402,6 @@ enum UiState {
     Bpm,     // adjust swing/bpm with knobs
     Solo,    // during play, toggle solo play for a pad to copy
     Fx,      // press a pad to punch in effect
-    //    Write,   // during play, change sound params with knobs **over time**
-    Copy, // hold write + pattern, press pad to copy active to that slot
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -589,7 +583,6 @@ impl Integrated {
             }
             UiState::Solo => self.engine.toggle_solo(number),
             UiState::Fx => self.punch_effect(number),
-            UiState::Copy => self.engine.copy_active_pattern_to(number),
         }
     }
 
@@ -606,7 +599,12 @@ impl Integrated {
     }
 
     fn handle_pattern_click(&mut self) {
-        eprintln!("does nothing")
+        if self.ui_state == UiState::Solo {
+            self.engine.clear_active_pattern();
+            eprintln!("cleared active pattern");
+        } else {
+            eprintln!("nothing");
+        }
     }
 
     fn handle_bpm_click(&mut self) {
@@ -647,13 +645,13 @@ impl Integrated {
         eprintln!("New render state: {}", self.ui_state);
     }
 
-    fn punch_effect(&self, number: u8) {
+    fn punch_effect(&self, _number: u8) {
         todo!()
     }
 
     fn handle_knob_b_change(&mut self, value: f32) {
         match self.ui_state {
-            UiState::Normal | UiState::Pattern | UiState::Solo | UiState::Fx | UiState::Copy => {
+            UiState::Normal | UiState::Pattern | UiState::Solo | UiState::Fx => {
                 self.engine.set_b(Percentage::from(value))
             }
             UiState::Sound => {
@@ -665,7 +663,7 @@ impl Integrated {
 
     fn handle_knob_a_change(&mut self, value: f32) {
         match self.ui_state {
-            UiState::Normal | UiState::Pattern | UiState::Solo | UiState::Fx | UiState::Copy => {
+            UiState::Normal | UiState::Pattern | UiState::Solo | UiState::Fx => {
                 self.engine.set_a(Percentage::from(value))
             }
             UiState::Sound => {
@@ -869,23 +867,21 @@ impl Default for Pattern {
     }
 }
 impl Pattern {
-    pub fn steps(&self) -> &[Step; 16] {
-        &self.steps
-    }
-    pub fn step(&self, step: u8) -> &Step {
+    fn step(&self, step: u8) -> &Step {
         &self.steps[step as usize]
     }
-    pub fn step_mut(&mut self, step: u8) -> &mut Step {
+    fn step_mut(&mut self, step: u8) -> &mut Step {
         &mut self.steps[step as usize]
     }
     fn is_active(&self, sound: u8, step: u8) -> bool {
         self.steps[step as usize].is_sound_active(sound)
     }
+    #[allow(dead_code)]
     fn a(&self, sound: u8, step: u8) -> Percentage {
         let step = self.step(step);
         step.a[sound as usize]
     }
-
+    #[allow(dead_code)]
     fn b(&self, sound: u8, step: u8) -> Percentage {
         let step = self.step(step);
         step.b[sound as usize]
@@ -895,21 +891,22 @@ impl Pattern {
             note.clear();
         }
     }
-    fn is_clear(&self) -> bool {
-        self.steps().iter().all(|n| n.is_clear())
-    }
     fn toggle_active(&mut self, sound: u8, step: u8) {
         self.step_mut(step).toggle_sound(sound);
     }
+    #[allow(dead_code)]
     fn set_sound(&mut self, sound: u8, step: u8, is_active: bool) {
         self.step_mut(step).set_active(sound, is_active);
     }
+    #[allow(dead_code)]
     fn set_a(&mut self, sound: u8, step: u8, a: &Percentage) {
         self.step_mut(step).set_a(sound, a);
     }
+    #[allow(dead_code)]
     fn set_b(&mut self, sound: u8, step: u8, b: &Percentage) {
         self.step_mut(step).set_b(sound, b);
     }
+    #[allow(dead_code)]
     fn set_all(&mut self, sound: u8, step: u8, is_set: bool, a: &Percentage, b: &Percentage) {
         self.set_sound(sound, step, is_set);
         self.set_a(sound, step, a);
@@ -944,9 +941,11 @@ impl Step {
     fn is_sound_active(&self, sound: u8) -> bool {
         self.sounds[sound as usize]
     }
+    #[allow(dead_code)]
     fn a(&self, sound: u8) -> Percentage {
         self.a[sound as usize]
     }
+    #[allow(dead_code)]
     fn b(&self, sound: u8) -> Percentage {
         self.b[sound as usize]
     }
@@ -961,9 +960,6 @@ impl Step {
     }
     fn clear(&mut self) {
         self.sounds = [false; 16];
-    }
-    fn is_clear(&self) -> bool {
-        self.sounds.iter().all(|s| !s)
     }
     fn toggle_sound(&mut self, sound: u8) {
         self.set_active(sound, !self.is_sound_active(sound));
@@ -1077,14 +1073,14 @@ mod gui {
                     }
                 }
                 ButtonState::Held => Color32::BLACK,
-                ButtonState::Indicated => Color32::RED,
-                ButtonState::Active => Color32::LIGHT_RED,
+                ButtonState::Indicated => Color32::DARK_RED,
+                ButtonState::Active => Color32::RED,
                 ButtonState::Blinking => {
                     self.blink_counter = (self.blink_counter + 1) % 4;
                     if self.blink_counter >= 2 {
-                        Color32::LIGHT_RED
-                    } else {
                         Color32::RED
+                    } else {
+                        Color32::DARK_RED
                     }
                 }
             };
@@ -1260,9 +1256,9 @@ mod gui {
                             ButtonState::Blinking
                         } else {
                             if self.pattern_usages[pad_index as usize] {
-                                ButtonState::Indicated
+                                ButtonState::Active
                             } else {
-                                ButtonState::Idle
+                                ButtonState::Indicated
                             }
                         }
                     }
@@ -1281,7 +1277,6 @@ mod gui {
                         }
                     }
                     UiState::Fx => ButtonState::Idle,
-                    UiState::Copy => ButtonState::Idle,
                 },
             }
         }
@@ -1343,9 +1338,30 @@ mod gui {
 
 #[cfg(test)]
 mod tests {
-    use super::IntegratedEngine;
+    use super::{IntegratedEngine, Pattern, Step};
     use crate::controllers::integrated::{Percentage, Tempo, TempoValue};
     use groove_core::traits::Performs;
+
+    impl IntegratedEngine {
+        fn chain_active_pattern(&mut self) {
+            self.chain_pattern(self.active_pattern());
+        }
+    }
+
+    impl Pattern {
+        fn steps(&self) -> &[Step; 16] {
+            &self.steps
+        }
+        fn is_clear(&self) -> bool {
+            self.steps().iter().all(|n| n.is_clear())
+        }
+    }
+
+    impl Step {
+        fn is_clear(&self) -> bool {
+            self.sounds.iter().all(|s| !s)
+        }
+    }
 
     #[test]
     fn volume() {
@@ -1460,7 +1476,7 @@ mod tests {
         );
 
         // Make Pattern #2 different
-        let mut p2 = e.pattern_mut(2);
+        let p2 = e.pattern_mut(2);
         p2.toggle_active(0, 0);
         p2.set_a(0, 0, &Percentage(33));
         p2.set_b(0, 0, &Percentage(66));
@@ -1489,19 +1505,6 @@ mod tests {
 
         e.set_active_pattern(15);
         assert_eq!(e.active_pattern(), 15, "set active pattern works");
-    }
-
-    #[test]
-    fn pattern_retrieval() {
-        let mut e = IntegratedEngine::default();
-
-        let p = super::Pattern::default();
-
-        //     for selected in p.step(0)
-
-        // e.set_active_pattern(0);
-        // e.set_active_sound(0);
-        // assert!(e.is_sound_selected(0))
     }
 
     #[test]
