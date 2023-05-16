@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 
 /// Tempo is a u8 that ranges from 60..=240
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 struct TempoValue(u8);
 impl From<f32> for TempoValue {
     fn from(value: f32) -> Self {
@@ -66,6 +67,7 @@ impl Percentage {
 }
 
 #[derive(Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 enum IntegratedEngineState {
     #[default]
     Idle,
@@ -73,6 +75,49 @@ enum IntegratedEngineState {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+struct Chains {
+    indexes: Vec<u8>,
+}
+impl Default for Chains {
+    fn default() -> Self {
+        let mut r = Self {
+            indexes: Vec::with_capacity(128),
+        };
+        r.reset();
+        r
+    }
+}
+impl Chains {
+    fn reset(&mut self) {
+        self.indexes.clear();
+    }
+
+    fn add(&mut self, number: u8) {
+        if self.indexes.len() < self.capacity() as usize {
+            self.indexes.push(number);
+        }
+    }
+
+    fn len(&self) -> u8 {
+        self.indexes.len() as u8
+    }
+
+    fn capacity(&self) -> u8 {
+        self.indexes.capacity() as u8
+    }
+
+    fn index(&self, offset: u8) -> u8 {
+        if offset as usize >= self.indexes.len() {
+            u8::MAX
+        } else {
+            self.indexes[offset as usize]
+        }
+    }
+}
+
+#[derive(Debug)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 struct IntegratedEngine {
     volume: u8,
 
@@ -86,8 +131,7 @@ struct IntegratedEngine {
     active_pattern: u8,
     patterns: [Pattern; 16],
 
-    chains: [u8; 128],
-    chain_cursor: u8,
+    chains: Chains,
 
     active_sound: u8,
 
@@ -116,8 +160,7 @@ impl Default for IntegratedEngine {
 
             active_pattern: 0,
             patterns: [Pattern::default(); 16],
-            chains: [u8::MAX; 128],
-            chain_cursor: 0,
+            chains: Default::default(),
 
             active_sound: 0,
 
@@ -289,11 +332,7 @@ impl IntegratedEngine {
     }
 
     fn chain_pattern(&mut self, number: u8) {
-        self.chains[self.chain_cursor as usize] = number;
-        self.chain_cursor += 1;
-        if self.chain_cursor >= self.chains.len() as u8 {
-            self.chain_cursor = self.chains.len() as u8 - 1;
-        }
+        self.chains.add(number);
     }
 
     fn chain_active_pattern(&mut self) {
@@ -301,16 +340,11 @@ impl IntegratedEngine {
     }
 
     fn chain_cursor(&self) -> u8 {
-        self.chain_cursor
+        self.chains.len()
     }
 
     fn reset_chain_cursor(&mut self) {
-        self.chain_cursor = 0;
-        self.chains = [u8::MAX; 128];
-    }
-
-    fn chains(&self, index: u8) -> u8 {
-        self.chains[index as usize]
+        self.chains.reset();
     }
 
     fn next_step(&mut self) -> &Step {
@@ -321,15 +355,14 @@ impl IntegratedEngine {
             self.pb_step_index += 1;
             if self.pb_step_index == 16 {
                 self.pb_step_index = 0;
-                self.pb_chain_index += 1;
-                if self.pb_chain_index == 128 {
-                    self.pb_chain_index = 127;
+                if self.pb_chain_index < self.chains.capacity() - 1 {
+                    self.pb_chain_index += 1;
                 }
-                if self.chains(self.pb_chain_index) == u8::MAX {
+                if self.chains.index(self.pb_chain_index) == u8::MAX {
                     // "the entire sequence then repeats"
                     self.pb_chain_index = 0;
                 }
-                self.pb_pattern_index = self.chains(self.pb_chain_index);
+                self.pb_pattern_index = self.chains.index(self.pb_chain_index);
                 if self.pb_pattern_index == u8::MAX {
                     // The user hasn't set up any chained patterns. We'll just
                     // keep recycling the active one. This is a little more
@@ -390,7 +423,6 @@ pub enum Tempo {
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Integrated {
     uid: usize,
-    #[cfg_attr(feature = "serialization", serde(skip))]
     engine: IntegratedEngine,
 
     #[params]
@@ -530,12 +562,12 @@ impl Integrated {
                     // The active pattern changes only on the first pattern
                     // selection. This is how the UI consistently shows that the
                     // active pattern is the next one to be played.
-                    if self.engine.chain_cursor == 0 {
+                    if self.engine.chain_cursor() == 0 {
                         self.engine.set_active_pattern(number);
                     }
                     // We save this so the debug output handles both 0 and 127
                     // easily.
-                    let current_cursor = self.engine.chain_cursor;
+                    let current_cursor = self.engine.chain_cursor();
                     self.engine.chain_pattern(number);
 
                     // TODO: check behavior when overwriting causes a pattern to
@@ -1516,16 +1548,16 @@ mod tests {
             e.chain_active_pattern();
         }
         for i in 0..128 {
-            assert_eq!(e.chains(i), 7, "successive chaining should work");
+            assert_eq!(e.chains.index(i), 7, "successive chaining should work");
         }
-        assert_eq!(e.chain_cursor(), 127, "chaining should work up to maximum");
+        assert_eq!(e.chain_cursor(), 128, "chaining should work up to maximum");
 
         e.set_active_pattern(8);
         e.chain_active_pattern();
         assert_eq!(
-            e.chains(127),
-            8,
-            "when at chain capacity, last one should overwrite itself"
+            e.chains.index(127),
+            7,
+            "chaining should ignore adds beyond capacity"
         );
 
         e.reset_chain_cursor();
@@ -1533,7 +1565,7 @@ mod tests {
 
         for i in 0..128 {
             assert_eq!(
-                e.chains(i),
+                e.chains.index(i),
                 u8::MAX,
                 "resetting chain cursor also overwrites slots"
             );
