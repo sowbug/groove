@@ -747,25 +747,27 @@ impl Calculator {
 
     fn load_sampler_voices() -> Synthesizer<SamplerVoice> {
         let samples = vec![
-            "Kick 1 R1",
-            "Kick 2 R1",
-            "Hat Closed R1",
-            "Hat Closed R2",
-            "Clap R1",
-            "Crash R1",
-            "Crash R2",
-            "Hat Open R1",
-            "Ride R1",
-            "Ride R2",
-            "Rim R1",
-            "Snare 2 R1",
-            "Cowbell R1",
-            "Cowbell R3",
-            "Tambourine R1",
-            "Snare 1 R1",
+            "01-5-inch-floppy",
+            "02-3.5-drive-eject",
+            "03-3.5-floppy-read",
+            "04-keyboard",
+            "05-dot-matrix-printer",
+            "06-joystick",
+            "07-mouse-click",
+            "08-toggle-switch",
+            "09-bass-drum",
+            "10-dtmf-tones",
+            "11-hardsync-tone",
+            "12-hardsync-noise",
+            "13-ring-modulation",
+            "14-bass",
+            "15-glitch-fx",
+            "16-noise-fx",
         ];
+        //            "04-keyboard-2",
+        //            "08-toggle-switch-2",
 
-        let sample_dirs = vec!["elphnt.io", "707"];
+        let sample_dirs = vec!["pocket-calculator-24"];
 
         let paths = Paths::default();
 
