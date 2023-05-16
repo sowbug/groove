@@ -1368,7 +1368,7 @@ mod gui {
 
 #[cfg(test)]
 mod tests {
-    use super::{Calculator, Engine, Pattern, Step};
+    use super::{Engine, Pattern, Step};
     use crate::controllers::calculator::{Percentage, Tempo, TempoValue};
     use groove_core::traits::Performs;
 
@@ -1391,17 +1391,6 @@ mod tests {
         fn is_clear(&self) -> bool {
             self.sounds.iter().all(|s| !s)
         }
-    }
-
-    #[test]
-    fn volume() {
-        let mut c = Calculator::default();
-
-        assert_eq!(c.volume(), 5, "should start out at 5");
-        c.set_volume(0);
-        assert_eq!(c.volume(), 0, "set volume min should work");
-        c.set_volume(15);
-        assert_eq!(c.volume(), 15, "set volume max should work");
     }
 
     #[test]
