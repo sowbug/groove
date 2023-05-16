@@ -9,7 +9,7 @@ use groove_core::{time::Clock, traits::HasUid};
 
 use groove_entities::{
     controllers::{
-        Arpeggiator, ControlTrip, Integrated, LfoController, MidiTickSequencer, PatternManager,
+        Arpeggiator, Calculator, ControlTrip, LfoController, MidiTickSequencer, PatternManager,
         Sequencer, SignalPassthroughController, Timer, ToyController, Trigger,
     },
     effects::{
@@ -125,7 +125,7 @@ enum Everything {
     Gain(Gain),
 
     #[everything(instrument, controller)]
-    Integrated(Integrated),
+    Integrated(Calculator),
 
     #[everything(controller, midi)]
     LfoController(LfoController),

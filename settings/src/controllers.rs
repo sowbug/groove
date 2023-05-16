@@ -3,7 +3,7 @@
 use super::{BeatValueSettings, DeviceId, MidiChannel};
 use groove_core::{ParameterType, SignalType};
 use groove_entities::controllers::{
-    Arpeggiator, ArpeggiatorParams, ControlPath, ControlStep, Integrated, IntegratedParams,
+    Arpeggiator, ArpeggiatorParams, Calculator, CalculatorParams, ControlPath, ControlStep,
     LfoController, LfoControllerParams, MidiChannelParams, SignalPassthroughController,
     ToyController, ToyControllerParams,
 };
@@ -116,8 +116,8 @@ pub enum ControllerSettings {
     LfoController(MidiChannelParams, LfoControllerParams),
     #[serde(rename_all = "kebab-case", rename = "signal-passthrough-controller")]
     SignalPassthroughController(MidiChannelParams),
-    #[serde(rename_all = "kebab-case", rename = "integrated")]
-    Integrated(MidiChannelParams, IntegratedParams),
+    #[serde(rename_all = "kebab-case", rename = "calculator")]
+    Calculator(MidiChannelParams, CalculatorParams),
 }
 
 impl ControllerSettings {
@@ -156,7 +156,7 @@ impl ControllerSettings {
                     },
                     ..,
                 ) => (midi_input_channel, midi_output_channel),
-                ControllerSettings::Integrated(
+                ControllerSettings::Calculator(
                     MidiChannelParams {
                         midi_in: midi_input_channel,
                         midi_out: midi_output_channel,
@@ -203,10 +203,10 @@ impl ControllerSettings {
                 midi.midi_out,
                 Entity::SignalPassthroughController(Box::new(SignalPassthroughController::new())),
             ),
-            ControllerSettings::Integrated(midi, params) => (
+            ControllerSettings::Calculator(midi, _params) => (
                 midi.midi_in,
                 midi.midi_out,
-                Entity::Integrated(Box::new(Integrated::default())),
+                Entity::Integrated(Box::new(Calculator::default())),
             ),
         }
     }

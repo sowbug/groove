@@ -1,5 +1,5 @@
 ---
-title: "Integrated"
+title: "Calculator"
 clock:
   bpm: 128.0
   midi-ticks-per-second: 960
@@ -8,8 +8,8 @@ clock:
     - 4
 devices:
   - controller:
-      - integrated-1
-      - integrated:
+      - instrument-1
+      - calculator:
           - midi-in: 0
             midi-out: 0
           - clock:
@@ -19,4 +19,4 @@ devices:
                 - 4
                 - 4
 patch-cables:
-  - [integrated-1, main-mixer]
+  - [instrument-1, main-mixer]

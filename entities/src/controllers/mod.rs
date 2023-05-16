@@ -3,10 +3,10 @@
 #[cfg(feature = "iced-framework")]
 pub use arpeggiator::ArpeggiatorMessage;
 pub use arpeggiator::{Arpeggiator, ArpeggiatorParams};
+pub use calculator::{Calculator, CalculatorParams};
 #[cfg(feature = "iced-framework")]
 pub use control_trip::ControlTripMessage;
 pub use control_trip::{ControlPath, ControlStep, ControlTrip, ControlTripParams};
-pub use integrated::{Integrated, IntegratedParams};
 #[cfg(feature = "iced-framework")]
 pub use lfo::LfoControllerMessage;
 pub use lfo::{LfoController, LfoControllerParams};
@@ -22,8 +22,8 @@ pub use sequencers::{
 pub use sequencers::{MidiTickSequencerMessage, SequencerMessage};
 
 mod arpeggiator;
+mod calculator;
 mod control_trip;
-mod integrated;
 mod lfo;
 mod patterns;
 mod sequencers;

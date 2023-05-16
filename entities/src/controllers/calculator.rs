@@ -1,3 +1,16 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
+//! Emulates a certain handheld music instrument that looks like a calculator.
+
+// TODO
+//
+// - Swing
+// - Effects
+// - step multiplier
+// - live record
+// - should BPM be global?
+// - a better LCD
+
 use crate::{
     instruments::{Sampler, SamplerVoice},
     EntityMessage,
@@ -61,14 +74,17 @@ impl Default for Percentage {
     }
 }
 impl Percentage {
-    fn midway() -> Self {
-        Self(50)
+    fn maximum() -> Self {
+        Self(100)
+    }
+    fn minimum() -> Self {
+        Self(0)
     }
 }
 
 #[derive(Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-enum IntegratedEngineState {
+enum EngineState {
     #[default]
     Idle,
     Playing,
@@ -116,11 +132,10 @@ impl Chains {
     }
 }
 
+/// [Engine] contains the musical data other than the samples.
 #[derive(Debug)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-struct IntegratedEngine {
-    volume: u8,
-
+struct Engine {
     swing: Percentage,
     tempo: Tempo,
     tempo_override: Option<TempoValue>,
@@ -135,7 +150,7 @@ struct IntegratedEngine {
 
     active_sound: u8,
 
-    state: IntegratedEngineState,
+    state: EngineState,
 
     solo_states: [bool; 16],
 
@@ -148,10 +163,9 @@ struct IntegratedEngine {
     // Which step we're currently playing in the pattern
     pb_step_index: u8,
 }
-impl Default for IntegratedEngine {
+impl Default for Engine {
     fn default() -> Self {
         Self {
-            volume: 7, // half
             swing: Percentage::from(0),
             tempo: Tempo::Disco,
             tempo_override: None,
@@ -164,7 +178,7 @@ impl Default for IntegratedEngine {
 
             active_sound: 0,
 
-            state: IntegratedEngineState::Idle,
+            state: EngineState::Idle,
 
             solo_states: Default::default(),
 
@@ -174,7 +188,7 @@ impl Default for IntegratedEngine {
         }
     }
 }
-impl IntegratedEngine {
+impl Engine {
     pub fn a(&self) -> &Percentage {
         &self.a
     }
@@ -197,14 +211,6 @@ impl IntegratedEngine {
 
     pub fn set_swing(&mut self, swing: Percentage) {
         self.swing = swing;
-    }
-
-    pub fn volume(&self) -> u8 {
-        self.volume
-    }
-
-    pub fn set_volume(&mut self, volume: u8) {
-        self.volume = volume;
     }
 
     #[allow(dead_code)]
@@ -263,11 +269,11 @@ impl IntegratedEngine {
         }
     }
 
-    fn state(&self) -> &IntegratedEngineState {
+    fn state(&self) -> &EngineState {
         &self.state
     }
 
-    fn set_state(&mut self, state: IntegratedEngineState) {
+    fn set_state(&mut self, state: EngineState) {
         self.state = state;
     }
 
@@ -372,13 +378,13 @@ impl IntegratedEngine {
         pattern.step(self.pb_step_index)
     }
 }
-impl Performs for IntegratedEngine {
+impl Performs for Engine {
     fn play(&mut self) {
-        self.set_state(IntegratedEngineState::Playing);
+        self.set_state(EngineState::Playing);
     }
 
     fn stop(&mut self) {
-        self.set_state(IntegratedEngineState::Idle);
+        self.set_state(EngineState::Idle);
     }
 
     fn skip_to_start(&mut self) {
@@ -389,7 +395,7 @@ impl Performs for IntegratedEngine {
     }
 
     fn is_performing(&self) -> bool {
-        self.state() == &IntegratedEngineState::Playing
+        self.state() == &EngineState::Playing
     }
 }
 
@@ -413,25 +419,43 @@ pub enum Tempo {
     Techno,
 }
 
+/// [Calculator] is the top-level musical instrument. It contains an [Engine]
+/// that has the song data, as well as a sampler synth that can generate digital
+/// audio. It draws the GUI and handles user input.
 #[derive(Control, Params, Debug, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct Integrated {
+pub struct Calculator {
+    /// Required for the [groove_core::traits::HasUid] trait.
     uid: usize,
-    engine: IntegratedEngine,
 
+    /// Keeps the music data (notes, sequences, tempo).
+    engine: Engine,
+
+    /// The final output volume, ranging 0..16.
+    volume: u8,
+
+    /// Timekeeper, maps audio-sample time to musical time.
     #[params]
     clock: Clock,
 
+    /// Generates audio data.
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    inner_synth: Synthesizer<SamplerVoice>,
+
+    /// Which mode the UI is in.
     #[cfg_attr(feature = "serialization", serde(skip))]
     ui_state: UiState,
 
+    /// Whether write is enabled.
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    is_write_enabled: bool,
+
+    /// Controls LED blinking.
     #[cfg_attr(feature = "serialization", serde(skip))]
     blink_counter: u8,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    write_mode: bool,
-
-    /// Whether the pattern is used anywhere in the current chain.
+    /// Whether the pattern is used anywhere in the current chain. Used for
+    /// chaining UI.
     #[cfg_attr(feature = "serialization", serde(skip))]
     pattern_usages: [bool; 16],
 
@@ -439,13 +463,10 @@ pub struct Integrated {
     /// to process a new step.
     #[cfg_attr(feature = "serialization", serde(skip))]
     last_handled_step: usize,
-
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    inner_synth: Synthesizer<SamplerVoice>,
 }
-impl IsController for Integrated {}
-impl IsInstrument for Integrated {}
-impl Performs for Integrated {
+impl IsController for Calculator {}
+impl IsInstrument for Calculator {}
+impl Performs for Calculator {
     fn play(&mut self) {
         // We don't have resume, so play always skips to start.
         self.skip_to_start();
@@ -466,7 +487,7 @@ impl Performs for Integrated {
         self.engine.is_performing()
     }
 }
-impl HandlesMidi for Integrated {
+impl HandlesMidi for Calculator {
     fn handle_midi_message(
         &mut self,
         message: &midly::MidiMessage,
@@ -474,12 +495,12 @@ impl HandlesMidi for Integrated {
         self.inner_synth.handle_midi_message(message)
     }
 }
-impl Ticks for Integrated {
+impl Ticks for Calculator {
     fn tick(&mut self, tick_count: usize) {
         self.inner_synth.tick(tick_count);
     }
 }
-impl TicksWithMessages for Integrated {
+impl TicksWithMessages for Calculator {
     type Message = EntityMessage;
 
     fn tick(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
@@ -488,12 +509,12 @@ impl TicksWithMessages for Integrated {
         (None, tick_count)
     }
 }
-impl Resets for Integrated {
+impl Resets for Calculator {
     fn reset(&mut self, sample_rate: usize) {
         self.clock.reset(sample_rate);
     }
 }
-impl Generates<StereoSample> for Integrated {
+impl Generates<StereoSample> for Calculator {
     fn value(&self) -> StereoSample {
         self.inner_synth.value()
     }
@@ -502,39 +523,48 @@ impl Generates<StereoSample> for Integrated {
         self.inner_synth.batch_values(values);
     }
 }
-impl Default for Integrated {
+impl Default for Calculator {
     fn default() -> Self {
-        let e = IntegratedEngine::default();
+        let e = Engine::default();
         Self {
             uid: Default::default(),
+            engine: Default::default(),
+            volume: 5,
+
             clock: Clock::new_with(&ClockParams {
                 bpm: e.tempo_by_value().0 as ParameterType,
                 midi_ticks_per_second: 960,
                 time_signature: TimeSignatureParams { top: 4, bottom: 4 },
             }),
-            engine: Default::default(),
-
+            inner_synth: Self::load_sampler_voices(),
             ui_state: Default::default(),
             blink_counter: Default::default(),
-            write_mode: Default::default(),
+            is_write_enabled: Default::default(),
             pattern_usages: Default::default(),
             last_handled_step: Default::default(),
-            inner_synth: Self::load_sampler_voices(),
         }
     }
 }
-impl Integrated {
-    pub fn new_with(params: &IntegratedParams) -> Self {
+impl Calculator {
+    pub fn new_with(params: &CalculatorParams) -> Self {
         Self {
             clock: Clock::new_with(params.clock()),
             ..Default::default()
         }
     }
 
+    pub fn volume(&self) -> u8 {
+        self.volume
+    }
+
+    pub fn set_volume(&mut self, volume: u8) {
+        self.volume = volume;
+    }
+
     fn handle_pad_click(&mut self, number: u8) {
         match self.ui_state {
             UiState::Normal => {
-                if self.write_mode {
+                if self.is_write_enabled {
                     self.engine.toggle_sound_at_step(number);
                 } else {
                     self.trigger_note(number);
@@ -545,7 +575,7 @@ impl Integrated {
                 eprintln!("selected sound {}", self.engine.active_sound());
             }
             UiState::Pattern => {
-                if self.write_mode {
+                if self.is_write_enabled {
                     self.engine.copy_active_pattern_to(number);
                     eprintln!(
                         "copied active pattern {} to {}",
@@ -578,8 +608,8 @@ impl Integrated {
                 }
             }
             UiState::Bpm => {
-                self.engine.set_volume(number);
-                eprintln!("volume {}", self.engine.volume());
+                self.set_volume(number);
+                eprintln!("volume {}", self.volume());
             }
             UiState::Solo => self.engine.toggle_solo(number),
             UiState::Fx => self.punch_effect(number),
@@ -587,7 +617,7 @@ impl Integrated {
     }
 
     fn handle_play_click(&mut self) {
-        if self.engine.state() == &IntegratedEngineState::Playing {
+        if self.engine.state() == &EngineState::Playing {
             self.stop()
         } else {
             self.play()
@@ -633,7 +663,7 @@ impl Integrated {
     }
 
     fn handle_write_click(&mut self) {
-        self.write_mode = !self.write_mode;
+        self.is_write_enabled = !self.is_write_enabled;
     }
 
     fn change_ui_state(&mut self, new_state: UiState) {
@@ -925,8 +955,8 @@ impl Default for Step {
     fn default() -> Self {
         Self {
             sounds: [false; 16],
-            a: [Percentage::midway(); 16],
-            b: [Percentage::midway(); 16],
+            a: [Percentage::maximum(); 16],
+            b: [Percentage::minimum(); 16],
         }
     }
 }
@@ -968,7 +998,7 @@ impl Step {
 
 #[cfg(feature = "egui-framework")]
 mod gui {
-    use super::{Integrated, IntegratedEngineState, UiState};
+    use super::{Calculator, EngineState, UiState};
     use eframe::{
         egui::{Button, Grid, Response, Sense},
         epaint::{Color32, Stroke, Vec2},
@@ -1016,7 +1046,7 @@ mod gui {
         Write,
     }
 
-    impl Integrated {
+    impl Calculator {
         const BUTTON_INDEX_TO_PAD_INDEX: [u8; 25] = [
             u8::MAX,
             u8::MAX,
@@ -1156,7 +1186,7 @@ mod gui {
             ui.add(
                 SegmentedDisplayWidget::sixteen_segment(&format!(
                     "W: {}",
-                    if self.write_mode { "+" } else { "-" }
+                    if self.is_write_enabled { "+" } else { "-" }
                 ))
                 .digit_height(14.0),
             );
@@ -1234,7 +1264,7 @@ mod gui {
                     }
                 }
                 ButtonLabel::Write => {
-                    if self.write_mode {
+                    if self.is_write_enabled {
                         ButtonState::Held
                     } else {
                         ButtonState::Idle
@@ -1263,7 +1293,7 @@ mod gui {
                         }
                     }
                     UiState::Bpm => {
-                        if pad_index <= self.engine.volume() {
+                        if pad_index <= self.volume() {
                             ButtonState::Indicated
                         } else {
                             ButtonState::Idle
@@ -1282,9 +1312,9 @@ mod gui {
         }
     }
 
-    impl Shows for Integrated {
+    impl Shows for Calculator {
         fn show(&mut self, ui: &mut eframe::egui::Ui) {
-            let highlighted_button = if self.engine.state() == &IntegratedEngineState::Playing {
+            let highlighted_button = if self.engine.state() == &EngineState::Playing {
                 Some(self.current_step())
             } else {
                 None
@@ -1338,11 +1368,11 @@ mod gui {
 
 #[cfg(test)]
 mod tests {
-    use super::{IntegratedEngine, Pattern, Step};
-    use crate::controllers::integrated::{Percentage, Tempo, TempoValue};
+    use super::{Calculator, Engine, Pattern, Step};
+    use crate::controllers::calculator::{Percentage, Tempo, TempoValue};
     use groove_core::traits::Performs;
 
-    impl IntegratedEngine {
+    impl Engine {
         fn chain_active_pattern(&mut self) {
             self.chain_pattern(self.active_pattern());
         }
@@ -1365,18 +1395,18 @@ mod tests {
 
     #[test]
     fn volume() {
-        let mut e = IntegratedEngine::default();
+        let mut c = Calculator::default();
 
-        assert_eq!(e.volume(), 7, "should start out at 7");
-        e.set_volume(0);
-        assert_eq!(e.volume(), 0, "set volume should work");
-        e.set_volume(15);
-        assert_eq!(e.volume(), 15, "set volume should work");
+        assert_eq!(c.volume(), 5, "should start out at 5");
+        c.set_volume(0);
+        assert_eq!(c.volume(), 0, "set volume min should work");
+        c.set_volume(15);
+        assert_eq!(c.volume(), 15, "set volume max should work");
     }
 
     #[test]
     fn tempo() {
-        let mut e = IntegratedEngine::default();
+        let mut e = Engine::default();
 
         assert_eq!(e.tempo_by_value().0, 120, "should start out as 120");
         assert_eq!(e.tempo(), Some(Tempo::Disco), "should start out as disco");
@@ -1440,7 +1470,7 @@ mod tests {
 
     #[test]
     fn swing() {
-        let mut e = IntegratedEngine::default();
+        let mut e = Engine::default();
 
         assert_eq!(e.swing().0, 0, "swing should start out at 0");
         e.set_swing(Percentage(50));
@@ -1449,7 +1479,7 @@ mod tests {
 
     #[test]
     fn a_and_b() {
-        let mut e = IntegratedEngine::default();
+        let mut e = Engine::default();
 
         assert_eq!(e.a().0, 50, "should start out at 50");
         assert_eq!(e.b().0, 50, "should start out at 50");
@@ -1462,7 +1492,7 @@ mod tests {
 
     #[test]
     fn pattern_crud() {
-        let mut e = IntegratedEngine::default();
+        let mut e = Engine::default();
 
         assert_eq!(e.active_pattern(), 0, "first pattern active at startup");
         assert!(
@@ -1509,7 +1539,7 @@ mod tests {
 
     #[test]
     fn play_stop() {
-        let mut e = IntegratedEngine::default();
+        let mut e = Engine::default();
 
         assert_eq!(e.is_performing(), false, "not performing at startup");
         e.play();
@@ -1526,7 +1556,7 @@ mod tests {
 
     #[test]
     fn solo() {
-        let mut e = IntegratedEngine::default();
+        let mut e = Engine::default();
         for index in 0..16 {
             assert!(!e.is_solo(index), "no solos at startup");
         }
@@ -1536,7 +1566,7 @@ mod tests {
 
     #[test]
     fn chaining() {
-        let mut e = IntegratedEngine::default();
+        let mut e = Engine::default();
 
         assert_eq!(e.chain_cursor(), 0, "chain cursor at zero at startup");
 
