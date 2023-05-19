@@ -496,6 +496,11 @@ impl Dca {
     pub fn set_pan(&mut self, pan: BipolarNormal) {
         self.pan = pan;
     }
+
+    pub fn update_from_params(&mut self, params: &DcaParams) {
+        self.set_gain(params.gain());
+        self.set_pan(params.pan());
+    }
 }
 
 /// [FrequencyHz] is a frequency measured in
@@ -701,7 +706,7 @@ impl Div<Ratio> for ParameterType {
 
 #[cfg(feature = "egui-framework")]
 mod gui {
-    use crate::{traits::gui::Shows, BipolarNormal, Dca, FrequencyHz, Normal};
+    use crate::{BipolarNormal, Dca, FrequencyHz, Normal};
     use eframe::egui::{DragValue, Slider, Ui};
     use std::ops::RangeInclusive;
 
@@ -724,8 +729,9 @@ mod gui {
             }
         }
     }
-    impl Shows for Dca {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Dca {
+        pub fn show(&mut self, ui: &mut Ui) -> bool {
+            let mut changed = false;
             let mut gain = self.gain().value();
             if ui
                 .add(
@@ -736,6 +742,7 @@ mod gui {
                 .changed()
             {
                 self.set_gain(gain.into());
+                changed = true;
             };
 
             let mut pan = self.pan().value();
@@ -748,7 +755,9 @@ mod gui {
                 .changed()
             {
                 self.set_pan(pan.into());
+                changed = true;
             };
+            changed
         }
     }
 }

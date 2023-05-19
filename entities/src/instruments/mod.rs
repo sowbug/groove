@@ -14,7 +14,7 @@ pub use sampler::SamplerMessage;
 pub use sampler::{Sampler, SamplerParams, SamplerVoice};
 #[cfg(feature = "iced-framework")]
 pub use welsh::WelshSynthMessage;
-pub use welsh::{LfoRouting, WelshSynth, WelshSynthParams, WelshVoice};
+pub use welsh::{LfoRouting, WelshSynth, WelshSynthParams, WelshVoice, WelshVoiceParams};
 
 mod drumkit;
 mod fm;

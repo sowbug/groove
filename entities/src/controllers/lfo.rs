@@ -132,7 +132,7 @@ mod gui {
             if self.frequency.show(ui, Self::frequency_range()) {
                 self.set_frequency(self.frequency);
             }
-            if self.waveform.show(ui) {
+            if self.waveform.show(ui).inner.is_some() {
                 self.set_waveform(self.waveform);
             }
             self.waveform_widget.show(ui);

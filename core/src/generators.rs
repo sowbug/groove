@@ -420,6 +420,14 @@ impl Oscillator {
     pub fn sample_rate(&self) -> usize {
         self.sample_rate
     }
+
+    pub fn fixed_frequency(&self) -> FrequencyHz {
+        self.fixed_frequency
+    }
+
+    pub fn frequency_tune(&self) -> Ratio {
+        self.frequency_tune
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -842,52 +850,51 @@ impl Envelope {
         self.release = release;
     }
 
-    pub fn as_params(&self) -> EnvelopeParams {
-        EnvelopeParams {
-            attack: self.attack(),
-            decay: self.decay(),
-            sustain: self.sustain(),
-            release: self.release(),
-        }
+    // TODO: experimental, not sure if this is the right pattern. It is
+    // basically a from_params() that's meant to allow changes without
+    // disrupting everything, which probably means it won't be the kind of thing
+    // a macro can generate.
+    pub fn update_from_params(&mut self, params: &EnvelopeParams) {
+        self.set_attack(params.attack());
+        self.set_decay(params.decay());
+        self.set_sustain(params.sustain());
+        self.set_release(params.release());
     }
 }
 
 #[cfg(feature = "egui-framework")]
 mod gui {
     use super::{Envelope, Oscillator, Waveform};
-    use crate::traits::gui::Shows;
     use eframe::egui::{ComboBox, DragValue, Ui};
     use strum::IntoEnumIterator;
 
     impl Waveform {
-        pub fn show(&mut self, ui: &mut Ui) -> bool {
-            let mut changed = false;
+        pub fn show(&mut self, ui: &mut Ui) -> eframe::egui::InnerResponse<Option<bool>> {
             let mut waveform = *self;
             ComboBox::new(ui.next_auto_id(), "Waveform")
                 .selected_text(waveform.to_string())
                 .show_ui(ui, |ui| {
                     for w in Waveform::iter() {
-                        if ui
-                            .selectable_value(&mut waveform, w, w.to_string())
-                            .clicked()
-                        {
-                            *self = w;
-                            changed = true;
-                        };
+                        let s: &'static str = w.into();
+                        if ui.selectable_value(&mut waveform, w, s).clicked() {
+                            *self = waveform;
+                            return true;
+                        }
                     }
-                });
-            return changed;
+                    return false;
+                })
         }
     }
 
-    impl Shows for Oscillator {
-        fn show(&mut self, ui: &mut Ui) {
-            self.waveform().show(ui);
+    impl Oscillator {
+        pub fn show(&mut self, ui: &mut Ui) -> eframe::egui::InnerResponse<Option<bool>> {
+            self.waveform.show(ui)
         }
     }
 
-    impl Shows for Envelope {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Envelope {
+        pub fn show(&mut self, ui: &mut Ui) -> bool {
+            let mut changed = false;
             let mut attack = self.attack();
             let mut decay = self.decay();
             let mut sustain = self.sustain().to_percentage();
@@ -903,6 +910,7 @@ mod gui {
                 .changed()
             {
                 self.set_attack(attack);
+                changed = true;
             }
             ui.end_row();
             if ui
@@ -916,6 +924,7 @@ mod gui {
                 .changed()
             {
                 self.set_decay(decay);
+                changed = true;
             }
             ui.end_row();
             if ui
@@ -930,6 +939,7 @@ mod gui {
                 .changed()
             {
                 self.set_sustain((sustain / 100.0).into());
+                changed = true;
             }
             ui.end_row();
             if ui
@@ -943,8 +953,10 @@ mod gui {
                 .changed()
             {
                 self.set_release(release);
+                changed = true;
             }
             ui.end_row();
+            changed
         }
     }
 }

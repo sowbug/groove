@@ -502,6 +502,14 @@ impl TimeSignature {
     pub fn set_bottom(&mut self, bottom: usize) {
         self.bottom = bottom;
     }
+
+    pub fn top(&self) -> usize {
+        self.top
+    }
+
+    pub fn bottom(&self) -> usize {
+        self.bottom
+    }
 }
 impl Default for TimeSignature {
     fn default() -> Self {

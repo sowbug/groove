@@ -325,17 +325,18 @@ impl FmSynth {
         }
     }
 
+    // TODO: replace with update_from_params() or whatever that turns out to be
     pub fn set_carrier_envelope(&mut self, carrier_envelope: Envelope) {
         self.carrier_envelope = carrier_envelope;
         self.inner_synth.voices_mut().for_each(|v| {
-            v.set_carrier_envelope(Envelope::new_with(&self.carrier_envelope.as_params()))
+            v.set_carrier_envelope(Envelope::new_with(&self.carrier_envelope.to_params()))
         });
     }
 
     pub fn set_modulator_envelope(&mut self, modulator_envelope: Envelope) {
         self.modulator_envelope = modulator_envelope;
         self.inner_synth.voices_mut().for_each(|v| {
-            v.set_modulator_envelope(Envelope::new_with(&self.modulator_envelope.as_params()))
+            v.set_modulator_envelope(Envelope::new_with(&self.modulator_envelope.to_params()))
         });
     }
 

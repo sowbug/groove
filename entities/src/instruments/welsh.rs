@@ -34,22 +34,48 @@ pub enum LfoRouting {
     FilterCutoff,
 }
 
-#[derive(Debug, Default)]
+#[derive(Control, Debug, Default, Params)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct WelshVoice {
-    oscillators: Vec<Oscillator>,
+    #[control]
+    #[params]
+    oscillator_1: Oscillator,
+    #[control]
+    #[params]
+    oscillator_2: Oscillator,
+    #[control]
+    #[params]
     oscillator_2_sync: bool,
+    #[control]
+    #[params]
     oscillator_mix: Normal, // 1.0 = entirely osc 0, 0.0 = entirely osc 1.
+    #[control]
+    #[params]
     amp_envelope: Envelope,
+    #[control]
+    #[params]
     dca: Dca,
 
+    #[control]
+    #[params]
     lfo: Oscillator,
+    #[params(leaf = true)]
     lfo_routing: LfoRouting,
+    #[control]
+    #[params]
     lfo_depth: Normal,
 
+    #[control]
+    #[params]
     filter: BiQuadFilterLowPass24db,
+    #[control]
+    #[params]
     filter_cutoff_start: Normal,
+    #[control]
+    #[params]
     filter_cutoff_end: Normal,
+    #[control]
+    #[params]
     filter_envelope: Envelope,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
@@ -105,9 +131,8 @@ impl Resets for WelshVoice {
         self.amp_envelope.reset(sample_rate);
         self.filter_envelope.reset(sample_rate);
         self.filter.reset(sample_rate);
-        self.oscillators
-            .iter_mut()
-            .for_each(|o| o.reset(sample_rate));
+        self.oscillator_1.reset(sample_rate);
+        self.oscillator_2.reset(sample_rate);
     }
 }
 impl Ticks for WelshVoice {
@@ -137,31 +162,24 @@ impl Ticks for WelshVoice {
                 if !matches!(self.lfo_routing, LfoRouting::None) {
                     self.lfo.tick(1);
                 }
-                self.oscillators.iter_mut().for_each(|o| o.tick(1));
+                self.oscillator_1.tick(1);
+                self.oscillator_2.tick(1);
 
                 // LFO
                 let lfo = self.lfo.value();
                 if matches!(self.lfo_routing, LfoRouting::Pitch) {
                     let lfo_for_pitch = lfo * self.lfo_depth;
-                    for o in self.oscillators.iter_mut() {
-                        o.set_frequency_modulation(lfo_for_pitch);
-                    }
+                    self.oscillator_1.set_frequency_modulation(lfo_for_pitch);
+                    self.oscillator_2.set_frequency_modulation(lfo_for_pitch);
                 }
 
                 // Oscillators
-                let len = self.oscillators.len();
-                let osc_sum = match len {
-                    0 => BipolarNormal::from(0.0),
-                    1 => self.oscillators[0].value() * self.oscillator_mix,
-                    2 => {
-                        if self.oscillator_2_sync && self.oscillators[0].should_sync() {
-                            self.oscillators[1].sync();
-                        }
-                        self.oscillators[0].value() * self.oscillator_mix
-                            + self.oscillators[1].value()
-                                * (Normal::maximum() - self.oscillator_mix)
+                let osc_sum = {
+                    if self.oscillator_2_sync && self.oscillator_1.should_sync() {
+                        self.oscillator_2.sync();
                     }
-                    _ => todo!(),
+                    self.oscillator_1.value() * self.oscillator_mix
+                        + self.oscillator_2.value() * (Normal::maximum() - self.oscillator_mix)
                 };
 
                 // Filters
@@ -219,28 +237,22 @@ impl WelshVoice {
     fn set_frequency_hz(&mut self, frequency_hz: FrequencyHz) {
         // It's safe to set the frequency on a fixed-frequency oscillator; the
         // fixed frequency is stored separately and takes precedence.
-        self.oscillators.iter_mut().for_each(|o| {
-            o.set_frequency(frequency_hz);
-        });
+        self.oscillator_1.set_frequency(frequency_hz);
+        self.oscillator_2.set_frequency(frequency_hz);
     }
 
-    pub fn new_with(params: &WelshSynthParams) -> Self {
+    pub fn new_with(params: &WelshVoiceParams) -> Self {
         Self {
-            oscillators: vec![
-                Oscillator::new_with(&params.oscillator_1),
-                Oscillator::new_with(&params.oscillator_2),
-            ],
-            oscillator_2_sync: params.oscillator_sync(),
+            oscillator_1: Oscillator::new_with(&params.oscillator_1),
+            oscillator_2: Oscillator::new_with(&params.oscillator_2),
+            oscillator_2_sync: params.oscillator_2_sync,
             oscillator_mix: params.oscillator_mix(),
-            amp_envelope: Envelope::new_with(&params.envelope),
-            dca: Dca::new_with(&DcaParams {
-                gain: params.gain(),
-                pan: params.pan(),
-            }),
+            amp_envelope: Envelope::new_with(&params.amp_envelope),
+            dca: Dca::new_with(params.dca()),
             lfo: Oscillator::new_with(&params.lfo),
             lfo_routing: params.lfo_routing(),
             lfo_depth: params.lfo_depth(),
-            filter: BiQuadFilterLowPass24db::new_with(&params.low_pass_filter),
+            filter: BiQuadFilterLowPass24db::new_with(&params.filter()),
             filter_cutoff_start: params.filter_cutoff_start(),
             filter_cutoff_end: params.filter_cutoff_end(),
             filter_envelope: Envelope::new_with(&params.filter_envelope),
@@ -259,6 +271,58 @@ impl WelshVoice {
     fn set_pan(&mut self, pan: BipolarNormal) {
         self.dca.set_pan(pan)
     }
+
+    pub fn set_lfo_depth(&mut self, lfo_depth: Normal) {
+        self.lfo_depth = lfo_depth;
+    }
+
+    pub fn set_filter_cutoff_start(&mut self, filter_cutoff_start: Normal) {
+        self.filter_cutoff_start = filter_cutoff_start;
+    }
+
+    pub fn set_filter_cutoff_end(&mut self, filter_cutoff_end: Normal) {
+        self.filter_cutoff_end = filter_cutoff_end;
+    }
+
+    pub fn set_oscillator_2_sync(&mut self, oscillator_2_sync: bool) {
+        self.oscillator_2_sync = oscillator_2_sync;
+    }
+
+    pub fn set_oscillator_mix(&mut self, oscillator_mix: Normal) {
+        self.oscillator_mix = oscillator_mix;
+    }
+
+    pub fn amp_envelope_mut(&mut self) -> &mut Envelope {
+        &mut self.amp_envelope
+    }
+
+    pub fn filter_mut(&mut self) -> &mut BiQuadFilterLowPass24db {
+        &mut self.filter
+    }
+
+    pub fn oscillator_2_sync(&self) -> bool {
+        self.oscillator_2_sync
+    }
+
+    pub fn oscillator_mix(&self) -> Normal {
+        self.oscillator_mix
+    }
+
+    pub fn lfo_routing(&self) -> LfoRouting {
+        self.lfo_routing
+    }
+
+    pub fn lfo_depth(&self) -> Normal {
+        self.lfo_depth
+    }
+
+    pub fn filter_cutoff_start(&self) -> Normal {
+        self.filter_cutoff_start
+    }
+
+    pub fn filter_cutoff_end(&self) -> Normal {
+        self.filter_cutoff_end
+    }
 }
 
 #[derive(Debug, Control, Params, Uid)]
@@ -271,59 +335,10 @@ pub struct WelshSynth {
 
     #[control]
     #[params]
-    oscillator_1: Oscillator,
+    voice: WelshVoice,
 
     #[control]
     #[params]
-    oscillator_2: Oscillator,
-
-    #[control]
-    #[params]
-    oscillator_sync: bool,
-
-    #[control]
-    #[params]
-    oscillator_mix: Normal,
-
-    #[control]
-    #[params]
-    envelope: Envelope,
-
-    #[control]
-    #[params]
-    lfo: Oscillator,
-
-    #[params(leaf = true)]
-    lfo_routing: LfoRouting,
-
-    #[control]
-    #[params]
-    lfo_depth: Normal,
-
-    #[control]
-    #[params]
-    low_pass_filter: BiQuadFilterLowPass24db,
-
-    #[control]
-    #[params]
-    filter_cutoff_start: Normal,
-
-    #[control]
-    #[params]
-    filter_cutoff_end: Normal,
-
-    #[control]
-    #[params]
-    filter_envelope: Envelope,
-
-    #[control]
-    #[params]
-    gain: Normal,
-
-    #[control]
-    #[params]
-    pan: BipolarNormal,
-
     dca: Dca,
 }
 impl IsInstrument for WelshSynth {}
@@ -372,29 +387,13 @@ impl WelshSynth {
     pub fn new_with(params: &WelshSynthParams) -> Self {
         const VOICE_CAPACITY: usize = 8;
         let voice_store = StealingVoiceStore::<WelshVoice>::new_with_voice(VOICE_CAPACITY, || {
-            WelshVoice::new_with(&params)
+            WelshVoice::new_with(params.voice())
         });
         Self {
             uid: Default::default(),
             inner_synth: Synthesizer::<WelshVoice>::new_with(Box::new(voice_store)),
-            dca: Dca::new_with(&DcaParams {
-                gain: params.gain(),
-                pan: params.pan(),
-            }),
-            gain: params.gain(),
-            pan: params.pan(),
-            envelope: Envelope::new_with(&params.envelope),
-            filter_envelope: Envelope::new_with(&params.filter_envelope),
-            oscillator_1: Oscillator::new_with(&params.oscillator_1),
-            oscillator_2: Oscillator::new_with(&params.oscillator_2),
-            oscillator_sync: params.oscillator_sync(),
-            oscillator_mix: params.oscillator_mix(),
-            lfo: Oscillator::new_with(&params.lfo),
-            lfo_routing: params.lfo_routing(),
-            lfo_depth: params.lfo_depth(),
-            low_pass_filter: BiQuadFilterLowPass24db::new_with(&params.low_pass_filter),
-            filter_cutoff_start: params.filter_cutoff_start(),
-            filter_cutoff_end: params.filter_cutoff_end(),
+            voice: WelshVoice::new_with(params.voice()),
+            dca: Dca::new_with(params.dca()),
         }
     }
 
@@ -403,40 +402,40 @@ impl WelshSynth {
         //        self.preset.name.as_str()
     }
 
-    pub fn gain(&self) -> Normal {
-        self.inner_synth.gain()
-    }
+    // pub fn gain(&self) -> Normal {
+    //     self.inner_synth.gain()
+    // }
 
-    pub fn set_gain(&mut self, gain: Normal) {
-        // This seems like a lot of duplication, but I think it's OK. The outer
-        // synth handles automation. The inner synth needs a single source of
-        // gain/pan, and the inner synth can't propagate to the voices because
-        // (1) it doesn't actually know whether the voice handles those things,
-        // and (2) I'm not sure we want to codify whether gain/pan are per-voice
-        // or per-synth, meaning that the propagation is better placed in the
-        // outer synth.
-        //
-        // All that said, I'm still getting used to composition over
-        // inheritance. It feels weird for the concrete case to be at the top.
-        // Maybe this is all just fine.
-        self.gain = gain;
-        self.dca.set_gain(gain);
-        self.inner_synth.set_gain(gain);
-        self.inner_synth.voices_mut().for_each(|v| v.set_gain(gain));
-        self.inner_synth.set_gain(gain);
-    }
+    // pub fn set_gain(&mut self, gain: Normal) {
+    //     // This seems like a lot of duplication, but I think it's OK. The outer
+    //     // synth handles automation. The inner synth needs a single source of
+    //     // gain/pan, and the inner synth can't propagate to the voices because
+    //     // (1) it doesn't actually know whether the voice handles those things,
+    //     // and (2) I'm not sure we want to codify whether gain/pan are per-voice
+    //     // or per-synth, meaning that the propagation is better placed in the
+    //     // outer synth.
+    //     //
+    //     // All that said, I'm still getting used to composition over
+    //     // inheritance. It feels weird for the concrete case to be at the top.
+    //     // Maybe this is all just fine.
+    //     self.gain = gain;
+    //     self.dca.set_gain(gain);
+    //     self.inner_synth.set_gain(gain);
+    //     self.inner_synth.voices_mut().for_each(|v| v.set_gain(gain));
+    //     self.inner_synth.set_gain(gain);
+    // }
 
-    pub fn pan(&self) -> BipolarNormal {
-        self.inner_synth.pan()
-    }
+    // pub fn pan(&self) -> BipolarNormal {
+    //     self.inner_synth.pan()
+    // }
 
-    pub fn set_pan(&mut self, pan: BipolarNormal) {
-        self.pan = pan;
-        self.dca.set_pan(pan);
-        self.inner_synth.set_pan(pan);
-        self.inner_synth.voices_mut().for_each(|v| v.set_pan(pan));
-        self.inner_synth.set_pan(pan);
-    }
+    // pub fn set_pan(&mut self, pan: BipolarNormal) {
+    //     self.pan = pan;
+    //     self.dca.set_pan(pan);
+    //     self.inner_synth.set_pan(pan);
+    //     self.inner_synth.voices_mut().for_each(|v| v.set_pan(pan));
+    //     self.inner_synth.set_pan(pan);
+    // }
 
     // TODO: this pattern sucks. I knew it was going to be icky. Think about how
     // to make it less copy/paste.
@@ -449,76 +448,16 @@ impl WelshSynth {
             _ => self.derived_update(message),
         }
     }
-
-    pub fn envelope(&self) -> &Envelope {
-        &self.envelope
-    }
-
-    pub fn filter_envelope(&self) -> &Envelope {
-        &self.filter_envelope
-    }
-
-    pub fn lfo(&self) -> &Oscillator {
-        &self.lfo
-    }
-
-    pub fn set_envelope(&mut self, envelope: Envelope) {
-        self.envelope = envelope;
-    }
-
-    pub fn set_filter_envelope(&mut self, filter_envelope: Envelope) {
-        self.filter_envelope = filter_envelope;
-    }
-
-    pub fn set_oscillator_1(&mut self, oscillator_1: Oscillator) {
-        self.oscillator_1 = oscillator_1;
-    }
-
-    pub fn set_oscillator_2(&mut self, oscillator_2: Oscillator) {
-        self.oscillator_2 = oscillator_2;
-    }
-
-    pub fn set_oscillator_sync(&mut self, oscillator_sync: bool) {
-        self.oscillator_sync = oscillator_sync;
-    }
-
-    pub fn set_oscillator_mix(&mut self, oscillator_mix: Normal) {
-        self.oscillator_mix = oscillator_mix;
-    }
-
-    pub fn set_lfo(&mut self, lfo: Oscillator) {
-        self.lfo = lfo;
-    }
-
-    pub fn set_lfo_routing(&mut self, lfo_routing: LfoRouting) {
-        self.lfo_routing = lfo_routing;
-    }
-
-    pub fn set_lfo_depth(&mut self, lfo_depth: Normal) {
-        self.lfo_depth = lfo_depth;
-    }
-
-    pub fn set_low_pass_filter(&mut self, low_pass_filter: BiQuadFilterLowPass24db) {
-        self.low_pass_filter = low_pass_filter;
-    }
-
-    pub fn set_filter_cutoff_start(&mut self, filter_cutoff_start: Normal) {
-        self.filter_cutoff_start = filter_cutoff_start;
-    }
-
-    pub fn set_filter_cutoff_end(&mut self, filter_cutoff_end: Normal) {
-        self.filter_cutoff_end = filter_cutoff_end;
-    }
 }
 
 #[cfg(feature = "egui-framework")]
 mod gui {
-    use super::WelshSynth;
+    use super::{WelshSynth, WelshVoice};
     use eframe::{
         egui::{CollapsingHeader, Sense, Ui},
         epaint::{Color32, Stroke, Vec2},
     };
-    use groove_core::traits::gui::Shows;
+    use groove_core::{instruments::Synthesizer, traits::gui::Shows};
 
     impl Shows for WelshSynth {
         fn show(&mut self, ui: &mut Ui) {
@@ -535,36 +474,70 @@ mod gui {
                 },
                 Stroke::NONE,
             );
+            self.voice.show(ui, &mut self.inner_synth);
+        }
+    }
 
+    impl WelshVoice {
+        fn show(&mut self, ui: &mut Ui, synth: &mut Synthesizer<Self>) {
             CollapsingHeader::new("Oscillator 1")
                 .default_open(true)
                 .id_source(ui.next_auto_id())
-                .show(ui, |ui| self.oscillator_1.show(ui));
+                .show(ui, |ui| {
+                    if let Some(changed) = self.oscillator_1.show(ui).inner {
+                        if changed {
+                            synth.voices_mut().for_each(|v| {
+                                v.oscillator_1.set_waveform(self.oscillator_1.waveform())
+                            })
+                        }
+                    }
+                });
             CollapsingHeader::new("Oscillator 2")
                 .default_open(true)
                 .id_source(ui.next_auto_id())
-                .show(ui, |ui| self.oscillator_2.show(ui));
+                .show(ui, |ui| {
+                    if let Some(changed) = self.oscillator_2.show(ui).inner {
+                        if changed {
+                            synth.voices_mut().for_each(|v| {
+                                v.oscillator_2.set_waveform(self.oscillator_2.waveform())
+                            })
+                        }
+                    }
+                });
+
+            // TODO: this doesn't get propagated to the voices, because the single DCA will be responsible for turning mono voice output to stereo.
             CollapsingHeader::new("DCA")
                 .default_open(true)
                 .id_source(ui.next_auto_id())
-                .show(ui, |ui| self.dca.show(ui));
-            if self.dca.gain() != self.gain() {
-                self.set_gain(self.dca.gain());
-            }
-            if self.dca.pan() != self.pan() {
-                self.set_pan(self.dca.pan());
-            }
-
+                .show(ui, |ui| {
+                    if self.dca.show(ui) {
+                        synth.voices_mut().for_each(|v| {
+                            v.dca.update_from_params(&self.dca.to_params());
+                        })
+                    }
+                });
             CollapsingHeader::new("Amplitude")
                 .default_open(true)
                 .id_source(ui.next_auto_id())
-                .show(ui, |ui| self.envelope.show(ui));
+                .show(ui, |ui| {
+                    if self.amp_envelope.show(ui) {
+                        synth.voices_mut().for_each(|v| {
+                            v.amp_envelope_mut()
+                                .update_from_params(&self.amp_envelope.to_params());
+                        })
+                    }
+                });
             CollapsingHeader::new("LPF")
                 .default_open(true)
                 .id_source(ui.next_auto_id())
                 .show(ui, |ui| {
-                    self.low_pass_filter.show(ui);
-                    self.filter_envelope.show(ui);
+                    let filter_changed = self.filter.show(ui);
+                    let filter_envelope_changed = self.filter_envelope.show(ui);
+                    if filter_changed || filter_envelope_changed {
+                        synth.voices_mut().for_each(|v| {
+                            v.filter_mut().update_from_params(&self.filter.to_params());
+                        })
+                    }
                 });
         }
     }

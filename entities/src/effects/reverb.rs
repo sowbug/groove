@@ -110,6 +110,10 @@ impl Reverb {
             .iter_mut()
             .for_each(|c| c.set_seconds(seconds));
     }
+
+    pub fn wet_dry_mix(&self) -> f32 {
+        self.wet_dry_mix
+    }
 }
 
 #[derive(Debug, Default)]

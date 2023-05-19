@@ -5,11 +5,11 @@ use convert_case::{Boundary, Case, Casing};
 use groove_core::{
     generators::{EnvelopeParams, Oscillator, OscillatorParams, Waveform},
     midi::{note_to_frequency, GeneralMidiProgram},
-    FrequencyHz, Normal, ParameterType, Ratio,
+    DcaParams, FrequencyHz, Normal, ParameterType, Ratio,
 };
 use groove_entities::{
     effects::{BiQuadFilter, BiQuadFilterLowPass24dbParams},
-    instruments::{LfoRouting, WelshSynthParams},
+    instruments::{LfoRouting, WelshSynthParams, WelshVoiceParams},
 };
 use groove_utils::Paths;
 use serde::{Deserialize, Serialize};
@@ -108,57 +108,64 @@ impl WelshPatchSettings {
         }
 
         WelshSynthParams {
-            oscillator_1: OscillatorParams {
-                waveform: self.oscillator_1.waveform.into(),
-                frequency_tune: self.oscillator_1.tune.into(),
-                ..Default::default()
+            voice: WelshVoiceParams {
+                oscillator_1: OscillatorParams {
+                    waveform: self.oscillator_1.waveform.into(),
+                    frequency_tune: self.oscillator_1.tune.into(),
+                    ..Default::default()
+                },
+                oscillator_2: OscillatorParams {
+                    waveform: self.oscillator_2.waveform.into(),
+                    frequency_tune: self.oscillator_2.tune.into(),
+                    ..Default::default()
+                },
+                oscillator_2_sync: self.oscillator_2_sync,
+                oscillator_mix: if oscillators.is_empty() {
+                    Normal::zero()
+                } else if oscillators.len() == 1
+                    || (self.oscillator_1.mix == 0.0 && self.oscillator_2.mix == 0.0)
+                {
+                    Normal::maximum()
+                } else {
+                    let total = self.oscillator_1.mix + self.oscillator_2.mix;
+                    Normal::from(self.oscillator_1.mix / total)
+                },
+                amp_envelope: EnvelopeParams {
+                    attack: self.amp_envelope.attack(),
+                    decay: self.amp_envelope.decay(),
+                    sustain: self.amp_envelope.sustain(),
+                    release: self.amp_envelope.decay(),
+                },
+                lfo: OscillatorParams {
+                    waveform: self.lfo.waveform,
+                    frequency: self.lfo.frequency.into(),
+                    ..Default::default()
+                },
+                lfo_routing: self.lfo.routing.into(),
+                lfo_depth: self.lfo.depth.into(),
+                filter: BiQuadFilterLowPass24dbParams {
+                    cutoff: self.filter_type_24db.cutoff_hz.into(),
+                    passband_ripple: BiQuadFilter::denormalize_q(self.filter_resonance.into()),
+                },
+                filter_cutoff_start: FrequencyHz::frequency_to_percent(
+                    self.filter_type_12db.cutoff_hz.into(),
+                ),
+                filter_cutoff_end: self.filter_envelope_weight.into(),
+                filter_envelope: EnvelopeParams {
+                    attack: self.filter_envelope.attack(),
+                    decay: self.filter_envelope.decay(),
+                    sustain: self.filter_envelope.sustain(),
+                    release: self.filter_envelope.decay(),
+                },
+                dca: DcaParams {
+                    gain: 1.0.into(),
+                    pan: Default::default(),
+                },
             },
-            oscillator_2: OscillatorParams {
-                waveform: self.oscillator_2.waveform.into(),
-                frequency_tune: self.oscillator_2.tune.into(),
-                ..Default::default()
+            dca: DcaParams {
+                gain: 1.0.into(),
+                pan: Default::default(),
             },
-            oscillator_sync: self.oscillator_2_sync,
-            oscillator_mix: if oscillators.is_empty() {
-                Normal::zero()
-            } else if oscillators.len() == 1
-                || (self.oscillator_1.mix == 0.0 && self.oscillator_2.mix == 0.0)
-            {
-                Normal::maximum()
-            } else {
-                let total = self.oscillator_1.mix + self.oscillator_2.mix;
-                Normal::from(self.oscillator_1.mix / total)
-            },
-            envelope: EnvelopeParams {
-                attack: self.amp_envelope.attack(),
-                decay: self.amp_envelope.decay(),
-                sustain: self.amp_envelope.sustain(),
-                release: self.amp_envelope.decay(),
-            },
-            lfo: OscillatorParams {
-                waveform: self.lfo.waveform,
-                frequency: self.lfo.frequency.into(),
-                ..Default::default()
-            },
-            lfo_routing: self.lfo.routing.into(),
-            lfo_depth: self.lfo.depth.into(),
-            low_pass_filter: BiQuadFilterLowPass24dbParams {
-                cutoff: self.filter_type_24db.cutoff_hz.into(),
-                passband_ripple: BiQuadFilter::denormalize_q(self.filter_resonance.into()),
-            },
-            filter_cutoff_start: FrequencyHz::frequency_to_percent(
-                self.filter_type_12db.cutoff_hz.into(),
-            ),
-            filter_cutoff_end: self.filter_envelope_weight.into(),
-            filter_envelope: EnvelopeParams {
-                attack: self.filter_envelope.attack(),
-                decay: self.filter_envelope.decay(),
-                sustain: self.filter_envelope.sustain(),
-                release: self.filter_envelope.decay(),
-            },
-
-            gain: 1.0.into(),
-            pan: Default::default(),
         }
     }
 }
@@ -738,7 +745,7 @@ mod tests {
 
     impl WelshPatchSettings {
         pub fn derive_welsh_voice(&self) -> WelshVoice {
-            WelshVoice::new_with(&self.derive_welsh_synth_params())
+            WelshVoice::new_with(self.derive_welsh_synth_params().voice())
         }
     }
 

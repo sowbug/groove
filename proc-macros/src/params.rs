@@ -21,7 +21,7 @@ pub(crate) fn impl_params_derive(input: TokenStream, primitives: &HashSet<Ident>
         let struct_snake_case_name = stringify!("{}", struct_name.to_string().to_case(Case::Snake));
         let params_name = format_ident!("{}Params", struct_name);
 
-        let (_impl_generics, _ty_generics, _where_clause) = generics.split_for_impl();
+        let (_impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
         // Code adapted from https://blog.turbo.fish/proc-macro-error-handling/
         // Thank you!
         let fields = match data {
@@ -56,6 +56,7 @@ pub(crate) fn impl_params_derive(input: TokenStream, primitives: &HashSet<Ident>
         let mut variant_names = Vec::default();
         let mut getter_methods = Vec::default();
         let mut setter_methods = Vec::default();
+        let mut to_params_exprs = Vec::default();
         let _core_crate = format_ident!("{}", core_crate_name());
         for (field_name, field_type, is_leaf) in attr_fields {
             let field_name_pascal_case =
@@ -83,6 +84,15 @@ pub(crate) fn impl_params_derive(input: TokenStream, primitives: &HashSet<Ident>
                 quote! {
                     pub fn #field_name(&self) -> &#field_params_type { &self.#field_name }
                 }
+            });
+            to_params_exprs.push(if is_leaf_or_primitive {
+                if field_type == "String" {
+                    quote! { self.#field_name.to_string() }
+                } else {
+                    quote! { self.#field_name() }
+                }
+            } else {
+                quote! { self.#field_name.to_params() }
             });
             field_types.push(field_params_type.clone());
             let setter_method_name = format_ident!("set_{}", field_name.to_string());
@@ -121,11 +131,23 @@ pub(crate) fn impl_params_derive(input: TokenStream, primitives: &HashSet<Ident>
             }
         };
 
+        let to_params_block = quote! {
+            impl #generics #struct_name #ty_generics {
+                pub fn to_params(&self) -> #params_name {
+                    #params_name {
+                        #( #field_names: #to_params_exprs, )*
+                    }
+                }
+            }
+        };
+
         quote! {
             #[automatically_derived]
             #params_struct_block
             #[automatically_derived]
             #getter_setter_block
+            #[automatically_derived]
+            #to_params_block
         }
     })
 }

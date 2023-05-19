@@ -98,6 +98,15 @@ impl BiQuadFilterLowPass24db {
             _ => self.derived_update(message),
         }
     }
+
+    // TODO: (see Envelope's method and comments) -- this looks wasteful because
+    // it could compute coefficients twice in a single transaction, but the use
+    // case (egui change notifications) calls for only one thing changing at a
+    // time.
+    pub fn update_from_params(&mut self, params: &BiQuadFilterLowPass24dbParams) {
+        self.set_cutoff(params.cutoff());
+        self.set_passband_ripple(params.passband_ripple());
+    }
 }
 
 #[derive(Debug, Default)]
@@ -1216,10 +1225,11 @@ mod gui {
     use super::BiQuadFilterLowPass24db;
     use eframe::egui::Slider;
     use eframe::egui::Ui;
-    use groove_core::{traits::gui::Shows, FrequencyHz};
+    use groove_core::FrequencyHz;
 
-    impl Shows for BiQuadFilterLowPass24db {
-        fn show(&mut self, ui: &mut Ui) {
+    impl BiQuadFilterLowPass24db {
+        pub fn show(&mut self, ui: &mut Ui) -> bool {
+            let mut changed = false;
             let mut cutoff = self.cutoff().value();
             let mut pbr = self.passband_ripple();
             if ui
@@ -1227,13 +1237,16 @@ mod gui {
                 .changed()
             {
                 self.set_cutoff(cutoff.into());
+                changed = true;
             };
             if ui
                 .add(Slider::new(&mut pbr, 0.0..=10.0).text("Passband"))
                 .changed()
             {
-                self.set_passband_ripple(pbr)
+                self.set_passband_ripple(pbr);
+                changed = true;
             };
+            changed
         }
     }
 }
