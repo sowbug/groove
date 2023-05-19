@@ -514,11 +514,28 @@ impl WelshSynth {
 #[cfg(feature = "egui-framework")]
 mod gui {
     use super::WelshSynth;
-    use eframe::egui::{CollapsingHeader, Ui};
+    use eframe::{
+        egui::{CollapsingHeader, Sense, Ui},
+        epaint::{Color32, Stroke, Vec2},
+    };
     use groove_core::traits::gui::Shows;
 
     impl Shows for WelshSynth {
         fn show(&mut self, ui: &mut Ui) {
+            // TODO: LED should be a reusable widget
+            const LED_SIZE: Vec2 = Vec2::splat(5.0);
+            let (rect, _response) = ui.allocate_exact_size(LED_SIZE, Sense::hover());
+            ui.painter().rect(
+                rect,
+                ui.style().visuals.noninteractive().rounding,
+                if self.inner_synth.is_midi_recently_active() {
+                    Color32::YELLOW
+                } else {
+                    Color32::DARK_GRAY
+                },
+                Stroke::NONE,
+            );
+
             CollapsingHeader::new("Oscillator 1")
                 .default_open(true)
                 .id_source(ui.next_auto_id())

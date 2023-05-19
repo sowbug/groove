@@ -30,6 +30,8 @@ pub struct Synthesizer<V: IsStereoSampleVoice> {
     gain: Normal,
 
     pan: BipolarNormal,
+
+    ticks_since_last_midi_input: usize,
 }
 impl<V: IsStereoSampleVoice> Generates<StereoSample> for Synthesizer<V> {
     fn value(&self) -> StereoSample {
@@ -61,6 +63,7 @@ impl<V: IsStereoSampleVoice> Ticks for Synthesizer<V> {
         if let Some(vs) = self.voice_store.as_mut() {
             vs.tick(tick_count);
         }
+        self.ticks_since_last_midi_input += tick_count;
     }
 }
 impl<V: IsStereoSampleVoice> Synthesizer<V> {
@@ -72,6 +75,7 @@ impl<V: IsStereoSampleVoice> Synthesizer<V> {
             channel_aftertouch: Default::default(),
             gain: Default::default(),
             pan: Default::default(),
+            ticks_since_last_midi_input: Default::default(),
         }
     }
 
@@ -119,6 +123,11 @@ impl<V: IsStereoSampleVoice> Synthesizer<V> {
     pub fn sample_rate(&self) -> usize {
         self.sample_rate
     }
+
+    pub fn is_midi_recently_active(&self) -> bool {
+        // Last quarter-second
+        self.ticks_since_last_midi_input < self.sample_rate() / 4
+    }
 }
 impl<V: IsStereoSampleVoice> HandlesMidi for Synthesizer<V> {
     fn handle_midi_message(
@@ -151,6 +160,8 @@ impl<V: IsStereoSampleVoice> HandlesMidi for Synthesizer<V> {
                 #[allow(unused_variables)]
                 MidiMessage::PitchBend { bend } => self.set_pitch_bend(bend.as_f32()),
             }
+
+            self.ticks_since_last_midi_input = Default::default();
         }
         None
     }
