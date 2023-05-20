@@ -790,6 +790,11 @@ impl Envelope {
         x2: f64,
         y2: f64,
     ) -> (f64, f64, f64) {
+        if x0 == x1 && x1 == x2 && y0 == y1 && y1 == y2 {
+            // The curve we're asking about is actually just a point. Return an
+            // identity.
+            return (0.0, 1.0, 0.0);
+        }
         let m = Matrix3::new(
             1.0,
             x0,
@@ -2047,6 +2052,30 @@ pub mod tests {
             Normal::MIN,
             "At sample rate 2KHz, shutdown state should reach 0.0 within two samples."
         );
+    }
+
+    // Bugfix: if sustain was 100%, attack was zero, and decay was nonzero, then
+    // the decay curve called for a change from amplitude 1.0 to amplitude 1.0,
+    // which meant we asked the matrix math to calculate coefficients for a
+    // singularity, which netted out to amplitude being zero while we waited for
+    // it to reach 1.0 (or for the decay timeout to fire, which was how we
+    // progressed at all to sustain). Solution: notice that start/end
+    // coordinates are identical, and return identity coefficients so that the
+    // conversion from linear to curved produced the target amplitude, causing
+    // the state to advance to sustain. Amazing that I didn't catch this right
+    // away.
+    #[test]
+    fn sustain_full() {
+        let mut e =
+            Envelope::new_with(&EnvelopeParams::new_with(0.0, 0.67, Normal::maximum(), 0.5));
+        e.reset(44100);
+        assert_eq!(e.value().value(), 0.0);
+        e.tick(1);
+        assert_eq!(e.value().value(), 0.0);
+
+        e.trigger_attack();
+        e.tick(1);
+        assert_eq!(e.value(), Normal::maximum());
     }
 
     impl SteppedEnvelopeStep {
