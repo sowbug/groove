@@ -397,7 +397,8 @@ impl Ord for MidiTicks {
 }
 impl Eq for MidiTicks {}
 
-#[derive(Clone, Debug, Default, FromRepr, Serialize, Deserialize, IntoStaticStr)]
+#[derive(Clone, Debug, Default, FromRepr, IntoStaticStr)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub enum BeatValue {
     Octuple = 128,   // large/maxima
     Quadruple = 256, // long
