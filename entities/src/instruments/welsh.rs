@@ -264,14 +264,6 @@ impl WelshVoice {
         }
     }
 
-    fn set_gain(&mut self, gain: Normal) {
-        self.dca.set_gain(gain)
-    }
-
-    fn set_pan(&mut self, pan: BipolarNormal) {
-        self.dca.set_pan(pan)
-    }
-
     pub fn set_lfo_depth(&mut self, lfo_depth: Normal) {
         self.lfo_depth = lfo_depth;
     }
