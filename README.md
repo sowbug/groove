@@ -158,10 +158,11 @@ phenomenon](https://en.wikipedia.org/wiki/Frequency_illusion) is marvelous.
 - [Supercollider](https://github.com/supercollider/supercollider): An audio
   server, programming language, and IDE for sound synthesis and algorithmic
   composition.
-- [Surge XT](https://surge-synthesizer.github.io/) a free and open-source hybrid
+- [Surge XT](https://surge-synthesizer.github.io/): a free and open-source hybrid
   synthesizer.
 - [Synth6581](https://www.raspberrypi.com/news/commodore-64-raspberry-pi-4-synth6581/)
 - [SynthLab](https://www.willpirkle.com/synthlab-landing/)
+- [Tidal Cycles](https://tidalcycles.org/): Live coding music with algorithmic patterns
 - [Vital](https://github.com/mtytel/vital): a spectral warping wavetable
   synthesizer.
 - [Welsh's Synthesizer Cookbook](https://synthesizer-cookbook.com/)
