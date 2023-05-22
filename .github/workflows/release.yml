@@ -71,13 +71,12 @@ jobs:
           name: groove-${{ matrix.target }}
           path: |
             target/${{ matrix.target }}/release/groove-cli*
-            target/${{ matrix.target }}/release/groove-gui*
             target/${{ matrix.target }}/release/groove-egui*
             perf-output.txt
       - name: Upload binaries
         uses: taiki-e/upload-rust-binary-action@v1
         with:
-          bin: groove-gui,groove-egui,groove-cli
+          bin: groove-egui,groove-cli
           include: README.md,LICENSE.txt,assets,projects
           leading_dir: true
           archive: groove-$tag-$target
@@ -128,11 +127,10 @@ jobs:
           name: groove-${{ matrix.target }}
           path: |
             target/${{ matrix.target }}/release/groove-cli*
-            target/${{ matrix.target }}/release/groove-gui*
             target/${{ matrix.target }}/release/groove-egui*
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
-          bin: groove-gui,groove-egui,groove-cli
+          bin: groove-egui,groove-cli
           include: README.md,LICENSE.txt,assets,projects
           target: ${{ matrix.target }}
           leading_dir: true

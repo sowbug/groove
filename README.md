@@ -34,7 +34,7 @@ A digital audio workstation (DAW) engine.
    [DnB](https://en.wikipedia.org/wiki/Drum_and_bass) producer.
 6. Take a look at all the other projects in the `projects` directory. Render
    them, tweak them, and make new ones!
-7. Launch the `groove-gui` executable. It won't do anything useful, but you
+7. Launch the `groove-egui` executable. It won't do anything useful, but you
    should see a DAW-ish window appear, and if you press the play button, you
    should hear `projects/default.json5` played through your speakers. If not,
    please file a bug so I can be aware of GUI problems on different OSes.

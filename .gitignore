@@ -6,6 +6,7 @@
 /target
 Cargo.lock
 groove-cli.exe
+groove-egui.exe
 groove-gui.exe
 perf-output.txt
 test-data/perf-1.wav
