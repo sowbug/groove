@@ -1,0 +1,53 @@
+{
+    "title": "Non-musical sandbox",
+    "clock": {"bpm": 128, "midi-ticks-per-second": 960, "time-signature": {"top": 4, "bottom": 4}},
+    "devices": [
+        {"instrument": ["piano-1", {"welsh": [{"midi-in": 0}, {"name": "piano"}]}]},
+        {"instrument": ["bassline", {"welsh": [{"midi-in": 1}, {"name": "digital-bass"}]}]},
+        {"instrument": ["synth-1", {"welsh": [{"midi-in": 3}, {"name": "strings-pwm"}]}]},
+        {"instrument": ["drum-1", {"drumkit": [{"midi-in": 10}, {"name": "707"}]}]},
+        {"controller": ["arp-1", {"arpeggiator": [{"midi-in": 2, "midi-out": 3}, {"bpm": 128}]}]},
+        {"effect": ["gain-1", {"gain": {"ceiling": 0.45}}]},
+        {"effect": ["gain-2", {"gain": {"ceiling": 0.25}}]},
+        {"effect": ["gain-3", {"gain": {"ceiling": 0.15}}]},
+        {"effect": ["bitcrusher-1", {"bitcrusher": {"bits": 14}}]},
+        {"effect": ["low-pass-1", {"filter-low-pass-24db": {"cutoff": 1200, "passband-ripple": 1}}]},
+        {"controller": ["panning-lfo", {"lfo": [{"midi-in": 0, "midi-out": 0}, {"waveform": "triangle", "frequency": 2}]}]}
+    ],
+    "patch-cables": [["piano-1", "low-pass-1", "gain-1", "main-mixer"], ["bassline", "gain-2", "main-mixer"], ["synth-1", "gain-3", "main-mixer"], ["drum-1", "main-mixer"]],
+    "controls": [{"id": "lfo-pan-1", "source": "panning-lfo", "target": {"id": "bassline", "param": "pan"}}],
+    "patterns": [
+        {"id": "basic-1", "note-value": "eighth", "notes": [[60, 60, 60, 60, 67, 67, 67, 67]]},
+        {"id": "basic-2", "note-value": "eighth", "notes": [
+            [72, 72, 72, 72, 64, 64, 64, 64],
+            [60, 60, 60, 60, 67, 67, 67, 67]]},
+        {"id": "bass", "note-value": "eighth", "notes": [
+            [67, 60, 67, 60, 67, 60, 67, 60]]},
+        {
+            "id": "four-on-the-floor",
+            "note-value": "sixteenth",
+            "notes": [
+                [0, 0, 0, 0, 38, 0, 0, 0, 0, 0, 0, 0, 38, 0, 0, 0],
+                [35, 0, 0, 0, 35, 0, 0, 0, 35, 0, 0, 0, 35, 0, 0, 0],
+                [42, 44, 42, 44, 42, 44, 42, 44, 42, 44, 42, 44, 42, 44, 42, 44]
+            ]
+        },
+        {"id": "derp", "note-value": "quarter", "notes": [[60, 60, 60, 60]]},
+        {"id": "silent-measure-1", "note-value": null, "notes": [[0]]}
+    ],
+    "tracks": [
+        {"id": "track-1", "midi-channel": 0, "patterns": ["basic-1", "basic-2", "silent-measure-1"]},
+        {"id": "bass-1", "midi-channel": 1, "patterns": ["bass", "bass"]},
+        {"id": "arp-synth-1", "midi-channel": 2, "patterns": ["derp", "derp"]},
+        {"id": "track-10", "midi-channel": 10, "patterns": ["four-on-the-floor", "four-on-the-floor"]}
+    ],
+    "paths": [
+        {"id": "path-flat-1", "note-value": "quarter", "steps": [{"flat": {"value": 0}}, {"flat": {"value": 0.5}}, {"flat": {"value": 0.7}}, {"flat": {"value": 1}}]},
+        {
+            "id": "path-slope-1",
+            "note-value": "quarter",
+            "steps": [{"slope": {"start": 0.25, "end": 0.5}}, {"slope": {"start": 0.5, "end": 0.75}}, {"slope": {"start": 0.75, "end": 0.25}}, {"slope": {"start": 0.25, "end": 1}}]
+        }
+    ],
+    "trips": [{"id": "trip-1", "target": {"id": "low-pass-1", "param": "cutoff"}, "paths": ["path-flat-1", "path-slope-1"]}]
+}

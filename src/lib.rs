@@ -163,11 +163,11 @@ mod tests {
     use std::{fs::File, io::prelude::*, path::Path, time::Instant};
 
     #[test]
-    fn yaml_loads_and_parses() {
+    fn project_loads_and_parses() {
         let mut paths = Paths::default();
         paths.push_hive(&Paths::hive(PathType::Test));
 
-        let path = Path::new("kitchen-sink.yaml");
+        let path = Path::new("kitchen-sink.json5");
         let yaml = paths
             .search_and_read_to_string(path)
             .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
@@ -201,11 +201,11 @@ mod tests {
         let mut paths = Paths::default();
         paths.push_hive(&Paths::hive(PathType::Test));
 
-        let path = Path::new("perf-1.yaml");
-        let yaml = paths
+        let path = Path::new("perf-1.json5");
+        let contents = paths
             .search_and_read_to_string(path)
-            .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
-        let song_settings = SongSettings::new_from_yaml(yaml.as_str()).unwrap_or_else(|err| {
+            .unwrap_or_else(|err| panic!("loading project failed: {:?}", err));
+        let song_settings = SongSettings::new_from_json5(contents.as_str()).unwrap_or_else(|err| {
             panic!("parsing settings for {} failed: {:?}", path.display(), err)
         });
         let mut orchestrator = song_settings
@@ -247,11 +247,11 @@ usec/frame : {:.2?} (goal <{:.2?})",
         let mut paths = Paths::default();
         paths.push_hive(&Paths::hive(PathType::Test));
 
-        let path = Path::new("instruments-have-no-inputs.yaml");
-        let yaml = paths
+        let path = Path::new("instruments-have-no-inputs.json5");
+        let contents = paths
             .search_and_read_to_string(path)
-            .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
-        let song_settings = SongSettings::new_from_yaml(yaml.as_str()).unwrap_or_else(|err| {
+            .unwrap_or_else(|err| panic!("loading project failed: {:?}", err));
+        let song_settings = SongSettings::new_from_json5(contents.as_str()).unwrap_or_else(|err| {
             panic!("parsing settings for {} failed: {:?}", path.display(), err)
         });
         let r = song_settings.instantiate(&paths, false);

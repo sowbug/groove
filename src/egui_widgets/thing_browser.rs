@@ -86,7 +86,11 @@ impl ThingBrowser {
         if path.is_file() {
             if let Some(extension) = path.extension() {
                 let extension = extension.to_ascii_lowercase();
-                if extension == "yaml" || extension == "yml" || extension == "ens" {
+                if extension == "yaml"
+                    || extension == "yml"
+                    || extension == "ens"
+                    || extension == "json5"
+                {
                     self.thing_type = ThingType::Project(path.to_path_buf());
                 }
                 if extension == "wav" || extension == "aiff" {

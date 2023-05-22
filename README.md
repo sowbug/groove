@@ -22,13 +22,13 @@ A digital audio workstation (DAW) engine.
    also try one of the installers (currently `.deb` for Linux and `.msi` for
    Windows).
 3. Using the command line, `cd` to the directory you just unzipped.
-4. Render `projects/demos/effects/drums-filtered-24db.yaml` with `groove-cli`,
+4. Render `projects/demos/effects/drums-filtered-24db.json5` with `groove-cli`,
    passing the `--debug` flag. For Windows, that's `groove-cli --debug
-   projects\demos\effects\drums-filtered-24db.yaml`, and for Linux/OSX it's
-   `./groove-cli --debug projects/demos/effects/drums-filtered-24db.yaml`. You
+   projects\demos\effects\drums-filtered-24db.json5`, and for Linux/OSX it's
+   `./groove-cli --debug projects/demos/effects/drums-filtered-24db.json5`. You
    should hear a 707 beat through a rising low-pass filter. If you don't, file a
    bug.
-5. Open `projects/demos/effects/drum-filtered-24db.yaml` in your favorite text
+5. Open `projects/demos/effects/drum-filtered-24db.json5` in your favorite text
    editor, and change `bpm: 128.0` to `bpm: 200.0`. Play the track again.
    Congratulations, you're now the world's newest
    [DnB](https://en.wikipedia.org/wiki/Drum_and_bass) producer.
@@ -36,7 +36,7 @@ A digital audio workstation (DAW) engine.
    them, tweak them, and make new ones!
 7. Launch the `groove-gui` executable. It won't do anything useful, but you
    should see a DAW-ish window appear, and if you press the play button, you
-   should hear `projects/default.yaml` played through your speakers. If not,
+   should hear `projects/default.json5` played through your speakers. If not,
    please file a bug so I can be aware of GUI problems on different OSes.
 
 ## Getting started (developers)
@@ -81,9 +81,7 @@ I use VSCode on Ubuntu 20.04 for development.
   note it's playing. That means there will be sampling artifacts.
 - Sampler-based drumkit.
 - Sequencer with a MIDI SMF reader (the MIDI reader is broken right now).
-- A declarative project language, which makes it easy to produce songs in YAML
-  or JSON format (JSON only in theory, but we get it for free thanks to
-  [serde](https://serde.rs/)).
+- A declarative project language, which makes it easy to produce songs in JSON5.
 - A few audio effects (gain, limiter, bitcrusher, chorus, compressor, delay,
   reverb, filters). Some of them are just plain wrong.
 - Basic automation.
@@ -158,11 +156,12 @@ phenomenon](https://en.wikipedia.org/wiki/Frequency_illusion) is marvelous.
 - [Supercollider](https://github.com/supercollider/supercollider): An audio
   server, programming language, and IDE for sound synthesis and algorithmic
   composition.
-- [Surge XT](https://surge-synthesizer.github.io/): a free and open-source hybrid
-  synthesizer.
+- [Surge XT](https://surge-synthesizer.github.io/): a free and open-source
+  hybrid synthesizer.
 - [Synth6581](https://www.raspberrypi.com/news/commodore-64-raspberry-pi-4-synth6581/)
 - [SynthLab](https://www.willpirkle.com/synthlab-landing/)
-- [Tidal Cycles](https://tidalcycles.org/): Live coding music with algorithmic patterns
+- [Tidal Cycles](https://tidalcycles.org/): Live coding music with algorithmic
+  patterns
 - [Vital](https://github.com/mtytel/vital): a spectral warping wavetable
   synthesizer.
 - [Welsh's Synthesizer Cookbook](https://synthesizer-cookbook.com/)

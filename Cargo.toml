@@ -38,6 +38,7 @@ groove-settings = { path = "settings" }
 groove-toys = { path = "toys", features = ["serialization"] }
 groove-utils = { path = "utils" }
 hound = "3.5"
+json5 = "0.4.1"
 midir = "0.8.0"
 midly = "0.5.3"
 more-asserts = "0.3.1"

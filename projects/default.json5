@@ -1,0 +1,143 @@
+{
+    "title": "Demo",
+    "clock": {
+        "bpm": 128,
+        "midi-ticks-per-second": 960,
+        "time-signature": [
+            4,
+            4
+        ]
+    },
+    "devices": [
+        {
+            "instrument": [
+                "instrument-1",
+                {
+                    "welsh": [
+                        {
+                            "midi-in": 0
+                        },
+                        {
+                            "name": "acid-bass"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "instrument": [
+                "drums-1",
+                {
+                    "drumkit": [
+                        {
+                            "midi-in": 10
+                        },
+                        {
+                            "name": "707"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "effect": [
+                "gain-1",
+                {
+                    "gain": {
+                        "ceiling": 0.5
+                    }
+                }
+            ]
+        },
+        {
+            "effect": [
+                "compressor-1",
+                {
+                    "compressor": {
+                        "threshold": 0.5,
+                        "ratio": 0.5,
+                        "attack": 0.1,
+                        "release": 0.2
+                    }
+                }
+            ]
+        }
+    ],
+    "patch-cables": [
+        [
+            "instrument-1",
+            "gain-1",
+            "compressor-1",
+            "main-mixer"
+        ],
+        [
+            "drums-1",
+            "main-mixer"
+        ]
+    ],
+    "patterns": [
+        {
+            "id": "basic-1",
+            "note-value": "eighth",
+            "notes": [
+                [
+                    60,
+                    0,
+                    64,
+                    0,
+                    67,
+                    0,
+                    71,
+                    72
+                ]
+            ]
+        },
+        {
+            "id": "basic-2",
+            "note-value": "whole",
+            "notes": [
+                [
+                    48
+                ]
+            ]
+        },
+        {
+            "id": "drum-1",
+            "note-value": "half",
+            "notes": [
+                [
+                    0,
+                    0,
+                    0,
+                    49
+                ]
+            ]
+        },
+        {
+            "id": "silent-measure-1",
+            "notes": [
+                [
+                    0
+                ]
+            ]
+        }
+    ],
+    "tracks": [
+        {
+            "id": "track-1",
+            "midi-channel": 0,
+            "patterns": [
+                "basic-1",
+                "silent-measure-1"
+            ]
+        },
+        {
+            "id": "track-2",
+            "midi-channel": 10,
+            "patterns": [
+                "drum-1",
+                "silent-measure-1"
+            ]
+        }
+    ]
+}

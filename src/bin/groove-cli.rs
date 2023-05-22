@@ -69,7 +69,7 @@ fn main() -> anyhow::Result<()> {
         if input_filename == "-" {
             // This is a separator for cases like
             //
-            // `cargo run --bin groove-cli - x.yaml`
+            // `cargo run --bin groove-cli - x.json5`
             continue;
         }
         const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
@@ -87,10 +87,11 @@ fn main() -> anyhow::Result<()> {
         } else if input_filename.ends_with(".yaml")
             || input_filename.ends_with(".yml")
             || input_filename.ends_with(".nsn")
+            || input_filename.ends_with(".json5")
         {
             let start_instant = Instant::now();
             let paths = Paths::default();
-            let r = SongSettings::new_from_yaml_file(&Path::new(&input_filename))?
+            let r = SongSettings::new_from_project_file(&Path::new(&input_filename))?
                 .instantiate(&paths, false)?;
             if args.perf {
                 println!(

@@ -82,7 +82,7 @@ impl Paths {
     /// WAV, AIFF, etc.
     const SAMPLES: &str = "samples";
 
-    /// Project files (.yaml, .ens, etc.).
+    /// Project files (.json5, .ens, etc.).
     const PROJECTS: &str = "projects";
 
     /// Instrument patch files.

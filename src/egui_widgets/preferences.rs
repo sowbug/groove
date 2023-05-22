@@ -80,7 +80,7 @@ impl Preferences {
         path: &Path,
         orchestrator: Arc<Mutex<Orchestrator>>,
     ) -> anyhow::Result<PathBuf, anyhow::Error> {
-        match SongSettings::new_from_yaml_file(path) {
+        match SongSettings::new_from_project_file(path) {
             Ok(s) => match s.instantiate(paths, false) {
                 Ok(instance) => {
                     if let Ok(mut o) = orchestrator.lock() {

@@ -1,0 +1,64 @@
+{
+  "title": "Instruments have no inputs",
+  "clock": {
+    "bpm": 1,
+    "midi-ticks-per-second": 960,
+    "time-signature": [
+      4,
+      4
+    ]
+  },
+  "devices": [
+    {
+      "instrument": [
+        "instrument-1",
+        {
+          "toy-instrument": [
+            {
+              "midi-in": 0
+            },
+            {
+              "fake-value": 0,
+              "dca": {
+                "gain": 1,
+                "pan": 0
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "instrument": [
+        "instrument-2",
+        {
+          "toy-instrument": [
+            {
+              "midi-in": 1
+            },
+            {
+              "fake-value": 0,
+              "dca": {
+                "gain": 1,
+                "pan": 0
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "patch-cables": [
+    // This should fail because an instrument has only outputs, not inputs. If you
+    // want to hear both instruments, you should patch like this instead:
+    // [
+    // [instrument-1, main-mixer ],
+    // [instrument-2, main-mixer ],
+    //]
+    [
+      "instrument-1",
+      "instrument-2",
+      "main-mixer"
+    ]
+  ]
+}

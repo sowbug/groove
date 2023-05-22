@@ -52,7 +52,7 @@ pub enum DeviceSettings {
 pub struct PatternSettings {
     pub id: DeviceId,
     pub note_value: Option<BeatValueSettings>,
-    pub notes: Vec<Vec<String>>,
+    pub notes: Vec<Vec<u8>>,
 }
 impl PatternSettings {
     pub fn into_pattern(&self) -> Pattern<Note> {
@@ -68,7 +68,7 @@ impl PatternSettings {
             let mut note_vec = Vec::default();
             for note in note_sequence.iter() {
                 note_vec.push(Note {
-                    key: Pattern::<Note>::note_to_value(note),
+                    key: *note,
                     velocity: 127,
                     duration: PerfectTimeUnit(1.0),
                 });

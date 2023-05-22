@@ -69,7 +69,7 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "YAML: current task",
+      "name": "JSON5: current task",
       "cargo": {
         "args": [
           "build",
@@ -82,14 +82,14 @@
         }
       },
       "args": [
-        "projects${pathSeparator}demos${pathSeparator}instruments${pathSeparator}sampler.yaml"
+        "projects${pathSeparator}demos${pathSeparator}instruments${pathSeparator}sampler.json5"
       ],
       "cwd": "${workspaceFolder}"
     },
     {
       "type": "lldb",
       "request": "launch",
-      "name": "YAML: dev loop",
+      "name": "JSON5: dev loop",
       "cargo": {
         "args": [
           "build",
@@ -102,14 +102,14 @@
         }
       },
       "args": [
-        "projects${pathSeparator}dev-loop.yaml"
+        "projects${pathSeparator}dev-loop.json5"
       ],
       "cwd": "${workspaceFolder}"
     },
     {
       "type": "lldb",
       "request": "launch",
-      "name": "YAML, repeating note",
+      "name": "JSON5, repeating note",
       "cargo": {
         "args": [
           "build",
@@ -122,7 +122,7 @@
         }
       },
       "args": [
-        "projects${pathSeparator}repeating-note.yaml",
+        "projects${pathSeparator}repeating-note.json5",
         "-w"
       ],
       "cwd": "${workspaceFolder}"
@@ -130,7 +130,7 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "YAML, just a piano scale",
+      "name": "JSON5, just a piano scale",
       "cargo": {
         "args": [
           "build",
@@ -143,14 +143,14 @@
         }
       },
       "args": [
-        "projects${pathSeparator}scale-c4-major.yaml"
+        "projects${pathSeparator}scale-c4-major.json5"
       ],
       "cwd": "${workspaceFolder}"
     },
     {
       "type": "lldb",
       "request": "launch",
-      "name": "YAML, just a piano scale (to file)",
+      "name": "JSON5, just a piano scale (to file)",
       "cargo": {
         "args": [
           "build",
@@ -163,7 +163,7 @@
         }
       },
       "args": [
-        "projects${pathSeparator}scale-c4-major.yaml",
+        "projects${pathSeparator}scale-c4-major.json5",
         "--wav"
       ],
       "cwd": "${workspaceFolder}"
@@ -171,7 +171,7 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "YAML to speaker",
+      "name": "JSON5 to speaker",
       "cargo": {
         "args": [
           "build",
@@ -184,14 +184,14 @@
         }
       },
       "args": [
-        "projects${pathSeparator}low-cpu.yaml"
+        "projects${pathSeparator}low-cpu.json5"
       ],
       "cwd": "${workspaceFolder}"
     },
     {
       "type": "lldb",
       "request": "launch",
-      "name": "YAML kitchen sink to speaker",
+      "name": "JSON5 kitchen sink to speaker",
       "cargo": {
         "args": [
           "build",
@@ -204,14 +204,14 @@
         }
       },
       "args": [
-        "test-data${pathSeparator}kitchen-sink.yaml"
+        "test-data${pathSeparator}kitchen-sink.json5"
       ],
       "cwd": "${workspaceFolder}"
     },
     {
       "type": "lldb",
       "request": "launch",
-      "name": "YAML to file",
+      "name": "JSON5 to file",
       "cargo": {
         "args": [
           "build",
@@ -224,7 +224,7 @@
         }
       },
       "args": [
-        "projects${pathSeparator}dev-loop.yaml",
+        "projects${pathSeparator}dev-loop.json5",
         "--wav"
       ],
       "cwd": "${workspaceFolder}"

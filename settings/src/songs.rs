@@ -4,7 +4,7 @@ use super::{
     controllers::{ControlPathSettings, ControlTripSettings},
     ControlSettings, DeviceId, DeviceSettings, PatternSettings, TrackSettings,
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use groove_core::time::{ClockParams, TimeSignature, TimeSignatureParams};
 use groove_entities::controllers::{
     ControlPath, ControlTrip, ControlTripParams, Note, Pattern, PatternProgrammer,
@@ -65,12 +65,44 @@ impl SongSettings {
         }
     }
 
-    pub fn new_from_yaml_file(path: &Path) -> anyhow::Result<Self> {
-        Self::new_from_yaml(std::fs::read_to_string(path)?.as_str())
+    pub fn new_from_project_file(path: &Path) -> anyhow::Result<Self> {
+        match std::fs::read_to_string(path) {
+            Ok(contents) => {
+                let contents = contents.as_str();
+                match Self::new_from_json5(contents) {
+                    Ok(settings) => {
+                        return Ok(settings);
+                    }
+                    Err(err) => {
+                        eprintln!("Failed to load as JSON5; trying legacy YAML: {}", err);
+                    }
+                }
+                return Self::new_from_yaml(contents);
+            }
+            Err(err) => {
+                return Err(anyhow!(err));
+            }
+        }
+    }
+
+    pub fn new_from_json5(json: &str) -> anyhow::Result<Self> {
+        match json5::from_str(json) {
+            Ok(settings) => Ok(settings),
+            Err(err) => Err(anyhow!(err)),
+        }
     }
 
     pub fn new_from_yaml(yaml: &str) -> anyhow::Result<Self> {
-        Ok(serde_yaml::from_str(yaml)?)
+        match serde_yaml::from_str(yaml) {
+            Ok(settings) => {
+                eprintln!(
+                    "loaded as YAML... by the way, as json5: {:?}",
+                    json5::to_string(&settings).unwrap(),
+                );
+                Ok(settings)
+            }
+            Err(err) => Err(anyhow!(err)),
+        }
     }
 
     pub fn instantiate(
