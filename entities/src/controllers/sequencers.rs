@@ -3,14 +3,13 @@
 use crate::EntityMessage;
 use btreemultimap::BTreeMultiMap;
 use groove_core::{
-    midi::{new_note_off, u7, HandlesMidi, MidiChannel, MidiMessage},
+    midi::{HandlesMidi, MidiChannel, MidiMessage, MidiNoteMinder},
     time::{Clock, ClockParams, MidiTicks, PerfectTimeUnit, TimeSignatureParams},
     traits::{IsController, Performs, Resets, TicksWithMessages},
     ParameterType,
 };
 use groove_proc_macros::{Control, Params, Uid};
 use midly::TrackEventKind;
-use rustc_hash::FxHashMap;
 use std::{
     fmt::Debug,
     ops::Bound::{Excluded, Included},
@@ -42,7 +41,7 @@ pub struct Sequencer {
     #[cfg_attr(feature = "serialization", serde(skip))]
     should_stop_pending_notes: bool,
     #[cfg_attr(feature = "serialization", serde(skip))]
-    on_notes: FxHashMap<u7, MidiChannel>,
+    active_notes: [MidiNoteMinder; 16],
 
     temp_hack_clock: Clock,
 }
@@ -79,7 +78,7 @@ impl Sequencer {
             is_disabled: Default::default(),
             is_performing: Default::default(),
             should_stop_pending_notes: Default::default(),
-            on_notes: Default::default(),
+            active_notes: Default::default(),
             temp_hack_clock: Clock::new_with(&ClockParams {
                 bpm: params.bpm(),
                 midi_ticks_per_second: 0,
@@ -137,10 +136,11 @@ impl Sequencer {
 
     fn stop_pending_notes(&mut self) -> Vec<EntityMessage> {
         let mut v = Vec::new();
-        for on_note in &self.on_notes {
-            let note = *on_note.0;
-            let channel = *on_note.1;
-            v.push(EntityMessage::Midi(channel, new_note_off(note.into(), 0)));
+        for channel in 0..MidiChannel::from(16) {
+            let channel_msgs = self.active_notes[channel as usize].generate_off_messages();
+            for msg in channel_msgs.into_iter() {
+                v.push(EntityMessage::Midi(channel.into(), msg));
+            }
         }
         v
     }
@@ -155,18 +155,7 @@ impl Sequencer {
             .events
             .range(range)
             .fold(Vec::new(), |mut vec, (_when, event)| {
-                match event.1 {
-                    MidiMessage::NoteOff { key, vel: _ } => {
-                        self.on_notes.remove(&key);
-                    }
-                    MidiMessage::NoteOn { key, vel } => {
-                        if vel == 0 {
-                            self.on_notes.remove(&key);
-                        }
-                        self.on_notes.insert(key, event.0);
-                    }
-                    _ => {}
-                }
+                self.active_notes[event.0 as usize].watch_message(&event.1);
                 vec.push((event.0, event.1));
                 vec
             });
@@ -297,8 +286,12 @@ pub struct MidiTickSequencer {
     events: MidiTickEventsMap,
     #[cfg_attr(feature = "serialization", serde(skip))]
     last_event_time: MidiTicks,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     is_disabled: bool,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     is_performing: bool,
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    active_notes: [MidiNoteMinder; 16],
 
     temp_hack_clock: Clock,
 }
@@ -333,6 +326,7 @@ impl MidiTickSequencer {
             last_event_time: Default::default(),
             is_disabled: Default::default(),
             is_performing: Default::default(),
+            active_notes: Default::default(),
             temp_hack_clock: Clock::new_with(&ClockParams {
                 bpm: 0.0,
                 midi_ticks_per_second: params.midi_ticks_per_second(),
@@ -416,6 +410,7 @@ impl TicksWithMessages for MidiTickSequencer {
             v.extend(events.into_iter().fold(
                 Vec::default(),
                 |mut vec, (_when, (channel, message))| {
+                    self.active_notes[*channel as usize].watch_message(message);
                     vec.push(EntityMessage::Midi(*channel, *message));
                     vec
                 },

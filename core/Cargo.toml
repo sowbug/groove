@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.12"
 app_dirs2 = "2.5.5"
+bit-vec = "0.6"
 convert_case = "0.6.0"
 eframe = { version = "0.21.3", optional = true }
 enum-primitive-derive = "0.2.2"
