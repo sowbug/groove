@@ -136,7 +136,7 @@ assets = [
     # "You can use target/release/ in asset paths, even if Cargo is configured
     # to cross-compile or use custom CARGO_TARGET_DIR. The target dir paths will
     # be automatically corrected." https://github.com/kornelski/cargo-deb
-    ["LICENSE.txt", "usr/share/doc/groove/LICENSE.txt", "644"],
+    ["LICENSE.md", "usr/share/doc/groove/LICENSE.md", "644"],
     ["README.md", "usr/share/doc/groove/README.md", "644"],
     ["assets-nodist/os/groove-egui.desktop", "usr/share/applications/", "644"],
     ["assets/patches/**/*.yaml", "usr/share/groove/patches/", "644"],
