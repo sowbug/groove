@@ -6,6 +6,7 @@ use crate::{
     traits::{Generates, GeneratesEnvelope, Resets, Ticks},
     BipolarNormal, FrequencyHz, Normal, ParameterType, Ratio, SignalType,
 };
+use eframe::epaint::{pos2, Pos2};
 use groove_proc_macros::{Control, Params};
 use kahan::KahanSum;
 use more_asserts::{debug_assert_ge, debug_assert_le};
@@ -528,6 +529,10 @@ pub struct Envelope {
     concave_b: f64,
     #[cfg_attr(feature = "serialization", serde(skip))]
     concave_c: f64,
+
+    // TEMP
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    control_points: [Pos2; 3],
 }
 impl GeneratesEnvelope for Envelope {
     fn trigger_attack(&mut self) {
@@ -618,6 +623,7 @@ impl Envelope {
             concave_a: Default::default(),
             concave_b: Default::default(),
             concave_c: Default::default(),
+            control_points: [pos2(50.0, 50.0), pos2(60.0, 250.0), pos2(200.0, 200.0)],
         }
     }
 
@@ -870,7 +876,11 @@ impl Envelope {
 #[cfg(feature = "egui-framework")]
 mod gui {
     use super::{Envelope, Oscillator, Waveform};
-    use eframe::egui::{ComboBox, DragValue, Ui};
+    use eframe::{
+        egui::{self, ComboBox, DragValue, Frame, Sense, Ui},
+        emath,
+        epaint::{self, Color32, PathShape, Pos2, QuadraticBezierShape, Rect, Shape, Stroke, Vec2},
+    };
     use strum::IntoEnumIterator;
 
     impl Waveform {
@@ -898,12 +908,68 @@ mod gui {
     }
 
     impl Envelope {
+        pub fn ui_content(&mut self, ui: &mut Ui) -> egui::Response {
+            let (response, painter) =
+                ui.allocate_painter(Vec2::new(ui.available_width(), 128.0), Sense::hover());
+
+            let to_screen = emath::RectTransform::from_to(
+                Rect::from_min_size(Pos2::ZERO, response.rect.size()),
+                response.rect,
+            );
+
+            let control_point_radius = 8.0;
+
+            let control_point_shapes: Vec<Shape> = self
+                .control_points
+                .iter_mut()
+                .enumerate()
+                .map(|(i, point)| {
+                    let size = Vec2::splat(2.0 * control_point_radius);
+
+                    let point_in_screen = to_screen.transform_pos(*point);
+                    let point_rect = Rect::from_center_size(point_in_screen, size);
+                    let point_id = response.id.with(i);
+                    let point_response = ui.interact(point_rect, point_id, Sense::drag());
+
+                    *point += point_response.drag_delta();
+                    *point = to_screen.from().clamp(*point);
+
+                    let point_in_screen = to_screen.transform_pos(*point);
+                    let stroke = ui.style().interact(&point_response).fg_stroke;
+
+                    Shape::circle_stroke(point_in_screen, control_point_radius, stroke)
+                })
+                .collect();
+
+            let points_in_screen: Vec<Pos2> =
+                self.control_points.iter().map(|p| to_screen * *p).collect();
+
+            let points = points_in_screen.clone().try_into().unwrap();
+            let shape =
+                QuadraticBezierShape::from_points_stroke(points, true, Color32::GRAY, Stroke::NONE);
+            painter.add(epaint::RectShape::stroke(
+                shape.visual_bounding_rect(),
+                0.0,
+                Stroke::NONE,
+            ));
+            painter.add(shape);
+
+            painter.add(PathShape::line(points_in_screen, Stroke::NONE));
+            painter.extend(control_point_shapes);
+
+            response
+        }
+
         pub fn show(&mut self, ui: &mut Ui) -> bool {
             let mut changed = false;
             let mut attack = self.attack();
             let mut decay = self.decay();
             let mut sustain = self.sustain().to_percentage();
             let mut release = self.release();
+
+            Frame::canvas(ui.style()).show(ui, |ui| {
+                self.ui_content(ui);
+            });
             if ui
                 .add(
                     DragValue::new(&mut attack)
