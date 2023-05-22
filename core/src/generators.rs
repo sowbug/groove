@@ -905,7 +905,7 @@ mod gui {
         /// Returns which value changed, or usize::MAX if none changed. 0123 are ADSR
         pub fn ui_content(&mut self, ui: &mut Ui) -> usize {
             let (response, painter) =
-                ui.allocate_painter(Vec2::new(ui.available_width(), 128.0), Sense::hover());
+                ui.allocate_painter(Vec2::new(ui.available_width(), 64.0), Sense::hover());
 
             let to_screen = emath::RectTransform::from_to(
                 Rect::from_min_size(Pos2::ZERO, response.rect.size()),
