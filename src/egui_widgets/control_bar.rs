@@ -89,7 +89,6 @@ impl ControlBar {
                     }
                 };
                 if changed {
-                    eprintln!("changing {} {}", loop_range_start, loop_range_end);
                     orchestrator.set_loop(&Range {
                         start: loop_range_start,
                         end: loop_range_end,
