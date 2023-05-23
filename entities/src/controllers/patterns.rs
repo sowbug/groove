@@ -2,6 +2,7 @@
 
 use super::Sequencer;
 use crate::messages::EntityMessage;
+//use btreemultimap::BTreeMultiMap;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage},
     time::{BeatValue, PerfectTimeUnit, TimeSignature, TimeSignatureParams},
@@ -109,14 +110,79 @@ impl PatternManager {
         }
     }
 }
+
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub struct NewNote {
+    key: u8,
+    velocity: u8,
+    //    duration: PerfectTimeUnit,
+    range: Range<f32>,
+}
+
+//pub type NewPatternEventsMap = BTreeMultiMap<PerfectTimeUnit, NewNote>;
+
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub struct NewPattern {
+    //    notes: NewPatternEventsMap,
+    notes: Vec<NewNote>,
+}
+impl NewPattern {
+    pub fn add(&mut self, note: NewNote, _when: PerfectTimeUnit) {
+        //        self.notes.insert(when, note);
+        self.notes.push(note);
+    }
+
+    pub fn remove(&mut self, note: NewNote, _when: &PerfectTimeUnit) {
+        // if let Some(v) = self.notes.get_vec_mut(when) {
+        //     if v.contains(&note) {
+        //         v.retain(|x| *x != note);
+        //     }
+        // }
+        self.notes.retain(|v| *v != note);
+    }
+
+    pub fn clear(&mut self) {
+        self.notes.clear();
+    }
+}
+impl Default for NewPattern {
+    fn default() -> Self {
+        Self {
+            notes: vec![
+                NewNote {
+                    key: 1,
+                    velocity: 126,
+                    range: Range {
+                        start: 0.0,
+                        end: 1.0,
+                    },
+                },
+                NewNote {
+                    key: 80,
+                    velocity: 127,
+                    range: Range {
+                        start: 3.0,
+                        end: 4.0,
+                    },
+                },
+            ],
+        }
+    }
+}
+
 #[cfg(feature = "egui-framework")]
 mod gui {
-    use super::{Note, Pattern, PatternManager};
+    use super::{NewPattern, Note, Pattern, PatternManager};
+    use crate::controllers::patterns::NewNote;
     use eframe::{
-        egui::{Frame, Grid, ScrollArea},
-        epaint::{Color32, Stroke},
+        egui::{Frame, Grid, ScrollArea, Sense},
+        emath,
+        epaint::{Color32, Pos2, Rect, Rounding, Shape, Stroke, Vec2},
     };
     use groove_core::{time::BeatValue, traits::gui::Shows};
+    use std::ops::Range;
 
     impl Pattern<Note> {
         pub const CELL_WIDTH: f32 = 32.0;
@@ -171,6 +237,102 @@ mod gui {
                     pattern.show(ui);
                 }
             });
+        }
+    }
+
+    impl NewPattern {
+        pub fn show(&mut self, ui: &mut eframe::egui::Ui) {
+            Frame::canvas(ui.style()).show(ui, |ui| {
+                ui.label("hello");
+                self.ui_content(ui);
+                ui.label("there");
+            });
+        }
+        fn ui_content(&mut self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
+            let notes_vert = 24.0;
+            let steps_horiz = 16.0;
+
+            let desired_size = ui.available_size_before_wrap();
+            let desired_size = Vec2::new(desired_size.x, 256.0);
+            let (mut response, painter) =
+                ui.allocate_painter(desired_size, Sense::click_and_drag());
+
+            let to_screen = emath::RectTransform::from_to(
+                Rect::from_min_size(Pos2::ZERO, Vec2::splat(1.0)),
+                response.rect,
+            );
+            let from_screen = to_screen.inverse();
+
+            let note_rect_size = Vec2 {
+                x: 1.0 / steps_horiz,
+                y: 1.0 / notes_vert,
+            };
+
+            if response.clicked() {
+                if let Some(pointer_pos) = response.interact_pointer_pos() {
+                    let canvas_pos = from_screen * pointer_pos;
+                    eprintln!("click at {:?}", canvas_pos);
+                    let key = (canvas_pos.y * notes_vert) as u8;
+                    let when = (canvas_pos.x * steps_horiz).floor() / 4.0;
+
+                    let note = NewNote {
+                        key,
+                        velocity: 127,
+                        range: Range {
+                            start: when,
+                            end: when + 0.25,
+                        },
+                    };
+
+                    if self.notes.contains(&note) {
+                        self.notes.retain(|n| *n != note);
+                    } else {
+                        self.notes.push(note);
+                    }
+                    response.mark_changed();
+                }
+            }
+
+            painter.rect_filled(response.rect, Rounding::default(), Color32::GRAY);
+            for i in 0..16 {
+                let x = i as f32 / steps_horiz;
+                let lines = [to_screen * Pos2::new(x, 0.0), to_screen * Pos2::new(x, 1.0)];
+                painter.line_segment(
+                    lines,
+                    Stroke {
+                        width: 1.0,
+                        color: Color32::DARK_GRAY,
+                    },
+                );
+            }
+
+            let shapes = self.notes.iter().fold(Vec::default(), |mut v, note| {
+                let ul = Pos2 {
+                    x: note.range.start / 4.0,
+                    y: (note.key as f32) / notes_vert,
+                };
+                let rect = to_screen
+                    .transform_rect(Rect::from_min_size(ul, note_rect_size))
+                    .shrink(1.0);
+                v.push(Shape::rect_stroke(
+                    rect,
+                    Rounding::default(),
+                    Stroke {
+                        width: 2.0,
+                        color: Color32::DARK_BLUE,
+                    },
+                ));
+                v.push(Shape::rect_filled(
+                    rect.shrink(2.0),
+                    Rounding::default(),
+                    Color32::LIGHT_BLUE,
+                ));
+                v
+            });
+
+            painter.extend(shapes);
+
+            response
         }
     }
 }

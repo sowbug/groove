@@ -6,7 +6,7 @@
 
 use crossbeam_channel::{Receiver, Sender};
 use eframe::{
-    egui::{self, Context, FontData, FontDefinitions, Layout, RichText, TextStyle},
+    egui::{self, Context, FontData, FontDefinitions, Layout, RichText, ScrollArea, TextStyle},
     emath::Align2,
     epaint::{Color32, FontFamily, FontId},
     CreationContext,
@@ -21,11 +21,13 @@ use groove_core::{
     time::{ClockParams, TimeSignatureParams},
     traits::gui::Shows,
 };
+use groove_entities::controllers::NewPattern;
 use groove_orchestration::{messages::GrooveInput, Orchestrator};
 use groove_utils::Paths;
 use std::{
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
+    time::Instant,
 };
 
 fn main() -> Result<(), eframe::Error> {
@@ -63,6 +65,11 @@ struct GrooveApp {
     #[allow(dead_code)]
     mono_font_id: FontId,
     bold_font_id: FontId,
+
+    new_pattern: NewPattern,
+
+    frames: usize,
+    start_of_time: Instant,
 }
 impl eframe::App for GrooveApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -93,12 +100,22 @@ impl eframe::App for GrooveApp {
             }
         });
         bottom.show(ctx, |ui| {
-            ui.with_layout(Layout::right_to_left(eframe::emath::Align::Center), |ui| {
-                ui.label(
-                    RichText::new(format!("Build: {:?}", app_version()))
-                        .font(self.bold_font_id.clone())
-                        .color(Color32::YELLOW),
-                )
+            ui.horizontal(|ui| {
+                let seconds = (Instant::now() - self.start_of_time).as_secs_f64();
+                if seconds != 0.0 {
+                    ui.label(format!("FPS {:0.2}", self.frames as f64 / seconds));
+                    if seconds > 5.0 {
+                        self.frames = 0;
+                        self.start_of_time = Instant::now();
+                    }
+                }
+                ui.with_layout(Layout::right_to_left(eframe::emath::Align::Center), |ui| {
+                    ui.label(
+                        RichText::new(format!("Build: {:?}", app_version()))
+                            .font(self.bold_font_id.clone())
+                            .color(Color32::YELLOW),
+                    )
+                });
             });
         });
         left.show(ctx, |ui| {
@@ -121,9 +138,12 @@ impl eframe::App for GrooveApp {
             })
         });
         center.show(ctx, |ui| {
-            if let Ok(mut o) = self.orchestrator.lock() {
-                o.show(ui);
-            }
+            ScrollArea::vertical().show(ui, |ui| {
+                self.new_pattern.show(ui);
+                if let Ok(mut o) = self.orchestrator.lock() {
+                    o.show(ui);
+                }
+            });
             self.toasts.show(ctx);
         });
 
@@ -131,6 +151,8 @@ impl eframe::App for GrooveApp {
         // know that a repaint is needed. This is fine for now, but it's
         // expensive, and we should be smarter about it.
         ctx.request_repaint();
+
+        self.frames += 1;
     }
 }
 impl GrooveApp {
@@ -181,6 +203,11 @@ impl GrooveApp {
             regular_font_id: FontId::proportional(14.0),
             bold_font_id: FontId::new(12.0, FontFamily::Name(Self::FONT_BOLD.into())),
             mono_font_id: FontId::monospace(14.0),
+
+            new_pattern: Default::default(),
+
+            frames: Default::default(),
+            start_of_time: Instant::now(),
 
             // Keep these last to avoid a bunch of temporary variables
             sender,
