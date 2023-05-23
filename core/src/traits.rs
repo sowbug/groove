@@ -2,7 +2,8 @@
 
 pub use crate::midi::HandlesMidi;
 
-use crate::{midi::u7, Normal, Sample, StereoSample};
+use crate::{midi::u7, time::PerfectTimeUnit, Normal, Sample, StereoSample};
+use std::ops::Range;
 
 pub trait MessageBounds: std::fmt::Debug + Send {}
 
@@ -232,16 +233,25 @@ pub trait Performs {
     /// Tells the device to play its performance from the current location.
     fn play(&mut self);
 
-    /// Tells the device to stop playing its performance. It shouldn't change its cursor location, so that a play() after a
-    /// stop() acts like a resume.
+    /// Tells the device to stop playing its performance. It shouldn't change
+    /// its cursor location, so that a play() after a stop() acts like a resume.
     fn stop(&mut self);
 
-    // Resets cursors to the beginning. This is set_cursor Lite (TODO).
+    /// Resets cursors to the beginning. This is set_cursor Lite (TODO).
     fn skip_to_start(&mut self);
 
-    // Whether the device is currently playing. This is part of the trait so
-    // that implementers don't have to leak their internal state to unit test
-    // code.
+    /// Sets the loop range. If the cursor is outside the range on the right
+    /// side (i.e., after), it sets itself to the start point.
+    ///
+    /// Parents should propagate to children.
+    fn set_loop(&mut self, range: &Range<PerfectTimeUnit>);
+
+    /// Clears the loop range, restoring normal cursor behavior.
+    fn clear_loop(&mut self);
+
+    /// Whether the device is currently playing. This is part of the trait so
+    /// that implementers don't have to leak their internal state to unit test
+    /// code.
     fn is_performing(&self) -> bool;
 }
 

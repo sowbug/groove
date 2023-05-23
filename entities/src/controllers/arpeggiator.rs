@@ -105,6 +105,14 @@ impl Performs for Arpeggiator {
         self.sequencer.skip_to_start();
     }
 
+    fn set_loop(&mut self, range: &std::ops::Range<PerfectTimeUnit>) {
+        self.sequencer.set_loop(range);
+    }
+
+    fn clear_loop(&mut self) {
+        self.sequencer.clear_loop();
+    }
+
     fn is_performing(&self) -> bool {
         self.sequencer.is_performing()
     }

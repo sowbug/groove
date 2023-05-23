@@ -81,6 +81,14 @@ impl Performs for ControlTrip {
         self.clock.seek(0);
     }
 
+    fn set_loop(&mut self, range: &Range<groove_core::time::PerfectTimeUnit>) {
+        // TODO
+    }
+
+    fn clear_loop(&mut self) {
+        // TODO
+    }
+
     fn is_performing(&self) -> bool {
         self.is_performing
     }

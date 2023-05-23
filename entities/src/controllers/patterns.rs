@@ -8,7 +8,7 @@ use groove_core::{
     traits::{IsController, Performs, Resets, TicksWithMessages},
 };
 use groove_proc_macros::{Control, Params, Uid};
-use std::{cmp, fmt::Debug};
+use std::{cmp, fmt::Debug, ops::Range};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -80,6 +80,8 @@ impl Performs for PatternManager {
     fn play(&mut self) {}
     fn stop(&mut self) {}
     fn skip_to_start(&mut self) {}
+    fn set_loop(&mut self, range: &Range<PerfectTimeUnit>) {}
+    fn clear_loop(&mut self) {}
     fn is_performing(&self) -> bool {
         false
     }

@@ -9,7 +9,7 @@ use groove_core::{
     FrequencyHz, Normal, ParameterType,
 };
 use groove_proc_macros::{Control, Params, Uid};
-use std::ops::RangeInclusive;
+use std::ops::{RangeInclusive, Range};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -65,6 +65,14 @@ impl Performs for LfoController {
 
     fn skip_to_start(&mut self) {
         // TODO: think how important it is for LFO oscillator to start at zero
+    }
+
+    fn set_loop(&mut self, range: &Range<groove_core::time::PerfectTimeUnit>) {
+        // TODO
+    }
+
+    fn clear_loop(&mut self) {
+        // TODO
     }
 
     fn is_performing(&self) -> bool {

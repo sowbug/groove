@@ -18,7 +18,7 @@ use crate::{
 use groove_core::{
     instruments::Synthesizer,
     midi::note_to_frequency,
-    time::{Clock, ClockParams, TimeSignatureParams},
+    time::{Clock, ClockParams, PerfectTimeUnit, TimeSignatureParams},
     traits::{
         Generates, HandlesMidi, IsController, IsInstrument, Performs, Resets, Ticks,
         TicksWithMessages,
@@ -394,6 +394,11 @@ impl Performs for Engine {
         self.play();
     }
 
+    // This instrument is all about looping, so we ignore this.
+    fn set_loop(&mut self, _range: &std::ops::Range<PerfectTimeUnit>) {}
+
+    fn clear_loop(&mut self) {}
+
     fn is_performing(&self) -> bool {
         self.state() == &EngineState::Playing
     }
@@ -482,6 +487,11 @@ impl Performs for Calculator {
         self.last_handled_step = usize::MAX;
         self.engine.skip_to_start();
     }
+
+    // This instrument is all about looping, so we ignore this.
+    fn set_loop(&mut self, _range: &std::ops::Range<PerfectTimeUnit>) {}
+
+    fn clear_loop(&mut self) {}
 
     fn is_performing(&self) -> bool {
         self.engine.is_performing()

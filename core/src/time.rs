@@ -142,6 +142,10 @@ impl Clock {
         self.was_reset = true;
         self.update_internals();
     }
+    pub fn seek_beats(&mut self, value: f64) {
+        self.seek((self.sample_rate() as f64 * (60.0 * value / self.bpm)) as usize);
+    }
+
     pub fn set_sample_rate(&mut self, sample_rate: usize) {
         self.sample_rate = sample_rate;
         self.was_reset = true;
@@ -578,12 +582,6 @@ mod tests {
         pub fn debug_set_seconds(&mut self, value: f32) {
             self.was_reset = true;
             self.frames = (self.sample_rate() as f32 * value) as usize;
-            self.update_internals();
-        }
-
-        pub fn debug_set_beats(&mut self, value: f64) {
-            self.was_reset = true;
-            self.frames = (self.sample_rate() as f64 * (60.0 * value / self.bpm)) as usize;
             self.update_internals();
         }
     }

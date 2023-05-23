@@ -13,7 +13,7 @@ use crossbeam::deque::Worker;
 use groove_core::{
     control::F32ControlValue,
     midi::{MidiChannel, MidiMessage},
-    time::{Clock, ClockParams, TimeSignature},
+    time::{Clock, ClockParams, PerfectTimeUnit, TimeSignature},
     traits::{Performs, Resets},
     ParameterType, StereoSample,
 };
@@ -26,7 +26,10 @@ use groove_entities::{
 use groove_proc_macros::Uid;
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
-use std::io::{self, Write};
+use std::{
+    io::{self, Write},
+    ops::Range,
+};
 
 #[cfg(feature = "metrics")]
 use {dipstick::InputScope, metrics::DipstickWrapper};
@@ -949,6 +952,22 @@ impl Performs for Orchestrator {
 
     fn is_performing(&self) -> bool {
         self.is_performing
+    }
+
+    fn set_loop(&mut self, range: &std::ops::Range<PerfectTimeUnit>) {
+        for entity in self.store.values_mut() {
+            if let Some(controller) = entity.as_is_controller_mut() {
+                controller.set_loop(range);
+            }
+        }
+    }
+
+    fn clear_loop(&mut self) {
+        for entity in self.store.values_mut() {
+            if let Some(controller) = entity.as_is_controller_mut() {
+                controller.clear_loop();
+            }
+        }
     }
 }
 impl Resets for Orchestrator {

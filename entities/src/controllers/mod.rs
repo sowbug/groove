@@ -37,7 +37,7 @@ use groove_core::{
 };
 use groove_proc_macros::{Control, Params, Uid};
 use midly::MidiMessage;
-use std::collections::VecDeque;
+use std::{collections::VecDeque, ops::Range};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -156,6 +156,14 @@ impl Performs for Timer {
         self.ticks = 0;
     }
 
+    fn set_loop(&mut self, range: &Range<groove_core::time::PerfectTimeUnit>) {
+        // TODO
+    }
+
+    fn clear_loop(&mut self) {
+        // TODO
+    }
+
     fn is_performing(&self) -> bool {
         self.is_performing
     }
@@ -219,6 +227,14 @@ impl Performs for Trigger {
     fn skip_to_start(&mut self) {
         self.has_triggered = false;
         self.timer.skip_to_start();
+    }
+
+    fn set_loop(&mut self, range: &Range<groove_core::time::PerfectTimeUnit>) {
+        self.timer.set_loop(range);
+    }
+
+    fn clear_loop(&mut self) {
+        self.timer.clear_loop();
     }
 
     fn is_performing(&self) -> bool {
@@ -316,6 +332,14 @@ impl Performs for SignalPassthroughController {
     }
 
     fn skip_to_start(&mut self) {}
+
+    fn set_loop(&mut self, range: &Range<groove_core::time::PerfectTimeUnit>) {
+        // TODO
+    }
+
+    fn clear_loop(&mut self) {
+        // TODO
+    }
 
     fn is_performing(&self) -> bool {
         self.is_performing
@@ -474,6 +498,14 @@ impl Performs for ToyController {
     }
 
     fn skip_to_start(&mut self) {}
+
+    fn set_loop(&mut self, range: &Range<groove_core::time::PerfectTimeUnit>) {
+        // TODO
+    }
+
+    fn clear_loop(&mut self) {
+        // TODO
+    }
 
     fn is_performing(&self) -> bool {
         self.is_performing
