@@ -9,7 +9,7 @@ use groove_core::{
     FrequencyHz, Normal, ParameterType,
 };
 use groove_proc_macros::{Control, Params, Uid};
-use std::ops::{RangeInclusive, Range};
+use std::ops::{Range, RangeInclusive};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
