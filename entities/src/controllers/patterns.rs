@@ -80,8 +80,9 @@ impl Performs for PatternManager {
     fn play(&mut self) {}
     fn stop(&mut self) {}
     fn skip_to_start(&mut self) {}
-    fn set_loop(&mut self, range: &Range<PerfectTimeUnit>) {}
+    fn set_loop(&mut self, _range: &Range<PerfectTimeUnit>) {}
     fn clear_loop(&mut self) {}
+    fn set_loop_enabled(&mut self, _is_enabled: bool) {}
     fn is_performing(&self) -> bool {
         false
     }

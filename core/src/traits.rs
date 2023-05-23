@@ -240,14 +240,16 @@ pub trait Performs {
     /// Resets cursors to the beginning. This is set_cursor Lite (TODO).
     fn skip_to_start(&mut self);
 
-    /// Sets the loop range. If the cursor is outside the range on the right
-    /// side (i.e., after), it sets itself to the start point.
-    ///
-    /// Parents should propagate to children.
+    /// Sets the loop range. Parents should propagate to children.
     fn set_loop(&mut self, range: &Range<PerfectTimeUnit>);
 
     /// Clears the loop range, restoring normal cursor behavior.
     fn clear_loop(&mut self);
+
+    /// Enables or disables loop behavior. When looping is enabled, if the
+    /// cursor is outside the range on the right side (i.e., after), it sets
+    /// itself to the start point.
+    fn set_loop_enabled(&mut self, is_enabled: bool);
 
     /// Whether the device is currently playing. This is part of the trait so
     /// that implementers don't have to leak their internal state to unit test

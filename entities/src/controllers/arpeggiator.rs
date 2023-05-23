@@ -113,6 +113,10 @@ impl Performs for Arpeggiator {
         self.sequencer.clear_loop();
     }
 
+    fn set_loop_enabled(&mut self, is_enabled: bool) {
+        self.sequencer.set_loop_enabled(is_enabled);
+    }
+
     fn is_performing(&self) -> bool {
         self.sequencer.is_performing()
     }

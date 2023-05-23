@@ -47,6 +47,7 @@ pub struct Sequencer {
     active_notes: [MidiNoteMinder; 16],
 
     loop_range: Option<Range<PerfectTimeUnit>>,
+    is_loop_enabled: bool,
 
     temp_hack_clock: Clock,
 }
@@ -76,6 +77,10 @@ impl Performs for Sequencer {
         self.loop_range = None;
     }
 
+    fn set_loop_enabled(&mut self, is_enabled: bool) {
+        self.is_loop_enabled = is_enabled;
+    }
+
     fn is_performing(&self) -> bool {
         self.is_performing
     }
@@ -93,6 +98,7 @@ impl Sequencer {
             should_stop_pending_notes: Default::default(),
             active_notes: Default::default(),
             loop_range: Default::default(),
+            is_loop_enabled: Default::default(),
             temp_hack_clock: Clock::new_with(&ClockParams {
                 bpm: params.bpm(),
                 midi_ticks_per_second: 0,
@@ -253,21 +259,23 @@ impl TicksWithMessages for Sequencer {
             }
         };
 
-        // This code block is a little weird because we needed to avoid the
-        // mutable self method call while we are borrowing loop_range.
-        let should_loop_now = if let Some(lr) = &self.loop_range {
-            if lr.contains(&this_instant) && !lr.contains(&self.next_instant) {
-                self.next_instant = lr.start;
-                self.temp_hack_clock.seek_beats(lr.start.0);
-                true
+        if self.is_loop_enabled {
+            // This code block is a little weird because we needed to avoid the
+            // mutable self method call while we are borrowing loop_range.
+            let should_loop_now = if let Some(lr) = &self.loop_range {
+                if lr.contains(&this_instant) && !lr.contains(&self.next_instant) {
+                    self.next_instant = lr.start;
+                    self.temp_hack_clock.seek_beats(lr.start.0);
+                    true
+                } else {
+                    false
+                }
             } else {
                 false
+            };
+            if should_loop_now {
+                v.extend(self.stop_pending_notes());
             }
-        } else {
-            false
-        };
-        if should_loop_now {
-            v.extend(self.stop_pending_notes());
         }
 
         if v.is_empty() {
@@ -326,6 +334,7 @@ pub struct MidiTickSequencer {
     active_notes: [MidiNoteMinder; 16],
 
     loop_range: Option<Range<PerfectTimeUnit>>,
+    is_loop_enabled: bool,
 
     temp_hack_clock: Clock,
 }
@@ -352,6 +361,11 @@ impl Performs for MidiTickSequencer {
     fn clear_loop(&mut self) {
         self.loop_range = None;
     }
+
+    fn set_loop_enabled(&mut self, is_enabled: bool) {
+        self.is_loop_enabled = is_enabled;
+    }
+
     fn is_performing(&self) -> bool {
         self.is_performing
     }
@@ -369,6 +383,7 @@ impl MidiTickSequencer {
             is_performing: Default::default(),
             active_notes: Default::default(),
             loop_range: Default::default(),
+            is_loop_enabled: Default::default(),
             temp_hack_clock: Clock::new_with(&ClockParams {
                 bpm: 0.0,
                 midi_ticks_per_second: params.midi_ticks_per_second(),

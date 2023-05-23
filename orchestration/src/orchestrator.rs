@@ -99,6 +99,9 @@ pub struct Orchestrator {
     main_mixer_source_uids: FxHashSet<usize>,
     #[cfg_attr(feature = "serialization", serde(skip))]
     last_samples: FxHashMap<usize, StereoSample>,
+
+    loop_range: Option<Range<PerfectTimeUnit>>,
+    is_loop_enabled: bool,
 }
 impl Orchestrator {
     // TODO: prefix these to reserve internal ID namespace
@@ -549,6 +552,8 @@ impl Orchestrator {
             last_entity_samples: Default::default(),
             main_mixer_source_uids: Default::default(),
             last_samples: Default::default(),
+            loop_range: Default::default(),
+            is_loop_enabled: Default::default(),
         };
         r.main_mixer_uid = r.add_with_uvid(
             Entity::Mixer(Box::new(Mixer::default())),
@@ -833,6 +838,14 @@ impl Orchestrator {
             self.is_performing = false;
         }
 
+        if self.is_loop_enabled {
+            if let Some(range) = self.loop_range.as_ref() {
+                if self.clock.beats() >= range.end.0 {
+                    self.clock.seek_beats(range.start.0);
+                }
+            }
+        }
+
         (commands, ticks_completed)
     }
 
@@ -903,6 +916,14 @@ impl Orchestrator {
             }
         }
     }
+
+    pub fn loop_range(&self) -> Option<&Range<PerfectTimeUnit>> {
+        self.loop_range.as_ref()
+    }
+
+    pub fn is_loop_enabled(&self) -> bool {
+        self.is_loop_enabled
+    }
 }
 impl Performs for Orchestrator {
     // The difference between play() and tick() is that play() tells devices
@@ -949,12 +970,8 @@ impl Performs for Orchestrator {
             }
         }
     }
-
-    fn is_performing(&self) -> bool {
-        self.is_performing
-    }
-
-    fn set_loop(&mut self, range: &std::ops::Range<PerfectTimeUnit>) {
+    fn set_loop(&mut self, range: &Range<PerfectTimeUnit>) {
+        self.loop_range = Some(range.clone());
         for entity in self.store.values_mut() {
             if let Some(controller) = entity.as_is_controller_mut() {
                 controller.set_loop(range);
@@ -963,11 +980,25 @@ impl Performs for Orchestrator {
     }
 
     fn clear_loop(&mut self) {
+        self.loop_range = None;
         for entity in self.store.values_mut() {
             if let Some(controller) = entity.as_is_controller_mut() {
                 controller.clear_loop();
             }
         }
+    }
+
+    fn set_loop_enabled(&mut self, is_enabled: bool) {
+        self.is_loop_enabled = is_enabled;
+        for entity in self.store.values_mut() {
+            if let Some(controller) = entity.as_is_controller_mut() {
+                controller.set_loop_enabled(is_enabled);
+            }
+        }
+    }
+
+    fn is_performing(&self) -> bool {
+        self.is_performing
     }
 }
 impl Resets for Orchestrator {

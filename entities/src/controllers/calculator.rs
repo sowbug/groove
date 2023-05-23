@@ -394,10 +394,10 @@ impl Performs for Engine {
         self.play();
     }
 
-    // This instrument is all about looping, so we ignore this.
+    // This instrument is all about looping, so we ignore this section.
     fn set_loop(&mut self, _range: &std::ops::Range<PerfectTimeUnit>) {}
-
     fn clear_loop(&mut self) {}
+    fn set_loop_enabled(&mut self, _is_enabled: bool) {}
 
     fn is_performing(&self) -> bool {
         self.state() == &EngineState::Playing
@@ -490,8 +490,8 @@ impl Performs for Calculator {
 
     // This instrument is all about looping, so we ignore this.
     fn set_loop(&mut self, _range: &std::ops::Range<PerfectTimeUnit>) {}
-
     fn clear_loop(&mut self) {}
+    fn set_loop_enabled(&mut self, _is_enabled: bool) {}
 
     fn is_performing(&self) -> bool {
         self.engine.is_performing()

@@ -31,7 +31,7 @@ mod sequencers;
 use crate::EntityMessage;
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel},
-    time::{Clock, ClockParams, ClockTimeUnit, TimeSignatureParams},
+    time::{Clock, ClockParams, ClockTimeUnit, PerfectTimeUnit, TimeSignatureParams},
     traits::{IsController, IsEffect, Performs, Resets, Ticks, TicksWithMessages, TransformsAudio},
     BipolarNormal, ParameterType, Sample, StereoSample,
 };
@@ -156,11 +156,15 @@ impl Performs for Timer {
         self.ticks = 0;
     }
 
-    fn set_loop(&mut self, range: &Range<groove_core::time::PerfectTimeUnit>) {
+    fn set_loop(&mut self, _range: &Range<PerfectTimeUnit>) {
         // TODO
     }
 
     fn clear_loop(&mut self) {
+        // TODO
+    }
+
+    fn set_loop_enabled(&mut self, _is_enabled: bool) {
         // TODO
     }
 
@@ -229,12 +233,16 @@ impl Performs for Trigger {
         self.timer.skip_to_start();
     }
 
-    fn set_loop(&mut self, range: &Range<groove_core::time::PerfectTimeUnit>) {
+    fn set_loop(&mut self, range: &Range<PerfectTimeUnit>) {
         self.timer.set_loop(range);
     }
 
     fn clear_loop(&mut self) {
         self.timer.clear_loop();
+    }
+
+    fn set_loop_enabled(&mut self, is_enabled: bool) {
+        self.timer.set_loop_enabled(is_enabled);
     }
 
     fn is_performing(&self) -> bool {
@@ -333,11 +341,15 @@ impl Performs for SignalPassthroughController {
 
     fn skip_to_start(&mut self) {}
 
-    fn set_loop(&mut self, range: &Range<groove_core::time::PerfectTimeUnit>) {
+    fn set_loop(&mut self, _range: &Range<PerfectTimeUnit>) {
         // TODO
     }
 
     fn clear_loop(&mut self) {
+        // TODO
+    }
+
+    fn set_loop_enabled(&mut self, _is_enabled: bool) {
         // TODO
     }
 
@@ -499,11 +511,15 @@ impl Performs for ToyController {
 
     fn skip_to_start(&mut self) {}
 
-    fn set_loop(&mut self, range: &Range<groove_core::time::PerfectTimeUnit>) {
+    fn set_loop(&mut self, _range: &Range<PerfectTimeUnit>) {
         // TODO
     }
 
     fn clear_loop(&mut self) {
+        // TODO
+    }
+
+    fn set_loop_enabled(&mut self, _is_enabled: bool) {
         // TODO
     }
 

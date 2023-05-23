@@ -5,7 +5,10 @@ use core::fmt::Debug;
 use groove_core::{
     generators::{SteppedEnvelope, SteppedEnvelopeFunction, SteppedEnvelopeStep},
     midi::HandlesMidi,
-    time::{BeatValue, Clock, ClockParams, ClockTimeUnit, TimeSignature, TimeSignatureParams},
+    time::{
+        BeatValue, Clock, ClockParams, ClockTimeUnit, PerfectTimeUnit, TimeSignature,
+        TimeSignatureParams,
+    },
     traits::{IsController, Performs, Resets, Ticks, TicksWithMessages},
     ParameterType, SignalType,
 };
@@ -81,11 +84,15 @@ impl Performs for ControlTrip {
         self.clock.seek(0);
     }
 
-    fn set_loop(&mut self, range: &Range<groove_core::time::PerfectTimeUnit>) {
+    fn set_loop(&mut self, _range: &Range<PerfectTimeUnit>) {
         // TODO
     }
 
     fn clear_loop(&mut self) {
+        // TODO
+    }
+
+    fn set_loop_enabled(&mut self, _is_enabled: bool) {
         // TODO
     }
 

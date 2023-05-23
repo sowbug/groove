@@ -67,11 +67,15 @@ impl Performs for LfoController {
         // TODO: think how important it is for LFO oscillator to start at zero
     }
 
-    fn set_loop(&mut self, range: &Range<groove_core::time::PerfectTimeUnit>) {
+    fn set_loop(&mut self, _range: &Range<groove_core::time::PerfectTimeUnit>) {
         // TODO
     }
 
     fn clear_loop(&mut self) {
+        // TODO
+    }
+
+    fn set_loop_enabled(&mut self, _is_enabled: bool) {
         // TODO
     }
 
