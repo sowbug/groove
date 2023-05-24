@@ -41,7 +41,7 @@ A digital audio workstation (DAW) engine.
 
 ## Getting started (developers)
 
-I use VSCode on Ubuntu 20.04 for development.
+I use VSCode on Ubuntu 22.04 LTS for development.
 
 - Visit <https://rustup.rs/> to install the Rust toolchain. We build the
   official releases with `nightly`, but for now we aren't using anything more
