@@ -555,7 +555,6 @@ pub mod tests {
         traits::{Generates, Ticks},
         DcaParams, Normal,
     };
-    use rand::random;
 
     // TODO: restore tests that test basic trait behavior, then figure out how
     // to run everyone implementing those traits through that behavior. For now,
@@ -570,8 +569,10 @@ pub mod tests {
                 pan: Default::default(),
             },
         });
+        let mut rng = oorandom::Rand32::new(0);
+
         for _ in 0..100 {
-            instrument.tick(random::<usize>() % 10);
+            instrument.tick(rng.rand_range(1..10) as usize);
             let _ = instrument.value();
         }
     }

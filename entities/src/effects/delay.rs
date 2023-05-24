@@ -255,7 +255,6 @@ mod tests {
     use float_cmp::approx_eq;
     use groove_core::SampleType;
     use more_asserts::{assert_gt, assert_lt};
-    use rand::random;
 
     // This small rate allows us to observe expected behavior after a small
     // number of iterations.
@@ -292,8 +291,9 @@ mod tests {
         fx.reset(DEFAULT_SAMPLE_RATE);
 
         // We should keep getting back what we put in.
+        let mut rng = oorandom::Rand32::new(0);
         for i in 0..DEFAULT_SAMPLE_RATE {
-            let random_bipolar_normal = random::<f32>().fract() * 2.0 - 1.0;
+            let random_bipolar_normal = rng.rand_float() * 2.0 - 1.0;
             let sample = Sample::from(random_bipolar_normal);
             assert_eq!(
                 fx.transform_channel(0, sample),

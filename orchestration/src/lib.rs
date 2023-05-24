@@ -95,14 +95,16 @@ mod tests {
 
         impl StuffParams {
             fn make_fake() -> Self {
-                use rand::Rng;
-
-                let mut rng = rand::thread_rng();
+                let mut rng = oorandom::Rand32::new(0);
                 Self {
-                    apple_count: rng.gen_range(5..1000),
-                    banana_quality: rng.gen_range(0.0..1.0),
-                    cherry: Cherry::from_repr(rng.gen_range(0..Cherry::COUNT)).unwrap(),
-                    abnormal: Abnormal::from_repr(rng.gen_range(0..Abnormal::COUNT)).unwrap(),
+                    apple_count: rng.rand_range(5..1000) as usize,
+                    banana_quality: rng.rand_float(),
+                    cherry: Cherry::from_repr(rng.rand_range(0..Cherry::COUNT as u32) as usize)
+                        .unwrap(),
+                    abnormal: Abnormal::from_repr(
+                        rng.rand_range(0..Abnormal::COUNT as u32) as usize
+                    )
+                    .unwrap(),
                 }
             }
 
@@ -197,12 +199,10 @@ mod tests {
 
         impl MiscParams {
             fn make_fake() -> Self {
-                use rand::Rng;
-
-                let mut rng = rand::thread_rng();
+                let mut rng = oorandom::Rand32::new(0);
                 Self {
-                    cat_count: rng.gen_range(5..1000),
-                    dog_count: rng.gen_range(5..1000),
+                    cat_count: rng.rand_range(5..1000) as usize,
+                    dog_count: rng.rand_range(5..1000) as usize,
                     stuff: StuffParams::make_fake(),
                 }
             }

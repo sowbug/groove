@@ -7,9 +7,9 @@ edition = "2021"
 anyhow = "1.0.12"
 btreemultimap = "0.1.0"
 convert_case = "0.6.0"
-eframe = { version = "0.21.3", optional = true }
+eframe = { version = "0.22.0", optional = true }
 egui_extras = { version = "0.21.0", optional = true }
-egui_extras_xt = { git = "https://github.com/xTibor/egui_extras_xt", features = [
+egui_extras_xt = { git = "https://github.com/sowbug/egui_extras_xt", features = [
     "knobs",
     "displays"
 ], optional = true }
@@ -22,7 +22,7 @@ groove-utils = { path = "../utils" }
 hound = "3.5"
 midly = "0.5.3"
 more-asserts = "0.3.1"
-rand = "0.8.5"
+oorandom = "11.1.3"
 riff-io = { git = "https://github.com/sowbug/riff-io.git" }
 rustc-hash = "1.1.0"
 strum = "0.24.1"
