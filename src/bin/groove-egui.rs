@@ -30,20 +30,6 @@ use std::{
     time::Instant,
 };
 
-fn main() -> Result<(), eframe::Error> {
-    env_logger::init();
-    let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(1920.0, 1080.0)),
-        ..Default::default()
-    };
-
-    eframe::run_native(
-        "Groove (egui)",
-        options,
-        Box::new(|cc| Box::new(GrooveApp::new(cc))),
-    )
-}
-
 struct GrooveApp {
     preferences: Preferences,
     paths: Paths,
@@ -101,6 +87,7 @@ impl eframe::App for GrooveApp {
         });
         bottom.show(ctx, |ui| {
             ui.horizontal(|ui| {
+                egui::warn_if_debug_build(ui);
                 let seconds = (Instant::now() - self.start_of_time).as_secs_f64();
                 if seconds != 0.0 {
                     ui.label(format!("FPS {:0.2}", self.frames as f64 / seconds));
@@ -375,4 +362,40 @@ impl GrooveApp {
                 ));
         }
     }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn main() -> Result<(), eframe::Error> {
+    env_logger::init();
+    let options = eframe::NativeOptions {
+        initial_window_size: Some(egui::vec2(1920.0, 1080.0)),
+        ..Default::default()
+    };
+
+    eframe::run_native(
+        "Groove (egui)",
+        options,
+        Box::new(|cc| Box::new(GrooveApp::new(cc))),
+    )
+}
+
+#[cfg(target_arch = "wasm32")]
+fn main() {
+    // Make sure panics are logged using `console.error`.
+    console_error_panic_hook::set_once();
+
+    // Redirect tracing to console.log and friends:
+    tracing_wasm::set_as_global_default();
+
+    let web_options = eframe::WebOptions::default();
+
+    wasm_bindgen_futures::spawn_local(async {
+        eframe::start_web(
+            "canvas_id", // hardcode it
+            web_options,
+            Box::new(|cc| Box::new(eframe_template::TemplateApp::new(cc))),
+        )
+        .await
+        .expect("failed to start eframe");
+    });
 }
