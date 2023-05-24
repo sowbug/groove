@@ -243,7 +243,7 @@ mod gui {
                 for notes in self.notes.iter_mut() {
                     for note in notes.iter_mut() {
                         Frame::none()
-                            .stroke(Stroke::new(2.0, Color32::GRAY))
+                            .stroke(Stroke::new(1.0, Color32::GRAY))
                             .fill(Color32::DARK_GRAY)
                             .show(ui, |ui| {
                                 let mut text = format!("{}", note.key);
