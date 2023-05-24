@@ -7,6 +7,7 @@ use crate::{
     messages::{ControlLink, GrooveEvent, GrooveInput, Internal, Response},
 };
 
+use self::gui::OrchestratorGui;
 use anyhow::anyhow;
 use core::fmt::Debug;
 use crossbeam::deque::Worker;
@@ -102,6 +103,9 @@ pub struct Orchestrator {
 
     loop_range: Option<Range<PerfectTimeUnit>>,
     is_loop_enabled: bool,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    gui: OrchestratorGui,
 }
 impl Orchestrator {
     // TODO: prefix these to reserve internal ID namespace
@@ -554,6 +558,7 @@ impl Orchestrator {
             last_samples: Default::default(),
             loop_range: Default::default(),
             is_loop_enabled: Default::default(),
+            gui: Default::default(),
         };
         r.main_mixer_uid = r.add_with_uvid(
             Entity::Mixer(Box::new(Mixer::default())),
@@ -1015,56 +1020,122 @@ mod gui {
         emath::Align,
         epaint::{Color32, Stroke, Vec2},
     };
+    use egui_extras::{Size, StripBuilder};
     use groove_core::traits::gui::Shows;
+    use num_derive::FromPrimitive;
+    use num_traits::FromPrimitive;
+
+    #[derive(Clone, Copy, Debug, Default, FromPrimitive)]
+    pub enum GuiMode {
+        Main = 0,
+        #[default]
+        Audio,
+    }
+
+    #[derive(Debug, Default)]
+    pub struct OrchestratorGui {
+        mode: GuiMode,
+    }
+    impl OrchestratorGui {
+        pub fn next_panel(&mut self) {
+            // https://stackoverflow.com/a/25885372/344467
+            // Thanks https://stackoverflow.com/users/671119/gfour
+            self.mode = match FromPrimitive::from_u8(self.mode as u8 + 1) {
+                Some(next) => next,
+                None => FromPrimitive::from_u8(0).unwrap(),
+            };
+        }
+    }
+
+    impl Orchestrator {
+        pub fn next_panel(&mut self) {
+            self.gui.next_panel();
+        }
+
+        fn ui_container(&mut self, ui: &mut Ui, uid: usize) {
+            let entity = self.get_mut(uid).unwrap();
+            ui.allocate_ui(Vec2::new(256.0, ui.available_height()), |ui| {
+                Frame::none()
+                    .stroke(Stroke::new(2.0, Color32::GRAY))
+                    .fill(Color32::DARK_GRAY)
+                    .inner_margin(Margin::same(2.0))
+                    .outer_margin(Margin {
+                        left: 0.0,
+                        right: 0.0,
+                        top: 0.0,
+                        bottom: 5.0,
+                    })
+                    .show(ui, |ui| {
+                        CollapsingHeader::new(
+                            RichText::new(entity.name())
+                                .color(Color32::YELLOW)
+                                .text_style(eframe::egui::TextStyle::Heading),
+                        )
+                        .id_source(ui.next_auto_id())
+                        .default_open(true)
+                        .show_unindented(ui, |ui| {
+                            ui.vertical(|ui| {
+                                show_for_entity(entity, ui);
+                            })
+                        });
+                    });
+            });
+        }
+
+        fn ui_audio(&mut self, ui: &mut Ui) {
+            let uids: Vec<usize> = self
+                .entity_iter()
+                .filter(|(_, entity)| entity.as_is_instrument().is_some())
+                .map(|(uid, _)| *uid)
+                .collect();
+            uids.iter()
+                .for_each(|uid| self.ui_audio_container(ui, *uid));
+        }
+
+        fn ui_audio_container(&mut self, ui: &mut Ui, uid: usize) {
+            let entity = self.get_mut(uid).unwrap();
+            ui.allocate_ui(Vec2::new(ui.available_width(), 128.0), |ui| {
+                Frame::none()
+                    .stroke(Stroke::new(1.0, Color32::GRAY))
+                    .fill(Color32::DARK_GRAY)
+                    .inner_margin(Margin::same(2.0))
+                    .outer_margin(Margin::same(0.0))
+                    .show(ui, |ui| {
+                        StripBuilder::new(ui)
+                            .size(Size::exact(64.0))
+                            .size(Size::remainder())
+                            .horizontal(|mut strip| {
+                                strip.cell(|ui| {
+                                    ui.label(entity.name());
+                                });
+                                strip.cell(|ui| {
+                                    ui.label("I am here");
+                                });
+                            });
+                    });
+            });
+        }
+    }
 
     impl Shows for Orchestrator {
         fn show(&mut self, ui: &mut Ui) {
-            ui.allocate_ui(Vec2::new(ui.available_width(), 128.0 + 2.0), |ui| {
-                ui.with_layout(
-                    Layout::left_to_right(Align::Min)
-                        .with_main_wrap(true)
-                        .with_cross_align(Align::Min)
-                        .with_cross_justify(true),
-                    |ui| {
-                        let uids: Vec<usize> =
-                            self.entity_iter().map(|(uid, _entity)| *uid).collect();
-
-                        #[allow(unused_variables)] // for all the (e) in the match
-                        for uid in uids {
-                            let entity = self.get_mut(uid).unwrap();
-                            ui.allocate_ui(Vec2::new(256.0, ui.available_height()), |ui| {
-                                Frame::none()
-                                    .stroke(Stroke::new(2.0, Color32::GRAY))
-                                    .fill(Color32::DARK_GRAY)
-                                    .inner_margin(Margin::same(2.0))
-                                    .outer_margin(Margin {
-                                        left: 0.0,
-                                        right: 0.0,
-                                        top: 0.0,
-                                        bottom: 5.0,
-                                    })
-                                    .show(ui, |ui| {
-                                        CollapsingHeader::new(
-                                            RichText::new(entity.name())
-                                                .color(Color32::YELLOW)
-                                                .text_style(eframe::egui::TextStyle::Heading),
-                                        )
-                                        .id_source(ui.next_auto_id())
-                                        .default_open(true)
-                                        .show_unindented(
-                                            ui,
-                                            |ui| {
-                                                ui.vertical(|ui| {
-                                                    show_for_entity(entity, ui);
-                                                })
-                                            },
-                                        );
-                                    });
-                            });
-                        }
-                    },
-                )
-            });
+            ui.allocate_ui(
+                Vec2::new(ui.available_width(), 128.0 + 2.0),
+                |ui| match self.gui.mode {
+                    GuiMode::Main => ui.with_layout(
+                        Layout::left_to_right(Align::Min)
+                            .with_main_wrap(true)
+                            .with_cross_align(Align::Min)
+                            .with_cross_justify(true),
+                        |ui| {
+                            let uids: Vec<usize> =
+                                self.entity_iter().map(|(uid, _)| *uid).collect();
+                            uids.iter().for_each(|uid| self.ui_container(ui, *uid));
+                        },
+                    ),
+                    GuiMode::Audio => ui.vertical(|ui| self.ui_audio(ui)),
+                },
+            );
         }
     }
 

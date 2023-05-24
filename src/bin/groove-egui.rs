@@ -6,7 +6,10 @@
 
 use crossbeam_channel::{Receiver, Sender};
 use eframe::{
-    egui::{self, Context, FontData, FontDefinitions, Layout, RichText, ScrollArea, TextStyle},
+    egui::{
+        self, Context, FontData, FontDefinitions, Layout, Modifiers, RichText, ScrollArea,
+        TextStyle,
+    },
     emath::Align2,
     epaint::{Color32, FontFamily, FontId},
     CreationContext,
@@ -60,6 +63,15 @@ struct GrooveApp {
 impl eframe::App for GrooveApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.handle_message_queue();
+
+        // TODO: the thing browser also acts on the tab. I'm probably looking at keys the wrong way.
+        ctx.input_mut(|i| {
+            if i.consume_key(Modifiers::NONE, egui::Key::Tab) {
+                if let Ok(mut o) = self.orchestrator.lock() {
+                    o.next_panel();
+                }
+            }
+        });
 
         let mut bold_font_height = 0.0;
         ctx.fonts(|f| bold_font_height = f.row_height(&self.bold_font_id));
