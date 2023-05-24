@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use self::gui::NewNoteUiState;
 use super::Sequencer;
 use crate::messages::EntityMessage;
 //use btreemultimap::BTreeMultiMap;
@@ -118,6 +119,10 @@ pub struct NewNote {
     velocity: u8,
     //    duration: PerfectTimeUnit,
     range: Range<f32>,
+
+    #[cfg(feature = "egui-framework")]
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    ui_state: NewNoteUiState,
 }
 
 //pub type NewPatternEventsMap = BTreeMultiMap<PerfectTimeUnit, NewNote>;
@@ -131,6 +136,13 @@ pub struct NewPattern {
     #[cfg(feature = "egui-framework")]
     #[cfg_attr(feature = "serialization", serde(skip))]
     dragged_note: Option<NewNote>,
+
+    #[cfg(feature = "egui-framework")]
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    drag_from_start: bool,
+    #[cfg(feature = "egui-framework")]
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    drag_from_end: bool,
 }
 impl NewPattern {
     pub fn add(&mut self, note: NewNote, _when: PerfectTimeUnit) {
@@ -162,6 +174,7 @@ impl Default for NewPattern {
                         start: 0.0,
                         end: 1.0,
                     },
+                    ui_state: Default::default(),
                 },
                 NewNote {
                     key: 80,
@@ -170,9 +183,12 @@ impl Default for NewPattern {
                         start: 3.0,
                         end: 4.0,
                     },
+                    ui_state: Default::default(),
                 },
             ],
             dragged_note: Default::default(),
+            drag_from_start: Default::default(),
+            drag_from_end: Default::default(),
         }
     }
 }
@@ -191,6 +207,18 @@ mod gui {
         traits::gui::Shows,
     };
     use std::ops::Range;
+
+    #[cfg(feature = "serialization")]
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Clone, Debug, Default, PartialEq)]
+    #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+    pub(crate) enum NewNoteUiState {
+        #[default]
+        Normal,
+        Hovered,
+        Selected,
+    }
 
     impl Pattern<Note> {
         pub const CELL_WIDTH: f32 = 32.0;
@@ -264,7 +292,9 @@ mod gui {
             let rect = to_screen
                 .transform_rect(self.rect_for_note(note))
                 .shrink(1.0);
-            let color = if is_highlighted {
+            let color = if note.ui_state == NewNoteUiState::Selected {
+                Color32::LIGHT_GRAY
+            } else if is_highlighted {
                 Color32::WHITE
             } else {
                 Color32::DARK_BLUE
@@ -277,16 +307,15 @@ mod gui {
 
         fn rect_for_note(&self, note: &NewNote) -> Rect {
             let notes_vert = 24.0;
-            let steps_horiz = 16.0;
-            let note_rect_size = Vec2 {
-                x: 1.0 / steps_horiz,
-                y: 1.0 / notes_vert,
-            };
             let ul = Pos2 {
                 x: note.range.start / 4.0,
                 y: (note.key as f32) / notes_vert,
             };
-            Rect::from_min_size(ul, note_rect_size)
+            let br = Pos2 {
+                x: note.range.end / 4.0,
+                y: (1.0 + note.key as f32) / notes_vert,
+            };
+            Rect::from_two_pos(ul, br)
         }
 
         fn ui_content(&mut self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
@@ -319,11 +348,23 @@ mod gui {
 
             // Are we over any existing note?
             let mut hovered_note = None;
+            // if yes, are we hovering at a duration adjustment point?
+            let mut hovering_at_start = false;
+            let mut hovering_at_end = false;
             if let Some(hover_pos) = response.hover_pos() {
                 for note in &self.notes {
                     let note_rect = to_screen.transform_rect(self.rect_for_note(note));
                     if note_rect.contains(hover_pos) {
+                        const SIDE_MARGIN: f32 = 6.0;
                         hovered_note = Some(note.clone());
+                        let smaller_rect = Rect::from_min_size(
+                            note_rect.left_top(),
+                            Vec2::new(SIDE_MARGIN, note_rect.height()),
+                        );
+                        hovering_at_start = smaller_rect.contains(hover_pos);
+                        let smaller_rect =
+                            smaller_rect.translate(Vec2::new(note_rect.width() - SIDE_MARGIN, 0.0));
+                        hovering_at_end = smaller_rect.contains(hover_pos);
                         break;
                     }
                 }
@@ -344,7 +385,15 @@ mod gui {
             }
 
             if response.drag_started() {
+                self.drag_from_start = false;
+                self.drag_from_end = false;
                 if hovered_note.is_some() {
+                    if hovering_at_start {
+                        self.drag_from_start = true;
+                    }
+                    if hovering_at_end {
+                        self.drag_from_end = true;
+                    }
                     self.dragged_note = hovered_note.take();
                     if let Some(n) = &self.dragged_note {
                         self.remove(n.clone(), PerfectTimeUnit::default());
@@ -354,27 +403,68 @@ mod gui {
                 }
             }
             if response.dragged() {
-                if self.dragged_note.is_some() {
+                if let Some(old_note) = &self.dragged_note {
                     if let Some(pointer_pos) = response.interact_pointer_pos() {
-                        let new_note = self.note_for_position(
-                            &from_screen,
-                            steps_horiz,
-                            notes_vert,
-                            pointer_pos,
-                        );
+                        let new_note = if self.drag_from_start || self.drag_from_end {
+                            let canvas_pos = from_screen * pointer_pos;
+                            NewNote {
+                                key: old_note.key,
+                                velocity: old_note.velocity,
+                                range: if self.drag_from_start {
+                                    Range {
+                                        start: (canvas_pos.x * steps_horiz * 8.0).floor() / 32.0,
+                                        end: old_note.range.end,
+                                    }
+                                } else {
+                                    Range {
+                                        start: old_note.range.start,
+                                        end: (canvas_pos.x * steps_horiz * 8.0).floor() / 32.0,
+                                    }
+                                },
+                                ui_state: Default::default(),
+                            }
+                        } else {
+                            self.note_for_position(
+                                &from_screen,
+                                steps_horiz,
+                                notes_vert,
+                                pointer_pos,
+                            )
+                        };
+                        eprintln!("dragged note {:#?}", new_note);
                         painter.extend(self.make_note_shapes(&new_note, &to_screen, true));
                     }
                 }
             }
             if response.drag_released() {
-                if self.dragged_note.is_some() {
+                if let Some(old_note) = &self.dragged_note {
                     if let Some(pointer_pos) = response.interact_pointer_pos() {
-                        let new_note = self.note_for_position(
-                            &from_screen,
-                            steps_horiz,
-                            notes_vert,
-                            pointer_pos,
-                        );
+                        let new_note = if self.drag_from_start || self.drag_from_end {
+                            let canvas_pos = from_screen * pointer_pos;
+                            NewNote {
+                                key: old_note.key,
+                                velocity: old_note.velocity,
+                                range: if self.drag_from_start {
+                                    Range {
+                                        start: (canvas_pos.x * steps_horiz * 8.0).floor() / 32.0,
+                                        end: old_note.range.end,
+                                    }
+                                } else {
+                                    Range {
+                                        start: old_note.range.start,
+                                        end: (canvas_pos.x * steps_horiz * 8.0).floor() / 32.0,
+                                    }
+                                },
+                                ui_state: Default::default(),
+                            }
+                        } else {
+                            self.note_for_position(
+                                &from_screen,
+                                steps_horiz,
+                                notes_vert,
+                                pointer_pos,
+                            )
+                        };
                         self.add(new_note, PerfectTimeUnit::default());
                     }
                 }
@@ -441,6 +531,7 @@ mod gui {
                     start: when,
                     end: when + 0.25,
                 },
+                ui_state: Default::default(),
             }
         }
     }
