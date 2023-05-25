@@ -85,7 +85,7 @@ struct TimeUnit {
 ```
 
 The `bars` field is the only one that needs to be roomy. A `beats` size of `u8`
-allows time signatures as fine as x/256. A `note_units` of `u8` could represent
+allows time signatures as fine as 256/x. A `note_units` of `u8` could represent
 anything from 1/2 to 1/256 of a beat. Finally, the fraction portion can either
 follow Bitwig's lead of a decimal 0..100 that is treated as a percentage, or it
 could represent 1/256th of a note_unit. For a 4/4 128 BPM piece (32
