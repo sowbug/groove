@@ -24,7 +24,6 @@ use groove_core::{
     time::{ClockParams, TimeSignatureParams},
     traits::gui::Shows,
 };
-use groove_entities::controllers::NewPattern;
 use groove_orchestration::{messages::GrooveInput, Orchestrator};
 use groove_utils::Paths;
 use std::{
@@ -54,8 +53,6 @@ struct GrooveApp {
     #[allow(dead_code)]
     mono_font_id: FontId,
     bold_font_id: FontId,
-
-    new_pattern: NewPattern,
 
     frames: usize,
     start_of_time: Instant,
@@ -138,7 +135,6 @@ impl eframe::App for GrooveApp {
         });
         center.show(ctx, |ui| {
             ScrollArea::vertical().show(ui, |ui| {
-                self.new_pattern.show(ui);
                 if let Ok(mut o) = self.orchestrator.lock() {
                     o.show(ui);
                 }
@@ -202,8 +198,6 @@ impl GrooveApp {
             regular_font_id: FontId::proportional(14.0),
             bold_font_id: FontId::new(12.0, FontFamily::Name(Self::FONT_BOLD.into())),
             mono_font_id: FontId::monospace(14.0),
-
-            new_pattern: Default::default(),
 
             frames: Default::default(),
             start_of_time: Instant::now(),

@@ -1022,6 +1022,7 @@ mod gui {
     };
     use egui_extras::{Size, StripBuilder};
     use groove_core::traits::gui::Shows;
+    use groove_entities::controllers::NewPattern;
     use num_derive::FromPrimitive;
     use num_traits::FromPrimitive;
 
@@ -1030,11 +1031,13 @@ mod gui {
         Main = 0,
         #[default]
         Audio,
+        Experimental,
     }
 
     #[derive(Debug, Default)]
     pub struct OrchestratorGui {
         mode: GuiMode,
+        new_pattern: NewPattern,
     }
     impl OrchestratorGui {
         pub fn next_panel(&mut self) {
@@ -1050,6 +1053,19 @@ mod gui {
     impl Orchestrator {
         pub fn next_panel(&mut self) {
             self.gui.next_panel();
+        }
+
+        fn ui_main(&mut self, ui: &mut Ui) {
+            ui.with_layout(
+                Layout::left_to_right(Align::Min)
+                    .with_main_wrap(true)
+                    .with_cross_align(Align::Min)
+                    .with_cross_justify(true),
+                |ui| {
+                    let uids: Vec<usize> = self.entity_iter().map(|(uid, _)| *uid).collect();
+                    uids.iter().for_each(|uid| self.ui_container(ui, *uid));
+                },
+            );
         }
 
         fn ui_container(&mut self, ui: &mut Ui, uid: usize) {
@@ -1083,13 +1099,15 @@ mod gui {
         }
 
         fn ui_audio(&mut self, ui: &mut Ui) {
-            let uids: Vec<usize> = self
-                .entity_iter()
-                .filter(|(_, entity)| entity.as_is_instrument().is_some())
-                .map(|(uid, _)| *uid)
-                .collect();
-            uids.iter()
-                .for_each(|uid| self.ui_audio_container(ui, *uid));
+            ui.vertical(|ui| {
+                let uids: Vec<usize> = self
+                    .entity_iter()
+                    .filter(|(_, entity)| entity.as_is_instrument().is_some())
+                    .map(|(uid, _)| *uid)
+                    .collect();
+                uids.iter()
+                    .for_each(|uid| self.ui_audio_container(ui, *uid));
+            });
         }
 
         fn ui_audio_container(&mut self, ui: &mut Ui, uid: usize) {
@@ -1115,6 +1133,27 @@ mod gui {
                     });
             });
         }
+        fn ui_experimental(&mut self, ui: &mut Ui) {
+            // one panel is rows of audio lanes.
+            // one panel is the current signal (MIDI, audio, control, etc.)
+            // one panel is detailed UI for instruments/effect
+            StripBuilder::new(ui)
+                .size(Size::exact(64.0))
+                .size(Size::remainder().at_least(128.0))
+                .size(Size::exact(64.0))
+                .vertical(|mut strip| {
+                    strip.cell(|ui| {
+                        ui.label("I'm the lanes!");
+                    });
+                    strip.cell(|ui| {
+                        ui.label("I'm the signal!");
+                        self.gui.new_pattern.show(ui);
+                    });
+                    strip.cell(|ui| {
+                        ui.label("I'm the detail!");
+                    });
+                });
+        }
     }
 
     impl Shows for Orchestrator {
@@ -1122,18 +1161,9 @@ mod gui {
             ui.allocate_ui(
                 Vec2::new(ui.available_width(), 128.0 + 2.0),
                 |ui| match self.gui.mode {
-                    GuiMode::Main => ui.with_layout(
-                        Layout::left_to_right(Align::Min)
-                            .with_main_wrap(true)
-                            .with_cross_align(Align::Min)
-                            .with_cross_justify(true),
-                        |ui| {
-                            let uids: Vec<usize> =
-                                self.entity_iter().map(|(uid, _)| *uid).collect();
-                            uids.iter().for_each(|uid| self.ui_container(ui, *uid));
-                        },
-                    ),
-                    GuiMode::Audio => ui.vertical(|ui| self.ui_audio(ui)),
+                    GuiMode::Main => self.ui_main(ui),
+                    GuiMode::Audio => self.ui_audio(ui),
+                    GuiMode::Experimental => self.ui_experimental(ui),
                 },
             );
         }
