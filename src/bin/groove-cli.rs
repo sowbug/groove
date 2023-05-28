@@ -142,7 +142,7 @@ fn main() -> anyhow::Result<()> {
             println!("Rendering queue");
         }
         if args.wav {
-            let re = Regex::new(r"\.ya?ml$").unwrap();
+            let re = Regex::new(r"\.json5$").unwrap();
             let output_filename = re.replace(&input_filename, ".wav");
             if input_filename == output_filename {
                 panic!("would overwrite input file; couldn't generate output filename");
