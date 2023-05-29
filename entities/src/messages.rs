@@ -1,6 +1,5 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::controllers::PatternMessage;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     traits::MessageBounds,
@@ -28,15 +27,5 @@ pub enum EntityMessage {
 
     /// Sent by system to every entity that subscribes to a control.
     HandleControlF32(usize, f32),
-
-    /// Wrapper for PatternMessages.
-    PatternMessage(usize, PatternMessage),
-
-    PickListSelected(String),
-
-    // GUI things.
-    ExpandPressed,
-    CollapsePressed,
-    EnablePressed(bool),
 }
 impl MessageBounds for EntityMessage {}

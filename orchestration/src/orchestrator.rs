@@ -618,7 +618,6 @@ impl Orchestrator {
                         EntityMessage::HandleControlF32(param_id, value) => {
                             self.handle_control_f32(uid, param_id, value)
                         }
-                        _ => todo!(),
                     },
                     GrooveInput::MidiFromExternal(channel, message) => {
                         self.broadcast_midi_messages(&[(channel, message)]);

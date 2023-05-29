@@ -11,8 +11,7 @@ pub use control_trip::{ControlPath, ControlStep, ControlTrip, ControlTripParams}
 pub use lfo::LfoControllerMessage;
 pub use lfo::{LfoController, LfoControllerParams};
 pub use patterns::{
-    NewPattern, Note, Pattern, PatternManager, PatternManagerParams, PatternMessage,
-    PatternProgrammer,
+    NewPattern, Note, Pattern, PatternManager, PatternManagerParams, PatternProgrammer,
 };
 #[cfg(feature = "iced-framework")]
 pub use patterns::{PatternManagerMessage, PatternMessage};

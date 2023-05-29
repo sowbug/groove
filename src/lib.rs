@@ -95,18 +95,12 @@
 //! }
 //! ```
 
-use groove_midi::MidiPortDescriptor;
-use std::path::PathBuf;
-
 pub use groove_orchestration::{Entity, Orchestrator};
 
 /// Widgets for egui
 pub mod egui_widgets;
 
-use groove_core::{
-    midi::{MidiChannel, MidiMessage},
-    ParameterType,
-};
+use groove_core::ParameterType;
 
 // TODO: these should be #[cfg(test)] because nobody should be assuming these
 // values

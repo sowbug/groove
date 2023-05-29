@@ -15,14 +15,6 @@ use std::{cmp, fmt::Debug, ops::Range};
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-/// [PatternMessage] specifies interactions that can happen between
-/// [PatternManager] and other components such as an application GUI.
-#[derive(Clone, Debug)]
-pub enum PatternMessage {
-    SomethingHappened,
-    ButtonPressed,
-}
-
 /// A [Note] represents a key-down and key-up event pair that lasts for a
 /// specified duration.
 #[derive(Clone, Debug, Default)]
