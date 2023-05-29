@@ -51,6 +51,9 @@ use groove_toys::{
     ToySynthMessage,
 };
 
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
+
 // PRO TIP: use `cargo expand --lib entities` to see what's being generated
 
 type MsgType = EntityMessage;

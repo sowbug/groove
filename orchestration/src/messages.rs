@@ -9,8 +9,10 @@ use groove_core::{
     traits::MessageBounds,
 };
 use groove_entities::EntityMessage;
-use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
 pub enum GrooveInput {
