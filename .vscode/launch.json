@@ -29,6 +29,24 @@
     {
       "type": "lldb",
       "request": "launch",
+      "name": "MiniDAW example",
+      "cargo": {
+        "args": [
+            "build",
+            "--example=minidaw",
+            "--package=groove",
+        ],
+        "filter": {
+            "name": "minidaw",
+            "kind": "example"
+        }
+    },
+    "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
       "name": "Unit tests",
       "cargo": {
         "args": [
