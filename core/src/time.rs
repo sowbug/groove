@@ -9,6 +9,7 @@ use groove_proc_macros::{Control, Params, Uid};
 use std::{
     cmp::Ordering,
     fmt::Display,
+    num::NonZeroUsize,
     ops::{Add, Mul},
 };
 use strum_macros::{FromRepr, IntoStaticStr};
@@ -522,6 +523,298 @@ impl Default for TimeSignature {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Params)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub struct MusicalTime {
+    /// The number of bars, or measures. Zero-indexed, so Bar #0 is the first.
+    #[params]
+    bars: usize,
+
+    /// The number of beats within the current bar. The value of a bar's worth
+    /// of beats is adjustable, but it's usually the top number of whatever time
+    /// signature is applicable.
+    ///
+    /// Range implied by u8 is 0..256 beats in a single measure.
+    #[params]
+    beats: u8,
+
+    /// Fractions of a beat. The unit of value is usually a sixteenth-note.
+    #[params]
+    parts: u8,
+
+    /// 1/100 of a part.
+    #[params]
+    subparts: u8,
+
+    /// An optional number of beats in a bar. By default, it's 4.
+    beats_per_bar: u8,
+
+    /// The number of parts in a beat. By default, it's 16.
+    parts_denominator: u16,
+}
+impl Default for MusicalTime {
+    fn default() -> Self {
+        Self {
+            bars: Default::default(),
+            beats: Default::default(),
+            parts: Default::default(),
+            subparts: Default::default(),
+            beats_per_bar: 4,
+            parts_denominator: 16,
+        }
+    }
+}
+impl MusicalTime {
+    pub fn bars(&self) -> usize {
+        self.bars
+    }
+
+    pub fn set_bars(&mut self, bars: usize) {
+        self.bars = bars;
+    }
+
+    pub fn beats(&self) -> u8 {
+        self.beats
+    }
+
+    pub fn set_beats(&mut self, beats: u8) {
+        self.beats = beats;
+    }
+
+    pub fn parts(&self) -> u8 {
+        self.parts
+    }
+
+    pub fn set_parts(&mut self, parts: u8) {
+        self.parts = parts;
+    }
+
+    pub fn subparts(&self) -> u8 {
+        self.subparts
+    }
+
+    pub fn set_subparts(&mut self, subparts: u8) {
+        self.subparts = subparts;
+    }
+
+    pub fn reset(&mut self) {
+        self.bars = Default::default();
+        self.beats = Default::default();
+        self.parts = Default::default();
+        self.subparts = Default::default();
+    }
+
+    pub fn add_bars(&mut self, bars: usize) {
+        self.bars += bars;
+    }
+
+    pub fn add_beats(&mut self, beats: u8) {
+        let new_units: u16 = self.beats as u16 + beats as u16;
+        let bpb = self.beats_per_bar as u16;
+        let overflow_units = new_units / bpb;
+        let actual_units = new_units % bpb;
+        if overflow_units != 0 {
+            self.add_bars(overflow_units as usize);
+        }
+        self.beats = actual_units as u8;
+    }
+
+    // For now, we're keeping this as a quarter of the beat value, which means
+    // that it's always going to range from 0..16. If we ever need more
+    // precision than that, then we can add something to TimeSignature or
+    // elsewhere that indicates what the custom range should be.
+    pub fn add_parts(&mut self, parts: u8) {
+        let new_units: u16 = self.parts as u16 + parts as u16;
+        let overflow_units = new_units / self.parts_denominator;
+        let actual_units = new_units % self.parts_denominator;
+        if overflow_units != 0 {
+            self.add_beats(overflow_units as u8);
+        }
+        self.parts = actual_units as u8;
+    }
+
+    pub fn add_subparts(&mut self, subparts: u8) {
+        const UNIT_RANGE: u16 = 100;
+
+        let new_units: u16 = self.subparts as u16 + subparts as u16;
+        let overflow_units = new_units / UNIT_RANGE;
+        let actual_units = new_units % UNIT_RANGE;
+        if overflow_units != 0 {
+            self.add_parts(overflow_units as u8);
+        }
+        self.subparts = actual_units as u8;
+    }
+
+    pub fn new_with(params: &MusicalTimeParams) -> Self {
+        Self {
+            bars: params.bars,
+            beats: params.beats,
+            parts: params.parts,
+            subparts: params.subparts,
+            ..Default::default()
+        }
+    }
+
+    pub fn new(bars: usize, beats: u8, parts: u8, subparts: u8) -> Self {
+        Self::new_with(&MusicalTimeParams {
+            bars,
+            beats,
+            parts,
+            subparts: subparts,
+        })
+    }
+
+    pub fn new_with_beats_per_bar(beats_per_bar: u8) -> Self {
+        Self {
+            beats_per_bar,
+            ..Default::default()
+        }
+    }
+
+    pub fn new_from_frames(
+        ts: &TimeSignature,
+        tempo: Tempo,
+        sample_rate: SampleRate,
+        frames: usize,
+    ) -> Self {
+        let beats_per_bar = ts.top as f64;
+        let total_beats_elapsed = (frames as f64 / sample_rate.0.get() as f64) * tempo.bps();
+        let total_bars_elapsed = total_beats_elapsed / beats_per_bar;
+        let bars = total_bars_elapsed.floor() as usize;
+        let remaining_beats = total_beats_elapsed - total_bars_elapsed.floor() * beats_per_bar;
+        let beats = remaining_beats.floor() as u8;
+        let remaining_parts = remaining_beats.fract() * 16.0;
+        let parts = (remaining_parts.floor()) as u8;
+        let subparts = ((remaining_parts - parts as f64) * 100.0 + 0.5) as u8;
+
+        let mut r = Self {
+            bars,
+            beats,
+            parts,
+            subparts,
+            beats_per_bar: ts.top as u8,
+            parts_denominator: 16,
+        };
+
+        // This is gross. Some floating-point error accumulates in this block,
+        // and it sometimes leaves subparts holding a subpart-sized bag, which
+        // means that we end up with an impossible subparts value of 100
+        // (outside the 0..100 range). The solution is to carry the one, which
+        // is a potentially complicated operation, so we delegate it to our
+        // existing addition function.
+        if r.subparts == 100 {
+            r.subparts = 0;
+            r.add_parts(1);
+        }
+        r
+    }
+
+    pub fn as_frames(&self, tempo: Tempo, sample_rate: SampleRate) -> usize {
+        let frames_per_second: f64 = sample_rate.into();
+        let seconds_per_beat = 1.0 / tempo.bps();
+        let frames_per_beat = seconds_per_beat * frames_per_second;
+
+        let bars_in_frames = (self.bars * self.beats_per_bar as usize) as f64 * frames_per_beat;
+        let beats_in_frames = self.beats as f64 * frames_per_beat;
+        let parts_in_frames = (self.parts as f64 / 16.0) * frames_per_beat;
+        let subparts_in_frames = (self.subparts as f64 / 1600.0) * frames_per_beat;
+        (bars_in_frames + beats_in_frames + parts_in_frames + subparts_in_frames + 0.5) as usize
+    }
+}
+impl Display for MusicalTime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}.{}.{}.{}",
+            self.bars, self.beats, self.parts, self.subparts
+        )
+    }
+}
+impl Add<Self> for MusicalTime {
+    type Output = Self;
+
+    // We look at only the left side's beats-per-bar value, rather than trying
+    // to reconcile different ones.
+    fn add(self, rhs: Self) -> Self::Output {
+        let mut output = self;
+        output.add_subparts(rhs.subparts);
+        output.add_parts(rhs.parts);
+        output.add_beats(rhs.beats);
+        output.add_bars(rhs.bars);
+        output
+    }
+}
+
+/// Beats per minute.
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub struct Tempo(f64);
+impl Default for Tempo {
+    fn default() -> Self {
+        Self(128.0)
+    }
+}
+impl From<u16> for Tempo {
+    fn from(value: u16) -> Self {
+        Self(value as f64)
+    }
+}
+impl From<f64> for Tempo {
+    fn from(value: f64) -> Self {
+        Self(value)
+    }
+}
+impl Tempo {
+    pub fn value(&self) -> f64 {
+        self.0
+    }
+    pub fn bps(&self) -> f64 {
+        self.0 / 60.0
+    }
+}
+
+/// Samples per second. Always a positive integer; cannot be zero.
+#[derive(Clone, Copy, Debug)]
+pub struct SampleRate(NonZeroUsize);
+impl SampleRate {
+    pub fn value(&self) -> usize {
+        self.0.get()
+    }
+}
+impl Default for SampleRate {
+    fn default() -> Self {
+        Self(NonZeroUsize::new(44100).unwrap())
+    }
+}
+impl From<f64> for SampleRate {
+    fn from(value: f64) -> Self {
+        if let Some(v) = NonZeroUsize::new(value as usize) {
+            Self(v)
+        } else {
+            panic!("SampleRate must be a positive integer")
+        }
+    }
+}
+impl From<SampleRate> for f64 {
+    fn from(value: SampleRate) -> Self {
+        value.0.get() as f64
+    }
+}
+impl From<SampleRate> for usize {
+    fn from(value: SampleRate) -> Self {
+        value.0.get()
+    }
+}
+impl From<usize> for SampleRate {
+    fn from(value: usize) -> Self {
+        if let Some(checked_value) = NonZeroUsize::new(value) {
+            Self(checked_value)
+        } else {
+            panic!("attempt to create SampleRate from invalid usize {}", value)
+        }
+    }
+}
+
 #[cfg(feature = "egui-framework")]
 mod gui {
     use super::BeatValue;
@@ -584,6 +877,18 @@ mod tests {
             self.frames = (self.sample_rate() as f32 * value) as usize;
             self.update_internals();
         }
+    }
+
+    #[test]
+    fn tempo() {
+        let t = Tempo::default();
+        assert_eq!(t.value(), 128.0);
+    }
+
+    #[test]
+    fn sample_rate() {
+        let sr = SampleRate::default();
+        assert_eq!(sr.value(), 44100);
     }
 
     #[test]
@@ -698,5 +1003,272 @@ mod tests {
         // BeatValue::FiveHundredTwelfth value of 524288
         let bv = BeatValue::from_divisor(2.0f32.powi(10));
         assert!(bv.is_err());
+    }
+
+    #[test]
+    fn musical_time_at_time_zero() {
+        // Default is time zero
+        let t = MusicalTime::default();
+        assert_eq!(t.bars, 0);
+        assert_eq!(t.beats, 0);
+        assert_eq!(t.parts, 0);
+        assert_eq!(t.subparts, 0);
+    }
+
+    #[test]
+    fn musical_time_to_frame_conversions() {
+        let ts = TimeSignature::default();
+        let tempo = Tempo::default();
+        let sample_rate = SampleRate::default();
+
+        // These are here to catch any change in defaults that would invalidate lots of tests.
+        assert_eq!(ts.top, 4);
+        assert_eq!(ts.bottom, 4);
+        assert_eq!(tempo.0, 128.0);
+        assert_eq!(<SampleRate as Into<usize>>::into(sample_rate), 44100);
+
+        const ONE_4_4_BAR_IN_SECONDS: f64 = 60.0 * 4.0 / 128.0;
+        const ONE_BEAT_IN_SECONDS: f64 = 60.0 / 128.0;
+        const ONE_PART_IN_SECONDS: f64 = ONE_BEAT_IN_SECONDS / 16.0;
+        const ONE_SUBPART_IN_SECONDS: f64 = ONE_BEAT_IN_SECONDS / (16.0 * 100.0);
+        assert_eq!(ONE_4_4_BAR_IN_SECONDS, 1.875);
+        assert_eq!(ONE_BEAT_IN_SECONDS, 0.46875);
+
+        for (bars, beats, parts, subparts, seconds) in [
+            (0, 0, 0, 0, 0.0),
+            (0, 0, 0, 1, ONE_SUBPART_IN_SECONDS),
+            (0, 0, 1, 0, ONE_PART_IN_SECONDS),
+            (0, 1, 0, 0, ONE_BEAT_IN_SECONDS),
+            (1, 0, 0, 0, ONE_4_4_BAR_IN_SECONDS),
+            (128 / 4, 0, 0, 0, 60.0),
+        ] {
+            let sample_rate_f64: f64 = sample_rate.into();
+            let frames = (seconds * sample_rate_f64).round() as usize;
+            assert_eq!(
+                MusicalTime::new(bars, beats, parts, subparts).as_frames(tempo, sample_rate),
+                frames,
+                "Expected {}.{}.{}.{} -> {} frames",
+                bars,
+                beats,
+                parts,
+                subparts,
+                frames,
+            );
+        }
+    }
+
+    #[test]
+    fn frame_to_musical_time_conversions() {
+        let ts = TimeSignature::default();
+        let tempo = Tempo::default();
+        let sample_rate = SampleRate::default();
+
+        for (frames, bars, beats, parts, subparts) in [
+            (0, 0, 0, 0, 0),
+            (2646000, 32, 0, 0, 0), // one full minute
+            (44100, 0, 2, 2, 13),   // one second = 128 bpm / 60 seconds/min =
+                                    // 2.13333333 beats, which breaks down to 2
+                                    // beats, 2 parts that are each 1/16 of a
+                                    // beat = 2.133333 parts (yeah, that happens
+                                    // to be the same as the 2.133333 for
+                                    // beats), and multiply the .1333333 by 100
+                                    // to get subparts.
+        ] {
+            assert_eq!(
+                MusicalTime::new(bars, beats, parts, subparts),
+                MusicalTime::new_from_frames(&ts, tempo, sample_rate, frames),
+                "Expected {} frames -> {}.{}.{}.{}",
+                frames,
+                bars,
+                beats,
+                parts,
+                subparts,
+            );
+        }
+    }
+
+    #[test]
+    fn conversions_are_consistent() {
+        let ts = TimeSignature::default();
+        let tempo = Tempo::default();
+        let sample_rate = SampleRate::default();
+
+        for bars in 0..4 {
+            for beats in 0..ts.top() as u8 {
+                for parts in 0..16u8 {
+                    for subparts in 0..100u8 {
+                        // We do expect time -> frames -> time to be exact,
+                        // because frames is (typically) higher resolution than
+                        // time. But frames -> time -> frames is not expected to be exact.
+                        let t = MusicalTime::new(bars, beats, parts, subparts);
+                        let frames = t.as_frames(tempo, sample_rate);
+                        let t_from_f =
+                            MusicalTime::new_from_frames(&ts, tempo, sample_rate, frames);
+                        assert_eq!(
+                            t, t_from_f,
+                            "{:?} -> {frames} -> {:?} <<< PROBLEM",
+                            t, t_from_f
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn musical_time_math() {
+        // Advancing by bar works
+        let mut t = MusicalTime::default();
+        t.add_bars(1);
+        assert_eq!(t.beats, 0);
+        assert_eq!(t.bars, 1);
+
+        // Advancing by beat works
+        let mut t = MusicalTime::default();
+        t.add_beats(1);
+        assert_eq!(t.beats, 1);
+        let mut t = MusicalTime::new(0, 3, 0, 0);
+        t.add_beats(1);
+        assert_eq!(t.beats, 0);
+        assert_eq!(t.bars, 1);
+
+        // Advancing by part works
+        let mut t = MusicalTime::default();
+        t.add_parts(1);
+        assert_eq!(t.bars, 0);
+        assert_eq!(t.beats, 0);
+        assert_eq!(t.parts, 1);
+        let mut t = MusicalTime::new(0, 0, 15, 0);
+        t.add_parts(1);
+        assert_eq!(t.bars, 0);
+        assert_eq!(t.beats, 1);
+        assert_eq!(t.parts, 0);
+
+        // Advancing by subpart works
+        let mut t = MusicalTime::default();
+        t.add_subparts(1);
+        assert_eq!(t.bars, 0);
+        assert_eq!(t.beats, 0);
+        assert_eq!(t.parts, 0);
+        assert_eq!(t.subparts, 1);
+        let mut t = MusicalTime::new(0, 0, 0, 99);
+        t.add_subparts(1);
+        assert_eq!(t.bars, 0);
+        assert_eq!(t.beats, 0);
+        assert_eq!(t.parts, 1);
+        assert_eq!(t.subparts, 0);
+
+        // One more big rollover to be sure
+        let mut t = MusicalTime::new(0, 3, 15, 99);
+        t.add_subparts(1);
+        assert_eq!(t.bars, 1);
+        assert_eq!(t.beats, 0);
+        assert_eq!(t.parts, 0);
+        assert_eq!(t.subparts, 0);
+    }
+
+    #[test]
+    fn musical_time_math_add_trait() {
+        let bar_unit = MusicalTime::new(1, 0, 0, 0);
+        let beat_unit = MusicalTime::new(0, 1, 0, 0);
+        let part_unit = MusicalTime::new(0, 0, 1, 0);
+        let subpart_unit = MusicalTime::new(0, 0, 0, 1);
+
+        // Advancing by bar works
+        let t = MusicalTime::default() + bar_unit;
+        assert_eq!(t.beats, 0);
+        assert_eq!(t.bars, 1);
+
+        // Advancing by beat works
+        let mut t = MusicalTime::default() + beat_unit;
+
+        assert_eq!(t.beats, 1);
+        t = t + beat_unit;
+        assert_eq!(t.beats, 2);
+        assert_eq!(t.bars, 0);
+        t = t + beat_unit;
+        assert_eq!(t.beats, 3);
+        assert_eq!(t.bars, 0);
+        t = t + beat_unit;
+        assert_eq!(t.beats, 0);
+        assert_eq!(t.bars, 1);
+
+        // Advancing by part works
+        let mut t = MusicalTime::default();
+        assert_eq!(t.bars, 0);
+        assert_eq!(t.beats, 0);
+        for i in 0..16 {
+            assert_eq!(t.parts, i);
+            t = t + part_unit;
+        }
+        assert_eq!(t.beats, 1);
+        assert_eq!(t.parts, 0);
+
+        // Advancing by subpart works
+        let mut t = MusicalTime::default();
+        assert_eq!(t.beats, 0);
+        assert_eq!(t.bars, 0);
+        assert_eq!(t.parts, 0);
+        for i in 0..100 {
+            assert_eq!(t.subparts, i);
+            t = t + subpart_unit;
+        }
+        assert_eq!(t.parts, 1);
+        assert_eq!(t.subparts, 0);
+
+        // One more big rollover to be sure
+        let mut t = MusicalTime::new(0, 3, 15, 99);
+        t = t + subpart_unit;
+        assert_eq!(t.bars, 1);
+        assert_eq!(t.beats, 0);
+        assert_eq!(t.parts, 0);
+        assert_eq!(t.subparts, 0);
+    }
+
+    #[test]
+    fn musical_time_math_other_time_signatures() {
+        let t = MusicalTime {
+            bars: 0,
+            beats: 8,
+            parts: 15,
+            subparts: 99,
+            beats_per_bar: 9,
+            ..Default::default()
+        } + MusicalTime::new(0, 0, 0, 1);
+        assert_eq!(t.bars, 1);
+        assert_eq!(t.beats, 0);
+        assert_eq!(t.parts, 0);
+        assert_eq!(t.subparts, 0);
+    }
+
+    #[test]
+    fn musical_time_overflow() {
+        let ts = TimeSignature::new_with(4, 256).unwrap();
+
+        let time_params = MusicalTimeParams {
+            bars: 0,
+            beats: (ts.top - 1) as u8,
+            parts: 16 - 1,
+            subparts: 99,
+        };
+        eprintln!("{:?}", time_params);
+
+        let mut t = MusicalTime::new_with(&time_params);
+        t.add_beats(1);
+        assert_eq!(t.beats, 0);
+        assert_eq!(t.bars, 1);
+
+        let mut t = MusicalTime::new_with(&time_params);
+        t.add_parts(1);
+        assert_eq!(t.parts, 0);
+        assert_eq!(t.beats, 0);
+        assert_eq!(t.bars, 1);
+
+        let mut t = MusicalTime::new_with(&time_params);
+        t.add_subparts(1);
+        assert_eq!(t.subparts, 0);
+        assert_eq!(t.parts, 0);
+        assert_eq!(t.beats, 0);
+        assert_eq!(t.bars, 1);
     }
 }
