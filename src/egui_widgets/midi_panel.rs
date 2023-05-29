@@ -1,9 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::Message;
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{self, CollapsingHeader, ComboBox};
-use groove_core::traits::gui::Shows;
+use groove_core::{
+    midi::{MidiChannel, MidiMessage},
+    traits::gui::Shows,
+};
 use groove_midi::{
     MidiInterfaceEvent, MidiInterfaceInput, MidiInterfaceService, MidiPortDescriptor,
 };
@@ -12,11 +14,32 @@ use std::{
     time::Instant,
 };
 
+/// The panel provides updates to the app through [MidiPanelEvent] messages.
+#[derive(Clone, Debug)]
+pub enum MidiPanelEvent {
+    /// A MIDI message arrived from the interface.
+    Midi(MidiChannel, MidiMessage),
+
+    /// The user has picked a MIDI input. Switch to it.
+    ///
+    /// Inputs are sent by the PC to the interface.
+    SelectInput(MidiPortDescriptor),
+
+    /// The user has picked a MIDI output. Switch to it.
+    ///
+    /// Outputs are sent by the interfaace to the PC.
+    SelectOutput(MidiPortDescriptor),
+
+    /// The requested port refresh is complete.
+    PortsRefreshed,
+}
+
 /// [MidiPanel] manages external MIDI hardware interfaces.
 #[derive(Debug)]
 pub struct MidiPanel {
-    sender: Sender<MidiInterfaceInput>,
-    app_sender: Sender<Message>,
+    sender: Sender<MidiInterfaceInput>, // for us to send to the interface
+    app_receiver: Receiver<MidiPanelEvent>, // to give to the app to receive what we sent
+    app_sender: Sender<MidiPanelEvent>, // for us to send to the app
 
     inputs: Arc<Mutex<Vec<MidiPortDescriptor>>>,
     selected_input: Arc<Mutex<Option<MidiPortDescriptor>>>,
@@ -26,14 +49,16 @@ pub struct MidiPanel {
     last_input_instant: Arc<Mutex<Instant>>,
     last_output_instant: Instant,
 }
-impl MidiPanel {
-    /// Creates a new [MidiPanel].
-    pub fn new_with(app_sender: Sender<Message>) -> Self {
+impl Default for MidiPanel {
+    fn default() -> Self {
         let midi_interface_service = MidiInterfaceService::default();
         let sender = midi_interface_service.sender().clone();
 
+        let (app_sender, app_receiver) = crossbeam_channel::unbounded();
+
         let r = Self {
             sender,
+            app_receiver,
             app_sender,
 
             inputs: Default::default(),
@@ -48,7 +73,8 @@ impl MidiPanel {
         r.start_midi_interface(midi_interface_service.receiver().clone());
         r
     }
-
+}
+impl MidiPanel {
     /// Sends a [MidiInterfaceInput] message to the service.
     pub fn send(&mut self, input: MidiInterfaceInput) {
         if let MidiInterfaceInput::Midi(..) = input {
@@ -101,14 +127,14 @@ impl MidiPanel {
                             if let Ok(mut last_input_instant) = last_input_instant.lock() {
                                 *last_input_instant = Instant::now();
                             }
-                            let _ = app_sender.send(Message::Midi(channel, message));
+                            let _ = app_sender.send(MidiPanelEvent::Midi(channel, message));
                         }
                         MidiInterfaceEvent::Quit => break,
                     }
                 }
                 if !refresh_sent && inputs_refreshed && outputs_refreshed {
                     refresh_sent = true;
-                    let _ = app_sender.send(Message::MidiPortsRefreshed);
+                    let _ = app_sender.send(MidiPanelEvent::PortsRefreshed);
                 }
             }
         });
@@ -120,6 +146,11 @@ impl MidiPanel {
 
     fn outputs(&self) -> &Mutex<Vec<MidiPortDescriptor>> {
         self.outputs.as_ref()
+    }
+
+    /// The receive side of the [MidiPanelEvent] channel
+    pub fn receiver(&self) -> &Receiver<MidiPanelEvent> {
+        &self.app_receiver
     }
 }
 impl Shows for MidiPanel {
@@ -156,8 +187,9 @@ impl Shows for MidiPanel {
                                 let _ = self
                                     .sender
                                     .send(MidiInterfaceInput::SelectMidiInput(port.clone()));
-                                let _ =
-                                    self.app_sender.send(Message::SelectMidiInput(port.clone()));
+                                let _ = self
+                                    .app_sender
+                                    .send(MidiPanelEvent::SelectInput(port.clone()));
                             }
                         }
                     });
@@ -184,7 +216,7 @@ impl Shows for MidiPanel {
                                     .send(MidiInterfaceInput::SelectMidiOutput(port.clone()));
                                 let _ = self
                                     .app_sender
-                                    .send(Message::SelectMidiOutput(port.clone()));
+                                    .send(MidiPanelEvent::SelectOutput(port.clone()));
                             }
                         }
                     });

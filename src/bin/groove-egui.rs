@@ -17,10 +17,12 @@ use eframe::{
 use egui_toast::{Toast, ToastOptions, Toasts};
 use groove::{
     app_version,
-    egui_widgets::{AudioPanel, ControlBar, MidiPanel, Preferences, ThingBrowser},
-    Message,
+    egui_widgets::{
+        AudioPanel, ControlBar, MidiPanel, Preferences, ThingBrowser, ThingBrowserEvent,
+    },
 };
 use groove_core::{
+    midi::{MidiChannel, MidiMessage},
     time::{ClockParams, TimeSignatureParams},
     traits::gui::Shows,
 };
@@ -32,14 +34,28 @@ use std::{
     time::Instant,
 };
 
+/// Any part of the system can send a [Message] to the app.
+#[derive(Debug)]
+#[allow(dead_code)]
+enum Message {
+    /// An error occurred that the user should see.
+    Error(String),
+
+    /// An external MIDI message arrived, and should be handled.
+    Midi(MidiChannel, MidiMessage),
+}
+
 struct GrooveApp {
     preferences: Preferences,
     paths: Paths,
 
     // Used for sending messages to the app.
+    #[allow(dead_code)] // toast errors will be used, I swear
     sender: Sender<Message>,
     receiver: Receiver<Message>,
 
+    //  thing_browser_sender: Sender<ThingBrowserEvent>,
+    // midi_panel_sender: Sender<MidiPanelEvent>,
     orchestrator: Arc<Mutex<Orchestrator>>,
 
     control_bar: ControlBar,
@@ -116,12 +132,8 @@ impl eframe::App for GrooveApp {
         });
         left.show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
-                self.thing_browser.show(
-                    ui,
-                    &self.paths,
-                    self.sender.clone(),
-                    Arc::clone(&self.orchestrator),
-                );
+                self.thing_browser
+                    .show(ui, &self.paths, Arc::clone(&self.orchestrator));
             });
         });
         right.show(ctx, |ui| {
@@ -187,7 +199,7 @@ impl GrooveApp {
             orchestrator: Arc::clone(&orchestrator),
 
             control_bar: ControlBar::default(),
-            midi_panel: MidiPanel::new_with(sender.clone()),
+            midi_panel: MidiPanel::default(),
             audio_panel: AudioPanel::new_with(Arc::clone(&orchestrator)),
             preferences,
             thing_browser: ThingBrowser::scan_everything(&paths, extra_paths),
@@ -313,29 +325,49 @@ impl GrooveApp {
 
     fn handle_message_queue(&mut self) {
         loop {
+            let mut received = false;
             if let Ok(message) = self.receiver.try_recv() {
+                received = true;
                 match message {
                     Message::Error(text) => self.add_error_toast(text),
-                    Message::ProjectLoaded(Ok(path)) => {
-                        self.preferences.set_project_filename(&path);
-                    }
-                    Message::ProjectLoaded(Err(err)) => {
-                        self.add_error_toast(err.to_string());
-                    }
                     Message::Midi(channel, message) => {
                         if let Ok(mut o) = self.orchestrator.lock() {
                             o.update(GrooveInput::MidiFromExternal(channel, message));
                         }
                     }
-                    Message::SelectMidiInput(port) => {
+                }
+            }
+            if let Ok(message) = self.midi_panel.receiver().try_recv() {
+                received = true;
+                match message {
+                    groove::egui_widgets::MidiPanelEvent::Midi(channel, message) => {
+                        if let Ok(mut o) = self.orchestrator.lock() {
+                            o.update(GrooveInput::MidiFromExternal(channel, message));
+                        }
+                    }
+                    groove::egui_widgets::MidiPanelEvent::SelectInput(port) => {
                         self.preferences.set_selected_midi_input(&port.to_string())
                     }
-                    Message::SelectMidiOutput(port) => {
+                    groove::egui_widgets::MidiPanelEvent::SelectOutput(port) => {
                         self.preferences.set_selected_midi_output(&port.to_string())
                     }
-                    Message::MidiPortsRefreshed => self.restore_midi_port_selections(),
+                    groove::egui_widgets::MidiPanelEvent::PortsRefreshed => {
+                        self.restore_midi_port_selections()
+                    }
                 }
-            } else {
+            }
+            if let Ok(message) = self.thing_browser.receiver().try_recv() {
+                received = true;
+                match message {
+                    ThingBrowserEvent::ProjectLoaded(Ok(path)) => {
+                        self.preferences.set_project_filename(&path);
+                    }
+                    ThingBrowserEvent::ProjectLoaded(Err(err)) => {
+                        self.add_error_toast(err.to_string());
+                    }
+                }
+            }
+            if !received {
                 break;
             }
         }

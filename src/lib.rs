@@ -131,29 +131,6 @@ pub fn app_version() -> &'static str {
         .unwrap_or(option_env!("GIT_REV_PARSE").unwrap_or(env!("CARGO_PKG_VERSION")))
 }
 
-/// Any part of the system can send a [Message] to the app.
-#[derive(Debug)]
-pub enum Message {
-    /// An error occurred that the user should see.
-    Error(String),
-
-    /// A new project was loaded. Filename provided.
-    ProjectLoaded(Result<PathBuf, anyhow::Error>),
-
-    /// An external MIDI message arrived, and should be handled.
-    Midi(MidiChannel, MidiMessage),
-
-    /// The user selected a MIDI input.
-    SelectMidiInput(MidiPortDescriptor),
-
-    /// The user selected a MIDI output.
-    SelectMidiOutput(MidiPortDescriptor),
-
-    /// The MIDI service has refreshed the ports for the first time, so it's
-    /// time for the app to restore any saved port selections.
-    MidiPortsRefreshed,
-}
-
 #[cfg(test)]
 mod tests {
     use groove_core::{util::tests::TestOnlyPaths, StereoSample, SAMPLE_BUFFER_SIZE};
