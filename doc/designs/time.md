@@ -69,41 +69,43 @@ beats, note values), and a component that subdivides the smallest integer unit.
 Something like this:
 
 ```rust
-struct TimeUnit {
-    bars: u32,
-    beats: u8,
-    note_units: u8,
-    fraction: u8,
+struct MusicalTime {
+    bars: u32,  // 0..u32::MAX. Bars are standard (equal to the number of beats
+                // in the top of the time signature).
 
-    // 1/note_unit_value, or 1/2^note_unit_value if we needed a few spare bits
-    // and were OK restricting to powers of 2.
-    // 
-    // This should probably live elsewhere, because we don't need every
-    // instance to know it.
-    note_unit_value: u8, 
+    beats: u8,  // 0..time-signature top. Beats are standard (time-signature
+                // top is the number of beats in a bar/measure, and each beat's
+                // value is indicated by the time-signature's bottom number).
+
+    parts: u8,  // 0..16. A fraction of a beat.
+
+    subparts: u8, // 0..100. A fraction of a part.
 }
 ```
 
-The `bars` field is the only one that needs to be roomy. A `beats` size of `u8`
-allows time signatures as fine as 256/x. A `note_units` of `u8` could represent
-anything from 1/2 to 1/256 of a beat. Finally, the fraction portion can either
-follow Bitwig's lead of a decimal 0..100 that is treated as a percentage, or it
-could represent 1/256th of a note_unit. For a 4/4 128 BPM piece (32
-bars/minute), a `u16`-sized `bars` allows a piece to be 65536/32 minutes = 34.13
-hours. I could imagine a Philip Glass successor doing a 35-hour piece for the
-laughs, so let's make that a `u32`, which allows a 128 BPM piece to be more than
-250 years long.
+The `bars` field is the only one that needs to be roomy. For a 4/4 128 BPM piece
+(32 bars/minute), a `u16`-sized `bars` field allows a piece to be 65536/32
+minutes = 34.13 hours. I could imagine a Philip Glass devotee doing a 35-hour
+piece for the laughs, so let's make that at least a `u32`, which allows a 128
+BPM piece to be more than 250 years long.
 
-As for resolution, 128 BPM works out to a potential resolution of 0.007152557
-milliseconds per 1/256-unit fraction of 256th-note units.
+A `beats` size of `u8` allows time signatures from 1/x to 256/x, which include
+the common 4/4, 6/8, 9/8, etc.
+
+The `parts` field fits comfortably in a `u8`, and can accommodate as fine as
+1/256 of a beat.
+
+Finally, `subparts` should be a `u8`. While it's appealing to use its whole
+range 0..255, I suspect Bitwig chose 0..100 because it looks better in the UI. A
+base-10 range is more natural to most people than 0..256, even if the latter
+offers more granularity.
+
+As for resolution, 4/4 128 BPM works out to 60 / 128 / 4 / 16 / 100 * 1000 =
+0.073242188 milliseconds per subpart, and 4/256 time is 0.001144409
+msec/subpart. All those are much finer than MIDI's 1.041666667
+milliseconds/tick.
 
 If any of these turn out to be too coarse or limited, I think we can bump them
 up without a lot of trouble. We're specifying only an in-memory representation,
-and the visual representation (4.1.16.255 etc.) is trivially scalable for the
-first three parts (as bars/beats are plain numbers, and note_units already
-needed a separate unit value accompanying it), and the fourth value is unlikely
-to need further resolution if we can already scale `note_units`.
-
-Argument against `fraction` representing 1/256 rather than 1/100: it leads to
-surprising UI. 1.1.1.99 isn't 1/100 before 1.1.2.0. Maybe that's why Bitwig went
-with a base-10 system for that component.
+and the visual representation (4.1.16.99 etc.) is trivially scalable. `subparts`
+is unlikely to need further resolution if we can already scale `parts`.
