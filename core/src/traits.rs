@@ -7,41 +7,40 @@ use std::ops::Range;
 
 pub trait MessageBounds: std::fmt::Debug + Send {}
 
-/// An IsController controls things in the system that implement Controllable.
-/// Examples are sequencers, arpeggiators, and discrete LFOs (as contrasted with
-/// LFOs that are integrated into other instruments).
+/// An [IsController] controls things in the system that implement
+/// [Controllable]. Examples are sequencers, arpeggiators, and discrete LFOs (as
+/// contrasted with LFOs that are integrated into other instruments).
 ///
-/// An IsController implements Terminates, which indicates that it's done
-/// emitting events (and, in the case of timers and sequencers, done waiting for
-/// other work in the system to complete).
+/// [IsController] emits messages, either control messages that the system
+/// routes to [Controllable]s, or MIDI messages that go over the MIDI bus.
 ///
-/// An IsController necessarily implements TicksWithMessages, rather than just
-/// Ticks, because messages are how controllers control other things in the
-/// system.
+/// An [IsController] is the only kind of entity that can "finish." An
+/// [IsEffect] or [IsInstrument] can't finish; they wait forever for audio to
+/// process, or MIDI commands to handle. A performance ends once all
+/// [IsController] entities indicate that they've finished.
 pub trait IsController:
     TicksWithMessages + HandlesMidi + Performs + HasUid + Send + std::fmt::Debug
 {
 }
 
-/// An IsEffect transforms audio. It takes audio inputs and produces audio
+/// An [IsEffect] transforms audio. It takes audio inputs and produces audio
 /// output. It does not get called unless there is audio input to provide to it
 /// (which can include silence, e.g., in the case of a muted instrument).
-///
-/// IsEffects don't implement Terminates. They process audio indefinitely, and
-/// don't have a sense of the length of the performance.
 pub trait IsEffect:
     TransformsAudio + Controllable + Resets + HasUid + Send + std::fmt::Debug
 {
 }
 
-/// An IsInstrument produces audio, usually upon request from MIDI or
-/// IsController input. Like IsEffect, IsInstrument doesn't implement Terminates
-/// because it continues to create audio as long as asked.
+/// An [IsInstrument] produces audio, usually upon request from MIDI or
+/// [IsController] input.
 pub trait IsInstrument:
     Generates<StereoSample> + Ticks + HandlesMidi + Controllable + HasUid + Send + std::fmt::Debug
 {
 }
 
+/// Something that [Generates] creates the given type as its work product over
+/// time. Examples are envelopes, which produce a [Normal] signal, and
+/// oscillators, which produce a [BipolarNormal] signal.
 pub trait Generates<V>: Send + std::fmt::Debug + Ticks {
     /// The value for the current frame. Advance the frame by calling
     /// Ticks::tick().
@@ -53,12 +52,12 @@ pub trait Generates<V>: Send + std::fmt::Debug + Ticks {
     fn batch_values(&mut self, values: &mut [V]);
 }
 
-/// Something that is Controllable exposes a set of attributes, each with a text
-/// name, that IsControllers can change. If you're familiar with DAWs, this is
-/// typically called "automation."
+/// Something that is [Controllable] exposes a set of attributes, each with a text
+/// name, that an [IsController] can change. If you're familiar with DAWs, this is
+/// typically called automation.
 ///
-/// The Controllable trait is more powerful than ordinary getters/setters
-/// because it allows runtime binding of an IsController to a Controllable.
+/// The [Controllable] trait is more powerful than ordinary getters/setters
+/// because it allows runtime binding of an [IsController] to a [Controllable].
 #[allow(unused_variables)]
 pub trait Controllable {
     // See https://stackoverflow.com/a/71988904/344467 to show that we could
@@ -85,14 +84,15 @@ pub trait Controllable {
 /// A HasUid has an ephemeral but globally unique numeric identifier, which is
 /// useful for one entity to refer to another without getting into icky Rust
 /// ownership questions. It's the foundation of any ECS
-/// (entity/component/system) design.
+/// (entity/component/system) design. We're not using any ECS, but our uids work
+/// similarly to how they do in an ECS.
 pub trait HasUid {
     fn uid(&self) -> usize;
     fn set_uid(&mut self, uid: usize);
     fn name(&self) -> &'static str;
 }
 
-/// Something that Resets also either Ticks or TicksWithMessages. Since the
+/// Something that Resets also either [Ticks] or [TicksWithMessages]. Since the
 /// Ticks family of traits don't get access to a global clock, they have to
 /// maintain internal clocks and trust that they'll be asked to tick exactly the
 /// same number of times as everyone else in the system. Resets::reset() ensures
@@ -143,8 +143,8 @@ pub trait TicksWithMessages: Resets + Send + std::fmt::Debug {
     fn tick(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize);
 }
 
-/// A TransformsAudio takes input audio, which is typically produced by
-/// SourcesAudio, does something to it, and then outputs it. It's what effects
+/// A [TransformsAudio] takes input audio, which is typically produced by
+/// [SourcesAudio], does something to it, and then outputs it. It's what effects
 /// do.
 pub trait TransformsAudio: std::fmt::Debug {
     fn transform_audio(&mut self, input_sample: StereoSample) -> StereoSample {
@@ -205,6 +205,9 @@ pub trait PlaysNotes {
     fn note_off(&mut self, velocity: u8);
 }
 
+/// A [StoresVoices] provides access to a collection of voices for a polyphonic
+/// synthesizer. Different implementers provide different policies for how to
+/// handle voice-stealing.
 pub trait StoresVoices: Generates<StereoSample> + Send + std::fmt::Debug {
     type Voice;
 
@@ -226,7 +229,7 @@ pub trait StoresVoices: Generates<StereoSample> + Send + std::fmt::Debug {
     fn voices_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut Box<Self::Voice>> + 'a>;
 }
 
-/// A device that Performs has a concept of a performance that has a beginning
+/// A device that [Performs] has a concept of a performance that has a beginning
 /// and an end, and it knows how to respond to requests to start, stop, restart,
 /// and seek within the performance.
 pub trait Performs {
