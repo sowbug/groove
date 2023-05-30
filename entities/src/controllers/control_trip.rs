@@ -9,7 +9,7 @@ use groove_core::{
         BeatValue, Clock, ClockParams, ClockTimeUnit, PerfectTimeUnit, TimeSignature,
         TimeSignatureParams,
     },
-    traits::{IsController, Performs, Resets, Ticks, TicksWithMessages},
+    traits::{Controls, IsController, Performs, Resets, Ticks},
     ParameterType, SignalType,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -226,10 +226,10 @@ impl Resets for ControlTrip {
         self.clock.reset(sample_rate);
     }
 }
-impl TicksWithMessages for ControlTrip {
+impl Controls for ControlTrip {
     type Message = EntityMessage;
 
-    fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
+    fn work(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
         let mut v = Vec::default();
         let mut ticks_completed = tick_count;
         if self.is_performing {

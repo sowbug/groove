@@ -32,7 +32,7 @@ use crate::EntityMessage;
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel},
     time::{Clock, ClockParams, ClockTimeUnit, PerfectTimeUnit, TimeSignatureParams},
-    traits::{IsController, IsEffect, Performs, Resets, Ticks, TicksWithMessages, TransformsAudio},
+    traits::{Controls, IsController, IsEffect, Performs, Resets, Ticks, TransformsAudio},
     BipolarNormal, ParameterType, Sample, StereoSample,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -126,10 +126,10 @@ impl Resets for Timer {
         self.skip_to_start();
     }
 }
-impl TicksWithMessages for Timer {
+impl Controls for Timer {
     type Message = EntityMessage;
 
-    fn tick(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
+    fn work(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
         let mut ticks_completed = tick_count;
         for i in 0..tick_count {
             self.has_more_work = (self.ticks as f64 / self.sample_rate as f64) < self.seconds;
@@ -193,13 +193,13 @@ pub struct Trigger {
     is_performing: bool,
 }
 impl IsController for Trigger {}
-impl TicksWithMessages for Trigger {
+impl Controls for Trigger {
     type Message = EntityMessage;
 
-    fn tick(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
+    fn work(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
         // We toss the timer's messages because we know it never returns any,
         // and we wouldn't pass them on if it did.
-        let (_, ticks_completed) = self.timer.tick(tick_count);
+        let (_, ticks_completed) = self.timer.work(tick_count);
         if ticks_completed < tick_count && !self.has_triggered {
             self.has_triggered = true;
             (
@@ -302,10 +302,10 @@ pub struct SignalPassthroughController {
 }
 impl IsController for SignalPassthroughController {}
 impl Resets for SignalPassthroughController {}
-impl TicksWithMessages for SignalPassthroughController {
+impl Controls for SignalPassthroughController {
     type Message = EntityMessage;
 
-    fn tick(&mut self, _tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
+    fn work(&mut self, _tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
         if !self.is_performing {
             return (None, 0);
         }
@@ -440,10 +440,10 @@ pub struct ToyController {
     pub time_unit: ClockTimeUnit,
 }
 impl IsController for ToyController {}
-impl TicksWithMessages for ToyController {
+impl Controls for ToyController {
     type Message = EntityMessage;
 
-    fn tick(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
+    fn work(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
         let mut v = Vec::default();
         for _ in 0..tick_count {
             self.clock.tick(1);
@@ -641,7 +641,7 @@ mod tests {
         controllers::{Trigger, TriggerParams},
         tests::DEFAULT_SAMPLE_RATE,
     };
-    use groove_core::traits::{Resets, TicksWithMessages};
+    use groove_core::traits::{Controls, Resets};
 
     #[test]
     fn instantiate_trigger() {
@@ -652,7 +652,7 @@ mod tests {
         trigger.reset(DEFAULT_SAMPLE_RATE);
 
         // asserting that 5 returned 5 confirms that the trigger isn't done yet.
-        let (m, count) = trigger.tick(5);
+        let (m, count) = trigger.work(5);
         assert!(m.is_none());
         assert_eq!(count, 5);
     }

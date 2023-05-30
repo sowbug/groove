@@ -20,8 +20,7 @@ use groove_core::{
     midi::note_to_frequency,
     time::{Clock, ClockParams, PerfectTimeUnit, TimeSignatureParams},
     traits::{
-        Generates, HandlesMidi, IsController, IsInstrument, Performs, Resets, Ticks,
-        TicksWithMessages,
+        Controls, Generates, HandlesMidi, IsController, IsInstrument, Performs, Resets, Ticks,
     },
     voices::VoicePerNoteStore,
     ParameterType, StereoSample,
@@ -510,10 +509,10 @@ impl Ticks for Calculator {
         self.inner_synth.tick(tick_count);
     }
 }
-impl TicksWithMessages for Calculator {
+impl Controls for Calculator {
     type Message = EntityMessage;
 
-    fn tick(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
+    fn work(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
         self.clock.tick(tick_count);
         self.handle_tick();
         (None, tick_count)

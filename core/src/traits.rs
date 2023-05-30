@@ -2,7 +2,11 @@
 
 pub use crate::midi::HandlesMidi;
 
-use crate::{midi::u7, time::PerfectTimeUnit, Normal, Sample, StereoSample};
+use crate::{
+    midi::u7,
+    time::{MusicalTime, PerfectTimeUnit},
+    Normal, Sample, StereoSample,
+};
 use std::ops::Range;
 
 pub trait MessageBounds: std::fmt::Debug + Send {}
@@ -19,7 +23,7 @@ pub trait MessageBounds: std::fmt::Debug + Send {}
 /// process, or MIDI commands to handle. A performance ends once all
 /// [IsController] entities indicate that they've finished.
 pub trait IsController:
-    TicksWithMessages + HandlesMidi + Performs + HasUid + Send + std::fmt::Debug
+    Controls + HandlesMidi + Performs + HasUid + Send + std::fmt::Debug
 {
 }
 
@@ -132,15 +136,27 @@ pub trait Ticks: Resets + Send + std::fmt::Debug {
     fn tick(&mut self, tick_count: usize);
 }
 
-pub trait TicksWithMessages: Resets + Send + std::fmt::Debug {
+pub trait Controls: Resets + Send + std::fmt::Debug {
     type Message;
 
-    /// Similar to Ticks::tick().
+    #[allow(unused_variables)]
+    fn update_time(&mut self, range: &Range<MusicalTime>) {}
+
+    /// The entity should perform work for the time range specified in the
+    /// previous update_time().
     ///
-    /// Returns zero or more EntityMessages.
+    /// Returns zero or more messages.
     ///
     /// Returns the number of requested ticks handled before terminating.
-    fn tick(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize);
+    fn work(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize);
+
+    /// Returns true if the entity is done with all its scheduled work. An
+    /// entity that performs work only on command should always return true, as
+    /// the framework ends the piece being performed only when all entities
+    /// implementing [Controls] indicate that they're finished.
+    fn is_finished(&self) -> bool {
+        true
+    }
 }
 
 /// A [TransformsAudio] takes input audio, which is typically produced by

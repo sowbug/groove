@@ -5,7 +5,7 @@ use btreemultimap::BTreeMultiMap;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage, MidiNoteMinder},
     time::{Clock, ClockParams, MidiTicks, PerfectTimeUnit, TimeSignatureParams},
-    traits::{IsController, Performs, Resets, TicksWithMessages},
+    traits::{Controls, IsController, Performs, Resets},
     ParameterType,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -227,10 +227,10 @@ impl Resets for Sequencer {
         self.next_instant = PerfectTimeUnit(self.temp_hack_clock.beats());
     }
 }
-impl TicksWithMessages for Sequencer {
+impl Controls for Sequencer {
     type Message = EntityMessage;
 
-    fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
+    fn work(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
         if !self.is_performing {
             return (None, tick_count);
         }
@@ -446,10 +446,10 @@ impl Resets for MidiTickSequencer {
         self.next_instant = MidiTicks(0);
     }
 }
-impl TicksWithMessages for MidiTickSequencer {
+impl Controls for MidiTickSequencer {
     type Message = EntityMessage;
 
-    fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
+    fn work(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
         if self.is_finished() || !self.is_performing {
             return (None, 0);
         }
@@ -603,7 +603,7 @@ mod tests {
             // TODO: a previous version of this utility function had
             // clock.tick() first, meaning that the sequencer never got the 0th
             // (first) tick. No test ever cared, apparently. Fix this.
-            let _ = sequencer.tick(1);
+            let _ = sequencer.work(1);
             clock.tick(1);
         }
     }
@@ -616,7 +616,7 @@ mod tests {
     ) {
         let next_midi_tick = clock.midi_ticks() + 1;
         while clock.midi_ticks() < next_midi_tick {
-            let _ = sequencer.tick(1);
+            let _ = sequencer.work(1);
             clock.tick(1);
         }
     }

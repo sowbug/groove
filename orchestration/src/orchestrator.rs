@@ -657,7 +657,7 @@ impl Orchestrator {
             Response::batch(self.store.controller_uids().fold(Vec::new(), |mut v, uid| {
                 if let Some(e) = self.store.get_mut(uid) {
                     if let Some(e) = e.as_is_controller_mut() {
-                        let (message_opt, ticks_completed) = e.tick(tick_count);
+                        let (message_opt, ticks_completed) = e.work(tick_count);
                         if ticks_completed > max_ticks_completed {
                             max_ticks_completed = ticks_completed;
                         }

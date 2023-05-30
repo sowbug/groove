@@ -5,7 +5,7 @@ use core::fmt::Debug;
 use groove_core::{
     generators::{Oscillator, OscillatorParams, Waveform},
     midi::HandlesMidi,
-    traits::{Generates, IsController, Performs, Resets, Ticks, TicksWithMessages},
+    traits::{Controls, Generates, IsController, Performs, Resets, Ticks},
     FrequencyHz, Normal, ParameterType,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -40,10 +40,10 @@ impl Resets for LfoController {
         self.oscillator.reset(sample_rate);
     }
 }
-impl TicksWithMessages for LfoController {
+impl Controls for LfoController {
     type Message = EntityMessage;
 
-    fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
+    fn work(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
         self.oscillator.tick(tick_count);
         (
             Some(vec![EntityMessage::ControlF32(

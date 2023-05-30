@@ -5,7 +5,7 @@ use crate::EntityMessage;
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage},
     time::PerfectTimeUnit,
-    traits::{IsController, Performs, Resets, TicksWithMessages},
+    traits::{Controls, IsController, Performs, Resets},
     ParameterType,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -43,11 +43,11 @@ impl Resets for Arpeggiator {
         self.sequencer.reset(sample_rate);
     }
 }
-impl TicksWithMessages for Arpeggiator {
+impl Controls for Arpeggiator {
     type Message = EntityMessage;
 
-    fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
-        self.sequencer.tick(tick_count)
+    fn work(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
+        self.sequencer.work(tick_count)
     }
 }
 impl HandlesMidi for Arpeggiator {
