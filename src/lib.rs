@@ -127,7 +127,9 @@ pub fn app_version() -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use groove_core::{util::tests::TestOnlyPaths, StereoSample, SAMPLE_BUFFER_SIZE};
+    use groove_core::{
+        traits::Resets, util::tests::TestOnlyPaths, StereoSample, SAMPLE_BUFFER_SIZE,
+    };
     use groove_orchestration::helpers::IOHelper;
     use groove_settings::SongSettings;
     use groove_utils::{PathType, Paths};
@@ -148,6 +150,7 @@ mod tests {
         let mut orchestrator = song_settings
             .instantiate(&paths, false)
             .unwrap_or_else(|err| panic!("instantiation failed: {:?}", err));
+        orchestrator.reset(44100);
         let mut sample_buffer = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
         if let Ok(samples) = orchestrator.run(&mut sample_buffer) {
             assert!(
