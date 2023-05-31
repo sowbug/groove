@@ -9,8 +9,8 @@ use groove_core::{time::Clock, traits::HasUid};
 
 use groove_entities::{
     controllers::{
-        Arpeggiator, Calculator, ControlTrip, LfoController, MidiTickSequencer, PatternManager,
-        Sequencer, SignalPassthroughController, Timer, ToyController, Trigger,
+        Arpeggiator, Calculator, ControlTrip, LfoController, PatternManager, Sequencer,
+        SignalPassthroughController, Timer, ToyController, Trigger,
     },
     effects::{
         BiQuadFilterAllPass, BiQuadFilterBandPass, BiQuadFilterBandStop, BiQuadFilterHighPass,
@@ -138,9 +138,6 @@ enum Everything {
 
     #[everything(controllable, instrument, midi)]
     Metronome(Metronome),
-
-    #[everything(controller, midi)]
-    MidiTickSequencer(MidiTickSequencer),
 
     #[everything(effect)]
     Mixer(Mixer),

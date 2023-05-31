@@ -4,12 +4,11 @@ use crate::EntityMessage;
 use btreemultimap::BTreeMultiMap;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage, MidiNoteMinder},
-    time::{Clock, ClockParams, MidiTicks, PerfectTimeUnit, TimeSignatureParams},
+    time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, TimeSignatureParams},
     traits::{Controls, IsController, Performs, Resets},
     ParameterType,
 };
 use groove_proc_macros::{Control, Params, Uid};
-use midly::TrackEventKind;
 use std::{
     fmt::Debug,
     ops::{
@@ -21,7 +20,7 @@ use std::{
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-pub(crate) type BeatEventsMap = BTreeMultiMap<PerfectTimeUnit, (MidiChannel, MidiMessage)>;
+pub(crate) type BeatEventsMap = BTreeMultiMap<MusicalTime, (MidiChannel, MidiMessage)>;
 
 /// [Sequencer] produces MIDI according to a programmed sequence. Its unit of
 /// time is the beat.
@@ -37,7 +36,7 @@ pub struct Sequencer {
     #[cfg_attr(feature = "serialization", serde(skip))]
     events: BeatEventsMap,
     #[cfg_attr(feature = "serialization", serde(skip))]
-    last_event_time: PerfectTimeUnit,
+    last_event_time: MusicalTime,
     is_disabled: bool,
     is_performing: bool,
 
@@ -50,6 +49,11 @@ pub struct Sequencer {
     is_loop_enabled: bool,
 
     temp_hack_clock: Clock,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    time_range: Range<MusicalTime>,
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    time_range_handled: bool,
 }
 impl IsController for Sequencer {}
 impl HandlesMidi for Sequencer {}
@@ -104,23 +108,25 @@ impl Sequencer {
                 midi_ticks_per_second: 0,
                 time_signature: TimeSignatureParams { top: 4, bottom: 4 }, // TODO
             }),
+            time_range: Default::default(),
+            time_range_handled: Default::default(),
         }
     }
 
     pub(crate) fn clear(&mut self) {
         self.events.clear();
-        self.last_event_time = PerfectTimeUnit::default();
+        self.last_event_time = Default::default();
         self.skip_to_start();
     }
 
-    pub(crate) fn cursor_in_beats(&self) -> f64 {
-        self.temp_hack_clock.beats()
+    pub(crate) fn cursor(&self) -> &MusicalTime {
+        &self.time_range.start
     }
 
-    pub fn insert(&mut self, when: PerfectTimeUnit, channel: MidiChannel, message: MidiMessage) {
-        self.events.insert(when, (channel, message));
-        if when > self.last_event_time {
-            self.last_event_time = when;
+    pub fn insert(&mut self, when: &MusicalTime, channel: MidiChannel, message: MidiMessage) {
+        self.events.insert(*when, (channel, message));
+        if *when > self.last_event_time {
+            self.last_event_time = *when;
         }
     }
 
@@ -135,18 +141,18 @@ impl Sequencer {
         self.is_disabled = !is_enabled;
     }
 
-    fn is_finished(&self) -> bool {
-        (self.events.is_empty() && self.last_event_time == PerfectTimeUnit(0.0))
-            || self.next_instant > self.last_event_time
-    }
+    // fn is_finished(&self) -> bool {
+    //     (self.events.is_empty() && self.last_event_time == Default::default())
+    //         || self.next_instant > self.last_event_time
+    // }
 
     // In the case of a silent pattern, we don't ask the sequencer to insert any
     // notes, yet we do want the sequencer to run until the end of the measure.
     // So we provide a facility to advance the end-time marker (which might be a
     // no-op if it's already later than requested).
-    pub fn set_min_end_time(&mut self, when: PerfectTimeUnit) {
-        if self.last_event_time < when {
-            self.last_event_time = when;
+    pub fn set_min_end_time(&mut self, when: &MusicalTime) {
+        if &self.last_event_time < when {
+            self.last_event_time = when.clone();
         }
     }
 
@@ -167,10 +173,9 @@ impl Sequencer {
 
     fn generate_midi_messages_for_interval(
         &mut self,
-        begin: PerfectTimeUnit,
-        end: PerfectTimeUnit,
+        range: &Range<MusicalTime>,
     ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
-        let range = (Included(begin), Excluded(end));
+        let range = (Included(range.start), Excluded(range.end));
         let v = self
             .events
             .range(range)
@@ -187,10 +192,8 @@ impl Sequencer {
     }
 
     pub fn generate_midi_messages_for_current_frame(&mut self) -> Option<Vec<(u8, MidiMessage)>> {
-        self.generate_midi_messages_for_interval(
-            PerfectTimeUnit(self.temp_hack_clock.beats()),
-            PerfectTimeUnit(self.temp_hack_clock.next_slice_in_beats()),
-        )
+        let time_range = self.time_range.clone();
+        self.generate_midi_messages_for_interval(&time_range)
     }
 
     pub fn debug_events(&self) -> &BeatEventsMap {
@@ -230,21 +233,18 @@ impl Resets for Sequencer {
 impl Controls for Sequencer {
     type Message = EntityMessage;
 
-    fn work(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
-        if !self.is_performing {
-            return (None, tick_count);
+    fn update_time(&mut self, range: &Range<MusicalTime>) {
+        if &self.time_range != range {
+            self.time_range = range.clone();
+            self.time_range_handled = false;
         }
-        if self.is_finished() {
-            // TODO: since this code ensures we'll end only on even frame
-            // boundaries, it's likely to be masking edge cases. Consider
-            // developing a smarter way to determine the exact last frame
-            // without devolving to frame-by-frame iteration.
-            return (None, 0);
+    }
+
+    fn work(&mut self) -> Option<Vec<Self::Message>> {
+        if !self.is_performing || self.is_finished() {
+            return None;
         }
         let mut v = Vec::default();
-        let this_instant = PerfectTimeUnit(self.temp_hack_clock.beats());
-        self.temp_hack_clock.tick_batch(tick_count);
-        self.next_instant = PerfectTimeUnit(self.temp_hack_clock.beats());
 
         if self.should_stop_pending_notes {
             self.should_stop_pending_notes = false;
@@ -252,37 +252,43 @@ impl Controls for Sequencer {
         }
 
         if self.is_enabled() {
-            if let Some(messages) =
-                self.generate_midi_messages_for_interval(this_instant, self.next_instant)
-            {
-                v.extend(messages.iter().map(|m| EntityMessage::Midi(m.0, m.1)));
+            if !self.time_range_handled {
+                self.time_range_handled = true;
+                let time_range = self.time_range.clone();
+                if let Some(messages) = self.generate_midi_messages_for_interval(&time_range) {
+                    v.extend(messages.iter().map(|m| EntityMessage::Midi(m.0, m.1)));
+                }
             }
         };
 
-        if self.is_loop_enabled {
-            // This code block is a little weird because we needed to avoid the
-            // mutable self method call while we are borrowing loop_range.
-            let should_loop_now = if let Some(lr) = &self.loop_range {
-                if lr.contains(&this_instant) && !lr.contains(&self.next_instant) {
-                    self.next_instant = lr.start;
-                    self.temp_hack_clock.seek_beats(lr.start.0);
-                    true
-                } else {
-                    false
-                }
-            } else {
-                false
-            };
-            if should_loop_now {
-                v.extend(self.stop_pending_notes());
-            }
-        }
+        // if self.is_loop_enabled {
+        //     // This code block is a little weird because we needed to avoid the
+        //     // mutable self method call while we are borrowing loop_range.
+        //     let should_loop_now = if let Some(lr) = &self.loop_range {
+        //         if lr.contains(&this_instant) && !lr.contains(&self.next_instant) {
+        //             self.next_instant = lr.start;
+        //             self.temp_hack_clock.seek_beats(lr.start.0);
+        //             true
+        //         } else {
+        //             false
+        //         }
+        //     } else {
+        //         false
+        //     };
+        //     if should_loop_now {
+        //         v.extend(self.stop_pending_notes());
+        //     }
+        // }
 
         if v.is_empty() {
-            (None, tick_count)
+            None
         } else {
-            (Some(v), tick_count)
+            Some(v)
         }
+    }
+
+    fn is_finished(&self) -> bool {
+        self.time_range.start >= self.last_event_time
     }
 }
 
@@ -290,12 +296,12 @@ impl Controls for Sequencer {
 mod gui {
     use super::Sequencer;
     use eframe::egui::{RichText, Ui};
-    use groove_core::{time::PerfectTimeUnit, traits::gui::Shows};
+    use groove_core::traits::gui::Shows;
 
     impl Shows for Sequencer {
         fn show(&mut self, ui: &mut Ui) {
             for (when, (channel, message)) in &self.events {
-                let has_played = when < &PerfectTimeUnit::from(self.temp_hack_clock.beats() as f32);
+                let has_played = when < &self.time_range.start;
                 let mut text = RichText::new(format!("{}: {} -> {:?}", when, channel, message));
                 if has_played {
                     text = text.italics();
@@ -306,278 +312,290 @@ mod gui {
     }
 }
 
-pub(crate) type MidiTickEventsMap = BTreeMultiMap<MidiTicks, (MidiChannel, MidiMessage)>;
+#[cfg(tired)]
+mod tired {
+    pub(crate) type MidiTickEventsMap = BTreeMultiMap<MidiTicks, (MidiChannel, MidiMessage)>;
 
-/// [MidiTickSequencer] is another kind of sequencer whose time unit is the MIDI
-/// tick. It exists to make it easy for [MidiSmfReader] to turn MIDI files into
-/// sequences.
-#[derive(Debug, Control, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct MidiTickSequencer {
-    uid: usize,
+    /// [MidiTickSequencer] is another kind of sequencer whose time unit is the MIDI
+    /// tick. It exists to make it easy for [MidiSmfReader] to turn MIDI files into
+    /// sequences.
+    #[derive(Debug, Control, Params, Uid)]
+    #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+    pub struct MidiTickSequencer {
+        uid: usize,
 
-    #[control]
-    #[params]
-    midi_ticks_per_second: usize,
+        #[control]
+        #[params]
+        midi_ticks_per_second: usize,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    next_instant: MidiTicks,
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    events: MidiTickEventsMap,
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    last_event_time: MidiTicks,
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    is_disabled: bool,
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    is_performing: bool,
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    active_notes: [MidiNoteMinder; 16],
+        #[cfg_attr(feature = "serialization", serde(skip))]
+        next_instant: MidiTicks,
+        #[cfg_attr(feature = "serialization", serde(skip))]
+        events: MidiTickEventsMap,
+        #[cfg_attr(feature = "serialization", serde(skip))]
+        last_event_time: MidiTicks,
+        #[cfg_attr(feature = "serialization", serde(skip))]
+        is_disabled: bool,
+        #[cfg_attr(feature = "serialization", serde(skip))]
+        is_performing: bool,
+        #[cfg_attr(feature = "serialization", serde(skip))]
+        active_notes: [MidiNoteMinder; 16],
 
-    loop_range: Option<Range<PerfectTimeUnit>>,
-    is_loop_enabled: bool,
+        loop_range: Option<Range<PerfectTimeUnit>>,
+        is_loop_enabled: bool,
 
-    temp_hack_clock: Clock,
-}
-impl IsController for MidiTickSequencer {}
-impl HandlesMidi for MidiTickSequencer {}
-impl Performs for MidiTickSequencer {
-    fn play(&mut self) {
-        self.is_performing = true;
+        temp_hack_clock: Clock,
+    }
+    impl IsController for MidiTickSequencer {}
+    impl HandlesMidi for MidiTickSequencer {}
+    impl Performs for MidiTickSequencer {
+        fn play(&mut self) {
+            self.is_performing = true;
+        }
+
+        fn stop(&mut self) {
+            self.is_performing = false;
+        }
+
+        fn skip_to_start(&mut self) {
+            self.temp_hack_clock.seek(0);
+            self.next_instant = MidiTicks::MIN;
+        }
+
+        fn set_loop(&mut self, range: &std::ops::Range<PerfectTimeUnit>) {
+            self.loop_range = Some(range.clone());
+        }
+
+        fn clear_loop(&mut self) {
+            self.loop_range = None;
+        }
+
+        fn set_loop_enabled(&mut self, is_enabled: bool) {
+            self.is_loop_enabled = is_enabled;
+        }
+
+        fn is_performing(&self) -> bool {
+            self.is_performing
+        }
     }
 
-    fn stop(&mut self) {
-        self.is_performing = false;
-    }
-
-    fn skip_to_start(&mut self) {
-        self.temp_hack_clock.seek(0);
-        self.next_instant = MidiTicks::MIN;
-    }
-
-    fn set_loop(&mut self, range: &std::ops::Range<PerfectTimeUnit>) {
-        self.loop_range = Some(range.clone());
-    }
-
-    fn clear_loop(&mut self) {
-        self.loop_range = None;
-    }
-
-    fn set_loop_enabled(&mut self, is_enabled: bool) {
-        self.is_loop_enabled = is_enabled;
-    }
-
-    fn is_performing(&self) -> bool {
-        self.is_performing
-    }
-}
-
-impl MidiTickSequencer {
-    pub fn new_with(params: &MidiTickSequencerParams) -> Self {
-        Self {
-            uid: Default::default(),
-            midi_ticks_per_second: params.midi_ticks_per_second(),
-            next_instant: Default::default(),
-            events: Default::default(),
-            last_event_time: Default::default(),
-            is_disabled: Default::default(),
-            is_performing: Default::default(),
-            active_notes: Default::default(),
-            loop_range: Default::default(),
-            is_loop_enabled: Default::default(),
-            temp_hack_clock: Clock::new_with(&ClockParams {
-                bpm: 0.0,
+    impl MidiTickSequencer {
+        pub fn new_with(params: &MidiTickSequencerParams) -> Self {
+            Self {
+                uid: Default::default(),
                 midi_ticks_per_second: params.midi_ticks_per_second(),
-                time_signature: TimeSignatureParams { top: 4, bottom: 4 }, // TODO
-            }),
+                next_instant: Default::default(),
+                events: Default::default(),
+                last_event_time: Default::default(),
+                is_disabled: Default::default(),
+                is_performing: Default::default(),
+                active_notes: Default::default(),
+                loop_range: Default::default(),
+                is_loop_enabled: Default::default(),
+                temp_hack_clock: Clock::new_with(&ClockParams {
+                    bpm: 0.0,
+                    midi_ticks_per_second: params.midi_ticks_per_second(),
+                    time_signature: TimeSignatureParams { top: 4, bottom: 4 }, // TODO
+                }),
+            }
+        }
+
+        #[allow(dead_code)]
+        pub(crate) fn clear(&mut self) {
+            // TODO: should this also disconnect sinks? I don't think so
+            self.events.clear();
+            self.last_event_time = MidiTicks::MIN;
+            self.skip_to_start();
+        }
+
+        pub fn insert(&mut self, when: MidiTicks, channel: MidiChannel, message: MidiMessage) {
+            self.events.insert(when, (channel, message));
+            if when >= self.last_event_time {
+                self.last_event_time = when;
+            }
+        }
+
+        pub fn is_enabled(&self) -> bool {
+            !self.is_disabled
+        }
+
+        #[allow(dead_code)]
+        pub fn enable(&mut self, is_enabled: bool) {
+            self.is_disabled = !is_enabled;
+        }
+
+        fn is_finished(&self) -> bool {
+            self.next_instant > self.last_event_time
+        }
+
+        #[cfg(feature = "iced-framework")]
+        pub fn update(&mut self, message: MidiTickSequencerMessage) {
+            match message {
+                MidiTickSequencerMessage::MidiTickSequencer(s) => *self = Self::new_with(s),
+                _ => self.derived_update(message),
+            }
+        }
+
+        pub fn midi_ticks_per_second(&self) -> usize {
+            self.midi_ticks_per_second
+        }
+
+        pub fn set_midi_ticks_per_second(&mut self, midi_ticks_per_second: usize) {
+            self.midi_ticks_per_second = midi_ticks_per_second;
         }
     }
+    impl Resets for MidiTickSequencer {
+        fn reset(&mut self, sample_rate: usize) {
+            self.temp_hack_clock.set_sample_rate(sample_rate);
+            self.temp_hack_clock.reset(sample_rate);
 
-    #[allow(dead_code)]
-    pub(crate) fn clear(&mut self) {
-        // TODO: should this also disconnect sinks? I don't think so
-        self.events.clear();
-        self.last_event_time = MidiTicks::MIN;
-        self.skip_to_start();
-    }
-
-    pub fn insert(&mut self, when: MidiTicks, channel: MidiChannel, message: MidiMessage) {
-        self.events.insert(when, (channel, message));
-        if when >= self.last_event_time {
-            self.last_event_time = when;
+            // TODO: how can we make sure this stays in sync with the clock when the
+            // clock is changed?
+            self.next_instant = MidiTicks(0);
         }
     }
+    impl Controls for MidiTickSequencer {
+        type Message = EntityMessage;
 
-    pub fn is_enabled(&self) -> bool {
-        !self.is_disabled
-    }
+        fn work(&mut self) -> Option<Vec<Self::Message>> {
+            if self.is_finished() || !self.is_performing {
+                return (None, 0);
+            }
+            let mut v = Vec::default();
+            let this_instant = MidiTicks(self.temp_hack_clock.midi_ticks());
+            self.temp_hack_clock.tick_batch(tick_count);
+            self.next_instant = MidiTicks(self.temp_hack_clock.midi_ticks());
 
-    #[allow(dead_code)]
-    pub fn enable(&mut self, is_enabled: bool) {
-        self.is_disabled = !is_enabled;
-    }
-
-    fn is_finished(&self) -> bool {
-        self.next_instant > self.last_event_time
-    }
-
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: MidiTickSequencerMessage) {
-        match message {
-            MidiTickSequencerMessage::MidiTickSequencer(s) => *self = Self::new_with(s),
-            _ => self.derived_update(message),
-        }
-    }
-
-    pub fn midi_ticks_per_second(&self) -> usize {
-        self.midi_ticks_per_second
-    }
-
-    pub fn set_midi_ticks_per_second(&mut self, midi_ticks_per_second: usize) {
-        self.midi_ticks_per_second = midi_ticks_per_second;
-    }
-}
-impl Resets for MidiTickSequencer {
-    fn reset(&mut self, sample_rate: usize) {
-        self.temp_hack_clock.set_sample_rate(sample_rate);
-        self.temp_hack_clock.reset(sample_rate);
-
-        // TODO: how can we make sure this stays in sync with the clock when the
-        // clock is changed?
-        self.next_instant = MidiTicks(0);
-    }
-}
-impl Controls for MidiTickSequencer {
-    type Message = EntityMessage;
-
-    fn work(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
-        if self.is_finished() || !self.is_performing {
-            return (None, 0);
-        }
-        let mut v = Vec::default();
-        let this_instant = MidiTicks(self.temp_hack_clock.midi_ticks());
-        self.temp_hack_clock.tick_batch(tick_count);
-        self.next_instant = MidiTicks(self.temp_hack_clock.midi_ticks());
-
-        if self.is_enabled() {
-            // If the last instant marks a new interval, then we want to include
-            // any events scheduled at exactly that time. So the range is
-            // inclusive.
-            let range = (Included(this_instant), Excluded(self.next_instant));
-            let events = self.events.range(range);
-            v.extend(events.into_iter().fold(
-                Vec::default(),
-                |mut vec, (_when, (channel, message))| {
-                    self.active_notes[*channel as usize].watch_message(message);
-                    vec.push(EntityMessage::Midi(*channel, *message));
-                    vec
-                },
-            ));
-        }
-        if v.is_empty() {
-            (None, tick_count)
-        } else {
-            (Some(v), tick_count)
-        }
-    }
-}
-
-/// [MidiSmfReader] parses MIDI SMF files and programs [MidiTickSequencer] with
-/// the data it finds.
-pub struct MidiSmfReader {}
-impl MidiSmfReader {
-    pub fn program_sequencer(sequencer: &mut MidiTickSequencer, data: &[u8]) {
-        let parse_result = midly::Smf::parse(data).unwrap();
-
-        struct MetaInfo {
-            // Pulses per quarter-note
-            ppq: u32,
-
-            // Microseconds per quarter-note
-            tempo: u32,
-
-            time_signature_numerator: u8,
-            time_signature_denominator_exp: u8,
-        }
-        let mut meta_info = MetaInfo {
-            ppq: match parse_result.header.timing {
-                midly::Timing::Metrical(ticks_per_beat) => ticks_per_beat.as_int() as u32,
-                _ => 0,
-            },
-            tempo: 0,
-
-            // https://en.wikipedia.org/wiki/Time_signature
-            time_signature_numerator: 0,
-            time_signature_denominator_exp: 0,
-        };
-        for (track_number, track) in parse_result.tracks.iter().enumerate() {
-            println!("Processing track {track_number}");
-            let mut track_time_ticks: usize = 0; // The relative time references start over at zero with each track.
-
-            for t in track.iter() {
-                match t.kind {
-                    TrackEventKind::Midi { channel, message } => {
-                        let delta = t.delta.as_int() as usize;
-                        track_time_ticks += delta;
-                        sequencer.insert(MidiTicks(track_time_ticks), channel.into(), message);
-                        // TODO: prior version of this code treated vel=0 as
-                        // note-off. Do we need to handle that higher up?
-                    }
-
-                    TrackEventKind::Meta(meta_message) => match meta_message {
-                        midly::MetaMessage::TimeSignature(numerator, denominator_exp, _cc, _bb) => {
-                            meta_info.time_signature_numerator = numerator;
-                            meta_info.time_signature_denominator_exp = denominator_exp;
-                            //meta_info.ppq = cc; WHA???
-                        }
-                        midly::MetaMessage::Tempo(tempo) => {
-                            meta_info.tempo = tempo.as_int();
-                        }
-                        midly::MetaMessage::TrackNumber(track_opt) => {
-                            if track_opt.is_none() {
-                                continue;
-                            }
-                        }
-                        midly::MetaMessage::EndOfTrack => {
-                            let _time_signature: (u32, u32) = (
-                                meta_info.time_signature_numerator.into(),
-                                2_u32.pow(meta_info.time_signature_denominator_exp.into()),
-                            );
-                            let ticks_per_quarter_note: f32 = meta_info.ppq as f32;
-                            let seconds_per_quarter_note: f32 = meta_info.tempo as f32 / 1000000.0;
-                            let _ticks_per_second =
-                                ticks_per_quarter_note / seconds_per_quarter_note;
-
-                            let _bpm: f32 = (60.0 * 1000000.0) / (meta_info.tempo as f32);
-
-                            // sequencer.set_midi_ticks_per_second(ticks_per_second
-                            // as usize);
-                        }
-                        _ => {}
+            if self.is_enabled() {
+                // If the last instant marks a new interval, then we want to include
+                // any events scheduled at exactly that time. So the range is
+                // inclusive.
+                let range = (Included(this_instant), Excluded(self.next_instant));
+                let events = self.events.range(range);
+                v.extend(events.into_iter().fold(
+                    Vec::default(),
+                    |mut vec, (_when, (channel, message))| {
+                        self.active_notes[*channel as usize].watch_message(message);
+                        vec.push(EntityMessage::Midi(*channel, *message));
+                        vec
                     },
-                    TrackEventKind::SysEx(_data) => { // TODO
-                    }
-                    TrackEventKind::Escape(_data) => { // TODO
+                ));
+            }
+            if v.is_empty() {
+                (None, tick_count)
+            } else {
+                (Some(v), tick_count)
+            }
+        }
+    }
+    /// [MidiSmfReader] parses MIDI SMF files and programs [MidiTickSequencer] with
+    /// the data it finds.
+    pub struct MidiSmfReader {}
+    impl MidiSmfReader {
+        pub fn program_sequencer(sequencer: &mut MidiTickSequencer, data: &[u8]) {
+            let parse_result = midly::Smf::parse(data).unwrap();
+
+            struct MetaInfo {
+                // Pulses per quarter-note
+                ppq: u32,
+
+                // Microseconds per quarter-note
+                tempo: u32,
+
+                time_signature_numerator: u8,
+                time_signature_denominator_exp: u8,
+            }
+            let mut meta_info = MetaInfo {
+                ppq: match parse_result.header.timing {
+                    midly::Timing::Metrical(ticks_per_beat) => ticks_per_beat.as_int() as u32,
+                    _ => 0,
+                },
+                tempo: 0,
+
+                // https://en.wikipedia.org/wiki/Time_signature
+                time_signature_numerator: 0,
+                time_signature_denominator_exp: 0,
+            };
+            for (track_number, track) in parse_result.tracks.iter().enumerate() {
+                println!("Processing track {track_number}");
+                let mut track_time_ticks: usize = 0; // The relative time references start over at zero with each track.
+
+                for t in track.iter() {
+                    match t.kind {
+                        TrackEventKind::Midi { channel, message } => {
+                            let delta = t.delta.as_int() as usize;
+                            track_time_ticks += delta;
+                            sequencer.insert(MidiTicks(track_time_ticks), channel.into(), message);
+                            // TODO: prior version of this code treated vel=0 as
+                            // note-off. Do we need to handle that higher up?
+                        }
+
+                        TrackEventKind::Meta(meta_message) => match meta_message {
+                            midly::MetaMessage::TimeSignature(
+                                numerator,
+                                denominator_exp,
+                                _cc,
+                                _bb,
+                            ) => {
+                                meta_info.time_signature_numerator = numerator;
+                                meta_info.time_signature_denominator_exp = denominator_exp;
+                                //meta_info.ppq = cc; WHA???
+                            }
+                            midly::MetaMessage::Tempo(tempo) => {
+                                meta_info.tempo = tempo.as_int();
+                            }
+                            midly::MetaMessage::TrackNumber(track_opt) => {
+                                if track_opt.is_none() {
+                                    continue;
+                                }
+                            }
+                            midly::MetaMessage::EndOfTrack => {
+                                let _time_signature: (u32, u32) = (
+                                    meta_info.time_signature_numerator.into(),
+                                    2_u32.pow(meta_info.time_signature_denominator_exp.into()),
+                                );
+                                let ticks_per_quarter_note: f32 = meta_info.ppq as f32;
+                                let seconds_per_quarter_note: f32 =
+                                    meta_info.tempo as f32 / 1000000.0;
+                                let _ticks_per_second =
+                                    ticks_per_quarter_note / seconds_per_quarter_note;
+
+                                let _bpm: f32 = (60.0 * 1000000.0) / (meta_info.tempo as f32);
+
+                                // sequencer.set_midi_ticks_per_second(ticks_per_second
+                                // as usize);
+                            }
+                            _ => {}
+                        },
+                        TrackEventKind::SysEx(_data) => { // TODO
+                        }
+                        TrackEventKind::Escape(_data) => { // TODO
+                        }
                     }
                 }
             }
+            println!("Done processing MIDI file");
         }
-        println!("Done processing MIDI file");
     }
 }
 
 #[cfg(test)]
 mod tests {
+    #[cfg(tired)]
     use super::{MidiTickEventsMap, MidiTickSequencer};
     use crate::{
         messages::EntityMessage,
         tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
     };
+    #[cfg(tired)]
+    use groove_core::time::MidiTicks;
     use groove_core::{
         midi::MidiChannel,
-        time::{Clock, ClockParams, MidiTicks, TimeSignatureParams},
+        time::{Clock, ClockParams, TimeSignatureParams},
         traits::{IsController, Ticks},
     };
 
+    #[cfg(tired)]
     impl MidiTickSequencer {
         #[allow(dead_code)]
         pub(crate) fn debug_events(&self) -> &MidiTickEventsMap {
@@ -585,6 +603,7 @@ mod tests {
         }
     }
 
+    #[cfg(tired)]
     impl MidiTickSequencer {
         pub(crate) fn tick_for_beat(&self, clock: &Clock, beat: usize) -> MidiTicks {
             //            let tpb = self.midi_ticks_per_second.0 as f32 /
@@ -594,32 +613,32 @@ mod tests {
         }
     }
 
-    fn advance_to_next_beat(
-        clock: &mut Clock,
-        sequencer: &mut dyn IsController<Message = EntityMessage>,
-    ) {
-        let next_beat = clock.beats().floor() + 1.0;
-        while clock.beats() < next_beat {
-            // TODO: a previous version of this utility function had
-            // clock.tick() first, meaning that the sequencer never got the 0th
-            // (first) tick. No test ever cared, apparently. Fix this.
-            let _ = sequencer.work(1);
-            clock.tick(1);
-        }
-    }
+    // fn advance_to_next_beat(
+    //     clock: &mut Clock,
+    //     sequencer: &mut dyn IsController<Message = EntityMessage>,
+    // ) {
+    //     let next_beat = clock.beats().floor() + 1.0;
+    //     while clock.beats() < next_beat {
+    //         // TODO: a previous version of this utility function had
+    //         // clock.tick() first, meaning that the sequencer never got the 0th
+    //         // (first) tick. No test ever cared, apparently. Fix this.
+    //         let _ = sequencer.work(1);
+    //         clock.tick(1);
+    //     }
+    // }
 
-    // We're papering over the issue that MIDI events are firing a little late.
-    // See Clock::next_slice_in_midi_ticks().
-    fn advance_one_midi_tick(
-        clock: &mut Clock,
-        sequencer: &mut dyn IsController<Message = EntityMessage>,
-    ) {
-        let next_midi_tick = clock.midi_ticks() + 1;
-        while clock.midi_ticks() < next_midi_tick {
-            let _ = sequencer.work(1);
-            clock.tick(1);
-        }
-    }
+    // // We're papering over the issue that MIDI events are firing a little late.
+    // // See Clock::next_slice_in_midi_ticks().
+    // fn advance_one_midi_tick(
+    //     clock: &mut Clock,
+    //     sequencer: &mut dyn IsController<Message = EntityMessage>,
+    // ) {
+    //     let next_midi_tick = clock.midi_ticks() + 1;
+    //     while clock.midi_ticks() < next_midi_tick {
+    //         let _ = sequencer.work(1);
+    //         clock.tick(1);
+    //     }
+    // }
 
     #[test]
     fn sequencer_mainline() {

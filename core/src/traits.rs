@@ -140,7 +140,7 @@ pub trait Controls: Resets + Send + std::fmt::Debug {
     type Message;
 
     #[allow(unused_variables)]
-    fn update_time(&mut self, range: &Range<MusicalTime>) {}
+    fn update_time(&mut self, range: &Range<MusicalTime>);
 
     /// The entity should perform work for the time range specified in the
     /// previous update_time().
@@ -148,15 +148,13 @@ pub trait Controls: Resets + Send + std::fmt::Debug {
     /// Returns zero or more messages.
     ///
     /// Returns the number of requested ticks handled before terminating.
-    fn work(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize);
+    fn work(&mut self) -> Option<Vec<Self::Message>>;
 
     /// Returns true if the entity is done with all its scheduled work. An
     /// entity that performs work only on command should always return true, as
     /// the framework ends the piece being performed only when all entities
     /// implementing [Controls] indicate that they're finished.
-    fn is_finished(&self) -> bool {
-        true
-    }
+    fn is_finished(&self) -> bool;
 }
 
 /// A [TransformsAudio] takes input audio, which is typically produced by
@@ -259,16 +257,18 @@ pub trait Performs {
     /// Resets cursors to the beginning. This is set_cursor Lite (TODO).
     fn skip_to_start(&mut self);
 
-    /// Sets the loop range. Parents should propagate to children.
-    fn set_loop(&mut self, range: &Range<PerfectTimeUnit>);
+    /// Sets the loop range. Parents should propagate to children. We provide a
+    /// default implementation for this set of methods because looping doesn't
+    /// apply to many devices.
+    fn set_loop(&mut self, range: &Range<PerfectTimeUnit>) {}
 
     /// Clears the loop range, restoring normal cursor behavior.
-    fn clear_loop(&mut self);
+    fn clear_loop(&mut self) {}
 
     /// Enables or disables loop behavior. When looping is enabled, if the
     /// cursor is outside the range on the right side (i.e., after), it sets
     /// itself to the start point.
-    fn set_loop_enabled(&mut self, is_enabled: bool);
+    fn set_loop_enabled(&mut self, is_enabled: bool) {}
 
     /// Whether the device is currently playing. This is part of the trait so
     /// that implementers don't have to leak their internal state to unit test

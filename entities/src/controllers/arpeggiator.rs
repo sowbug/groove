@@ -1,10 +1,12 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use std::{ops::Range, option::Option};
+
 use super::{sequencers::Sequencer, SequencerParams};
 use crate::EntityMessage;
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage},
-    time::PerfectTimeUnit,
+    time::{MusicalTime, PerfectTimeUnit},
     traits::{Controls, IsController, Performs, Resets},
     ParameterType,
 };
@@ -46,8 +48,16 @@ impl Resets for Arpeggiator {
 impl Controls for Arpeggiator {
     type Message = EntityMessage;
 
-    fn work(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
-        self.sequencer.work(tick_count)
+    fn update_time(&mut self, range: &Range<MusicalTime>) {
+        self.sequencer.update_time(range);
+    }
+
+    fn work(&mut self) -> Option<Vec<Self::Message>> {
+        self.sequencer.work()
+    }
+
+    fn is_finished(&self) -> bool {
+        self.sequencer.is_finished()
     }
 }
 impl HandlesMidi for Arpeggiator {
@@ -105,7 +115,7 @@ impl Performs for Arpeggiator {
         self.sequencer.skip_to_start();
     }
 
-    fn set_loop(&mut self, range: &std::ops::Range<PerfectTimeUnit>) {
+    fn set_loop(&mut self, range: &Range<PerfectTimeUnit>) {
         self.sequencer.set_loop(range);
     }
 
@@ -133,67 +143,27 @@ impl Arpeggiator {
         }
     }
 
-    fn insert_one_note(
-        &mut self,
-        when: PerfectTimeUnit,
-        duration: PerfectTimeUnit,
-        key: u8,
-        vel: u8,
-    ) {
+    fn insert_one_note(&mut self, when: &MusicalTime, duration: &MusicalTime, key: u8, vel: u8) {
         self.sequencer
             .insert(when, self.midi_channel_out, new_note_on(key, vel));
-        self.sequencer
-            .insert(when + duration, self.midi_channel_out, new_note_off(key, 0));
+        self.sequencer.insert(
+            &(*when + *duration),
+            self.midi_channel_out,
+            new_note_off(key, 0),
+        );
     }
 
     fn rebuild_sequence(&mut self, key: u8, vel: u8) {
         self.sequencer.clear();
 
-        // TODO: this is a good place to start pulling the f32 time thread --
-        // remove that ".into()" and deal with it
-        let start_beat = PerfectTimeUnit(self.sequencer.cursor_in_beats());
-        self.insert_one_note(
-            start_beat + PerfectTimeUnit(0.25 * 0.0),
-            PerfectTimeUnit(0.25),
-            key,
-            vel,
-        );
-        self.insert_one_note(
-            start_beat + PerfectTimeUnit(0.25 * 1.0),
-            PerfectTimeUnit(0.25),
-            key + 2,
-            vel,
-        );
-        self.insert_one_note(
-            start_beat + PerfectTimeUnit(0.25 * 2.0),
-            PerfectTimeUnit(0.25),
-            key + 4,
-            vel,
-        );
-        self.insert_one_note(
-            start_beat + PerfectTimeUnit(0.25 * 3.0),
-            PerfectTimeUnit(0.25),
-            key + 5,
-            vel,
-        );
-        self.insert_one_note(
-            start_beat + PerfectTimeUnit(0.25 * 4.0),
-            PerfectTimeUnit(0.25),
-            key + 7,
-            vel,
-        );
-        self.insert_one_note(
-            start_beat + PerfectTimeUnit(0.25 * 5.0),
-            PerfectTimeUnit(0.25),
-            key + 9,
-            vel,
-        );
-        self.insert_one_note(
-            start_beat + PerfectTimeUnit(0.25 * 6.0),
-            PerfectTimeUnit(0.25),
-            key + 11,
-            vel,
-        );
+        let start_beat = self.sequencer.cursor().clone();
+        let duration = MusicalTime::new(0, 0, 4, 0);
+        let scale_notes = [0, 2, 4, 5, 7, 9, 11];
+        for (index, offset) in scale_notes.iter().enumerate() {
+            // TODO - more examples of needing wider range for smaller parts
+            let when = start_beat + MusicalTime::new(0, 0, (4 * index) as u8, 0);
+            self.insert_one_note(&when, &duration, key + offset, vel);
+        }
     }
 
     #[cfg(feature = "iced-framework")]

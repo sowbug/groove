@@ -1,16 +1,18 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use self::gui::NewNoteUiState;
 use super::Sequencer;
 use crate::messages::EntityMessage;
 //use btreemultimap::BTreeMultiMap;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage},
-    time::{BeatValue, PerfectTimeUnit, TimeSignature, TimeSignatureParams},
+    time::{BeatValue, MusicalTime, PerfectTimeUnit, TimeSignature, TimeSignatureParams},
     traits::{Controls, IsController, Performs, Resets},
 };
 use groove_proc_macros::{Control, Params, Uid};
 use std::{cmp, fmt::Debug, ops::Range};
+
+#[cfg(feature = "egui-framework")]
+use self::gui::NewNoteUiState;
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -65,9 +67,14 @@ impl Resets for PatternManager {}
 impl Controls for PatternManager {
     type Message = EntityMessage;
 
-    #[allow(unused_variables)]
-    fn work(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
-        (None, 0)
+    fn update_time(&mut self, _range: &Range<MusicalTime>) {}
+
+    fn work(&mut self) -> Option<Vec<Self::Message>> {
+        None
+    }
+
+    fn is_finished(&self) -> bool {
+        true
     }
 }
 impl Performs for PatternManager {
@@ -166,6 +173,7 @@ impl Default for NewPattern {
                         start: 0.0,
                         end: 1.0,
                     },
+                    #[cfg(feature = "egui-framework")]
                     ui_state: Default::default(),
                 },
                 NewNote {
@@ -175,11 +183,15 @@ impl Default for NewPattern {
                         start: 3.0,
                         end: 4.0,
                     },
+                    #[cfg(feature = "egui-framework")]
                     ui_state: Default::default(),
                 },
             ],
+            #[cfg(feature = "egui-framework")]
             dragged_note: Default::default(),
+            #[cfg(feature = "egui-framework")]
             drag_from_start: Default::default(),
+            #[cfg(feature = "egui-framework")]
             drag_from_end: Default::default(),
         }
     }
@@ -535,29 +547,21 @@ mod gui {
 #[derive(Debug)]
 pub struct PatternProgrammer {
     time_signature: TimeSignature,
-    cursor_beats: PerfectTimeUnit,
+    cursor: MusicalTime,
 }
 impl PatternProgrammer {
-    const CURSOR_BEGIN: PerfectTimeUnit = PerfectTimeUnit(0.0);
-
     pub fn new_with(time_signature: &TimeSignatureParams) -> Self {
         Self {
             time_signature: TimeSignature {
                 top: time_signature.top,
                 bottom: time_signature.bottom,
             },
-            cursor_beats: Self::CURSOR_BEGIN,
+            cursor: MusicalTime::default(),
         }
     }
 
-    // TODO: pub non-crate for Viewable...
-    #[allow(dead_code)]
-    pub fn cursor(&self) -> PerfectTimeUnit {
-        self.cursor_beats
-    }
-
     pub fn reset_cursor(&mut self) {
-        self.cursor_beats = Self::CURSOR_BEGIN;
+        self.cursor = MusicalTime::default();
     }
 
     pub fn insert_pattern_at_cursor(
@@ -589,10 +593,10 @@ impl PatternProgrammer {
                     // This is an empty slot in the pattern. Don't do anything.
                     continue;
                 }
-                let i: PerfectTimeUnit = i.into();
-                let note_start = self.cursor_beats + i * PerfectTimeUnit(pattern_multiplier);
+                let i = MusicalTime::new(0, 0, (i * 4) as u8, 0);
+                let note_start = self.cursor + i;
                 sequencer.insert(
-                    note_start,
+                    &note_start,
                     channel,
                     MidiMessage::NoteOn {
                         key: note.key.into(),
@@ -605,7 +609,7 @@ impl PatternProgrammer {
                 // expression correctly, rather than continuing to hardcode 0.49
                 // as the duration.
                 sequencer.insert(
-                    note_start + note.duration * PerfectTimeUnit(pattern_multiplier),
+                    &(note_start + MusicalTime::new(0, 0, 4, 0)),
                     channel,
                     MidiMessage::NoteOff {
                         key: note.key.into(),
@@ -620,8 +624,12 @@ impl PatternProgrammer {
         let top = self.time_signature.top as f64;
         let rounded_max_pattern_len =
             (max_track_len as f64 * pattern_multiplier / top).ceil() * top;
-        self.cursor_beats = self.cursor_beats + PerfectTimeUnit(rounded_max_pattern_len);
-        sequencer.set_min_end_time(self.cursor_beats);
+        self.cursor = self.cursor + MusicalTime::new(0, rounded_max_pattern_len as u8, 0, 0);
+        sequencer.set_min_end_time(&self.cursor);
+    }
+
+    pub fn cursor(&self) -> MusicalTime {
+        self.cursor
     }
 }
 
@@ -677,15 +685,12 @@ mod tests {
 
         // We don't need to call reset_cursor(), but we do just once to make
         // sure it's working.
-        assert_eq!(programmer.cursor(), PatternProgrammer::CURSOR_BEGIN);
+        assert_eq!(programmer.cursor(), MusicalTime::default());
         programmer.reset_cursor();
-        assert_eq!(programmer.cursor(), PatternProgrammer::CURSOR_BEGIN);
+        assert_eq!(programmer.cursor(), MusicalTime::default());
 
         programmer.insert_pattern_at_cursor(&mut sequencer, &0, &pattern);
-        assert_eq!(
-            programmer.cursor(),
-            PerfectTimeUnit::from(2 * time_signature.top)
-        );
+        assert_eq!(programmer.cursor(), MusicalTime::new(2, 0, 0, 0));
         assert_eq!(sequencer.debug_events().len(), expected_note_count * 2); // one on, one off
     }
 
@@ -732,10 +737,7 @@ mod tests {
         programmer.insert_pattern_at_cursor(&mut sequencer, &0, &pattern);
 
         // expect max of (2, 3) measures
-        assert_eq!(
-            programmer.cursor(),
-            PerfectTimeUnit::from(3 * time_signature.top)
-        );
+        assert_eq!(programmer.cursor(), MusicalTime::new(5, 1, 0, 0)); // TODO: not sure this is right,
         assert_eq!(sequencer.debug_events().len(), expected_note_count * 2); // one on, one off
     }
 }

@@ -1,6 +1,6 @@
 # Time
 
-May 25, 2023
+May 31, 2023
 
 This document discusses alternatives considered to represent musical time. We
 need a consistent way to represent musical time that is accurate and convenient
@@ -8,8 +8,9 @@ for musical applications.
 
 ## Proposal
 
-Model Bitwig's BARs.BEATs.TICKs.% notation, perhaps changing % to fractions of
-256.
+Store musical time as a single u64 that represents fixed-precision beats.
+Provide helper methods that let the experience be similar to Bitwig's
+BARs.BEATs.TICKs.% notation.
 
 ## Alternatives Considered
 
@@ -62,11 +63,10 @@ Model Bitwig's BARs.BEATs.TICKs.% notation, perhaps changing % to fractions of
   the display of the percentage, and I haven't experimented to see whether the
   third value (the sixteenth) is variable based on the time signature.
 
-## Conclusion
+## Lessons learned from first attempt
 
-Do what other DAWs do: have integer representations of the musical units (bars,
-beats, note values), and a component that subdivides the smallest integer unit.
-Something like this:
+Integer representations of the musical units (bars, beats, note values), and a
+component that subdivides the smallest integer unit:
 
 ```rust
 struct MusicalTime {
@@ -83,29 +83,33 @@ struct MusicalTime {
 }
 ```
 
-The `bars` field is the only one that needs to be roomy. For a 4/4 128 BPM piece
-(32 bars/minute), a `u16`-sized `bars` field allows a piece to be 65536/32
-minutes = 34.13 hours. I could imagine a Philip Glass devotee doing a 35-hour
-piece for the laughs, so let's make that at least a `u32`, which allows a 128
-BPM piece to be more than 250 years long.
+This is what I did after the first design pass. It works, but it's cumbersome.
+It takes something that should be treatable as a single number and makes it a
+set of unique individual parts, each of which needs special logic just to do the
+things that a normal number should do -- adding, subtracting, carrying on
+overflow, etc. It's sort of like an inconsistent BCD.
 
-A `beats` size of `u8` allows time signatures from 1/x to 256/x, which include
-the common 4/4, 6/8, 9/8, etc.
+### New Conclusion
 
-The `parts` field fits comfortably in a `u8`, and can accommodate as fine as
-1/256 of a beat.
+The new version is just a u64. The unit is called a "unit" until I think of a
+better name for it. A bar is still made of a variable number of beats, but bar
+is virtual (beats / # of beats in bar) rather than being stored as a separate
+value. A beat is still made of 16 parts. A part is now 4096 units. This means
+that the part can be the bottom 16 bits, and the beats is a super-large 48 bits.
 
-Finally, `subparts` should be a `u8`. While it's appealing to use its whole
-range 0..255, I suspect Bitwig chose 0..100 because it looks better in the UI. A
-base-10 range is more natural to most people than 0..256, even if the latter
-offers more granularity.
+Range: basically infinite. 48 bits of beats is absurdly long.
 
-As for resolution, 4/4 128 BPM works out to 60 / 128 / 4 / 16 / 100 * 1000 =
-0.073242188 milliseconds per subpart, and 4/256 time is 0.001144409
-msec/subpart. All those are much finer than MIDI's 1.041666667
-milliseconds/tick.
+Resolution: suppose a beat is a quarter note (4/4 time) and the tempo is 120
+beats per minute, or two beats per second. This means that a beat lasts for 0.5
+seconds, or 500 milliseconds. If we allocate 16 bits to the fractional portion
+of a beat, then that gives us a resolution of 1/65536 of a beat, or 0.007629395
+milliseconds. Compare MIDI, using 960 parts per quarter note (PPQN), and Bitwig,
+using 16 "ticks" per beat, and an integer percentage (0..100) of a tick (1600
+PPQN).
 
-If any of these turn out to be too coarse or limited, I think we can bump them
-up without a lot of trouble. We're specifying only an in-memory representation,
-and the visual representation (4.1.16.99 etc.) is trivially scalable. `subparts`
-is unlikely to need further resolution if we can already scale `parts`.
+I assume that Bitwig chose to divide ticks into 100 parts to make the UI look
+more natural. For example, 1.2.15.99 is easy to get used to (1 bar, 2 beats, 15
+sixteenths, 99% of the way to the next sixteenth). If we wanted to present the
+same UI, then our 1/65536 is broken into 16 sixteenths, and the remaining unit,
+which is 1/4096 of a sixteenth, is now rounded to 100 units of about 1/41 of a
+sixteenth.

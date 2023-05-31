@@ -5,11 +5,15 @@ use core::fmt::Debug;
 use groove_core::{
     generators::{Oscillator, OscillatorParams, Waveform},
     midi::HandlesMidi,
+    time::{MusicalTime, SampleRate, Tempo},
     traits::{Controls, Generates, IsController, Performs, Resets, Ticks},
     FrequencyHz, Normal, ParameterType,
 };
 use groove_proc_macros::{Control, Params, Uid};
-use std::ops::{Range, RangeInclusive};
+use std::{
+    ops::{Range, RangeInclusive},
+    option::Option,
+};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -27,12 +31,21 @@ pub struct LfoController {
     #[params]
     frequency: FrequencyHz,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     oscillator: Oscillator,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     is_performing: bool,
 
     #[cfg(feature = "egui-framework")]
+    #[cfg_attr(feature = "serialization", serde(skip))]
     waveform_widget: groove_egui::Waveform,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    time_range: Range<MusicalTime>,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    last_frame: usize,
 }
 impl IsController for LfoController {}
 impl Resets for LfoController {
@@ -43,14 +56,42 @@ impl Resets for LfoController {
 impl Controls for LfoController {
     type Message = EntityMessage;
 
-    fn work(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
-        self.oscillator.tick(tick_count);
-        (
-            Some(vec![EntityMessage::ControlF32(
-                Normal::from(self.oscillator.value()).into(),
-            )]),
-            0,
-        )
+    fn update_time(&mut self, range: &Range<MusicalTime>) {
+        self.time_range = range.clone();
+    }
+
+    fn work(&mut self) -> Option<Vec<Self::Message>> {
+        let frames = self.time_range.start.as_frames(
+            Tempo::from(120),
+            SampleRate::from(self.oscillator.sample_rate()),
+        );
+
+        if frames != self.last_frame {
+            let tick_count = if frames >= self.last_frame {
+                // normal case; oscillator should advance the calculated number
+                // of frames
+                //
+                // TODO: this is unlikely to be frame-accurate, because
+                // Orchestrator is currently going from frames -> beats
+                // (inaccurate), and then we're going from beats -> frames. We
+                // could include frame count in update_time(), as discussed in
+                // #132, which would mean we don't have to be smart at all about
+                // it.
+                frames - self.last_frame
+            } else {
+                self.last_frame = frames;
+                0
+            };
+            self.last_frame += tick_count;
+            self.oscillator.tick(tick_count);
+        }
+        Some(vec![EntityMessage::ControlF32(
+            Normal::from(self.oscillator.value()).into(),
+        )])
+    }
+
+    fn is_finished(&self) -> bool {
+        true
     }
 }
 impl HandlesMidi for LfoController {}
@@ -97,6 +138,8 @@ impl LfoController {
             is_performing: false,
             #[cfg(feature = "egui-framework")]
             waveform_widget: Default::default(),
+            time_range: Default::default(),
+            last_frame: Default::default(),
         }
     }
 

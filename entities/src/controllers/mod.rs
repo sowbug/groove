@@ -15,11 +15,9 @@ pub use patterns::{
 };
 #[cfg(feature = "iced-framework")]
 pub use patterns::{PatternManagerMessage, PatternMessage};
-pub use sequencers::{
-    MidiSmfReader, MidiTickSequencer, MidiTickSequencerParams, Sequencer, SequencerParams,
-};
 #[cfg(feature = "iced-framework")]
 pub use sequencers::{MidiTickSequencerMessage, SequencerMessage};
+pub use sequencers::{Sequencer, SequencerParams};
 
 mod arpeggiator;
 mod calculator;
@@ -31,9 +29,9 @@ mod sequencers;
 use crate::EntityMessage;
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel},
-    time::{Clock, ClockParams, ClockTimeUnit, PerfectTimeUnit, TimeSignatureParams},
-    traits::{Controls, IsController, IsEffect, Performs, Resets, Ticks, TransformsAudio},
-    BipolarNormal, ParameterType, Sample, StereoSample,
+    time::{ClockTimeUnit, MusicalTime, MusicalTimeParams},
+    traits::{Controls, IsController, IsEffect, Performs, Resets, TransformsAudio},
+    BipolarNormal, Normal, Sample, StereoSample,
 };
 use groove_proc_macros::{Control, Params, Uid};
 use midly::MidiMessage;
@@ -79,68 +77,71 @@ pub struct MidiChannelOutputParams {
 pub struct Timer {
     uid: usize,
 
-    #[control]
     #[params]
-    seconds: ParameterType,
+    duration: MusicalTime,
 
-    sample_rate: usize,
-
-    has_more_work: bool,
-    ticks: usize,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     is_performing: bool,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    is_finished: bool,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    end_time: Option<MusicalTime>,
 }
 impl Timer {
     pub fn new_with(params: &TimerParams) -> Self {
         Self {
             uid: Default::default(),
-            sample_rate: Default::default(),
-            seconds: params.seconds(),
-
-            has_more_work: Default::default(),
-            ticks: Default::default(),
+            duration: MusicalTime::new_with(&params.duration),
             is_performing: false,
+            is_finished: false,
+            end_time: Default::default(),
         }
     }
 
-    pub fn seconds(&self) -> ParameterType {
-        self.seconds
+    pub fn duration(&self) -> MusicalTime {
+        self.duration
     }
 
-    pub fn set_seconds(&mut self, seconds: ParameterType) {
-        self.seconds = seconds;
-    }
-
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: TimerMessage) {
-        match message {
-            TimerMessage::Timer(s) => *self = Self::new_with(s),
-            _ => self.derived_update(message),
-        }
+    pub fn set_duration(&mut self, duration: MusicalTime) {
+        self.duration = duration;
     }
 }
 impl IsController for Timer {}
 impl HandlesMidi for Timer {}
 impl Resets for Timer {
-    fn reset(&mut self, sample_rate: usize) {
-        self.sample_rate = sample_rate;
-        self.skip_to_start();
-    }
+    fn reset(&mut self, _sample_rate: usize) {}
 }
 impl Controls for Timer {
     type Message = EntityMessage;
 
-    fn work(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
-        let mut ticks_completed = tick_count;
-        for i in 0..tick_count {
-            self.has_more_work = (self.ticks as f64 / self.sample_rate as f64) < self.seconds;
-            if self.has_more_work {
-                self.ticks += 1;
+    fn update_time(&mut self, range: &Range<MusicalTime>) {
+        if self.is_performing {
+            if self.duration == MusicalTime::default() {
+                // Zero-length timers fire immediately.
+                self.is_finished = true;
             } else {
-                ticks_completed = i;
-                break;
+                if let Some(end_time) = self.end_time {
+                    if range.end > end_time {
+                        self.is_finished = true;
+                    }
+                } else {
+                    // The first time we're called with an update_time() while
+                    // performing, we take that as the start of the timer.
+                    self.end_time = Some(range.start + self.duration);
+                }
             }
         }
-        (None, ticks_completed)
+    }
+
+    fn work(&mut self) -> Option<Vec<Self::Message>> {
+        // All the state was computable during update_time(), so there's nothing to do here.
+        None
+    }
+
+    fn is_finished(&self) -> bool {
+        self.is_finished
     }
 }
 impl Performs for Timer {
@@ -153,19 +154,7 @@ impl Performs for Timer {
     }
 
     fn skip_to_start(&mut self) {
-        self.ticks = 0;
-    }
-
-    fn set_loop(&mut self, _range: &Range<PerfectTimeUnit>) {
-        // TODO
-    }
-
-    fn clear_loop(&mut self) {
-        // TODO
-    }
-
-    fn set_loop_enabled(&mut self, _is_enabled: bool) {
-        // TODO
+        self.end_time = None;
     }
 
     fn is_performing(&self) -> bool {
@@ -180,15 +169,12 @@ impl Performs for Timer {
 pub struct Trigger {
     uid: usize,
 
-    #[control]
     #[params]
-    seconds: ParameterType,
+    timer: Timer,
 
-    #[control]
     #[params]
     value: f32,
 
-    timer: Timer,
     has_triggered: bool,
     is_performing: bool,
 }
@@ -196,19 +182,21 @@ impl IsController for Trigger {}
 impl Controls for Trigger {
     type Message = EntityMessage;
 
-    fn work(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
-        // We toss the timer's messages because we know it never returns any,
-        // and we wouldn't pass them on if it did.
-        let (_, ticks_completed) = self.timer.work(tick_count);
-        if ticks_completed < tick_count && !self.has_triggered {
+    fn update_time(&mut self, range: &Range<MusicalTime>) {
+        self.timer.update_time(range)
+    }
+
+    fn work(&mut self) -> Option<Vec<Self::Message>> {
+        if self.timer.is_finished() && self.is_performing && !self.has_triggered {
             self.has_triggered = true;
-            (
-                Some(vec![EntityMessage::ControlF32(self.value())]),
-                ticks_completed,
-            )
+            Some(vec![EntityMessage::ControlF32(self.value())])
         } else {
-            (None, ticks_completed)
+            None
         }
+    }
+
+    fn is_finished(&self) -> bool {
+        self.timer.is_finished()
     }
 }
 impl Resets for Trigger {
@@ -233,18 +221,6 @@ impl Performs for Trigger {
         self.timer.skip_to_start();
     }
 
-    fn set_loop(&mut self, range: &Range<PerfectTimeUnit>) {
-        self.timer.set_loop(range);
-    }
-
-    fn clear_loop(&mut self) {
-        self.timer.clear_loop();
-    }
-
-    fn set_loop_enabled(&mut self, is_enabled: bool) {
-        self.timer.set_loop_enabled(is_enabled);
-    }
-
     fn is_performing(&self) -> bool {
         self.is_performing
     }
@@ -253,22 +229,11 @@ impl Trigger {
     pub fn new_with(params: &TriggerParams) -> Self {
         Self {
             uid: Default::default(),
-            timer: Timer::new_with(&TimerParams {
-                seconds: params.seconds(),
-            }),
-            has_triggered: false,
-            seconds: params.seconds(),
+            timer: Timer::new_with(&params.timer),
             value: params.value(),
+            has_triggered: false,
             is_performing: false,
         }
-    }
-
-    pub fn seconds(&self) -> f64 {
-        self.seconds
-    }
-
-    pub fn set_seconds(&mut self, seconds: ParameterType) {
-        self.seconds = seconds;
     }
 
     pub fn value(&self) -> f32 {
@@ -277,14 +242,6 @@ impl Trigger {
 
     pub fn set_value(&mut self, value: f32) {
         self.value = value;
-    }
-
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: TriggerMessage) {
-        match message {
-            TriggerMessage::Trigger(s) => *self = Self::new_with(s),
-            _ => self.derived_update(message),
-        }
     }
 }
 
@@ -305,28 +262,25 @@ impl Resets for SignalPassthroughController {}
 impl Controls for SignalPassthroughController {
     type Message = EntityMessage;
 
-    fn work(&mut self, _tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
-        if !self.is_performing {
-            return (None, 0);
-        }
+    fn update_time(&mut self, _range: &Range<MusicalTime>) {
+        // We can ignore because we already have our own de-duplicating logic.
+    }
 
-        // We ignore tick_count because we know we won't send more than one
-        // control signal during any batch of tick()s unless we also get
-        // multiple transform_audio() calls. This is fine; it's exactly how
-        // other controllers behave.
-        (
-            if self.has_signal_changed {
-                self.has_signal_changed = false;
-                Some(vec![EntityMessage::ControlF32(
-                    (self.signal.value() as f32).abs() * -0.5, // TODO: deal with that transform
-                )])
-            } else {
-                None
-            },
-            // We always return 0 for handled ticks because that's our signal
-            // that we're OK terminating.
-            0,
-        )
+    fn work(&mut self) -> Option<Vec<Self::Message>> {
+        if !self.is_performing {
+            return None;
+        }
+        if self.has_signal_changed {
+            self.has_signal_changed = false;
+            let normal: Normal = self.signal.into();
+            Some(vec![EntityMessage::ControlF32(normal.value_as_f32())])
+        } else {
+            None
+        }
+    }
+
+    fn is_finished(&self) -> bool {
+        true
     }
 }
 impl HandlesMidi for SignalPassthroughController {}
@@ -340,18 +294,6 @@ impl Performs for SignalPassthroughController {
     }
 
     fn skip_to_start(&mut self) {}
-
-    fn set_loop(&mut self, _range: &Range<PerfectTimeUnit>) {
-        // TODO
-    }
-
-    fn clear_loop(&mut self) {
-        // TODO
-    }
-
-    fn set_loop_enabled(&mut self, _is_enabled: bool) {
-        // TODO
-    }
 
     fn is_performing(&self) -> bool {
         self.is_performing
@@ -418,79 +360,83 @@ enum TestControllerAction {
 pub struct ToyController {
     uid: usize,
 
-    #[control]
-    #[params]
-    bpm: ParameterType,
-
+    #[cfg_attr(feature = "serialization", serde(skip))]
     midi_channel_out: MidiChannel,
 
-    clock: Clock,
-
-    #[control]
-    #[params]
-    tempo: f32,
-
+    #[cfg_attr(feature = "serialization", serde(skip))]
     is_enabled: bool,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     is_playing: bool,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     is_performing: bool,
 
+    #[cfg_attr(feature = "serialization", serde(skip))]
     pub checkpoint_values: VecDeque<f32>,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     pub checkpoint: f32,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     pub checkpoint_delta: f32,
+    #[cfg_attr(feature = "serialization", serde(skip))]
     pub time_unit: ClockTimeUnit,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    time_range: Range<MusicalTime>,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    last_time_handled: MusicalTime,
 }
 impl IsController for ToyController {}
 impl Controls for ToyController {
     type Message = EntityMessage;
 
-    fn work(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
-        let mut v = Vec::default();
-        for _ in 0..tick_count {
-            self.clock.tick(1);
-            // TODO self.check_values(clock);
+    fn update_time(&mut self, range: &Range<MusicalTime>) {
+        self.time_range = range.clone();
+    }
 
-            match self.what_to_do() {
-                TestControllerAction::Nothing => {}
-                TestControllerAction::NoteOn => {
-                    // This is elegant, I hope. If the arpeggiator is
-                    // disabled during play, and we were playing a note,
-                    // then we still send the off note,
-                    if self.is_enabled && self.is_performing {
-                        self.is_playing = true;
-                        v.push(EntityMessage::Midi(
-                            self.midi_channel_out,
-                            new_note_on(60, 127),
-                        ));
-                    }
+    fn work(&mut self) -> Option<Vec<Self::Message>> {
+        let mut v = Vec::default();
+        match self.what_to_do() {
+            TestControllerAction::Nothing => {}
+            TestControllerAction::NoteOn => {
+                // This is elegant, I hope. If the arpeggiator is
+                // disabled during play, and we were playing a note,
+                // then we still send the off note,
+                if self.is_enabled && self.is_performing {
+                    self.is_playing = true;
+                    v.push(EntityMessage::Midi(
+                        self.midi_channel_out,
+                        new_note_on(60, 127),
+                    ));
                 }
-                TestControllerAction::NoteOff => {
-                    if self.is_playing {
-                        v.push(EntityMessage::Midi(
-                            self.midi_channel_out,
-                            new_note_off(60, 0),
-                        ));
-                    }
+            }
+            TestControllerAction::NoteOff => {
+                if self.is_playing {
+                    v.push(EntityMessage::Midi(
+                        self.midi_channel_out,
+                        new_note_off(60, 0),
+                    ));
                 }
             }
         }
         if v.is_empty() {
-            (None, 0)
+            None
         } else {
-            (Some(v), 0)
+            Some(v)
         }
+    }
+
+    fn is_finished(&self) -> bool {
+        true
     }
 }
 impl Resets for ToyController {
-    fn reset(&mut self, sample_rate: usize) {
-        self.clock.reset(sample_rate);
-    }
+    fn reset(&mut self, _sample_rate: usize) {}
 }
 impl HandlesMidi for ToyController {
     fn handle_midi_message(
         &mut self,
         message: &MidiMessage,
     ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
-        eprintln!("got {:?}", message);
         #[allow(unused_variables)]
         match message {
             MidiMessage::NoteOff { key, vel } => self.is_enabled = false,
@@ -510,18 +456,6 @@ impl Performs for ToyController {
     }
 
     fn skip_to_start(&mut self) {}
-
-    fn set_loop(&mut self, _range: &Range<PerfectTimeUnit>) {
-        // TODO
-    }
-
-    fn clear_loop(&mut self) {
-        // TODO
-    }
-
-    fn set_loop_enabled(&mut self, _is_enabled: bool) {
-        // TODO
-    }
 
     fn is_performing(&self) -> bool {
         self.is_performing
@@ -549,14 +483,7 @@ impl ToyController {
     ) -> Self {
         Self {
             uid: Default::default(),
-            bpm: params.bpm(),
-            tempo: params.tempo(),
             midi_channel_out,
-            clock: Clock::new_with(&ClockParams {
-                bpm: params.bpm(),
-                midi_ticks_per_second: 9999,
-                time_signature: TimeSignatureParams { top: 4, bottom: 4 },
-            }),
             is_enabled: Default::default(),
             is_playing: Default::default(),
             is_performing: false,
@@ -564,25 +491,24 @@ impl ToyController {
             checkpoint,
             checkpoint_delta,
             time_unit,
+            time_range: MusicalTime::end_of_time_range(),
+            last_time_handled: MusicalTime::end_of_time(),
         }
     }
 
-    fn what_to_do(&self) -> TestControllerAction {
-        let beat_slice_start = self.clock.beats();
-        let beat_slice_end = self.clock.next_slice_in_beats();
-        let next_exact_beat = beat_slice_start.floor();
-        let next_exact_half_beat = next_exact_beat + 0.5;
-        if next_exact_beat >= beat_slice_start && next_exact_beat < beat_slice_end {
-            return TestControllerAction::NoteOn;
-        }
-        if next_exact_half_beat >= beat_slice_start && next_exact_half_beat < beat_slice_end {
-            return TestControllerAction::NoteOff;
+    fn what_to_do(&mut self) -> TestControllerAction {
+        if !self.time_range.contains(&self.last_time_handled) {
+            self.last_time_handled = self.time_range.start;
+            if self.time_range.start.subparts() == 0 {
+                if self.time_range.start.parts() == 0 {
+                    return TestControllerAction::NoteOn;
+                }
+                if self.time_range.start.parts() == 8 {
+                    return TestControllerAction::NoteOn;
+                }
+            }
         }
         TestControllerAction::Nothing
-    }
-
-    pub fn set_control_tempo(&mut self, tempo: groove_core::control::F32ControlValue) {
-        self.tempo = tempo.0;
     }
 
     #[cfg(feature = "iced-framework")]
@@ -591,22 +517,6 @@ impl ToyController {
             ToyControllerMessage::ToyController(_) => panic!(),
             _ => self.derived_update(message),
         }
-    }
-
-    pub fn bpm(&self) -> f64 {
-        self.bpm
-    }
-
-    pub fn tempo(&self) -> f32 {
-        self.tempo
-    }
-
-    pub fn set_bpm(&mut self, bpm: ParameterType) {
-        self.bpm = bpm;
-    }
-
-    pub fn set_tempo(&mut self, tempo: f32) {
-        self.tempo = tempo;
     }
 }
 // impl TestsValues for TestController {
@@ -637,23 +547,49 @@ impl ToyController {
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Range;
+
     use crate::{
-        controllers::{Trigger, TriggerParams},
+        controllers::{TimerParams, Trigger, TriggerParams},
         tests::DEFAULT_SAMPLE_RATE,
     };
-    use groove_core::traits::{Controls, Resets};
+    use groove_core::{
+        time::{MusicalTime, MusicalTimeParams},
+        traits::{Controls, Performs, Resets},
+    };
 
     #[test]
     fn instantiate_trigger() {
         let mut trigger = Trigger::new_with(&TriggerParams {
-            seconds: 1.0,
+            timer: TimerParams {
+                duration: {
+                    MusicalTimeParams {
+                        bars: 1,
+                        beats: 0,
+                        parts: 0,
+                        subparts: 0,
+                    }
+                },
+            },
             value: 0.5,
         });
         trigger.reset(DEFAULT_SAMPLE_RATE);
+        trigger.play();
 
-        // asserting that 5 returned 5 confirms that the trigger isn't done yet.
-        let (m, count) = trigger.work(5);
+        trigger.update_time(&Range {
+            start: MusicalTime::new(0, 0, 0, 0),
+            end: MusicalTime::new(0, 0, 0, 1),
+        });
+        let m = trigger.work();
         assert!(m.is_none());
-        assert_eq!(count, 5);
+        assert!(!trigger.is_finished());
+
+        trigger.update_time(&Range {
+            start: MusicalTime::new(1, 0, 0, 0),
+            end: MusicalTime::new(1, 0, 0, 1),
+        });
+        let m = trigger.work();
+        assert!(m.is_some());
+        assert!(trigger.is_finished());
     }
 }

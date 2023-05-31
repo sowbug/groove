@@ -6,14 +6,14 @@ use groove_core::{
     generators::{SteppedEnvelope, SteppedEnvelopeFunction, SteppedEnvelopeStep},
     midi::HandlesMidi,
     time::{
-        BeatValue, Clock, ClockParams, ClockTimeUnit, PerfectTimeUnit, TimeSignature,
+        BeatValue, Clock, ClockParams, ClockTimeUnit, MusicalTime, PerfectTimeUnit, TimeSignature,
         TimeSignatureParams,
     },
     traits::{Controls, IsController, Performs, Resets, Ticks},
     ParameterType, SignalType,
 };
 use groove_proc_macros::{Control, Params, Uid};
-use std::ops::Range;
+use std::{ops::Range, option::Option};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -229,46 +229,52 @@ impl Resets for ControlTrip {
 impl Controls for ControlTrip {
     type Message = EntityMessage;
 
-    fn work(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
-        let mut v = Vec::default();
-        let mut ticks_completed = tick_count;
-        if self.is_performing {
-            for i in 0..tick_count {
-                self.clock.tick(1);
-                let has_value_changed = {
-                    let time = self.envelope.time_for_unit(&self.clock);
-                    let step = self.envelope.step_for_time(time);
-                    if step.interval.contains(&time) {
-                        let value = self.envelope.value_for_step_at_time(step, time);
+    fn update_time(&mut self, range: &Range<MusicalTime>) {}
 
-                        let last_value = self.current_value;
-                        self.current_value = value;
-                        self.is_finished = time >= step.interval.end;
-                        self.current_value != last_value
-                    } else {
-                        // This is a drastic response to a tick that's out of range. It
-                        // might be better to limit it to times that are later than the
-                        // covered range. We're likely to hit ControlTrips that start beyond
-                        // time zero.
-                        self.is_finished = true;
-                        false
-                    }
-                };
-                if self.is_finished {
-                    ticks_completed = i;
-                    break;
-                }
-                if has_value_changed {
-                    // our value has changed, so let's tell the world about that.
-                    v.push(EntityMessage::ControlF32(self.current_value as f32));
-                }
-            }
+    fn work(&mut self) -> Option<Vec<Self::Message>> {
+        let mut v = Vec::default();
+        if self.is_performing {
+            // #[cfg(tired)] TODO not sure if this should survive
+            // for i in 0..tick_count {
+            //     self.clock.tick(1);
+            //     let has_value_changed = {
+            //         let time = self.envelope.time_for_unit(&self.clock);
+            //         let step = self.envelope.step_for_time(time);
+            //         if step.interval.contains(&time) {
+            //             let value = self.envelope.value_for_step_at_time(step, time);
+
+            //             let last_value = self.current_value;
+            //             self.current_value = value;
+            //             self.is_finished = time >= step.interval.end;
+            //             self.current_value != last_value
+            //         } else {
+            //             // This is a drastic response to a tick that's out of range. It
+            //             // might be better to limit it to times that are later than the
+            //             // covered range. We're likely to hit ControlTrips that start beyond
+            //             // time zero.
+            //             self.is_finished = true;
+            //             false
+            //         }
+            //     };
+            //     if self.is_finished {
+            //         ticks_completed = i;
+            //         break;
+            //     }
+            //     if has_value_changed {
+            //         // our value has changed, so let's tell the world about that.
+            //         v.push(EntityMessage::ControlF32(self.current_value as f32));
+            //     }
+            // }
         }
         if v.is_empty() {
-            (None, ticks_completed)
+            None
         } else {
-            (Some(v), ticks_completed)
+            Some(v)
         }
+    }
+
+    fn is_finished(&self) -> bool {
+        true
     }
 }
 

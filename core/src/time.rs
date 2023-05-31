@@ -10,7 +10,7 @@ use std::{
     cmp::Ordering,
     fmt::Display,
     num::NonZeroUsize,
-    ops::{Add, Mul},
+    ops::{Add, Mul, Range},
 };
 use strum_macros::{FromRepr, IntoStaticStr};
 
@@ -655,6 +655,7 @@ impl MusicalTime {
         }
     }
 
+    #[deprecated = "the smaller units need to be wider so that we can instantiate with 10,000 beats, or 1,000,000,000 subparts, etc."]
     pub fn new(bars: usize, beats: u8, parts: u8, subparts: u8) -> Self {
         Self::new_with(&MusicalTimeParams {
             bars,
@@ -709,6 +710,17 @@ impl MusicalTime {
         r
     }
 
+    pub fn end_of_time() -> Self {
+        Self::new(usize::MAX, 3, 15, 99)
+    }
+
+    pub fn end_of_time_range() -> Range<Self> {
+        Range {
+            start: Self::end_of_time(),
+            end: Self::end_of_time(),
+        }
+    }
+
     pub fn as_frames(&self, tempo: Tempo, sample_rate: SampleRate) -> usize {
         let frames_per_second: f64 = sample_rate.into();
         let seconds_per_beat = 1.0 / tempo.bps();
@@ -742,6 +754,15 @@ impl Add<Self> for MusicalTime {
         output.add_beats(rhs.beats);
         output.add_bars(rhs.bars);
         output
+    }
+}
+impl From<PerfectTimeUnit> for MusicalTime {
+    fn from(value: PerfectTimeUnit) -> Self {
+        // TODO: this is horribly wrong, but we need it just long enough to
+        // complete the refactor that kills PerfectTimeUnit completely.
+        let mut r = Self::default();
+        r.add_beats(value.0 as u8);
+        r
     }
 }
 

@@ -18,7 +18,7 @@ use crate::{
 use groove_core::{
     instruments::Synthesizer,
     midi::note_to_frequency,
-    time::{Clock, ClockParams, PerfectTimeUnit, TimeSignatureParams},
+    time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, TimeSignatureParams},
     traits::{
         Controls, Generates, HandlesMidi, IsController, IsInstrument, Performs, Resets, Ticks,
     },
@@ -27,7 +27,7 @@ use groove_core::{
 };
 use groove_proc_macros::{Control, Params, Uid};
 use groove_utils::Paths;
-use std::{path::Path, sync::Arc};
+use std::{ops::Range, path::Path, sync::Arc};
 use strum_macros::Display;
 
 #[cfg(feature = "serialization")]
@@ -394,7 +394,7 @@ impl Performs for Engine {
     }
 
     // This instrument is all about looping, so we ignore this section.
-    fn set_loop(&mut self, _range: &std::ops::Range<PerfectTimeUnit>) {}
+    fn set_loop(&mut self, _range: &Range<PerfectTimeUnit>) {}
     fn clear_loop(&mut self) {}
     fn set_loop_enabled(&mut self, _is_enabled: bool) {}
 
@@ -488,7 +488,7 @@ impl Performs for Calculator {
     }
 
     // This instrument is all about looping, so we ignore this.
-    fn set_loop(&mut self, _range: &std::ops::Range<PerfectTimeUnit>) {}
+    fn set_loop(&mut self, _range: &Range<PerfectTimeUnit>) {}
     fn clear_loop(&mut self) {}
     fn set_loop_enabled(&mut self, _is_enabled: bool) {}
 
@@ -512,10 +512,17 @@ impl Ticks for Calculator {
 impl Controls for Calculator {
     type Message = EntityMessage;
 
-    fn work(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
-        self.clock.tick(tick_count);
+    fn update_time(&mut self, range: &Range<MusicalTime>) {
+        todo!()
+    }
+
+    fn work(&mut self) -> Option<Vec<Self::Message>> {
         self.handle_tick();
-        (None, tick_count)
+        None
+    }
+
+    fn is_finished(&self) -> bool {
+        todo!()
     }
 }
 impl Resets for Calculator {
@@ -718,6 +725,7 @@ impl Calculator {
 
     // How many steps we are into the song.
     fn total_steps(&self) -> usize {
+        // TODO: update this to the new global clock in Controls
         ((self.clock.beats() * 4.0).floor() as i32) as usize
     }
 

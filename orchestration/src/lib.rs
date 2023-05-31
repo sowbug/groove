@@ -35,9 +35,11 @@ mod tests {
             traits::{Controllable, Resets},
         };
         use groove_proc_macros::{Control, Params, Uid};
-        use serde::{Deserialize, Serialize};
         use strum::EnumCount;
         use strum_macros::{EnumCount as EnumCountMacro, FromRepr};
+
+        #[cfg(feature = "serialization")]
+        use serde::{Deserialize, Serialize};
 
         #[derive(Clone, Copy, Debug, Default, EnumCountMacro, FromRepr, PartialEq)]
         #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]

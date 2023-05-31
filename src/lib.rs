@@ -14,7 +14,7 @@
 //! #     time::{
 //! #         Clock,
 //! #         ClockParams,
-//! #         PerfectTimeUnit,
+//! #         MusicalTime,
 //! #         TimeSignatureParams
 //! #     },
 //! #     traits::Resets,
@@ -48,8 +48,8 @@
 //! let mut sequencer = Sequencer::new_with(&SequencerParams { bpm: 128.0 });
 //!
 //! // There are lots of different ways to populate the sequencer with notes.
-//! sequencer.insert(PerfectTimeUnit(0.0), MIDI_0, new_note_on(69, 100));
-//! sequencer.insert(PerfectTimeUnit(1.0), MIDI_0, new_note_off(69, 100));
+//! sequencer.insert(&MusicalTime::new(0,0,0,0), MIDI_0, new_note_on(69, 100));
+//! sequencer.insert(&MusicalTime::new(0,1,0,0), MIDI_0, new_note_off(69, 100));
 //!
 //! // An effect takes the edge off the synth.
 //! let compressor = Compressor::new_with(&CompressorParams {
