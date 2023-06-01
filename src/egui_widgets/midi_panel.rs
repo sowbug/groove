@@ -131,6 +131,9 @@ impl MidiPanel {
                         }
                         MidiInterfaceEvent::Quit => break,
                     }
+                } else {
+                    eprintln!("unexpected failure of MidiInterface channel");
+                    break;
                 }
                 if !refresh_sent && inputs_refreshed && outputs_refreshed {
                     refresh_sent = true;

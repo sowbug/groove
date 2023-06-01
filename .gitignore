@@ -1,5 +1,7 @@
 **/target
 /*.wav
+/*.json
+/*.json5
 /out/
 /projects/**/*.mp3
 /projects/**/*.wav

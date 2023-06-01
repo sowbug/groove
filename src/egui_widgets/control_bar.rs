@@ -3,8 +3,35 @@
 use std::{ops::Range, path::Path};
 
 use eframe::egui::{self, DragValue};
-use groove_core::{time::PerfectTimeUnit, traits::Performs};
+use groove_core::{
+    time::{PerfectTimeUnit, Tempo},
+    traits::{gui::Shows, Performs},
+};
 use groove_orchestration::Orchestrator;
+
+pub enum ControlBarAction {
+    Play,
+    Stop,
+}
+
+/// [ControlBar2] is the UI component at the top of the main window. Transport,
+/// MIDI status, etc.
+#[derive(Debug, Default)]
+pub struct ControlBar2 {
+    tempo: Tempo,
+}
+impl ControlBar2 {
+    /// Sets a cached copy of the current piece's tempo.
+    pub fn set_tempo(&mut self, tempo: Tempo) {
+        self.tempo = tempo;
+    }
+
+    /// Renders the control bar and maybe returns a UI action.
+    pub fn show(&mut self, ui: &mut egui::Ui) -> Option<ControlBarAction> {
+        ui.label(format!("{}", self.tempo));
+        None
+    }
+}
 
 /// [ControlBar] displays the top bar of controls and global information.
 #[derive(Debug, Default)]

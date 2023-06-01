@@ -5,6 +5,7 @@ use crate::{
     ParameterType,
 };
 use anyhow::{anyhow, Error};
+use core::fmt;
 use groove_proc_macros::{Control, Params, Uid};
 use std::{
     cmp::Ordering,
@@ -773,6 +774,11 @@ pub struct Tempo(f64);
 impl Default for Tempo {
     fn default() -> Self {
         Self(128.0)
+    }
+}
+impl fmt::Display for Tempo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("{:0.2} BPM", self.0))
     }
 }
 impl From<u16> for Tempo {
