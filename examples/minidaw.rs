@@ -1,26 +1,30 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use anyhow::{anyhow, Result};
 use crossbeam_channel::{Receiver, Select, Sender};
 use eframe::{
     egui::{self, Context},
     CreationContext,
 };
 use groove::egui_widgets::{
-    AudioPanel2, AudioPanelEvent, ControlBar2, ControlBarAction, MidiPanel, MidiPanelEvent,
+    AudioPanel2, AudioPanelEvent, ControlPanel, ControlPanelAction, MidiPanel, MidiPanelEvent,
     NeedsAudioFn,
 };
+use groove_audio::AudioQueue;
 use groove_core::{
     generators::{EnvelopeParams, Waveform},
     midi::{MidiChannel, MidiMessage},
     time::{SampleRate, Tempo, TimeSignature},
-    traits::{gui::Shows, IsController, IsEffect, IsInstrument},
+    traits::{gui::Shows, Generates, IsController, IsEffect, IsInstrument, Resets, Ticks},
+    StereoSample,
 };
 use groove_entities::{instruments::WelshSynth, EntityMessage};
-use groove_toys::{ToySynth, ToySynthParams};
+use groove_toys::{ToyInstrument, ToySynth, ToySynthParams};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     hash::Hash,
+    path::PathBuf,
     sync::{Arc, Mutex},
 };
 
@@ -41,8 +45,13 @@ use std::{
 //   analysis. These should be APIs directly on the struct, and we'll leave it
 //   up to the app to lock the struct and get what it needs.
 
-#[derive(Serialize, Deserialize, Debug, Default, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Serialize, Deserialize, Debug, Default, Eq, PartialEq, Hash)]
 struct Id(usize);
+impl Id {
+    fn increment(&mut self) {
+        self.0 += 1;
+    }
+}
 
 #[typetag::serde(tag = "type")]
 trait NewIsController: IsController<Message = EntityMessage> {}
@@ -58,12 +67,19 @@ enum MiniOrchestratorInput {
     Midi(MidiChannel, MidiMessage),
     Play,
     Stop,
+    Load(PathBuf),
+    Save(PathBuf),
+
+    /// Request that the orchestrator service quit.
     Quit,
 }
 
 #[derive(Clone, Debug)]
 enum MiniOrchestratorEvent {
     Tempo(Tempo),
+
+    /// Acknowledge request to quit.
+    Quit,
 }
 
 #[derive(Debug)]
@@ -79,8 +95,7 @@ impl<T> Default for ChannelPair<T> {
 }
 
 struct OrchestratorPanel {
-    orchestrator: MiniOrchestrator,
-
+    orchestrator: Arc<Mutex<MiniOrchestrator>>,
     input_channel_pair: ChannelPair<MiniOrchestratorInput>,
     event_channel_pair: ChannelPair<MiniOrchestratorEvent>,
 }
@@ -99,19 +114,70 @@ impl OrchestratorPanel {
     fn start_thread(&mut self) {
         let receiver = self.input_channel_pair.receiver.clone();
         let sender = self.event_channel_pair.sender.clone();
+        self.introduce();
+        let orchestrator = Arc::clone(&self.orchestrator);
         std::thread::spawn(move || loop {
-            if let Ok(input) = receiver.recv() {
-                match input {
-                    MiniOrchestratorInput::Midi(channel, message) => todo!(),
-                    MiniOrchestratorInput::Play => todo!(),
-                    MiniOrchestratorInput::Stop => todo!(),
-                    MiniOrchestratorInput::Quit => break,
+            match receiver.recv() {
+                Ok(input) => match input {
+                    MiniOrchestratorInput::Midi(channel, message) => {
+                        Self::handle_input_midi(&orchestrator, channel, message);
+                    }
+                    MiniOrchestratorInput::Play => eprintln!("Play"),
+                    MiniOrchestratorInput::Stop => eprintln!("Stop"),
+                    MiniOrchestratorInput::Load(path) => {
+                        match Self::handle_input_load(&path) {
+                            Ok(mut mo) => {
+                                if let Ok(mut o) = orchestrator.lock() {
+                                    o.prepare_successor(&mut mo);
+                                    *o = mo;
+                                    eprintln!("loaded from {:?}", &path);
+                                }
+                            }
+                            Err(_) => todo!(),
+                        }
+                        {}
+                    }
+                    MiniOrchestratorInput::Save(path) => {
+                        match Self::handle_input_save(&orchestrator, &path) {
+                            Ok(_) => {
+                                eprintln!("saved to {:?}", &path)
+                            }
+                            Err(_) => todo!(),
+                        }
+                    }
+                    MiniOrchestratorInput::Quit => {
+                        let _ = sender.send(MiniOrchestratorEvent::Quit);
+                        break;
+                    }
+                },
+                Err(err) => {
+                    eprintln!(
+                        "unexpected failure of MiniOrchestratorInput channel: {:?}",
+                        err
+                    );
+                    break;
                 }
-            } else {
-                eprintln!("unexpected failure of Orchestrator channel");
-                break;
             }
         });
+    }
+
+    // Send any important initial messages
+    fn introduce(&self) {
+        self.broadcast_initial_state();
+    }
+
+    fn broadcast_initial_state(&self) {
+        if let Ok(o) = self.orchestrator.lock() {
+            self.broadcast_tempo(o.tempo());
+        }
+    }
+
+    fn broadcast_tempo(&self, tempo: Tempo) {
+        self.broadcast(MiniOrchestratorEvent::Tempo(tempo));
+    }
+
+    fn broadcast(&self, event: MiniOrchestratorEvent) {
+        let _ = self.event_channel_pair.sender.send(event);
     }
 
     fn sender(&self) -> &Sender<MiniOrchestratorInput> {
@@ -120,6 +186,66 @@ impl OrchestratorPanel {
 
     fn receiver(&self) -> &Receiver<MiniOrchestratorEvent> {
         &self.event_channel_pair.receiver
+    }
+
+    fn orchestrator(&self) -> &Arc<Mutex<MiniOrchestrator>> {
+        &self.orchestrator
+    }
+
+    fn handle_input_midi(
+        orchestrator: &Arc<Mutex<MiniOrchestrator>>,
+        channel: MidiChannel,
+        message: MidiMessage,
+    ) {
+        if let Ok(mut o) = orchestrator.lock() {
+            o.handle_midi(channel, message);
+        }
+    }
+
+    fn handle_input_load(path: &PathBuf) -> Result<MiniOrchestrator> {
+        match std::fs::read_to_string(path) {
+            Ok(project_string) => match serde_json::from_str(&project_string) {
+                Ok(mo) => anyhow::Ok(mo),
+                Err(err) => Err(anyhow!("Error while parsing {:?}: {}", path, err)),
+            },
+            Err(err) => Err(anyhow!("Error while reading {:?}: {}", path, err)),
+        }
+    }
+
+    fn handle_input_save(
+        orchestrator: &Arc<Mutex<MiniOrchestrator>>,
+        path: &PathBuf,
+    ) -> Result<()> {
+        if let Ok(o) = orchestrator.lock() {
+            let o: &MiniOrchestrator = &o;
+            match serde_json::to_string_pretty(o)
+                .map_err(|_| anyhow::format_err!("Unable to serialize prefs JSON"))
+            {
+                Ok(json) => match std::fs::write(path, json) {
+                    Ok(_) => Ok(()),
+                    Err(err) => Err(anyhow!("While writing project to {:?}: {}", path, err)),
+                },
+                Err(err) => Err(anyhow!(
+                    "While serializing project to be written to {:?}: {}",
+                    path,
+                    err
+                )),
+            }
+        } else {
+            Err(anyhow!("Couldn't get lock"))
+        }
+    }
+
+    fn send_to_service(&self, input: MiniOrchestratorInput) {
+        match self.sender().send(input) {
+            Ok(_) => {}
+            Err(err) => eprintln!("sending MiniOrchestratorInput failed with {:?}", err),
+        }
+    }
+
+    fn exit(&self) {
+        eprintln!("MiniOrchestratorInput::Quit");
+        self.send_to_service(MiniOrchestratorInput::Quit);
     }
 }
 
@@ -131,57 +257,126 @@ struct MiniOrchestrator {
     #[serde(skip)]
     sample_rate: SampleRate,
 
+    next_id: Id,
     controllers: HashMap<Id, Box<dyn NewIsController>>,
     instruments: HashMap<Id, Box<dyn NewIsInstrument>>,
     effects: HashMap<Id, Box<dyn NewIsEffect>>,
 }
 impl Default for MiniOrchestrator {
     fn default() -> Self {
-        let r = Self {
+        let mut r = Self {
             time_signature: Default::default(),
             tempo: Default::default(),
             sample_rate: Default::default(),
+            next_id: Id(1),
             controllers: Default::default(),
             instruments: Default::default(),
             effects: Default::default(),
         };
-        r.broadcast_initial_state();
+
+        if r.instruments.is_empty() {
+            let _id = r.add_instrument(Box::new(ToySynth::new_with(&ToySynthParams {
+                voice_count: 3,
+                waveform: Waveform::Sine,
+                envelope: EnvelopeParams::safe_default(),
+            })));
+        }
+
         r
     }
 }
 impl MiniOrchestrator {
+    #[allow(dead_code)]
     fn sample_rate(&self) -> SampleRate {
         self.sample_rate
     }
 
     fn set_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
+        for i in self.instruments.values_mut() {
+            i.reset(sample_rate.value());
+        }
     }
 
     fn tempo(&self) -> Tempo {
         self.tempo
     }
 
+    #[allow(dead_code)]
     fn set_tempo(&mut self, tempo: Tempo) {
         self.tempo = tempo;
     }
 
-    fn do_something(&mut self) {
-        eprintln!("I'm here!")
+    #[allow(dead_code)]
+    fn debug_sample_buffer(&mut self, samples: &mut [StereoSample]) {
+        let len = samples.len() as f64;
+        for (i, s) in samples.iter_mut().enumerate() {
+            *s = StereoSample::from(i as f64 / len);
+        }
     }
 
-    fn broadcast(&self, event: MiniOrchestratorEvent) {
-        let _ = self.event_channel_pair.sender.send(event);
+    fn provide_audio(&mut self, queue: &AudioQueue, samples_requested: usize) {
+        const SAMPLE_BUFFER_SIZE: usize = 64;
+        let mut samples = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
+
+        // Round up
+        let buffers_requested = (samples_requested + SAMPLE_BUFFER_SIZE - 1) / SAMPLE_BUFFER_SIZE;
+        for _ in 0..buffers_requested {
+            self.batch_values(&mut samples);
+            for sample in samples {
+                let _ = queue.push(sample);
+            }
+        }
     }
 
-    fn broadcast_initial_state(&self) {
-        self.broadcast_tempo();
+    // TODO: we're ignoring channels at the moment.
+    #[allow(unused_variables)]
+    fn handle_midi(&mut self, channel: MidiChannel, message: MidiMessage) {
+        for i in self.instruments.values_mut() {
+            i.handle_midi_message(&message);
+        }
     }
 
-    fn broadcast_tempo(&self) {
-        self.broadcast(MiniOrchestratorEvent::Tempo(self.tempo));
+    fn next_id(&mut self) -> Id {
+        let r = self.next_id;
+        self.next_id.increment();
+        r
+    }
+
+    fn add_instrument(&mut self, mut instrument: Box<dyn NewIsInstrument>) -> Id {
+        instrument.reset(self.sample_rate.value());
+        let id = self.next_id();
+        self.instruments.insert(id, instrument);
+        id
+    }
+
+    /// After loading a new Self from disk, we want to copy all the ephemeral
+    /// state from this one to the next one.
+    fn prepare_successor(&self, new: &mut MiniOrchestrator) {
+        new.set_sample_rate(self.sample_rate());
     }
 }
+impl Generates<StereoSample> for MiniOrchestrator {
+    fn value(&self) -> StereoSample {
+        StereoSample::SILENCE
+    }
+
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        let frames = 0..values.len();
+        for frame in frames {
+            for i in self.instruments.values_mut() {
+                i.tick(1);
+                values[frame] = i.value();
+            }
+        }
+    }
+}
+impl Ticks for MiniOrchestrator {
+    fn tick(&mut self, _tick_count: usize) {
+        panic!()
+    }
+}
+impl Resets for MiniOrchestrator {}
 impl Shows for MiniOrchestrator {
     fn show(&mut self, ui: &mut egui::Ui) {
         ui.label(format!(
@@ -195,63 +390,32 @@ impl Shows for MiniOrchestrator {
 
 struct MiniDaw {
     mini_orchestrator: Arc<Mutex<MiniOrchestrator>>,
-    mini_orchestrator_sender: Sender<MiniOrchestratorInput>,
-    mini_orchestrator_receiver: Receiver<MiniOrchestratorEvent>,
-    control_bar: ControlBar2,
+    orchestrator_panel: OrchestratorPanel,
+    control_panel: ControlPanel,
     audio_panel: AudioPanel2,
     midi_panel: MidiPanel,
 }
 impl MiniDaw {
     pub fn new(cc: &CreationContext) -> Self {
-        let filename = "minidaw.json";
-        let mut mini_orchestrator = if let Ok(s) = std::fs::read_to_string(filename) {
-            if let Ok(mo) = serde_json::from_str(&s) {
-                mo
-            } else {
-                MiniOrchestrator::default()
-            }
-        } else {
-            MiniOrchestrator::default()
-        };
-        if mini_orchestrator.instruments.is_empty() {
-            mini_orchestrator.instruments.insert(
-                Id(3),
-                Box::new(ToySynth::new_with(&&ToySynthParams {
-                    voice_count: 1,
-                    waveform: Waveform::Sine,
-                    envelope: EnvelopeParams::safe_default(),
-                })),
-            );
-        }
-        if let Ok(s) = serde_json::to_string(&mini_orchestrator) {
-            let _ = std::fs::write(filename, s);
-        }
+        let orchestrator_panel = OrchestratorPanel::default();
+        let mini_orchestrator = Arc::clone(orchestrator_panel.orchestrator());
 
-        let mini_orchestrator_sender = mini_orchestrator.sender().clone();
-        let mini_orchestrator_receiver = mini_orchestrator.receiver().clone();
-        let mini_orchestrator = Arc::new(Mutex::new(mini_orchestrator));
-
-        let mo2 = Arc::clone(&mini_orchestrator);
-        let needs_audio: NeedsAudioFn = Box::new(move || {
-            if let Ok(mut o) = mo2.lock() {
-                o.do_something();
+        let mini_orchestrator_for_fn = Arc::clone(&mini_orchestrator);
+        let needs_audio: NeedsAudioFn = Box::new(move |audio_queue, samples_requested| {
+            if let Ok(mut o) = mini_orchestrator_for_fn.lock() {
+                o.provide_audio(audio_queue, samples_requested);
             }
         });
 
         let mut r = Self {
-            mini_orchestrator: Arc::clone(&mini_orchestrator),
-            mini_orchestrator_sender,
-            mini_orchestrator_receiver,
-            control_bar: ControlBar2::default(),
+            mini_orchestrator,
+            orchestrator_panel,
+            control_panel: Default::default(),
             audio_panel: AudioPanel2::new_with(Box::new(needs_audio)),
-            midi_panel: MidiPanel::default(),
+            midi_panel: Default::default(),
         };
         r.spawn_channel_watcher(cc.egui_ctx.clone());
         r
-    }
-
-    fn tell_orchestrator(&self, message: MiniOrchestratorInput) {
-        let _ = self.mini_orchestrator_sender.send(message);
     }
 
     fn handle_message_channels(&mut self) {
@@ -272,7 +436,8 @@ impl MiniDaw {
         if let Ok(m) = self.midi_panel.receiver().try_recv() {
             match m {
                 MidiPanelEvent::Midi(channel, message) => {
-                    self.tell_orchestrator(MiniOrchestratorInput::Midi(channel, message));
+                    self.orchestrator_panel
+                        .send_to_service(MiniOrchestratorInput::Midi(channel, message));
                 }
                 MidiPanelEvent::SelectInput(_) => {
                     // TODO: save selection in prefs
@@ -304,10 +469,13 @@ impl MiniDaw {
     }
 
     fn handle_mini_orchestrator_channel(&mut self) -> bool {
-        if let Ok(m) = self.mini_orchestrator_receiver.try_recv() {
+        if let Ok(m) = self.orchestrator_panel.receiver().try_recv() {
             match m {
                 MiniOrchestratorEvent::Tempo(tempo) => {
-                    self.control_bar.set_tempo(tempo);
+                    self.control_panel.set_tempo(tempo);
+                }
+                MiniOrchestratorEvent::Quit => {
+                    eprintln!("MiniOrchestratorEvent::Quit")
                 }
             }
             true
@@ -327,7 +495,7 @@ impl MiniDaw {
     fn spawn_channel_watcher(&mut self, ctx: Context) {
         let r1 = self.midi_panel.receiver().clone();
         let r2 = self.audio_panel.receiver().clone();
-        let r3 = self.mini_orchestrator_receiver.clone();
+        let r3 = self.orchestrator_panel.receiver().clone();
         let _ = std::thread::spawn(move || {
             let mut sel = Select::new();
             let _ = sel.recv(&r1);
@@ -347,10 +515,20 @@ impl MiniDaw {
         }
     }
 
-    fn handle_control_bar_action(&mut self, action: ControlBarAction) {
+    fn handle_control_panel_action(&mut self, action: ControlPanelAction) {
         match action {
-            ControlBarAction::Play => self.tell_orchestrator(MiniOrchestratorInput::Play),
-            ControlBarAction::Stop => self.tell_orchestrator(MiniOrchestratorInput::Stop),
+            ControlPanelAction::Play => self
+                .orchestrator_panel
+                .send_to_service(MiniOrchestratorInput::Play),
+            ControlPanelAction::Stop => self
+                .orchestrator_panel
+                .send_to_service(MiniOrchestratorInput::Stop),
+            ControlPanelAction::Load(path) => self
+                .orchestrator_panel
+                .send_to_service(MiniOrchestratorInput::Load(path)),
+            ControlPanelAction::Save(path) => self
+                .orchestrator_panel
+                .send_to_service(MiniOrchestratorInput::Save(path)),
         }
     }
 }
@@ -360,8 +538,8 @@ impl eframe::App for MiniDaw {
         let top = egui::TopBottomPanel::top("top");
         let center = egui::CentralPanel::default();
         top.show(ctx, |ui| {
-            if let Some(action) = self.control_bar.show(ui) {
-                self.handle_control_bar_action(action);
+            if let Some(action) = self.control_panel.show(ui) {
+                self.handle_control_panel_action(action);
             }
         });
         center.show(ctx, |ui| {
@@ -372,12 +550,20 @@ impl eframe::App for MiniDaw {
             }
         });
     }
+
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        self.audio_panel.exit();
+        self.midi_panel.exit();
+        self.orchestrator_panel.exit();
+    }
 }
 
 #[typetag::serde]
 impl NewIsInstrument for WelshSynth {}
 #[typetag::serde]
 impl NewIsInstrument for ToySynth {}
+#[typetag::serde]
+impl NewIsInstrument for ToyInstrument {}
 
 fn main() -> anyhow::Result<(), eframe::Error> {
     env_logger::init();

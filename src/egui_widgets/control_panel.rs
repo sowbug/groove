@@ -1,35 +1,62 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use std::{ops::Range, path::Path};
+use std::{
+    ops::Range,
+    path::{Path, PathBuf},
+};
 
 use eframe::egui::{self, DragValue};
 use groove_core::{
     time::{PerfectTimeUnit, Tempo},
-    traits::{gui::Shows, Performs},
+    traits::Performs,
 };
 use groove_orchestration::Orchestrator;
 
-pub enum ControlBarAction {
+/// Actions the user might take via the control panel.
+pub enum ControlPanelAction {
+    /// Play button pressed.
     Play,
+
+    /// Stop button pressed.
     Stop,
+
+    /// The user asked to load the project having the given filename.
+    Load(PathBuf),
+
+    /// The user asked to save the current project to the given filename.
+    Save(PathBuf),
 }
 
 /// [ControlBar2] is the UI component at the top of the main window. Transport,
 /// MIDI status, etc.
 #[derive(Debug, Default)]
-pub struct ControlBar2 {
+pub struct ControlPanel {
     tempo: Tempo,
 }
-impl ControlBar2 {
+impl ControlPanel {
     /// Sets a cached copy of the current piece's tempo.
     pub fn set_tempo(&mut self, tempo: Tempo) {
         self.tempo = tempo;
     }
 
     /// Renders the control bar and maybe returns a UI action.
-    pub fn show(&mut self, ui: &mut egui::Ui) -> Option<ControlBarAction> {
+    pub fn show(&mut self, ui: &mut egui::Ui) -> Option<ControlPanelAction> {
+        let mut action = None;
         ui.label(format!("{}", self.tempo));
-        None
+        if ui.button("play").clicked() {
+            action = Some(ControlPanelAction::Play);
+        }
+        if ui.button("stop").clicked() {
+            action = Some(ControlPanelAction::Stop);
+        }
+        if ui.button("load").clicked() {
+            action = Some(ControlPanelAction::Load(PathBuf::from("minidaw.json")));
+        }
+        if ui.button("save").clicked() {
+            action = Some(ControlPanelAction::Save(PathBuf::from("minidaw.json")));
+        }
+
+        action
     }
 }
 

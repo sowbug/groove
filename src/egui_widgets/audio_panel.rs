@@ -96,6 +96,9 @@ impl AudioPanel {
                         }
                         AudioInterfaceEvent::Quit => todo!(),
                     }
+                } else {
+                    eprintln!("Unexpected end of AudioInterfaceEvent channel");
+                    break;
                 }
             }
         });
@@ -137,6 +140,7 @@ impl AudioPanel {
         &self.app_receiver
     }
 
+    /// The audio interface's current sample rate
     pub fn sample_rate(&self) -> usize {
         if let Ok(config) = self.config.lock() {
             if let Some(config) = config.as_ref() {
@@ -146,6 +150,7 @@ impl AudioPanel {
         0
     }
 
+    /// The audio interface's current number of channels. 1 = mono, 2 = stereo
     pub fn channel_count(&self) -> u16 {
         if let Ok(config) = self.config.lock() {
             if let Some(config) = config.as_ref() {
@@ -169,13 +174,16 @@ impl Shows for AudioPanel {
 }
 
 // Thanks https://boydjohnson.dev/blog/impl-debug-for-fn-type/
-pub trait NeedsAudioFnT: FnMut() + Sync + Send {}
-impl<F> NeedsAudioFnT for F where F: FnMut() + Sync + Send {}
+pub trait NeedsAudioFnT: FnMut(&AudioQueue, usize) + Sync + Send {}
+impl<F> NeedsAudioFnT for F where F: FnMut(&AudioQueue, usize) + Sync + Send {}
+/// Takes an [AudioQueue] that accepts [StereoSample]s, and the number of
+/// [StereoSample]s that the audio interface has requested.
 pub type NeedsAudioFn = Box<dyn NeedsAudioFnT>;
 
 /// [AudioPanel2] manages the audio interface.
 #[derive(Debug)]
 pub struct AudioPanel2 {
+    #[allow(dead_code)]
     sender: Sender<AudioInterfaceInput>,
     app_receiver: Receiver<AudioPanelEvent>, // to give to the app to receive what we sent
     app_sender: Sender<AudioPanelEvent>,     // for us to send to the app
@@ -199,11 +207,6 @@ impl AudioPanel2 {
         r.start_audio_stream(needs_audio_fn, audio_stream_service.receiver().clone());
 
         r
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn send(&mut self, input: AudioInterfaceInput) {
-        let _ = self.sender.send(input);
     }
 
     fn start_audio_stream(
@@ -230,52 +233,20 @@ impl AudioPanel2 {
                         }
                         AudioInterfaceEvent::NeedsAudio(_when, count) => {
                             if let Some(queue) = queue_opt.as_ref() {
-                                (*needs_audio_fn)();
+                                (*needs_audio_fn)(queue, count);
                             }
                         }
                         AudioInterfaceEvent::Quit => todo!(),
                     }
+                } else {
+                    eprintln!("Unexpected failure of AudioInterfaceEvent channel");
+                    break;
                 }
             }
         });
     }
 
-    fn generate_audio(
-        mut orchestrator: MutexGuard<Orchestrator>,
-        queue: &AudioQueue,
-        buffer_count: u8,
-    ) {
-        let mut samples = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
-        for _ in 0..buffer_count {
-            let (response, ticks_completed) = orchestrator.tick(&mut samples);
-            if ticks_completed < samples.len() {
-                // self.stop_playback();
-                // self.reached_end_of_playback = true;
-            }
-
-            for sample in samples {
-                let _ = queue.push(sample);
-            }
-
-            match response.0 {
-                groove_orchestration::messages::Internal::None => {}
-                groove_orchestration::messages::Internal::Single(_event) => {
-                    //                    self.handle_groove_event(event);
-                }
-                groove_orchestration::messages::Internal::Batch(events) => {
-                    for _event in events {
-                        //                      self.handle_groove_event(event)
-                    }
-                }
-            }
-        }
-    }
-
-    /// The receive side of the [AudioPanelEvent] channel
-    pub fn receiver(&self) -> &Receiver<AudioPanelEvent> {
-        &self.app_receiver
-    }
-
+    /// The audio interface's current sample rate
     pub fn sample_rate(&self) -> usize {
         if let Ok(config) = self.config.lock() {
             if let Some(config) = config.as_ref() {
@@ -285,6 +256,7 @@ impl AudioPanel2 {
         0
     }
 
+    /// The audio interface's current number of channels. 1 = mono, 2 = stereo
     pub fn channel_count(&self) -> u16 {
         if let Ok(config) = self.config.lock() {
             if let Some(config) = config.as_ref() {
@@ -292,6 +264,17 @@ impl AudioPanel2 {
             }
         }
         0
+    }
+
+    /// The receive side of the [AudioPanelEvent] channel
+    pub fn receiver(&self) -> &Receiver<AudioPanelEvent> {
+        &self.app_receiver
+    }
+
+    /// Cleans up the audio service for quitting.
+    pub fn exit(&self) {
+        // TODO: Create the AudioPanelInput channel, add it to the receiver loop, etc.
+        eprintln!("Audio Panel acks the quit... TODO");
     }
 }
 impl Shows for AudioPanel2 {

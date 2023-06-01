@@ -132,7 +132,7 @@ impl MidiPanel {
                         MidiInterfaceEvent::Quit => break,
                     }
                 } else {
-                    eprintln!("unexpected failure of MidiInterface channel");
+                    eprintln!("unexpected failure of MidiInterfaceEvent channel");
                     break;
                 }
                 if !refresh_sent && inputs_refreshed && outputs_refreshed {
@@ -154,6 +154,12 @@ impl MidiPanel {
     /// The receive side of the [MidiPanelEvent] channel
     pub fn receiver(&self) -> &Receiver<MidiPanelEvent> {
         &self.app_receiver
+    }
+
+    /// Cleans up the MIDI service for quitting.
+    pub fn exit(&self) {
+        // TODO: Create the MidiPanelInput channel, add it to the receiver loop, etc.
+        eprintln!("MIDI Panel acks the quit... TODO");
     }
 }
 impl Shows for MidiPanel {

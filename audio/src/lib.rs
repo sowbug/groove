@@ -15,6 +15,8 @@ pub enum AudioInterfaceInput {
     SetBufferSize(usize),
     Play,
     Pause,
+
+    // Requests the audio stream to quit.
     Quit,
 }
 
@@ -22,7 +24,13 @@ pub enum AudioInterfaceInput {
 pub enum AudioInterfaceEvent {
     /// Sample rate, channel count, queue for pushing audio samples
     Reset(usize, u16, AudioQueue),
+
+    /// A timestamp for measuring latency, and the number of samples requested
+    /// by the audio interface
     NeedsAudio(Instant, usize),
+
+    // Acknowledges the AudioInterfaceInput::Quit and confirms that we've ended
+    // the stream.
     Quit,
 }
 
