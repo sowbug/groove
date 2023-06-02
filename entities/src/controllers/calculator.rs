@@ -512,7 +512,7 @@ impl Ticks for Calculator {
 impl Controls for Calculator {
     type Message = EntityMessage;
 
-    fn update_time(&mut self, range: &Range<MusicalTime>) {
+    fn update_time(&mut self, _range: &Range<MusicalTime>) {
         todo!()
     }
 
