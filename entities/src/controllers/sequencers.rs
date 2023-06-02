@@ -162,7 +162,7 @@ impl Sequencer {
 
     fn stop_pending_notes(&mut self) -> Vec<EntityMessage> {
         let mut v = Vec::new();
-        for channel in 0..MidiChannel::from(16) {
+        for channel in 0..MidiChannel::MAX {
             let channel_msgs = self.active_notes[channel as usize].generate_off_messages();
             for msg in channel_msgs.into_iter() {
                 v.push(EntityMessage::Midi(channel.into(), msg));
@@ -180,7 +180,7 @@ impl Sequencer {
             .events
             .range(range)
             .fold(Vec::new(), |mut vec, (_when, event)| {
-                self.active_notes[event.0 as usize].watch_message(&event.1);
+                self.active_notes[event.0.value() as usize].watch_message(&event.1);
                 vec.push((event.0, event.1));
                 vec
             });
@@ -191,7 +191,9 @@ impl Sequencer {
         }
     }
 
-    pub fn generate_midi_messages_for_current_frame(&mut self) -> Option<Vec<(u8, MidiMessage)>> {
+    pub fn generate_midi_messages_for_current_frame(
+        &mut self,
+    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
         let time_range = self.time_range.clone();
         self.generate_midi_messages_for_interval(&time_range)
     }
@@ -639,7 +641,7 @@ mod tests {
     #[allow(unused_variables)]
     #[test]
     fn sequencer_mainline() {
-        const DEVICE_MIDI_CHANNEL: MidiChannel = 7;
+        const DEVICE_MIDI_CHANNEL: MidiChannel = MidiChannel::new(7);
         let mut clock = Clock::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,

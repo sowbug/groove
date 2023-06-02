@@ -23,6 +23,8 @@ use groove_core::{
     StereoSample,
 };
 use groove_entities::{
+    controllers::{Arpeggiator, ArpeggiatorParams},
+    effects::{Reverb, ReverbParams},
     instruments::{WelshSynth, WelshSynthParams},
     EntityMessage,
 };
@@ -351,10 +353,24 @@ impl MiniOrchestrator {
         r
     }
 
-    fn add_instrument(&mut self, mut instrument: Box<dyn NewIsInstrument>) -> Id {
-        instrument.update_sample_rate(self.sample_rate);
+    fn add_controller(&mut self, mut e: Box<dyn NewIsController>) -> Id {
+        e.update_sample_rate(self.sample_rate);
         let id = self.next_id();
-        self.instruments.insert(id, instrument);
+        self.controllers.insert(id, e);
+        id
+    }
+
+    fn add_effect(&mut self, mut e: Box<dyn NewIsEffect>) -> Id {
+        e.update_sample_rate(self.sample_rate);
+        let id = self.next_id();
+        self.effects.insert(id, e);
+        id
+    }
+
+    fn add_instrument(&mut self, mut e: Box<dyn NewIsInstrument>) -> Id {
+        e.update_sample_rate(self.sample_rate);
+        let id = self.next_id();
+        self.instruments.insert(id, e);
         id
     }
 
@@ -393,46 +409,105 @@ impl Shows for MiniOrchestrator {
             self.instruments.len(),
             self.effects.len()
         ));
-        for instrument in self.instruments.values_mut() {
-            instrument.show(ui);
+        for e in self.controllers.values_mut() {
+            e.show(ui);
+        }
+        for e in self.effects.values_mut() {
+            e.show(ui);
+        }
+        for e in self.instruments.values_mut() {
+            e.show(ui);
         }
     }
 }
 
+type ControllerEntityFactoryFn = fn() -> Box<dyn NewIsController>;
 type InstrumentEntityFactoryFn = fn() -> Box<dyn NewIsInstrument>;
+type EffectEntityFactoryFn = fn() -> Box<dyn NewIsEffect>;
 #[derive(Debug, Default)]
 struct EntityFactory {
+    controllers: HashMap<String, ControllerEntityFactoryFn>,
     instruments: HashMap<String, InstrumentEntityFactoryFn>,
-    names: HashSet<String>,
+    effects: HashMap<String, EffectEntityFactoryFn>,
+    keys: HashSet<String>,
 }
 impl EntityFactory {
-    pub fn register_instrument(&mut self, name: &str, f: InstrumentEntityFactoryFn) {
-        if self.names.insert(name.to_string()) {
-            self.instruments.insert(name.to_string(), f);
+    pub fn register_controller(&mut self, key: &str, f: ControllerEntityFactoryFn) {
+        if self.keys.insert(key.to_string()) {
+            self.controllers.insert(key.to_string(), f);
         } else {
-            panic!(
-                "Found duplicate key '{}' when adding an entity to EntityFactory. Exiting.",
-                name
-            );
+            panic!("register_controller({}): duplicate key. Exiting.", key);
         }
     }
-    pub fn new_instrument(&self, name: &str) -> Option<Box<dyn NewIsInstrument>> {
-        if let Some(f) = self.instruments.get(name) {
+    pub fn new_controller(&self, key: &str) -> Option<Box<dyn NewIsController>> {
+        if let Some(f) = self.controllers.get(key) {
             Some(f())
         } else {
             None
         }
     }
+    pub fn register_instrument(&mut self, key: &str, f: InstrumentEntityFactoryFn) {
+        if self.keys.insert(key.to_string()) {
+            self.instruments.insert(key.to_string(), f);
+        } else {
+            panic!("register_instrument({}): duplicate key. Exiting.", key);
+        }
+    }
+    pub fn new_instrument(&self, key: &str) -> Option<Box<dyn NewIsInstrument>> {
+        if let Some(f) = self.instruments.get(key) {
+            Some(f())
+        } else {
+            None
+        }
+    }
+    pub fn register_effect(&mut self, key: &str, f: EffectEntityFactoryFn) {
+        if self.keys.insert(key.to_string()) {
+            self.effects.insert(key.to_string(), f);
+        } else {
+            panic!("register_effect({}): duplicate key. Exiting.", key);
+        }
+    }
+    pub fn new_effect(&self, key: &str) -> Option<Box<dyn NewIsEffect>> {
+        if let Some(f) = self.effects.get(key) {
+            Some(f())
+        } else {
+            None
+        }
+    }
+
+    pub fn controller_keys(
+        &self,
+    ) -> std::collections::hash_map::Keys<String, fn() -> Box<dyn NewIsController>> {
+        self.controllers.keys()
+    }
+
+    pub fn effect_keys(
+        &self,
+    ) -> std::collections::hash_map::Keys<String, fn() -> Box<dyn NewIsEffect>> {
+        self.effects.keys()
+    }
+
+    pub fn instrument_keys(
+        &self,
+    ) -> std::collections::hash_map::Keys<String, fn() -> Box<dyn NewIsInstrument>> {
+        self.instruments.keys()
+    }
 }
 
+#[derive(Debug)]
+enum PaletteAction {
+    NewController(String),
+    NewEffect(String),
+    NewInstrument(String),
+}
 #[derive(Debug)]
 struct PalettePanel {
     factory: Arc<EntityFactory>,
 }
 impl Shows for PalettePanel {
     fn show(&mut self, ui: &mut egui::Ui) {
-        for name in &self.factory.names {
-            ui.label(name);
+        for name in &self.factory.keys {
+            ui.label(name.to_string());
         }
     }
 }
@@ -441,11 +516,21 @@ impl PalettePanel {
         Self { factory }
     }
 
-    fn show_with_action(&mut self, ui: &mut egui::Ui) -> Option<String> {
+    fn show_with_action(&mut self, ui: &mut egui::Ui) -> Option<PaletteAction> {
         let mut action = None;
-        for name in &self.factory.names {
-            if ui.button(name).clicked() {
-                action = Some(name.to_string());
+        for name in self.factory.controller_keys() {
+            if ui.button(name.to_string()).clicked() {
+                action = Some(PaletteAction::NewController(name.to_string()));
+            };
+        }
+        for name in self.factory.effect_keys() {
+            if ui.button(name.to_string()).clicked() {
+                action = Some(PaletteAction::NewEffect(name.to_string()));
+            };
+        }
+        for name in self.factory.instrument_keys() {
+            if ui.button(name.to_string()).clicked() {
+                action = Some(PaletteAction::NewInstrument(name.to_string()));
             };
         }
         action
@@ -615,6 +700,16 @@ impl MiniDaw {
         // TODO: might be nice to move HasUid::name() to be a function... and
         // while we're at it, I guess make the mondo IsEntity trait that allows
         // discovery of IsInstrument/Effect/Controller.
+
+        factory.register_controller("arpeggiator", || {
+            Box::new(Arpeggiator::new_with(
+                &ArpeggiatorParams::default(),
+                MidiChannel::new(0),
+            ))
+        });
+        factory.register_effect("reverb", || {
+            Box::new(Reverb::new_with(&ReverbParams::default()))
+        });
         factory.register_instrument("toy-synth", || {
             Box::new(ToySynth::new_with(&ToySynthParams::default()))
         });
@@ -626,10 +721,24 @@ impl MiniDaw {
         });
     }
 
-    fn handle_palette_action(&mut self, action: String) {
+    fn handle_palette_action(&mut self, action: PaletteAction) {
         if let Ok(mut o) = self.mini_orchestrator.lock() {
-            if let Some(instrument) = self.factory.new_instrument(action.as_str()) {
-                o.add_instrument(instrument);
+            match action {
+                PaletteAction::NewController(key) => {
+                    if let Some(controller) = self.factory.new_controller(key.as_str()) {
+                        o.add_controller(controller);
+                    }
+                }
+                PaletteAction::NewEffect(key) => {
+                    if let Some(effect) = self.factory.new_effect(key.as_str()) {
+                        o.add_effect(effect);
+                    }
+                }
+                PaletteAction::NewInstrument(key) => {
+                    if let Some(instrument) = self.factory.new_instrument(key.as_str()) {
+                        o.add_instrument(instrument);
+                    }
+                }
             }
         }
     }
@@ -713,11 +822,15 @@ impl eframe::App for MiniDaw {
 }
 
 #[typetag::serde]
+impl NewIsController for Arpeggiator {}
+#[typetag::serde]
 impl NewIsInstrument for WelshSynth {}
 #[typetag::serde]
 impl NewIsInstrument for ToySynth {}
 #[typetag::serde]
 impl NewIsInstrument for ToyInstrument {}
+#[typetag::serde]
+impl NewIsEffect for Reverb {}
 
 fn main() -> anyhow::Result<(), eframe::Error> {
     env_logger::init();

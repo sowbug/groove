@@ -685,6 +685,8 @@ impl Orchestrator {
             start: time_start,
             end: time_end,
         };
+        // TODO: this is messed up
+        #[allow(unused_assignments)]
         let mut is_finished = true;
         let response = if time_range != self.last_time_range {
             if self.is_performing {
@@ -748,7 +750,7 @@ impl Orchestrator {
 
     fn broadcast_midi_message(
         &mut self,
-        channel: &u8,
+        channel: &MidiChannel,
         message: &MidiMessage,
     ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
         let receiver_uids = self.store.midi_receivers(channel).clone();
@@ -1952,7 +1954,7 @@ pub mod tests {
 
     #[test]
     fn random_access() {
-        const INSTRUMENT_MIDI_CHANNEL: MidiChannel = 7;
+        const INSTRUMENT_MIDI_CHANNEL: MidiChannel = MidiChannel::new(7);
         let mut o = Orchestrator::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
@@ -2109,7 +2111,7 @@ pub mod tests {
         assert_eq!(pattern.notes.len(), 1); // one track of notes
         assert_eq!(pattern.notes[0].len(), 1); // one note in track
 
-        programmer.insert_pattern_at_cursor(&mut sequencer, &0, &pattern);
+        programmer.insert_pattern_at_cursor(&mut sequencer, &MidiChannel::new(0), &pattern);
         assert_eq!(programmer.cursor(), MusicalTime::new(&ts, 1, 0, 0, 0));
         assert_eq!(sequencer.debug_events().len(), 0);
 
@@ -2152,8 +2154,8 @@ pub mod tests {
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         let mut sequencer = Box::new(Sequencer::new_with(&SequencerParams { bpm: clock.bpm() }));
-        const MIDI_CHANNEL_SEQUENCER_TO_ARP: MidiChannel = 7;
-        const MIDI_CHANNEL_ARP_TO_INSTRUMENT: MidiChannel = 8;
+        const MIDI_CHANNEL_SEQUENCER_TO_ARP: MidiChannel = MidiChannel::new(7);
+        const MIDI_CHANNEL_ARP_TO_INSTRUMENT: MidiChannel = MidiChannel::new(8);
         let mut arpeggiator = Box::new(Arpeggiator::new_with(
             &ArpeggiatorParams { bpm: clock.bpm() },
             MIDI_CHANNEL_ARP_TO_INSTRUMENT,

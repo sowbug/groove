@@ -21,14 +21,15 @@ use self::{
     effects::EffectSettings,
     instruments::InstrumentSettings,
 };
-use groove_core::time::{BeatValue, PerfectTimeUnit, TimeSignature};
+use groove_core::{
+    midi::MidiChannel,
+    time::{BeatValue, PerfectTimeUnit, TimeSignature},
+};
 use groove_entities::controllers::{Note, Pattern};
 use serde::{Deserialize, Serialize};
 use strum_macros::FromRepr;
 
 pub type DeviceId = String;
-
-type MidiChannel = u8;
 
 #[derive(Debug, Clone)]
 pub enum LoadError {

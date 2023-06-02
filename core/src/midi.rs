@@ -1,17 +1,50 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::{FrequencyHz, ParameterType};
-use bit_vec::BitVec;
-use enum_primitive_derive::Primitive;
 pub use midly::live::LiveEvent;
 pub use midly::{
     num::{u4, u7},
     MidiMessage,
 };
+
+use crate::{FrequencyHz, ParameterType};
+use bit_vec::BitVec;
+use derive_more::Display as DeriveDisplay;
+use enum_primitive_derive::Primitive;
 use std::fmt::Debug;
 use strum_macros::Display;
 
-pub type MidiChannel = u8;
+#[derive(Clone, Copy, Debug, Default, DeriveDisplay, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(serde::Serialize, serde::Deserialize)
+)]
+pub struct MidiChannel(u8);
+impl MidiChannel {
+    pub const MAX: u8 = 16;
+
+    pub const fn value(&self) -> u8 {
+        self.0
+    }
+
+    pub const fn new(value: u8) -> Self {
+        Self { 0: value }
+    }
+}
+impl From<u4> for MidiChannel {
+    fn from(value: u4) -> Self {
+        Self(value.as_int())
+    }
+}
+impl From<u8> for MidiChannel {
+    fn from(value: u8) -> Self {
+        Self(value)
+    }
+}
+impl From<MidiChannel> for u8 {
+    fn from(value: MidiChannel) -> Self {
+        value.0
+    }
+}
 
 /// Takes standard MIDI messages. Implementers can ignore MidiChannel if it's
 /// not important, as the virtual cabling model tries to route only relevant

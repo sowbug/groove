@@ -147,8 +147,8 @@ pub mod tests {
 
     #[test]
     fn midi_routing_works() {
-        const TEST_MIDI_CHANNEL: MidiChannel = 7;
-        const ARP_MIDI_CHANNEL: MidiChannel = 5;
+        const TEST_MIDI_CHANNEL: MidiChannel = MidiChannel::new(7);
+        const ARP_MIDI_CHANNEL: MidiChannel = MidiChannel::new(5);
         let mut o = Orchestrator::new_with(&ClockParams {
             bpm: 240.0,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,

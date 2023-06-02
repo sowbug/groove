@@ -444,7 +444,7 @@ impl MidiOutputHandler {
 
     fn handle_midi(&mut self, channel: MidiChannel, message: MidiMessage) {
         let event = LiveEvent::Midi {
-            channel: u4::from(channel),
+            channel: u4::from(channel.value()),
             message,
         };
 

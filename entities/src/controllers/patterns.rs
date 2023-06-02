@@ -689,7 +689,7 @@ mod tests {
         programmer.reset_cursor();
         assert_eq!(programmer.cursor(), MusicalTime::default());
 
-        programmer.insert_pattern_at_cursor(&mut sequencer, &0, &pattern);
+        programmer.insert_pattern_at_cursor(&mut sequencer, &MidiChannel::from(0), &pattern);
         assert_eq!(
             programmer.cursor(),
             MusicalTime::new_with_bars(&TimeSignature::default(), 2)
@@ -738,7 +738,7 @@ mod tests {
         assert_eq!(pattern.notes[0].len(), len_1);
         assert_eq!(pattern.notes[1].len(), len_2);
 
-        programmer.insert_pattern_at_cursor(&mut sequencer, &0, &pattern);
+        programmer.insert_pattern_at_cursor(&mut sequencer, &MidiChannel::from(0), &pattern);
 
         // expect max of (2, 3) measures
         let expected = MusicalTime::new(&ts, 3, 0, 0, 0);
@@ -766,7 +766,7 @@ mod tests {
                 duration: PerfectTimeUnit(1.0),
             }]],
         };
-        programmer.insert_pattern_at_cursor(&mut sequencer, &0, &pattern);
+        programmer.insert_pattern_at_cursor(&mut sequencer, &MidiChannel::from(0), &pattern);
 
         let expected = MusicalTime::new(&ts, 1, 0, 0, 0);
         assert_eq!(
