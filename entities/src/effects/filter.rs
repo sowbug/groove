@@ -1222,13 +1222,78 @@ impl BiQuadFilter {
 
 #[cfg(feature = "egui-framework")]
 mod gui {
-    use super::BiQuadFilterLowPass24db;
+    use super::{
+        BiQuadFilterAllPass, BiQuadFilterBandPass, BiQuadFilterBandStop, BiQuadFilterHighPass,
+        BiQuadFilterHighShelf, BiQuadFilterLowPass12db, BiQuadFilterLowPass24db,
+        BiQuadFilterLowShelf, BiQuadFilterNone, BiQuadFilterPeakingEq,
+    };
     use eframe::egui::Slider;
     use eframe::egui::Ui;
-    use groove_core::FrequencyHz;
+    use groove_core::traits::HasUid;
+    use groove_core::{traits::gui::Shows, FrequencyHz};
+
+    impl Shows for BiQuadFilterAllPass {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+
+    impl Shows for BiQuadFilterLowPass12db {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+
+    impl Shows for BiQuadFilterHighPass {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+
+    impl Shows for BiQuadFilterHighShelf {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+
+    impl Shows for BiQuadFilterPeakingEq {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+
+    impl Shows for BiQuadFilterBandPass {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+
+    impl Shows for BiQuadFilterBandStop {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+
+    impl Shows for BiQuadFilterLowShelf {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+
+    impl Shows for BiQuadFilterNone {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+
+    impl Shows for BiQuadFilterLowPass24db {
+        fn show(&mut self, ui: &mut Ui) {
+            let _ = self.show_with_result(ui);
+        }
+    }
 
     impl BiQuadFilterLowPass24db {
-        pub fn show(&mut self, ui: &mut Ui) -> bool {
+        pub fn show_with_result(&mut self, ui: &mut Ui) -> bool {
             let mut changed = false;
             let mut cutoff = self.cutoff().value();
             let mut pbr = self.passband_ripple();

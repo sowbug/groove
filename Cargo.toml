@@ -31,7 +31,7 @@ groove-midi = { path = "midi", optional = true }
 groove-orchestration = { path = "orchestration", features = ["serialization"] }
 groove-proc-macros = { path = "proc-macros" }
 groove-settings = { path = "settings" }
-groove-toys = { path = "toys", features = ["serialization"] }
+groove-toys = { path = "toys", features = ["serialization", "egui-framework"] }
 groove-utils = { path = "utils" }
 plotters = { version = "0.3.4", optional = true, default-features = false }
 regex = "1.7.0"

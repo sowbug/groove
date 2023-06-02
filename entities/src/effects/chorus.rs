@@ -104,6 +104,19 @@ impl Chorus {
     }
 }
 
+#[cfg(feature = "egui-framework")]
+mod gui {
+    use super::Chorus;
+    use eframe::egui::Ui;
+    use groove_core::traits::{gui::Shows, HasUid};
+
+    impl Shows for Chorus {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     //TODO

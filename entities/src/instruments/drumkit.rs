@@ -147,6 +147,19 @@ impl Drumkit {
     }
 }
 
+#[cfg(feature = "egui-framework")]
+mod gui {
+    use super::Drumkit;
+    use eframe::egui::Ui;
+    use groove_core::traits::gui::Shows;
+
+    impl Shows for Drumkit {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+}
+
 // #[cfg(test)]
 // mod tests {
 //     use super::*;

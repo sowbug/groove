@@ -118,6 +118,7 @@ impl HandlesMidi for ToyInstrument {
         None
     }
 }
+
 // impl TestsValues for TestInstrument {
 //     fn has_checkpoint_values(&self) -> bool {
 //         !self.checkpoint_values.is_empty()
@@ -545,6 +546,36 @@ impl ToyAudioSource {
 
     pub fn set_level(&mut self, level: ParameterType) {
         self.level = level;
+    }
+}
+
+#[cfg(feature = "egui-framework")]
+mod gui {
+    use super::{DebugSynth, ToyAudioSource, ToyInstrument, ToySynth};
+    use eframe::egui::Ui;
+    use groove_core::traits::{gui::Shows, HasUid};
+
+    impl Shows for ToyInstrument {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+
+    impl Shows for DebugSynth {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+    impl Shows for ToySynth {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+
+    impl Shows for ToyAudioSource {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
     }
 }
 

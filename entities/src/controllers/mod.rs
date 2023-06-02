@@ -545,6 +545,37 @@ impl ToyController {
 //     }
 // }
 
+#[cfg(feature = "egui-framework")]
+mod gui {
+    use super::{SignalPassthroughController, Timer, ToyController, Trigger};
+    use eframe::egui::Ui;
+    use groove_core::traits::{gui::Shows, HasUid};
+
+    impl Shows for Timer {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+
+    impl Shows for Trigger {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+
+    impl Shows for SignalPassthroughController {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+
+    impl Shows for ToyController {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::ops::Range;

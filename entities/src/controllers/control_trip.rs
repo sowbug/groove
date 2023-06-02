@@ -9,7 +9,7 @@ use groove_core::{
         BeatValue, Clock, ClockParams, ClockTimeUnit, MusicalTime, PerfectTimeUnit, TimeSignature,
         TimeSignatureParams,
     },
-    traits::{Controls, IsController, Performs, Resets, Ticks},
+    traits::{Controls, IsController, Performs, Resets},
     ParameterType, SignalType,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -285,6 +285,19 @@ impl Controls for ControlTrip {
 pub struct ControlPath {
     pub note_value: Option<BeatValue>,
     pub steps: Vec<ControlStep>,
+}
+
+#[cfg(feature = "egui-framework")]
+mod gui {
+    use super::ControlTrip;
+    use eframe::egui::Ui;
+    use groove_core::traits::{gui::Shows, HasUid};
+
+    impl Shows for ControlTrip {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
 }
 
 #[cfg(test)]

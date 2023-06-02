@@ -9,6 +9,9 @@ use crate::{
 };
 use std::ops::Range;
 
+#[cfg(feature = "egui-framework")]
+use self::gui::Shows;
+
 pub trait MessageBounds: std::fmt::Debug + Send {}
 
 /// An [IsController] controls things in the system that implement
@@ -23,7 +26,7 @@ pub trait MessageBounds: std::fmt::Debug + Send {}
 /// process, or MIDI commands to handle. A performance ends once all
 /// [IsController] entities indicate that they've finished.
 pub trait IsController:
-    Controls + HandlesMidi + Performs + HasUid + Send + std::fmt::Debug
+    Controls + HandlesMidi + Performs + HasUid + Shows + Send + std::fmt::Debug
 {
 }
 
@@ -31,14 +34,21 @@ pub trait IsController:
 /// output. It does not get called unless there is audio input to provide to it
 /// (which can include silence, e.g., in the case of a muted instrument).
 pub trait IsEffect:
-    TransformsAudio + Controllable + Resets + HasUid + Send + std::fmt::Debug
+    TransformsAudio + Controllable + Resets + HasUid + Shows + Send + std::fmt::Debug
 {
 }
 
 /// An [IsInstrument] produces audio, usually upon request from MIDI or
 /// [IsController] input.
 pub trait IsInstrument:
-    Generates<StereoSample> + Ticks + HandlesMidi + Controllable + HasUid + Send + std::fmt::Debug
+    Generates<StereoSample>
+    + Ticks
+    + HandlesMidi
+    + Controllable
+    + HasUid
+    + Shows
+    + Send
+    + std::fmt::Debug
 {
 }
 
@@ -260,6 +270,7 @@ pub trait Performs {
     /// Sets the loop range. Parents should propagate to children. We provide a
     /// default implementation for this set of methods because looping doesn't
     /// apply to many devices.
+    #[allow(unused_variables)]
     fn set_loop(&mut self, range: &Range<PerfectTimeUnit>) {}
 
     /// Clears the loop range, restoring normal cursor behavior.
@@ -268,6 +279,7 @@ pub trait Performs {
     /// Enables or disables loop behavior. When looping is enabled, if the
     /// cursor is outside the range on the right side (i.e., after), it sets
     /// itself to the start point.
+    #[allow(unused_variables)]
     fn set_loop_enabled(&mut self, is_enabled: bool) {}
 
     /// Whether the device is currently playing. This is part of the trait so
@@ -280,6 +292,9 @@ pub trait Performs {
 /// construct Voices, and then handle all the MIDI events properly for them.
 pub trait IsVoice<V>: Generates<V> + PlaysNotes + Send {}
 pub trait IsStereoSampleVoice: IsVoice<StereoSample> {}
+
+#[cfg(not(feature = "egui-framework"))]
+pub trait Shows {}
 
 #[cfg(feature = "egui-framework")]
 pub mod gui {

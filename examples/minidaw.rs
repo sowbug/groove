@@ -14,7 +14,7 @@ use groove_audio::AudioQueue;
 use groove_core::{
     generators::{EnvelopeParams, Waveform},
     midi::{MidiChannel, MidiMessage},
-    time::{SampleRate, Tempo, TimeSignature},
+    time::{MusicalTime, SampleRate, Tempo, TimeSignature},
     traits::{gui::Shows, Generates, IsController, IsEffect, IsInstrument, Resets, Ticks},
     StereoSample,
 };
@@ -161,12 +161,8 @@ impl OrchestratorPanel {
         });
     }
 
-    // Send any important initial messages
+    // Send any important initial messages after creation.
     fn introduce(&self) {
-        self.broadcast_initial_state();
-    }
-
-    fn broadcast_initial_state(&self) {
         if let Ok(o) = self.orchestrator.lock() {
             self.broadcast_tempo(o.tempo());
         }
@@ -254,24 +250,34 @@ struct MiniOrchestrator {
     time_signature: TimeSignature,
     tempo: Tempo,
 
-    #[serde(skip)]
-    sample_rate: SampleRate,
-
     next_id: Id,
     controllers: HashMap<Id, Box<dyn NewIsController>>,
     instruments: HashMap<Id, Box<dyn NewIsInstrument>>,
     effects: HashMap<Id, Box<dyn NewIsEffect>>,
+
+    // Nothing below this comment should be serialized.
+    #[serde(skip)]
+    sample_rate: SampleRate,
+
+    #[serde(skip)]
+    frames: usize,
+
+    #[serde(skip)]
+    musical_time: MusicalTime,
 }
 impl Default for MiniOrchestrator {
     fn default() -> Self {
         let mut r = Self {
             time_signature: Default::default(),
             tempo: Default::default(),
-            sample_rate: Default::default(),
             next_id: Id(1),
             controllers: Default::default(),
             instruments: Default::default(),
             effects: Default::default(),
+
+            sample_rate: Default::default(),
+            frames: Default::default(),
+            musical_time: Default::default(),
         };
 
         if r.instruments.is_empty() {
@@ -307,6 +313,7 @@ impl MiniOrchestrator {
         self.tempo = tempo;
     }
 
+    // Fills in the given sample buffer with something simple and audible.
     #[allow(dead_code)]
     fn debug_sample_buffer(&mut self, samples: &mut [StereoSample]) {
         let len = samples.len() as f64;
@@ -337,6 +344,7 @@ impl MiniOrchestrator {
         }
     }
 
+    /// Returns the next unique [Id] to refer to a new entity.
     fn next_id(&mut self) -> Id {
         let r = self.next_id;
         self.next_id.increment();
@@ -350,8 +358,8 @@ impl MiniOrchestrator {
         id
     }
 
-    /// After loading a new Self from disk, we want to copy all the ephemeral
-    /// state from this one to the next one.
+    /// After loading a new Self from disk, we want to copy all the appropriate
+    /// ephemeral state from this one to the next one.
     fn prepare_successor(&self, new: &mut MiniOrchestrator) {
         new.set_sample_rate(self.sample_rate());
     }
@@ -385,6 +393,9 @@ impl Shows for MiniOrchestrator {
             self.instruments.len(),
             self.effects.len()
         ));
+        for instrument in self.instruments.values_mut() {
+            instrument.show(ui);
+        }
     }
 }
 

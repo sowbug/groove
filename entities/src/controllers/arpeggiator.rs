@@ -182,3 +182,16 @@ impl Arpeggiator {
         self.bpm = bpm;
     }
 }
+
+#[cfg(feature = "egui-framework")]
+mod gui {
+    use super::Arpeggiator;
+    use eframe::egui::Ui;
+    use groove_core::traits::{gui::Shows, HasUid};
+
+    impl Shows for Arpeggiator {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+}

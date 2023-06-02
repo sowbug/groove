@@ -523,7 +523,7 @@ mod gui {
                 .default_open(true)
                 .id_source(ui.next_auto_id())
                 .show(ui, |ui| {
-                    let filter_changed = self.filter.show(ui);
+                    let filter_changed = self.filter.show_with_result(ui);
                     let filter_envelope_changed = self.filter_envelope.show(ui);
                     if filter_changed || filter_envelope_changed {
                         synth.voices_mut().for_each(|v| {

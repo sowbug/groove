@@ -40,6 +40,19 @@ impl TransformsAudio for ToyEffect {
     }
 }
 impl Resets for ToyEffect {}
+#[cfg(feature = "egui-framework")]
+mod gui {
+    use super::ToyEffect;
+    use eframe::egui::Ui;
+    use groove_core::traits::{gui::Shows, HasUid};
+
+    impl Shows for ToyEffect {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+}
+
 // impl TestsValues for ToyEffect {
 //     fn has_checkpoint_values(&self) -> bool {
 //         !self.checkpoint_values.is_empty()

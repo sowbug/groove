@@ -343,6 +343,19 @@ impl Sampler {
     }
 }
 
+#[cfg(feature = "egui-framework")]
+mod gui {
+    use super::Sampler;
+    use eframe::egui::Ui;
+    use groove_core::traits::{gui::Shows, HasUid};
+
+    impl Shows for Sampler {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

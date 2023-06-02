@@ -354,3 +354,16 @@ impl FmSynth {
         &self.dca
     }
 }
+
+#[cfg(feature = "egui-framework")]
+mod gui {
+    use super::FmSynth;
+    use eframe::egui::Ui;
+    use groove_core::traits::{gui::Shows, HasUid};
+
+    impl Shows for FmSynth {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+}

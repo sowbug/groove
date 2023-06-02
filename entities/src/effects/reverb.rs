@@ -213,6 +213,19 @@ impl ReverbChannel {
     }
 }
 
+#[cfg(feature = "egui-framework")]
+mod gui {
+    use super::Reverb;
+    use eframe::egui::Ui;
+    use groove_core::traits::{gui::Shows, HasUid};
+
+    impl Shows for Reverb {
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label(self.name());
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Reverb;
