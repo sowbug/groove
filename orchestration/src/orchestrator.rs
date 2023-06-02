@@ -763,9 +763,9 @@ impl Orchestrator {
                 let uid = *uid;
                 if let Some(e) = self.store.get_mut(uid) {
                     if let Some(e) = e.as_handles_midi_mut() {
-                        if let Some(messages) = e.handle_midi_message(message) {
-                            v.extend(messages);
-                        }
+                        e.handle_midi_message(message, &mut |channel, message| {
+                            v.push((channel, message));
+                        });
                     } else {
                         panic!("tried to send MIDI to something that doesn't handle it")
                     }

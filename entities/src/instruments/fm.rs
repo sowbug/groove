@@ -260,8 +260,9 @@ impl HandlesMidi for FmSynth {
     fn handle_midi_message(
         &mut self,
         message: &MidiMessage,
-    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
-        self.inner_synth.handle_midi_message(message)
+        messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+    ) {
+        self.inner_synth.handle_midi_message(message, messages_fn)
     }
 }
 impl FmSynth {

@@ -64,7 +64,8 @@ impl HandlesMidi for Arpeggiator {
     fn handle_midi_message(
         &mut self,
         message: &MidiMessage,
-    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
+        messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+    ) {
         match message {
             MidiMessage::NoteOff { key: _, vel: _ } => {
                 self.note_semaphore -= 1;
@@ -88,7 +89,8 @@ impl HandlesMidi for Arpeggiator {
                 // going to send, and another to send it), and an
                 // internal memory of which notes we've asked the
                 // downstream to play. TODO TODO TODO
-                return self.sequencer.generate_midi_messages_for_current_frame();
+                self.sequencer
+                    .generate_midi_messages_for_current_frame(messages_fn);
             }
             MidiMessage::Aftertouch { key: _, vel: _ } => todo!(),
             MidiMessage::Controller {
@@ -99,7 +101,6 @@ impl HandlesMidi for Arpeggiator {
             MidiMessage::ChannelAftertouch { vel: _ } => todo!(),
             MidiMessage::PitchBend { bend: _ } => todo!(),
         }
-        None
     }
 }
 impl Performs for Arpeggiator {

@@ -342,7 +342,9 @@ impl MiniOrchestrator {
     #[allow(unused_variables)]
     fn handle_midi(&mut self, channel: MidiChannel, message: MidiMessage) {
         for i in self.instruments.values_mut() {
-            i.handle_midi_message(&message);
+            i.handle_midi_message(&message, &mut |channel, message| {
+                eprintln!("TODO discarding {}/{:?}", channel, message)
+            });
         }
     }
 

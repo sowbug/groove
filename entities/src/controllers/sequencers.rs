@@ -174,28 +174,21 @@ impl Sequencer {
     fn generate_midi_messages_for_interval(
         &mut self,
         range: &Range<MusicalTime>,
-    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
+        messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+    ) {
         let range = (Included(range.start), Excluded(range.end));
-        let v = self
-            .events
-            .range(range)
-            .fold(Vec::new(), |mut vec, (_when, event)| {
-                self.active_notes[event.0.value() as usize].watch_message(&event.1);
-                vec.push((event.0, event.1));
-                vec
-            });
-        if v.is_empty() {
-            None
-        } else {
-            Some(v)
-        }
+        self.events.range(range).for_each(|(_when, event)| {
+            self.active_notes[event.0.value() as usize].watch_message(&event.1);
+            messages_fn(event.0, event.1);
+        });
     }
 
     pub fn generate_midi_messages_for_current_frame(
         &mut self,
-    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
+        messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+    ) {
         let time_range = self.time_range.clone();
-        self.generate_midi_messages_for_interval(&time_range)
+        self.generate_midi_messages_for_interval(&time_range, messages_fn)
     }
 
     pub fn debug_events(&self) -> &BeatEventsMap {
@@ -257,9 +250,9 @@ impl Controls for Sequencer {
             if !self.time_range_handled {
                 self.time_range_handled = true;
                 let time_range = self.time_range.clone();
-                if let Some(messages) = self.generate_midi_messages_for_interval(&time_range) {
-                    v.extend(messages.iter().map(|m| EntityMessage::Midi(m.0, m.1)));
-                }
+                self.generate_midi_messages_for_interval(&time_range, &mut |channel, message| {
+                    v.push(EntityMessage::Midi(channel, message))
+                });
             }
         };
 
@@ -638,6 +631,7 @@ mod tests {
     //     }
     // }
 
+    #[allow(dead_code)]
     #[allow(unused_variables)]
     #[test]
     fn sequencer_mainline() {

@@ -358,7 +358,8 @@ impl HandlesMidi for WelshSynth {
     fn handle_midi_message(
         &mut self,
         message: &MidiMessage,
-    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
+        messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+    ) {
         match message {
             #[allow(unused_variables)]
             MidiMessage::ProgramChange { program } => {
@@ -372,7 +373,7 @@ impl HandlesMidi for WelshSynth {
                 // }
                 // None
             }
-            _ => self.inner_synth.handle_midi_message(message),
+            _ => self.inner_synth.handle_midi_message(message, messages_fn),
         }
     }
 }

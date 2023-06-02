@@ -134,7 +134,8 @@ impl<V: IsStereoSampleVoice> HandlesMidi for Synthesizer<V> {
     fn handle_midi_message(
         &mut self,
         message: &MidiMessage,
-    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
+        _messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+    ) {
         if let Some(vs) = self.voice_store.as_mut() {
             match message {
                 MidiMessage::NoteOff { key, vel } => {
@@ -164,7 +165,6 @@ impl<V: IsStereoSampleVoice> HandlesMidi for Synthesizer<V> {
 
             self.ticks_since_last_midi_input = Default::default();
         }
-        None
     }
 }
 
@@ -187,8 +187,9 @@ mod tests {
         fn handle_midi_message(
             &mut self,
             message: &MidiMessage,
-        ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
-            self.inner_synth.handle_midi_message(message)
+            messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+        ) {
+            self.inner_synth.handle_midi_message(message, messages_fn)
         }
     }
     impl Generates<StereoSample> for TestSynthesizer {
@@ -225,7 +226,7 @@ mod tests {
     #[test]
     fn mainline_test_synthesizer() {
         let mut s = TestSynthesizer::default();
-        s.handle_midi_message(&new_note_on(100, 99));
+        s.handle_midi_message(&new_note_on(100, 99), &mut |_, _| {});
 
         // Tick a few because the oscillator correctly starts at zero.
         s.tick(3);

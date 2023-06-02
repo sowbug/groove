@@ -100,7 +100,8 @@ impl HandlesMidi for ToyInstrument {
     fn handle_midi_message(
         &mut self,
         message: &MidiMessage,
-    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
+        _messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+    ) {
         self.debug_messages.push(*message);
         self.received_count += 1;
 
@@ -115,7 +116,6 @@ impl HandlesMidi for ToyInstrument {
             }
             _ => {}
         }
-        None
     }
 }
 
@@ -267,7 +267,8 @@ impl HandlesMidi for DebugSynth {
     fn handle_midi_message(
         &mut self,
         message: &MidiMessage,
-    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
+        _messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+    ) {
         #[allow(unused_variables)]
         match message {
             MidiMessage::NoteOff { key, vel } => {
@@ -280,7 +281,6 @@ impl HandlesMidi for DebugSynth {
             }
             _ => todo!(),
         }
-        None
     }
 }
 impl DebugSynth {
@@ -365,8 +365,9 @@ impl HandlesMidi for ToySynth {
     fn handle_midi_message(
         &mut self,
         message: &MidiMessage,
-    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
-        self.inner.handle_midi_message(message)
+        messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+    ) {
+        self.inner.handle_midi_message(message, messages_fn)
     }
 }
 impl Ticks for ToySynth {

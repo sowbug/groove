@@ -17,7 +17,7 @@ use crate::{
 };
 use groove_core::{
     instruments::Synthesizer,
-    midi::note_to_frequency,
+    midi::{note_to_frequency, MidiChannel, MidiMessage},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, TimeSignatureParams},
     traits::{
         Configurable, Controls, Generates, HandlesMidi, IsController, IsInstrument, Performs, Ticks,
@@ -499,9 +499,10 @@ impl Performs for Calculator {
 impl HandlesMidi for Calculator {
     fn handle_midi_message(
         &mut self,
-        message: &midly::MidiMessage,
-    ) -> Option<Vec<(groove_core::midi::MidiChannel, midly::MidiMessage)>> {
-        self.inner_synth.handle_midi_message(message)
+        message: &MidiMessage,
+        messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+    ) {
+        self.inner_synth.handle_midi_message(message, messages_fn)
     }
 }
 impl Ticks for Calculator {
@@ -757,9 +758,9 @@ impl Calculator {
         let key = key.into();
         let vel = 127.into();
         self.inner_synth
-            .handle_midi_message(&midly::MidiMessage::NoteOff { key, vel });
+            .handle_midi_message(&midly::MidiMessage::NoteOff { key, vel }, &mut |_, _| {});
         self.inner_synth
-            .handle_midi_message(&midly::MidiMessage::NoteOn { key, vel });
+            .handle_midi_message(&midly::MidiMessage::NoteOn { key, vel }, &mut |_, _| {});
     }
 
     fn load_sampler_voices() -> Synthesizer<SamplerVoice> {

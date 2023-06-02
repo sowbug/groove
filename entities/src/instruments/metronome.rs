@@ -2,7 +2,7 @@
 
 use groove_core::{
     generators::{Oscillator, OscillatorParams, Waveform},
-    midi::{HandlesMidi, MidiChannel, MidiMessage},
+    midi::HandlesMidi,
     time::{Clock, ClockParams, SampleRate},
     traits::{Configurable, Generates, IsInstrument, Ticks},
     ParameterType, StereoSample,
@@ -69,14 +69,7 @@ impl Ticks for Metronome {
         self.oscillator.tick(tick_count);
     }
 }
-impl HandlesMidi for Metronome {
-    fn handle_midi_message(
-        &mut self,
-        _message: &MidiMessage,
-    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
-        None
-    }
-}
+impl HandlesMidi for Metronome {}
 impl Metronome {
     pub fn new_with(params: &MetronomeParams) -> Self {
         let mut oscillator_params = OscillatorParams::default();

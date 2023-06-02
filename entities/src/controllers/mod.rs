@@ -436,14 +436,14 @@ impl HandlesMidi for ToyController {
     fn handle_midi_message(
         &mut self,
         message: &MidiMessage,
-    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
+        _messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+    ) {
         #[allow(unused_variables)]
         match message {
             MidiMessage::NoteOff { key, vel } => self.is_enabled = false,
             MidiMessage::NoteOn { key, vel } => self.is_enabled = true,
             _ => todo!(),
         }
-        None
     }
 }
 impl Performs for ToyController {
