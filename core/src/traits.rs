@@ -4,7 +4,7 @@ pub use crate::midi::HandlesMidi;
 
 use crate::{
     midi::u7,
-    time::{MusicalTime, PerfectTimeUnit, SampleRate, Tempo},
+    time::{MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
     Normal, Sample, StereoSample,
 };
 use std::ops::Range;
@@ -106,7 +106,8 @@ pub trait HasUid {
     fn name(&self) -> &'static str;
 }
 
-/// [Configurable] is interested in staying in sync with global configuration.
+/// Something that is [Configurable] is interested in staying in sync with
+/// global configuration.
 pub trait Configurable {
     /// The sample rate changed.
     #[allow(unused_variables)]
@@ -115,6 +116,13 @@ pub trait Configurable {
     /// Tempo (beats per minute) changed.
     #[allow(unused_variables)]
     fn update_tempo(&mut self, tempo: Tempo) {}
+
+    /// The global time signature changed. Recipients are free to ignore this if
+    /// they are dancing to their own rhythm (e.g., a polyrhythmic pattern), but
+    /// they still want to know it, because they might perform local Time
+    /// Signature L in terms of global Time Signature G.
+    #[allow(unused_variables)]
+    fn update_time_signature(&mut self, time_signature: TimeSignature) {}
 }
 
 pub trait Ticks: Configurable + Send + std::fmt::Debug {
