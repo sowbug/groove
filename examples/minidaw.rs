@@ -3,8 +3,9 @@
 use anyhow::{anyhow, Result};
 use crossbeam_channel::{Receiver, Select, Sender};
 use eframe::{
-    egui::{self, Context, Layout, RichText, ScrollArea},
+    egui::{self, Context, FontData, FontDefinitions, Layout, RichText, ScrollArea, TextStyle},
     emath::Align2,
+    epaint::{Color32, FontFamily, FontId},
     CreationContext,
 };
 use egui_toast::Toasts;
@@ -549,10 +550,27 @@ struct MiniDaw {
     midi_panel: MidiPanel,
     palette_panel: PalettePanel,
 
+    first_update_done: bool,
+
+    #[allow(dead_code)]
+    regular_font_id: FontId,
+    #[allow(dead_code)]
+    mono_font_id: FontId,
+    #[allow(dead_code)]
+    bold_font_id: FontId,
+    bold_font_height: f32,
+
     toasts: Toasts,
 }
 impl MiniDaw {
+    pub const FONT_REGULAR: &str = "font-regular";
+    pub const FONT_BOLD: &str = "font-bold";
+    pub const FONT_MONO: &str = "font-mono";
+
     pub fn new(cc: &CreationContext) -> Self {
+        Self::initialize_fonts(cc);
+        Self::initialize_style(&cc.egui_ctx);
+
         let mut factory = EntityFactory::default();
         Self::register_entities(&mut factory);
         let factory = Arc::new(factory);
@@ -576,12 +594,89 @@ impl MiniDaw {
             midi_panel: Default::default(),
             palette_panel: PalettePanel::new_with(factory),
 
+            first_update_done: Default::default(),
+
+            regular_font_id: FontId::proportional(14.0),
+            bold_font_id: FontId::new(12.0, FontFamily::Name(Self::FONT_BOLD.into())),
+            bold_font_height: Default::default(),
+            mono_font_id: FontId::monospace(14.0),
+
             toasts: Toasts::new()
                 .anchor(Align2::RIGHT_BOTTOM, (-10.0, -10.0))
                 .direction(egui::Direction::BottomUp),
         };
         r.spawn_channel_watcher(cc.egui_ctx.clone());
         r
+    }
+
+    fn initialize_fonts(cc: &CreationContext) {
+        let mut fonts = FontDefinitions::default();
+        fonts.font_data.insert(
+            Self::FONT_REGULAR.to_owned(),
+            FontData::from_static(include_bytes!("../res/fonts/inter/Inter-Regular.ttf")),
+        );
+        fonts.font_data.insert(
+            Self::FONT_BOLD.to_owned(),
+            FontData::from_static(include_bytes!("../res/fonts/inter/Inter-Bold.ttf")),
+        );
+        fonts.font_data.insert(
+            Self::FONT_MONO.to_owned(),
+            FontData::from_static(include_bytes!("../res/fonts/cousine/Cousine-Regular.ttf")),
+        );
+        fonts
+            .families
+            .get_mut(&FontFamily::Proportional)
+            .unwrap()
+            .insert(0, Self::FONT_REGULAR.to_owned());
+        fonts
+            .families
+            .get_mut(&FontFamily::Monospace)
+            .unwrap()
+            .insert(0, Self::FONT_MONO.to_owned());
+        fonts
+            .families
+            .entry(FontFamily::Name(Self::FONT_BOLD.into()))
+            .or_default()
+            .insert(0, Self::FONT_BOLD.to_owned());
+
+        cc.egui_ctx.set_fonts(fonts);
+    }
+
+    fn initialize_style(ctx: &Context) {
+        let mut style = (*ctx.style()).clone();
+
+        style.visuals.override_text_color = Some(Color32::LIGHT_GRAY);
+
+        style.text_styles = [
+            (
+                TextStyle::Heading,
+                FontId::new(14.0, FontFamily::Proportional),
+            ),
+            (
+                TextStyle::Name("Heading2".into()),
+                FontId::new(25.0, FontFamily::Proportional),
+            ),
+            (
+                TextStyle::Name("Context".into()),
+                FontId::new(23.0, FontFamily::Proportional),
+            ),
+            (TextStyle::Body, FontId::new(12.0, FontFamily::Proportional)),
+            (
+                TextStyle::Monospace,
+                FontId::new(12.0, FontFamily::Proportional),
+            ),
+            (
+                TextStyle::Button,
+                FontId::new(12.0, FontFamily::Proportional),
+            ),
+            (
+                TextStyle::Small,
+                FontId::new(10.0, FontFamily::Proportional),
+            ),
+        ]
+        .into();
+
+        ctx.set_style(style);
     }
 
     fn handle_message_channels(&mut self) {
@@ -780,12 +875,17 @@ impl MiniDaw {
 impl eframe::App for MiniDaw {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.handle_message_channels();
+        if !self.first_update_done {
+            self.first_update_done = true;
+            ctx.fonts(|f| self.bold_font_height = f.row_height(&self.bold_font_id));
+        }
+
         let top = egui::TopBottomPanel::top("top-panel")
             .resizable(false)
             .exact_height(64.0);
         let bottom = egui::TopBottomPanel::bottom("bottom-panel")
             .resizable(false)
-            .exact_height(64.0);
+            .exact_height(self.bold_font_height + 2.0);
         let left = egui::SidePanel::left("left-panel")
             .resizable(true)
             .default_width(150.0)
