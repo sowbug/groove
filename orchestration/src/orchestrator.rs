@@ -12,7 +12,7 @@ use groove_core::{
     control::F32ControlValue,
     midi::{MidiChannel, MidiMessage},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
-    traits::{Performs, Resets},
+    traits::{Configurable, Performs},
     ParameterType, StereoSample,
 };
 use groove_entities::{
@@ -44,12 +44,12 @@ use {dipstick::InputScope, metrics::DipstickWrapper};
 /// A Performance holds the output of an Orchestrator run.
 #[derive(Debug)]
 pub struct Performance {
-    pub sample_rate: usize,
+    pub sample_rate: SampleRate,
     pub worker: Worker<StereoSample>,
 }
 
 impl Performance {
-    pub fn new_with(sample_rate: usize) -> Self {
+    pub fn new_with(sample_rate: SampleRate) -> Self {
         Self {
             sample_rate,
             worker: Worker::<StereoSample>::new_fifo(),
@@ -136,7 +136,9 @@ impl Orchestrator {
         #[cfg(feature = "metrics")]
         self.metrics.entity_count.mark();
 
-        entity.as_resets_mut().reset(self.clock.sample_rate());
+        entity
+            .as_configurable_mut()
+            .update_sample_rate(self.clock.sample_rate());
         let uid = self.store.add(uvid, entity);
 
         #[cfg(feature = "metrics")]
@@ -656,7 +658,7 @@ impl Orchestrator {
                     GrooveInput::Play => self.play(),
                     GrooveInput::Stop => self.stop(),
                     GrooveInput::SkipToStart => self.skip_to_start(),
-                    GrooveInput::SetSampleRate(sample_rate) => self.reset(sample_rate),
+                    GrooveInput::SetSampleRate(sample_rate) => self.update_sample_rate(sample_rate),
                 }
             }
         }
@@ -845,7 +847,7 @@ impl Orchestrator {
         let sample_rate = self.clock.sample_rate();
         let mut tick_count = 0;
         let performance = Performance::new_with(sample_rate);
-        let progress_indicator_quantum: usize = sample_rate / 2;
+        let progress_indicator_quantum: usize = sample_rate.value() / 2;
         let mut next_progress_indicator: usize = progress_indicator_quantum;
 
         self.skip_to_start();
@@ -926,7 +928,7 @@ impl Orchestrator {
         &self.last_track_samples
     }
 
-    pub fn sample_rate(&self) -> usize {
+    pub fn sample_rate(&self) -> SampleRate {
         self.clock.sample_rate()
     }
 
@@ -1069,10 +1071,10 @@ impl Performs for Orchestrator {
         self.is_performing
     }
 }
-impl Resets for Orchestrator {
-    fn reset(&mut self, sample_rate: usize) {
-        self.clock.reset(sample_rate);
-        self.store.reset(sample_rate);
+impl Configurable for Orchestrator {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.clock.update_sample_rate(sample_rate);
+        self.store.update_sample_rate(sample_rate);
     }
 }
 #[cfg(feature = "egui-framework")]
@@ -1558,10 +1560,10 @@ impl Store {
         &self.flattened_control_links
     }
 }
-impl Resets for Store {
-    fn reset(&mut self, sample_rate: usize) {
+impl Configurable for Store {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.values_mut().for_each(|e| {
-            e.as_resets_mut().reset(sample_rate);
+            e.as_configurable_mut().update_sample_rate(sample_rate);
         })
     }
 }
@@ -1571,15 +1573,15 @@ pub mod tests {
     use super::Orchestrator;
     use crate::{
         entities::Entity,
-        tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
+        tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
     };
     use groove_core::{
         midi::{MidiChannel, MidiMessage},
         time::{
             BeatValue, Clock, ClockParams, MusicalTime, MusicalTimeParams, PerfectTimeUnit,
-            TimeSignature, TimeSignatureParams,
+            SampleRate, TimeSignature, TimeSignatureParams,
         },
-        traits::{Performs, Resets},
+        traits::{Configurable, Performs},
         DcaParams, Normal, StereoSample,
     };
     use groove_entities::{
@@ -1825,7 +1827,7 @@ pub mod tests {
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
-        o.reset(DEFAULT_SAMPLE_RATE);
+        o.update_sample_rate(SampleRate::DEFAULT);
         let instrument_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
             &ToyAudioSourceParams { level: 0.1 },
         ))));
@@ -1856,7 +1858,7 @@ pub mod tests {
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
-        o.reset(DEFAULT_SAMPLE_RATE);
+        o.update_sample_rate(SampleRate::DEFAULT);
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             duration: MusicalTimeParams {
                 units: MusicalTime::beats_to_units(4),
@@ -1868,7 +1870,7 @@ pub mod tests {
         let mut sample_buffer = [StereoSample::SILENCE; 17];
         let r = o.run(&mut sample_buffer);
         assert!(r.is_ok());
-        assert_eq!(r.unwrap().len(), DEFAULT_SAMPLE_RATE);
+        assert_eq!(r.unwrap().len(), SampleRate::DEFAULT_SAMPLE_RATE);
     }
 
     #[test]
@@ -1878,7 +1880,7 @@ pub mod tests {
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
-        o.reset(DEFAULT_SAMPLE_RATE);
+        o.update_sample_rate(SampleRate::DEFAULT);
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             duration: MusicalTimeParams::default(),
         }))));
@@ -1898,7 +1900,7 @@ pub mod tests {
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
-        o.reset(DEFAULT_SAMPLE_RATE);
+        o.update_sample_rate(SampleRate::DEFAULT);
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             duration: MusicalTimeParams::default(), // TODO see ignore
         }))));
@@ -1919,7 +1921,7 @@ pub mod tests {
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
-        o.reset(24000);
+        o.update_sample_rate(SampleRate::new(24000));
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             duration: MusicalTimeParams {
                 units: MusicalTime::beats_to_units(4),
@@ -1956,7 +1958,7 @@ pub mod tests {
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
-        o.reset(DEFAULT_SAMPLE_RATE);
+        o.update_sample_rate(SampleRate::DEFAULT);
         let mut sequencer = Box::new(Sequencer::new_with(&SequencerParams { bpm: DEFAULT_BPM }));
         let mut programmer =
             PatternProgrammer::new_with(&TimeSignatureParams { top: 4, bottom: 4 });
@@ -2007,7 +2009,7 @@ pub mod tests {
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
-        o.reset(DEFAULT_SAMPLE_RATE);
+        o.update_sample_rate(SampleRate::DEFAULT);
         let _sequencer_uid = o.add(Entity::Sequencer(sequencer));
 
         let mut sample_buffer = [StereoSample::SILENCE; 64];
@@ -2033,7 +2035,8 @@ pub mod tests {
             const LAST_BEAT: f64 = 4.0;
             assert_eq!(
                 samples.len(),
-                (LAST_BEAT * 60.0 / DEFAULT_BPM * DEFAULT_SAMPLE_RATE as f64).ceil() as usize
+                (LAST_BEAT * 60.0 / DEFAULT_BPM * SampleRate::DEFAULT_SAMPLE_RATE as f64).ceil()
+                    as usize
             );
         } else {
             assert!(false, "run failed");
@@ -2115,13 +2118,14 @@ pub mod tests {
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
-        o.reset(DEFAULT_SAMPLE_RATE);
+        o.update_sample_rate(SampleRate::DEFAULT);
         let _ = o.add(Entity::Sequencer(sequencer));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(result) = o.run(&mut sample_buffer) {
             assert_eq!(
                 result.len(),
-                ((60.0 * 4.0 / DEFAULT_BPM) * DEFAULT_SAMPLE_RATE as f64).ceil() as usize
+                ((60.0 * 4.0 / DEFAULT_BPM) * SampleRate::DEFAULT_SAMPLE_RATE as f64).ceil()
+                    as usize
             );
         }
     }
@@ -2163,9 +2167,9 @@ pub mod tests {
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
-        arpeggiator.reset(DEFAULT_SAMPLE_RATE);
-        o.reset(DEFAULT_SAMPLE_RATE);
-        clock.reset(DEFAULT_SAMPLE_RATE);
+        arpeggiator.update_sample_rate(SampleRate::DEFAULT);
+        o.update_sample_rate(SampleRate::DEFAULT);
+        clock.update_sample_rate(SampleRate::DEFAULT);
 
         sequencer.insert(
             &MusicalTime::default(),

@@ -1,7 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    traits::{IsEffect, Resets, TransformsAudio},
+    time::SampleRate,
+    traits::{Configurable, IsEffect, TransformsAudio},
     Normal, ParameterType, Sample, SignalType,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -17,7 +18,7 @@ pub(super) trait Delays {
 
 #[derive(Debug, Default)]
 pub(crate) struct DelayLine {
-    sample_rate: usize,
+    sample_rate: SampleRate,
     delay_seconds: ParameterType,
     decay_factor: SignalType,
 
@@ -25,8 +26,8 @@ pub(crate) struct DelayLine {
     buffer_pointer: usize,
     buffer: Vec<Sample>,
 }
-impl Resets for DelayLine {
-    fn reset(&mut self, sample_rate: usize) {
+impl Configurable for DelayLine {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
         self.resize_buffer();
     }
@@ -57,7 +58,8 @@ impl DelayLine {
     }
 
     fn resize_buffer(&mut self) {
-        self.buffer_size = (self.sample_rate as ParameterType * self.delay_seconds) as usize;
+        self.buffer_size =
+            (self.sample_rate.value() as ParameterType * self.delay_seconds) as usize;
         self.buffer = Vec::with_capacity(self.buffer_size);
         self.buffer.resize(self.buffer_size, Sample::SILENCE);
         self.buffer_pointer = 0;
@@ -144,9 +146,9 @@ impl Delays for RecirculatingDelayLine {
         output
     }
 }
-impl Resets for RecirculatingDelayLine {
-    fn reset(&mut self, sample_rate: usize) {
-        self.delay.reset(sample_rate);
+impl Configurable for RecirculatingDelayLine {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.delay.update_sample_rate(sample_rate);
     }
 }
 
@@ -188,9 +190,9 @@ impl Delays for AllPassDelayLine {
         vm + vn * decay_factor
     }
 }
-impl Resets for AllPassDelayLine {
-    fn reset(&mut self, sample_rate: usize) {
-        self.delay.reset(sample_rate)
+impl Configurable for AllPassDelayLine {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.delay.update_sample_rate(sample_rate)
     }
 }
 
@@ -207,9 +209,9 @@ pub struct Delay {
     delay: DelayLine,
 }
 impl IsEffect for Delay {}
-impl Resets for Delay {
-    fn reset(&mut self, sample_rate: usize) {
-        self.delay.reset(sample_rate);
+impl Configurable for Delay {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.delay.update_sample_rate(sample_rate);
     }
 }
 impl TransformsAudio for Delay {
@@ -264,25 +266,24 @@ mod gui {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::DEFAULT_SAMPLE_RATE;
     use float_cmp::approx_eq;
     use groove_core::SampleType;
     use more_asserts::{assert_gt, assert_lt};
 
     // This small rate allows us to observe expected behavior after a small
     // number of iterations.
-    const CURIOUSLY_SMALL_SAMPLE_RATE: usize = 3;
+    const CURIOUSLY_SMALL_SAMPLE_RATE: SampleRate = SampleRate::new(3);
 
     #[test]
     fn basic_delay() {
         let mut fx = Delay::new_with(&DelayParams { seconds: 1.0 });
-        fx.reset(DEFAULT_SAMPLE_RATE);
+        fx.update_sample_rate(SampleRate::DEFAULT);
 
         // Add a unique first sample.
         assert_eq!(fx.transform_channel(0, Sample::from(0.5)), Sample::SILENCE);
 
         // Push a whole bunch more.
-        for i in 0..DEFAULT_SAMPLE_RATE - 1 {
+        for i in 0..SampleRate::DEFAULT_SAMPLE_RATE - 1 {
             assert_eq!(
                 fx.transform_channel(0, Sample::MAX),
                 Sample::SILENCE,
@@ -301,11 +302,11 @@ mod tests {
     #[test]
     fn delay_zero() {
         let mut fx = Delay::new_with(&DelayParams { seconds: 0.0 });
-        fx.reset(DEFAULT_SAMPLE_RATE);
+        fx.update_sample_rate(SampleRate::DEFAULT);
 
         // We should keep getting back what we put in.
         let mut rng = oorandom::Rand32::new(0);
-        for i in 0..DEFAULT_SAMPLE_RATE {
+        for i in 0..SampleRate::DEFAULT_SAMPLE_RATE {
             let random_bipolar_normal = rng.rand_float() * 2.0 - 1.0;
             let sample = Sample::from(random_bipolar_normal);
             assert_eq!(
@@ -322,7 +323,7 @@ mod tests {
         // It's very simple: it should return an input sample, attenuated, after
         // the specified delay.
         let mut delay = DelayLine::new_with(1.0, 0.3);
-        delay.reset(CURIOUSLY_SMALL_SAMPLE_RATE);
+        delay.update_sample_rate(CURIOUSLY_SMALL_SAMPLE_RATE);
 
         assert_eq!(delay.pop_output(Sample::from(0.5)), Sample::SILENCE);
         assert_eq!(delay.pop_output(Sample::from(0.4)), Sample::SILENCE);
@@ -338,7 +339,7 @@ mod tests {
         // each time it cycles through the buffer.
         let mut delay =
             RecirculatingDelayLine::new_with(1.0, 1.5, Normal::from(0.001), Normal::from(1.0));
-        delay.reset(CURIOUSLY_SMALL_SAMPLE_RATE);
+        delay.update_sample_rate(CURIOUSLY_SMALL_SAMPLE_RATE);
 
         assert_eq!(delay.pop_output(Sample::from(0.5)), Sample::SILENCE);
         assert_eq!(delay.pop_output(Sample::from(0.0)), Sample::SILENCE);
@@ -366,7 +367,7 @@ mod tests {
         // TODO: I'm not sure what this delay line is supposed to do.
         let mut delay =
             AllPassDelayLine::new_with(1.0, 1.5, Normal::from(0.001), Normal::from(1.0));
-        delay.reset(CURIOUSLY_SMALL_SAMPLE_RATE);
+        delay.update_sample_rate(CURIOUSLY_SMALL_SAMPLE_RATE);
 
         assert_lt!(delay.pop_output(Sample::from(0.5)), Sample::from(0.5));
         assert_eq!(delay.pop_output(Sample::from(0.0)), Sample::SILENCE);

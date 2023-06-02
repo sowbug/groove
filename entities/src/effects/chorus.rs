@@ -2,7 +2,8 @@
 
 use super::delay::{DelayLine, Delays};
 use groove_core::{
-    traits::{IsEffect, Resets, TransformsAudio},
+    time::SampleRate,
+    traits::{Configurable, IsEffect, TransformsAudio},
     ParameterType, Sample, SampleType,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -49,9 +50,9 @@ impl TransformsAudio for Chorus {
             + input_sample * (1.0 - self.wet_dry_mix)
     }
 }
-impl Resets for Chorus {
-    fn reset(&mut self, sample_rate: usize) {
-        self.delay.reset(sample_rate);
+impl Configurable for Chorus {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.delay.update_sample_rate(sample_rate);
     }
 }
 impl Chorus {

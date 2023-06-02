@@ -1,16 +1,16 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use crate::{
-    traits::{Resets, Ticks},
+    traits::{Configurable, Ticks},
     ParameterType,
 };
 use anyhow::{anyhow, Error};
 use core::fmt;
+use derive_more::Display;
 use groove_proc_macros::{Control, Params, Uid};
 use std::{
     cmp::Ordering,
     fmt::Display,
-    num::NonZeroUsize,
     ops::{Add, AddAssign, Mul, Range},
 };
 use strum_macros::{FromRepr, IntoStaticStr};
@@ -50,7 +50,7 @@ pub struct Clock {
 
     /// The number of frames per second. Usually 44.1KHz for CD-quality audio.
     #[cfg_attr(feature = "serialization", serde(skip))]
-    sample_rate: usize,
+    sample_rate: SampleRate,
 
     /// Samples since clock creation. It's called "frames" because tick() was
     /// already being used as a verb by the Ticks trait, and "samples" is a very
@@ -90,7 +90,6 @@ pub struct Clock {
     #[cfg_attr(feature = "serialization", serde(skip))]
     uid: usize,
 }
-
 impl Clock {
     pub fn new_with(params: &ClockParams) -> Self {
         Self {
@@ -127,7 +126,7 @@ impl Clock {
     pub fn midi_ticks(&self) -> usize {
         self.midi_ticks
     }
-    pub fn sample_rate(&self) -> usize {
+    pub fn sample_rate(&self) -> SampleRate {
         self.sample_rate
     }
     pub fn bpm(&self) -> ParameterType {
@@ -145,13 +144,7 @@ impl Clock {
         self.update_internals();
     }
     pub fn seek_beats(&mut self, value: f64) {
-        self.seek((self.sample_rate() as f64 * (60.0 * value / self.bpm)) as usize);
-    }
-
-    pub fn set_sample_rate(&mut self, sample_rate: usize) {
-        self.sample_rate = sample_rate;
-        self.was_reset = true;
-        self.update_internals();
+        self.seek((f64::from(self.sample_rate) * (60.0 * value / self.bpm)) as usize);
     }
 
     /// The next_slice_in_ methods return the start of the next time slice, in
@@ -176,7 +169,7 @@ impl Clock {
 
     /// Given a frame number, returns the number of seconds that have elapsed.
     fn seconds_for_frame(&self, frame: usize) -> f64 {
-        frame as f64 / self.sample_rate as f64
+        frame as f64 / f64::from(self.sample_rate)
     }
     /// Given a frame number, returns the number of beats that have elapsed.
     fn beats_for_frame(&self, frame: usize) -> f64 {
@@ -251,14 +244,17 @@ impl Ticks for Clock {
         }
     }
 }
-impl Resets for Clock {
-    fn reset(&mut self, sample_rate: usize) {
-        self.set_sample_rate(sample_rate);
+impl Configurable for Clock {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.sample_rate = sample_rate;
         self.was_reset = true;
-        self.frames = 0;
-        self.seconds = 0.0;
-        self.beats = 0.0;
-        self.midi_ticks = 0;
+        self.update_internals();
+
+        //  these used to be part of reset() -- are they still important?
+        // self.frames = 0;
+        // self.seconds = 0.0;
+        // self.beats = 0.0;
+        // self.midi_ticks = 0;
     }
 }
 
@@ -569,6 +565,7 @@ impl MusicalTime {
         self.total_beats() / time_signature.top as u64
     }
 
+    #[allow(unused_variables)]
     pub fn set_bars(&mut self, bars: usize) {
         panic!()
     }
@@ -582,6 +579,7 @@ impl MusicalTime {
         self.total_beats() % time_signature.top as u64
     }
 
+    #[allow(unused_variables)]
     pub fn set_beats(&mut self, beats: u8) {
         panic!()
     }
@@ -595,6 +593,7 @@ impl MusicalTime {
         self.total_parts() % Self::PARTS_IN_BEAT
     }
 
+    #[allow(unused_variables)]
     pub fn set_parts(&mut self, parts: u8) {
         panic!()
     }
@@ -608,6 +607,7 @@ impl MusicalTime {
         self.units % Self::UNITS_IN_PART
     }
 
+    #[allow(unused_variables)]
     pub fn set_units(&mut self, units: u64) {
         panic!()
     }
@@ -652,7 +652,7 @@ impl MusicalTime {
     }
 
     pub fn frames_to_units(tempo: Tempo, sample_rate: SampleRate, frames: usize) -> u64 {
-        let elapsed_beats = (frames as f64 / sample_rate.0.get() as f64) * tempo.bps();
+        let elapsed_beats = (frames as f64 / sample_rate.value() as f64) * tempo.bps();
         let elapsed_fractional_units =
             (elapsed_beats.fract() * Self::UNITS_IN_BEAT as f64 + 0.5) as u64;
         Self::beats_to_units(elapsed_beats.floor() as u64) + elapsed_fractional_units
@@ -752,44 +752,47 @@ impl Tempo {
 }
 
 /// Samples per second. Always a positive integer; cannot be zero.
-#[derive(Clone, Copy, Debug)]
-pub struct SampleRate(NonZeroUsize);
+#[derive(Clone, Copy, Debug, Display)]
+pub struct SampleRate(usize);
 impl SampleRate {
-    pub fn value(&self) -> usize {
-        self.0.get()
+    pub const DEFAULT_SAMPLE_RATE: usize = 44100;
+    pub const DEFAULT: SampleRate = SampleRate::new(Self::DEFAULT_SAMPLE_RATE);
+
+    pub const fn value(&self) -> usize {
+        self.0
+    }
+
+    pub const fn new(value: usize) -> Self {
+        if value != 0 {
+            Self(value)
+        } else {
+            Self(Self::DEFAULT_SAMPLE_RATE)
+        }
     }
 }
 impl Default for SampleRate {
     fn default() -> Self {
-        Self(NonZeroUsize::new(44100).unwrap())
+        Self::new(Self::DEFAULT_SAMPLE_RATE)
     }
 }
 impl From<f64> for SampleRate {
     fn from(value: f64) -> Self {
-        if let Some(v) = NonZeroUsize::new(value as usize) {
-            Self(v)
-        } else {
-            panic!("SampleRate must be a positive integer")
-        }
+        Self::new(value as usize)
     }
 }
 impl From<SampleRate> for f64 {
     fn from(value: SampleRate) -> Self {
-        value.0.get() as f64
+        value.0 as f64
     }
 }
 impl From<SampleRate> for usize {
     fn from(value: SampleRate) -> Self {
-        value.0.get()
+        value.0
     }
 }
 impl From<usize> for SampleRate {
     fn from(value: usize) -> Self {
-        if let Some(checked_value) = NonZeroUsize::new(value) {
-            Self(checked_value)
-        } else {
-            panic!("attempt to create SampleRate from invalid usize {}", value)
-        }
+        Self::new(value)
     }
 }
 
@@ -850,9 +853,9 @@ mod tests {
             })
         }
 
-        pub fn debug_set_seconds(&mut self, value: f32) {
+        pub fn debug_set_seconds(&mut self, value: f64) {
             self.was_reset = true;
-            self.frames = (self.sample_rate() as f32 * value) as usize;
+            self.frames = (f64::from(self.sample_rate) * value) as usize;
             self.update_internals();
         }
     }
@@ -871,11 +874,11 @@ mod tests {
 
     #[test]
     fn clock_mainline_works() {
-        const SAMPLE_RATE: usize = 256;
+        const SAMPLE_RATE: SampleRate = SampleRate::new(256);
         const BPM: ParameterType = 128.0;
-        const QUARTER_NOTE_OF_TICKS: usize = ((SAMPLE_RATE * 60) as f64 / BPM) as usize;
+        const QUARTER_NOTE_OF_TICKS: usize = ((SAMPLE_RATE.value() as f64 * 60.0) / BPM) as usize;
         const SECONDS_PER_BEAT: f64 = 60.0 / BPM;
-        const ONE_SAMPLE_OF_SECONDS: f64 = 1.0 / SAMPLE_RATE as f64;
+        const ONE_SAMPLE_OF_SECONDS: f64 = 1.0 / SAMPLE_RATE.value() as f64;
 
         // Initial state. The Ticks trait specifies that state is valid for the
         // frame *after* calling tick(), so here we verify that after calling
@@ -891,7 +894,7 @@ mod tests {
         assert_eq!(clock.beats(), 0.0);
 
         // Same but after reset.
-        clock.reset(SAMPLE_RATE);
+        clock.update_sample_rate(SAMPLE_RATE);
         clock.tick(1);
         assert_eq!(
             clock.frames(),
@@ -920,7 +923,7 @@ mod tests {
 
         // One full minute.
         clock.tick(QUARTER_NOTE_OF_TICKS * (BPM - 1.0) as usize);
-        assert_eq!(clock.frames(), SAMPLE_RATE * 60);
+        assert_eq!(clock.frames(), SAMPLE_RATE.value() * 60);
         assert_eq!(clock.seconds, 60.0);
         assert_eq!(clock.beats(), BPM);
     }

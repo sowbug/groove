@@ -29,8 +29,8 @@ mod sequencers;
 use crate::EntityMessage;
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel},
-    time::{ClockTimeUnit, MusicalTime, MusicalTimeParams},
-    traits::{Controls, IsController, IsEffect, Performs, Resets, TransformsAudio},
+    time::{ClockTimeUnit, MusicalTime, MusicalTimeParams, SampleRate},
+    traits::{Configurable, Controls, IsController, IsEffect, Performs, TransformsAudio},
     BipolarNormal, Normal, Sample, StereoSample,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -110,8 +110,8 @@ impl Timer {
 }
 impl IsController for Timer {}
 impl HandlesMidi for Timer {}
-impl Resets for Timer {
-    fn reset(&mut self, _sample_rate: usize) {}
+impl Configurable for Timer {
+    fn update_sample_rate(&mut self, _sample_rate: SampleRate) {}
 }
 impl Controls for Timer {
     type Message = EntityMessage;
@@ -199,9 +199,9 @@ impl Controls for Trigger {
         self.timer.is_finished()
     }
 }
-impl Resets for Trigger {
-    fn reset(&mut self, sample_rate: usize) {
-        self.timer.reset(sample_rate)
+impl Configurable for Trigger {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.timer.update_sample_rate(sample_rate)
     }
 }
 impl HandlesMidi for Trigger {}
@@ -258,7 +258,7 @@ pub struct SignalPassthroughController {
     is_performing: bool,
 }
 impl IsController for SignalPassthroughController {}
-impl Resets for SignalPassthroughController {}
+impl Configurable for SignalPassthroughController {}
 impl Controls for SignalPassthroughController {
     type Message = EntityMessage;
 
@@ -429,8 +429,8 @@ impl Controls for ToyController {
         true
     }
 }
-impl Resets for ToyController {
-    fn reset(&mut self, _sample_rate: usize) {}
+impl Configurable for ToyController {
+    fn update_sample_rate(&mut self, _sample_rate: SampleRate) {}
 }
 impl HandlesMidi for ToyController {
     fn handle_midi_message(
@@ -474,7 +474,7 @@ impl ToyController {
     }
 
     pub fn new_with_test_values(
-        params: ToyControllerParams,
+        _params: ToyControllerParams,
         midi_channel_out: MidiChannel,
         values: &[f32],
         checkpoint: f32,
@@ -504,7 +504,7 @@ impl ToyController {
                     return TestControllerAction::NoteOn;
                 }
                 if self.time_range.start.parts() == 8 {
-                    return TestControllerAction::NoteOn;
+                    return TestControllerAction::NoteOff;
                 }
             }
         }
@@ -578,16 +578,12 @@ mod gui {
 
 #[cfg(test)]
 mod tests {
-    use std::ops::Range;
-
-    use crate::{
-        controllers::{TimerParams, Trigger, TriggerParams},
-        tests::DEFAULT_SAMPLE_RATE,
-    };
+    use crate::controllers::{TimerParams, Trigger, TriggerParams};
     use groove_core::{
-        time::{MusicalTime, MusicalTimeParams, TimeSignature},
-        traits::{Controls, Performs, Resets},
+        time::{MusicalTime, MusicalTimeParams, SampleRate, TimeSignature},
+        traits::{Configurable, Controls, Performs},
     };
+    use std::ops::Range;
 
     #[test]
     fn instantiate_trigger() {
@@ -602,7 +598,7 @@ mod tests {
             },
             value: 0.5,
         });
-        trigger.reset(DEFAULT_SAMPLE_RATE);
+        trigger.update_sample_rate(SampleRate::DEFAULT);
         trigger.play();
 
         trigger.update_time(&Range {

@@ -6,10 +6,10 @@ use groove_core::{
     generators::{SteppedEnvelope, SteppedEnvelopeFunction, SteppedEnvelopeStep},
     midi::HandlesMidi,
     time::{
-        BeatValue, Clock, ClockParams, ClockTimeUnit, MusicalTime, PerfectTimeUnit, TimeSignature,
-        TimeSignatureParams,
+        BeatValue, Clock, ClockParams, ClockTimeUnit, MusicalTime, PerfectTimeUnit, SampleRate,
+        TimeSignature, TimeSignatureParams,
     },
-    traits::{Controls, IsController, Performs, Resets},
+    traits::{Configurable, Controls, IsController, Performs},
     ParameterType, SignalType,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -221,9 +221,9 @@ impl ControlTrip {
         self.time_signature_bottom = time_signature_bottom;
     }
 }
-impl Resets for ControlTrip {
-    fn reset(&mut self, sample_rate: usize) {
-        self.clock.reset(sample_rate);
+impl Configurable for ControlTrip {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.clock.update_sample_rate(sample_rate);
     }
 }
 impl Controls for ControlTrip {

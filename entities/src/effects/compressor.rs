@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    traits::{IsEffect, Resets, TransformsAudio},
+    traits::{Configurable, IsEffect, TransformsAudio},
     Normal, ParameterType, Sample,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -64,7 +64,7 @@ impl TransformsAudio for Compressor {
         }
     }
 }
-impl Resets for Compressor {}
+impl Configurable for Compressor {}
 impl Compressor {
     pub fn new_with(params: &CompressorParams) -> Self {
         Self {

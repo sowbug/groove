@@ -3,8 +3,8 @@
 use groove_core::{
     generators::{Oscillator, OscillatorParams, Waveform},
     midi::{HandlesMidi, MidiChannel, MidiMessage},
-    time::{Clock, ClockParams},
-    traits::{Generates, IsInstrument, Resets, Ticks},
+    time::{Clock, ClockParams, SampleRate},
+    traits::{Configurable, Generates, IsInstrument, Ticks},
     ParameterType, StereoSample,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -44,10 +44,10 @@ impl Generates<StereoSample> for Metronome {
         todo!("write a way to batch BipolarNormal to StereoSample")
     }
 }
-impl Resets for Metronome {
-    fn reset(&mut self, sample_rate: usize) {
-        self.clock.reset(sample_rate);
-        self.oscillator.reset(sample_rate);
+impl Configurable for Metronome {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.clock.update_sample_rate(sample_rate);
+        self.oscillator.update_sample_rate(sample_rate);
     }
 }
 impl Ticks for Metronome {

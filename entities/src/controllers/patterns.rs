@@ -6,7 +6,7 @@ use crate::messages::EntityMessage;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage},
     time::{BeatValue, MusicalTime, PerfectTimeUnit, TimeSignature, TimeSignatureParams},
-    traits::{Controls, IsController, Performs, Resets},
+    traits::{Configurable, Controls, IsController, Performs},
 };
 use groove_proc_macros::{Control, Params, Uid};
 use std::{cmp, fmt::Debug, ops::Range};
@@ -63,7 +63,7 @@ pub struct PatternManager {
 }
 impl IsController for PatternManager {}
 impl HandlesMidi for PatternManager {}
-impl Resets for PatternManager {}
+impl Configurable for PatternManager {}
 impl Controls for PatternManager {
     type Message = EntityMessage;
 

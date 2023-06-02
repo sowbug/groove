@@ -3,7 +3,7 @@
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{self, CollapsingHeader};
 use groove_audio::{AudioInterfaceEvent, AudioInterfaceInput, AudioQueue, AudioStreamService};
-use groove_core::{traits::gui::Shows, StereoSample, SAMPLE_BUFFER_SIZE};
+use groove_core::{time::SampleRate, traits::gui::Shows, StereoSample, SAMPLE_BUFFER_SIZE};
 use groove_orchestration::Orchestrator;
 use std::{
     fmt::Debug,
@@ -19,12 +19,12 @@ pub enum AudioPanelEvent {
 
 #[derive(Debug)]
 struct AudioInterfaceConfig {
-    sample_rate: usize,
+    sample_rate: SampleRate,
     channel_count: u16,
 }
 
 impl AudioInterfaceConfig {
-    fn sample_rate(&self) -> usize {
+    fn sample_rate(&self) -> SampleRate {
         self.sample_rate
     }
 
@@ -141,13 +141,14 @@ impl AudioPanel {
     }
 
     /// The audio interface's current sample rate
-    pub fn sample_rate(&self) -> usize {
+    pub fn sample_rate(&self) -> SampleRate {
         if let Ok(config) = self.config.lock() {
             if let Some(config) = config.as_ref() {
                 return config.sample_rate;
             }
         }
-        0
+        eprintln!("Warning: returning default sample rate because actual was not available");
+        SampleRate::DEFAULT
     }
 
     /// The audio interface's current number of channels. 1 = mono, 2 = stereo
@@ -247,13 +248,14 @@ impl AudioPanel2 {
     }
 
     /// The audio interface's current sample rate
-    pub fn sample_rate(&self) -> usize {
+    pub fn sample_rate(&self) -> SampleRate {
         if let Ok(config) = self.config.lock() {
             if let Some(config) = config.as_ref() {
                 return config.sample_rate;
             }
         }
-        0
+        eprintln!("Warning: returning default sample rate because actual was not available");
+        SampleRate::DEFAULT
     }
 
     /// The audio interface's current number of channels. 1 = mono, 2 = stereo

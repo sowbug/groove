@@ -1,7 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    traits::{IsEffect, Resets, TransformsAudio},
+    time::SampleRate,
+    traits::{Configurable, IsEffect, TransformsAudio},
     FrequencyHz, Normal, ParameterType, Sample,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -21,7 +22,8 @@ pub struct BiQuadFilterLowPass24db {
     passband_ripple: ParameterType,
 
     uid: usize,
-    sample_rate: usize,
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterLowPass24dbChannel; 2],
 }
@@ -37,8 +39,8 @@ impl Default for BiQuadFilterLowPass24db {
     }
 }
 impl IsEffect for BiQuadFilterLowPass24db {}
-impl Resets for BiQuadFilterLowPass24db {
-    fn reset(&mut self, sample_rate: usize) {
+impl Configurable for BiQuadFilterLowPass24db {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
         self.update_coefficients();
     }
@@ -135,11 +137,11 @@ impl TransformsAudio for BiQuadFilterLowPass24dbChannel {
 impl BiQuadFilterLowPass24dbChannel {
     fn update_coefficients(
         &mut self,
-        sample_rate: usize,
+        sample_rate: SampleRate,
         cutoff: FrequencyHz,
         passband_ripple: ParameterType,
     ) {
-        let k = (PI * cutoff.value() / sample_rate as f64).tan();
+        let k = (PI * cutoff.value() / sample_rate.value() as f64).tan();
         let sg = passband_ripple.sinh();
         let cg = passband_ripple.cosh() * passband_ripple.cosh();
 
@@ -185,13 +187,14 @@ pub struct BiQuadFilterLowPass12db {
     q: ParameterType,
 
     uid: usize,
-    sample_rate: usize,
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterLowPass12dbChannel; 2],
 }
 impl IsEffect for BiQuadFilterLowPass12db {}
-impl Resets for BiQuadFilterLowPass12db {
-    fn reset(&mut self, sample_rate: usize) {
+impl Configurable for BiQuadFilterLowPass12db {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
         self.update_coefficients();
     }
@@ -261,7 +264,12 @@ impl TransformsAudio for BiQuadFilterLowPass12dbChannel {
     }
 }
 impl BiQuadFilterLowPass12dbChannel {
-    fn update_coefficients(&mut self, sample_rate: usize, cutoff: FrequencyHz, q: ParameterType) {
+    fn update_coefficients(
+        &mut self,
+        sample_rate: SampleRate,
+        cutoff: FrequencyHz,
+        q: ParameterType,
+    ) {
         let (_w0, w0cos, _w0sin, alpha) =
             BiQuadFilter::rbj_intermediates_q(sample_rate, cutoff.value(), q);
 
@@ -287,13 +295,14 @@ pub struct BiQuadFilterHighPass {
     q: ParameterType,
 
     uid: usize,
-    sample_rate: usize,
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterHighPassChannel; 2],
 }
 impl IsEffect for BiQuadFilterHighPass {}
-impl Resets for BiQuadFilterHighPass {
-    fn reset(&mut self, sample_rate: usize) {
+impl Configurable for BiQuadFilterHighPass {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
         self.update_coefficients();
     }
@@ -365,7 +374,12 @@ impl TransformsAudio for BiQuadFilterHighPassChannel {
     }
 }
 impl BiQuadFilterHighPassChannel {
-    fn update_coefficients(&mut self, sample_rate: usize, cutoff: FrequencyHz, q: ParameterType) {
+    fn update_coefficients(
+        &mut self,
+        sample_rate: SampleRate,
+        cutoff: FrequencyHz,
+        q: ParameterType,
+    ) {
         let (_w0, w0cos, _w0sin, alpha) =
             BiQuadFilter::rbj_intermediates_q(sample_rate, cutoff.value(), q);
 
@@ -391,14 +405,14 @@ pub struct BiQuadFilterAllPass {
     q: ParameterType,
 
     uid: usize,
-    sample_rate: usize,
-
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterAllPassChannel; 2],
 }
 impl IsEffect for BiQuadFilterAllPass {}
-impl Resets for BiQuadFilterAllPass {
-    fn reset(&mut self, sample_rate: usize) {
+impl Configurable for BiQuadFilterAllPass {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
         self.update_coefficients();
     }
@@ -468,7 +482,12 @@ impl TransformsAudio for BiQuadFilterAllPassChannel {
     }
 }
 impl BiQuadFilterAllPassChannel {
-    fn update_coefficients(&mut self, sample_rate: usize, cutoff: FrequencyHz, q: ParameterType) {
+    fn update_coefficients(
+        &mut self,
+        sample_rate: SampleRate,
+        cutoff: FrequencyHz,
+        q: ParameterType,
+    ) {
         let (_w0, w0cos, _w0sin, alpha) =
             BiQuadFilter::rbj_intermediates_q(sample_rate, cutoff.value(), q);
         self.inner.coefficients = CoefficientSet {
@@ -493,14 +512,14 @@ pub struct BiQuadFilterBandPass {
     bandwidth: ParameterType, // TODO: maybe this should be FrequencyHz
 
     uid: usize,
-    sample_rate: usize,
-
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterBandPassChannel; 2],
 }
 impl IsEffect for BiQuadFilterBandPass {}
-impl Resets for BiQuadFilterBandPass {
-    fn reset(&mut self, sample_rate: usize) {
+impl Configurable for BiQuadFilterBandPass {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
         self.update_coefficients();
     }
@@ -572,7 +591,7 @@ impl TransformsAudio for BiQuadFilterBandPassChannel {
 impl BiQuadFilterBandPassChannel {
     fn update_coefficients(
         &mut self,
-        sample_rate: usize,
+        sample_rate: SampleRate,
         cutoff: FrequencyHz,
         bandwidth: ParameterType,
     ) {
@@ -600,14 +619,15 @@ pub struct BiQuadFilterBandStop {
     bandwidth: ParameterType, // TODO: maybe this should be FrequencyHz
 
     uid: usize,
-    sample_rate: usize,
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    sample_rate: SampleRate,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterBandStopChannel; 2],
 }
 impl IsEffect for BiQuadFilterBandStop {}
-impl Resets for BiQuadFilterBandStop {
-    fn reset(&mut self, sample_rate: usize) {
+impl Configurable for BiQuadFilterBandStop {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
         self.update_coefficients();
     }
@@ -679,7 +699,7 @@ impl TransformsAudio for BiQuadFilterBandStopChannel {
 impl BiQuadFilterBandStopChannel {
     fn update_coefficients(
         &mut self,
-        sample_rate: usize,
+        sample_rate: SampleRate,
         cutoff: FrequencyHz,
         bandwidth: ParameterType,
     ) {
@@ -711,14 +731,14 @@ pub struct BiQuadFilterPeakingEq {
     q: ParameterType,
 
     uid: usize,
-    sample_rate: usize,
-
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterPeakingEqChannel; 2],
 }
 impl IsEffect for BiQuadFilterPeakingEq {}
-impl Resets for BiQuadFilterPeakingEq {
-    fn reset(&mut self, sample_rate: usize) {
+impl Configurable for BiQuadFilterPeakingEq {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
         self.update_coefficients();
     }
@@ -790,7 +810,12 @@ impl TransformsAudio for BiQuadFilterPeakingEqChannel {
     }
 }
 impl BiQuadFilterPeakingEqChannel {
-    fn update_coefficients(&mut self, sample_rate: usize, cutoff: FrequencyHz, q: ParameterType) {
+    fn update_coefficients(
+        &mut self,
+        sample_rate: SampleRate,
+        cutoff: FrequencyHz,
+        q: ParameterType,
+    ) {
         let (_w0, w0cos, _w0sin, alpha) = BiQuadFilter::rbj_intermediates_q(
             sample_rate,
             cutoff.value(),
@@ -820,14 +845,14 @@ pub struct BiQuadFilterLowShelf {
     db_gain: ParameterType,
 
     uid: usize,
-    sample_rate: usize,
-
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterLowShelfChannel; 2],
 }
 impl IsEffect for BiQuadFilterLowShelf {}
-impl Resets for BiQuadFilterLowShelf {
-    fn reset(&mut self, sample_rate: usize) {
+impl Configurable for BiQuadFilterLowShelf {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
         self.update_coefficients();
     }
@@ -899,7 +924,7 @@ impl TransformsAudio for BiQuadFilterLowShelfChannel {
 impl BiQuadFilterLowShelfChannel {
     fn update_coefficients(
         &mut self,
-        sample_rate: usize,
+        sample_rate: SampleRate,
         cutoff: FrequencyHz,
         db_gain: ParameterType,
     ) {
@@ -929,14 +954,14 @@ pub struct BiQuadFilterHighShelf {
     db_gain: ParameterType,
 
     uid: usize,
-    sample_rate: usize,
-
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterHighShelfChannel; 2],
 }
 impl IsEffect for BiQuadFilterHighShelf {}
-impl Resets for BiQuadFilterHighShelf {
-    fn reset(&mut self, sample_rate: usize) {
+impl Configurable for BiQuadFilterHighShelf {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
         self.update_coefficients();
     }
@@ -1008,7 +1033,7 @@ impl TransformsAudio for BiQuadFilterHighShelfChannel {
 impl BiQuadFilterHighShelfChannel {
     fn update_coefficients(
         &mut self,
-        sample_rate: usize,
+        sample_rate: SampleRate,
         cutoff: FrequencyHz,
         db_gain: ParameterType,
     ) {
@@ -1033,14 +1058,14 @@ impl BiQuadFilterHighShelfChannel {
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterNone {
     uid: usize,
-    sample_rate: usize,
-
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilter; 2],
 }
 impl IsEffect for BiQuadFilterNone {}
-impl Resets for BiQuadFilterNone {
-    fn reset(&mut self, sample_rate: usize) {
+impl Configurable for BiQuadFilterNone {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
     }
 }
@@ -1179,11 +1204,11 @@ impl BiQuadFilter {
     //     f0/Fs and dBgain.
 
     fn rbj_intermediates_q(
-        sample_rate: usize,
+        sample_rate: SampleRate,
         cutoff: ParameterType,
         q: ParameterType,
     ) -> (f64, f64, f64, f64) {
-        let w0 = 2.0f64 * PI * cutoff / sample_rate as f64;
+        let w0 = 2.0f64 * PI * cutoff / sample_rate.value() as f64;
         let w0cos = w0.cos();
         let w0sin = w0.sin();
         let alpha = w0sin / (2.0f64 * q);
@@ -1191,11 +1216,11 @@ impl BiQuadFilter {
     }
 
     fn rbj_intermediates_bandwidth(
-        sample_rate: usize,
+        sample_rate: SampleRate,
         cutoff: ParameterType,
         bandwidth: ParameterType,
     ) -> (f64, f64, f64, f64) {
-        let w0 = 2.0f64 * PI * cutoff / sample_rate as f64;
+        let w0 = 2.0f64 * PI * cutoff / sample_rate.value() as f64;
         let w0cos = w0.cos();
         let w0sin = w0.sin();
         let alpha = w0sin * (2.0f64.ln() / 2.0 * bandwidth as f64 * w0 / w0.sin()).sinh();
@@ -1203,12 +1228,12 @@ impl BiQuadFilter {
     }
 
     fn rbj_intermediates_shelving(
-        sample_rate: usize,
+        sample_rate: SampleRate,
         cutoff: ParameterType,
         db_gain: ParameterType,
         s: f64,
     ) -> (f64, f64, f64, f64) {
-        let w0 = 2.0f64 * PI * cutoff as f64 / sample_rate as f64;
+        let w0 = 2.0f64 * PI * cutoff as f64 / sample_rate.value() as f64;
         let w0cos = w0.cos();
         let w0sin = w0.sin();
         let alpha = w0sin / 2.0 * ((db_gain + 1.0 / db_gain) * (1.0 / s - 1.0) + 2.0).sqrt();

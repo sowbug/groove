@@ -29,10 +29,13 @@ pub fn uid_derive(input: TokenStream) -> TokenStream {
 
 /// The [Params] macro generates helper structs that are useful for handing
 /// around bundles of arguments. If you have a struct Foo, then this macro
-/// generates a FooParams struct containing all the fields annotated #[params]. It
-/// automatically converts fields whose types are #[derive(Params)] to Params
-/// structs as well. So a `#[derive(Params)] struct Foo` with `#[params] bar: Bar`
-/// will generate `struct FooParams` with `bar: BarParams`.
+/// generates a FooParams struct containing all the fields annotated #[params].
+/// It automatically converts fields whose types are #[derive(Params)] to Params
+/// structs as well. So a `#[derive(Params)] struct Foo` with `#[params] bar:
+/// Bar` will generate `struct FooParams` with `bar: BarParams`. It tries to
+/// handle primitives automatically. If you have a type that doesn't need its
+/// own XxxParams struct (e.g., a NewType(u32)), then you should annotate with
+/// #[params(leaf=true)], and it will be treated as a primitive.
 #[proc_macro_derive(Params, attributes(params))]
 pub fn params_derive(input: TokenStream) -> TokenStream {
     impl_params_derive(input, &make_primitives())
@@ -65,6 +68,7 @@ fn make_primitives() -> HashSet<Ident> {
         "Ratio",
         "String",
         "Waveform",
+        "VoiceCount",
         "bool",
         "char",
         "f32",
@@ -88,7 +92,9 @@ fn make_primitives() -> HashSet<Ident> {
     })
 }
 
-/// The [Control] macro derives the code that allows automation (one entity's output driving another entity's control).
+/// The [Control] macro derives the code that allows automation (one entity's
+/// output driving another entity's control). Annotate a field with
+/// #[control(leaf=true)] if it is neither a primitive nor #[derive(Control)].
 #[proc_macro_derive(Control, attributes(control))]
 pub fn derive_control(input: TokenStream) -> TokenStream {
     impl_control_derive(input, &make_primitives())
@@ -107,7 +113,8 @@ fn core_crate_name() -> String {
                 quote!(crate).to_string()
             }
             proc_macro_crate::FoundCrate::Name(_) => {
-                // We're importing the crate by name, which means we aren't the core crate.
+                // We're importing the crate by name, which means we aren't the
+                // core crate.
                 let ident = format_ident!("{}", CORE_CRATE_NAME_FOR_USE);
                 quote!(#ident).to_string()
             }

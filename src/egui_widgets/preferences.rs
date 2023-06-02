@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use eframe::egui::{self, CollapsingHeader};
-use groove_core::traits::{gui::Shows, Resets};
+use groove_core::traits::{gui::Shows, Configurable};
 use groove_orchestration::Orchestrator;
 use groove_settings::SongSettings;
 use groove_utils::Paths;
@@ -86,7 +86,7 @@ impl Preferences {
                     if let Ok(mut o) = orchestrator.lock() {
                         let sample_rate = o.sample_rate();
                         *o = instance;
-                        o.reset(sample_rate);
+                        o.update_sample_rate(sample_rate);
                     }
                     Ok(path.to_path_buf())
                 }

@@ -4,8 +4,11 @@ use anyhow::{anyhow, Result};
 use groove_core::{
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
-    traits::{Generates, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes, Resets, Ticks},
-    voices::VoiceStore,
+    time::SampleRate,
+    traits::{
+        Configurable, Generates, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes, Ticks,
+    },
+    voices::{VoiceCount, VoiceStore},
     FrequencyHz, ParameterType, Sample, SampleType, StereoSample,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -23,7 +26,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default)]
 pub struct SamplerVoice {
-    sample_rate: usize,
+    sample_rate: SampleRate,
     samples: Arc<Vec<StereoSample>>,
 
     root_frequency: FrequencyHz,
@@ -88,8 +91,8 @@ impl Ticks for SamplerVoice {
         }
     }
 }
-impl Resets for SamplerVoice {
-    fn reset(&mut self, sample_rate: usize) {
+impl Configurable for SamplerVoice {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
         self.was_reset = true;
     }
@@ -153,9 +156,9 @@ impl Ticks for Sampler {
         self.inner_synth.tick(tick_count)
     }
 }
-impl Resets for Sampler {
-    fn reset(&mut self, sample_rate: usize) {
-        self.inner_synth.reset(sample_rate)
+impl Configurable for Sampler {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.inner_synth.update_sample_rate(sample_rate)
     }
 }
 impl Sampler {
@@ -177,7 +180,7 @@ impl Sampler {
                     Self {
                         uid: Default::default(),
                         inner_synth: Synthesizer::<SamplerVoice>::new_with(Box::new(
-                            VoiceStore::<SamplerVoice>::new_with_voice(8, || {
+                            VoiceStore::<SamplerVoice>::new_with_voice(VoiceCount::from(8), || {
                                 SamplerVoice::new_with_samples(
                                     Arc::clone(&samples),
                                     calculated_root_frequency,

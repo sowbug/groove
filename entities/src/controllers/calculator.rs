@@ -18,9 +18,9 @@ use crate::{
 use groove_core::{
     instruments::Synthesizer,
     midi::note_to_frequency,
-    time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, TimeSignatureParams},
+    time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, TimeSignatureParams},
     traits::{
-        Controls, Generates, HandlesMidi, IsController, IsInstrument, Performs, Resets, Ticks,
+        Configurable, Controls, Generates, HandlesMidi, IsController, IsInstrument, Performs, Ticks,
     },
     voices::VoicePerNoteStore,
     ParameterType, StereoSample,
@@ -525,9 +525,9 @@ impl Controls for Calculator {
         todo!()
     }
 }
-impl Resets for Calculator {
-    fn reset(&mut self, sample_rate: usize) {
-        self.clock.reset(sample_rate);
+impl Configurable for Calculator {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.clock.update_sample_rate(sample_rate);
     }
 }
 impl Generates<StereoSample> for Calculator {

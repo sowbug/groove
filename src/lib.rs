@@ -15,10 +15,11 @@
 //! #         Clock,
 //! #         ClockParams,
 //! #         MusicalTime,
+//! #         SampleRate,
 //! #         TimeSignature,
 //! #         TimeSignatureParams
 //! #     },
-//! #     traits::Resets,
+//! #     traits::Configurable,
 //! #     Normal,
 //! #     SAMPLE_BUFFER_SIZE,
 //! #     StereoSample,
@@ -31,7 +32,6 @@
 //! # };
 //! # use groove_toys::{ToySynth, ToySynthParams};
 //! #
-//! # const SAMPLE_RATE: usize = 44100;
 //! # const BPM: f64 = 128.0;
 //! # const MIDI_0: MidiChannel = 0;
 //! #
@@ -39,11 +39,7 @@
 //! let mut buffer = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
 //!
 //! // ToySynth is a MIDI instrument that makes simple sounds.
-//! let synth = ToySynth::new_with(&ToySynthParams {
-//!     voice_count: 4,
-//!     waveform: Waveform::Sine,
-//!     envelope: EnvelopeParams::new_with(0.0, 0.0, Normal::maximum(), 0.0),
-//! });
+//! let synth = ToySynth::new_with(&ToySynthParams::default());
 //!
 //! // Sequencer sends MIDI commands to the synth.
 //! let mut sequencer = Sequencer::new_with(&SequencerParams { bpm: 128.0 });
@@ -72,7 +68,7 @@
 //!
 //! // Orchestrator owns the sample rate and propagates it to the devices
 //! // that it controls.
-//! orchestrator.reset(SAMPLE_RATE);
+//! orchestrator.update_sample_rate(SampleRate::DEFAULT);
 //!
 //! // Each "entity" has an ID that is used to connect them.
 //! let synth_id = orchestrator.add(Entity::ToySynth(Box::new(synth)));
@@ -130,7 +126,8 @@ pub fn app_version() -> &'static str {
 #[cfg(test)]
 mod tests {
     use groove_core::{
-        traits::Resets, util::tests::TestOnlyPaths, StereoSample, SAMPLE_BUFFER_SIZE,
+        time::SampleRate, traits::Configurable, util::tests::TestOnlyPaths, StereoSample,
+        SAMPLE_BUFFER_SIZE,
     };
     use groove_orchestration::helpers::IOHelper;
     use groove_settings::SongSettings;
@@ -152,7 +149,7 @@ mod tests {
         let mut orchestrator = song_settings
             .instantiate(&paths, false)
             .unwrap_or_else(|err| panic!("instantiation failed: {:?}", err));
-        orchestrator.reset(44100);
+        orchestrator.update_sample_rate(SampleRate::DEFAULT);
         let mut sample_buffer = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
         if let Ok(samples) = orchestrator.run(&mut sample_buffer) {
             assert!(
@@ -207,9 +204,9 @@ usec/frame : {:.2?} (goal <{:.2?})",
             elapsed.as_secs_f32(),
             frame_count,
             frame_count as f32 / start_instant.elapsed().as_millis() as f32,
-            performance.sample_rate as f32 / 1000.0,
+            performance.sample_rate.value() as f32 / 1000.0,
             start_instant.elapsed().as_micros() as f32 / frame_count as f32,
-            1000000.0 / performance.sample_rate as f32
+            1000000.0 / performance.sample_rate.value() as f32
         );
         let _ = file.write(output.as_bytes());
 

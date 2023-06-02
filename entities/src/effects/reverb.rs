@@ -2,7 +2,8 @@
 
 use super::delay::{AllPassDelayLine, Delays, RecirculatingDelayLine};
 use groove_core::{
-    traits::{IsEffect, Resets, TransformsAudio},
+    time::SampleRate,
+    traits::{Configurable, IsEffect, TransformsAudio},
     Normal, ParameterType, Sample,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -16,7 +17,9 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Reverb {
     uid: usize,
-    sample_rate: usize,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    sample_rate: SampleRate,
 
     /// How much the effect should attenuate the input.
     #[control]
@@ -41,11 +44,11 @@ pub struct Reverb {
 }
 
 impl IsEffect for Reverb {}
-impl Resets for Reverb {
-    fn reset(&mut self, sample_rate: usize) {
+impl Configurable for Reverb {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
-        self.channels[0].reset(sample_rate);
-        self.channels[1].reset(sample_rate);
+        self.channels[0].update_sample_rate(sample_rate);
+        self.channels[1].update_sample_rate(sample_rate);
     }
 }
 impl TransformsAudio for Reverb {
@@ -85,7 +88,7 @@ impl Reverb {
         }
     }
 
-    pub fn sample_rate(&self) -> usize {
+    pub fn sample_rate(&self) -> SampleRate {
         self.sample_rate
     }
 
@@ -142,14 +145,14 @@ impl TransformsAudio for ReverbChannel {
             + input_sample * (1.0 - self.wet_dry_mix)
     }
 }
-impl Resets for ReverbChannel {
-    fn reset(&mut self, sample_rate: usize) {
+impl Configurable for ReverbChannel {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.recirc_delay_lines
             .iter_mut()
-            .for_each(|r| r.reset(sample_rate));
+            .for_each(|r| r.update_sample_rate(sample_rate));
         self.allpass_delay_lines
             .iter_mut()
-            .for_each(|r| r.reset(sample_rate));
+            .for_each(|r| r.update_sample_rate(sample_rate));
     }
 }
 impl ReverbChannel {
@@ -231,7 +234,8 @@ mod tests {
     use super::Reverb;
     use crate::{effects::ReverbParams, tests::DEFAULT_SAMPLE_RATE};
     use groove_core::{
-        traits::{Resets, TransformsAudio},
+        time::SampleRate,
+        traits::{Configurable, TransformsAudio},
         Normal, Sample,
     };
 
@@ -264,7 +268,7 @@ mod tests {
             seconds: 0.5,
             wet_dry_mix: 1.0,
         });
-        fx.reset(DEFAULT_SAMPLE_RATE);
+        fx.update_sample_rate(SampleRate::DEFAULT);
         assert_eq!(fx.transform_channel(0, Sample::from(0.8)), Sample::SILENCE);
         let mut s = Sample::default();
         for _ in 0..DEFAULT_SAMPLE_RATE {

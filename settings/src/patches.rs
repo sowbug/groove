@@ -732,15 +732,14 @@ mod tests {
     use float_cmp::approx_eq;
     use groove_core::{
         generators::{EnvelopeParams, Waveform},
-        time::{Clock, ClockParams, TimeSignatureParams},
-        traits::{Generates, PlaysNotes, Resets, Ticks},
+        time::{Clock, ClockParams, SampleRate, TimeSignatureParams},
+        traits::{Configurable, Generates, PlaysNotes, Ticks},
         util::tests::TestOnlyPaths,
         Normal, ParameterType, Ratio, SampleType, StereoSample,
     };
     use groove_entities::instruments::WelshVoice;
 
     pub const DEFAULT_BPM: ParameterType = 128.0;
-    pub const DEFAULT_SAMPLE_RATE: usize = 44100;
     pub const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
 
     impl WelshPatchSettings {
@@ -814,7 +813,7 @@ mod tests {
     ) {
         let spec = hound::WavSpec {
             channels: 2,
-            sample_rate: clock.sample_rate() as u32,
+            sample_rate: clock.sample_rate().value() as u32,
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
@@ -952,8 +951,8 @@ mod tests {
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         let mut voice = boring_test_patch().derive_welsh_voice();
-        clock.reset(DEFAULT_SAMPLE_RATE);
-        voice.reset(DEFAULT_SAMPLE_RATE);
+        clock.update_sample_rate(SampleRate::DEFAULT);
+        voice.update_sample_rate(SampleRate::DEFAULT);
         voice.note_on(60, 127);
         voice.tick(1);
         write_sound(&mut voice, &mut clock, 5.0, 5.0, "voice_basic_test_c4");
@@ -967,8 +966,8 @@ mod tests {
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         let mut voice = cello_patch().derive_welsh_voice();
-        clock.reset(DEFAULT_SAMPLE_RATE);
-        voice.reset(DEFAULT_SAMPLE_RATE);
+        clock.update_sample_rate(SampleRate::DEFAULT);
+        voice.update_sample_rate(SampleRate::DEFAULT);
         voice.note_on(60, 127);
         voice.tick(1);
         write_sound(&mut voice, &mut clock, 5.0, 3.0, "voice_cello_c4");

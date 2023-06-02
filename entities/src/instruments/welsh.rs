@@ -6,9 +6,10 @@ use groove_core::{
     generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams},
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
+    time::SampleRate,
     traits::{
-        Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes,
-        Resets, Ticks, TransformsAudio,
+        Configurable, Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice,
+        PlaysNotes, Ticks, TransformsAudio,
     },
     voices::StealingVoiceStore,
     BipolarNormal, Dca, DcaParams, FrequencyHz, Normal, Sample, StereoSample,
@@ -124,15 +125,15 @@ impl Generates<StereoSample> for WelshVoice {
         todo!()
     }
 }
-impl Resets for WelshVoice {
-    fn reset(&mut self, sample_rate: usize) {
+impl Configurable for WelshVoice {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.ticks = 0;
-        self.lfo.reset(sample_rate);
-        self.amp_envelope.reset(sample_rate);
-        self.filter_envelope.reset(sample_rate);
-        self.filter.reset(sample_rate);
-        self.oscillator_1.reset(sample_rate);
-        self.oscillator_2.reset(sample_rate);
+        self.lfo.update_sample_rate(sample_rate);
+        self.amp_envelope.update_sample_rate(sample_rate);
+        self.filter_envelope.update_sample_rate(sample_rate);
+        self.filter.update_sample_rate(sample_rate);
+        self.oscillator_1.update_sample_rate(sample_rate);
+        self.oscillator_2.update_sample_rate(sample_rate);
     }
 }
 impl Ticks for WelshVoice {
@@ -343,9 +344,9 @@ impl Generates<StereoSample> for WelshSynth {
         self.inner_synth.batch_values(values);
     }
 }
-impl Resets for WelshSynth {
-    fn reset(&mut self, sample_rate: usize) {
-        self.inner_synth.reset(sample_rate);
+impl Configurable for WelshSynth {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.inner_synth.update_sample_rate(sample_rate);
     }
 }
 impl Ticks for WelshSynth {
@@ -568,7 +569,7 @@ mod tests {
 
         let spec = hound::WavSpec {
             channels: 2,
-            sample_rate: clock.sample_rate() as u32,
+            sample_rate: clock.sample_rate().value() as u32,
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };

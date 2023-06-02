@@ -7,7 +7,8 @@ use groove_core::{
     midi::{
         note_to_frequency, u7, GeneralMidiPercussionProgram, HandlesMidi, MidiChannel, MidiMessage,
     },
-    traits::{Generates, IsInstrument, Resets, Ticks},
+    time::SampleRate,
+    traits::{Configurable, Generates, IsInstrument, Ticks},
     voices::VoicePerNoteStore,
     StereoSample,
 };
@@ -25,7 +26,8 @@ pub struct Drumkit {
     name: String,
 
     uid: usize,
-    sample_rate: usize,
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
     paths: Paths,
     #[cfg_attr(feature = "serialization", serde(skip))]
@@ -41,9 +43,9 @@ impl Generates<StereoSample> for Drumkit {
         self.inner_synth.batch_values(values);
     }
 }
-impl Resets for Drumkit {
-    fn reset(&mut self, sample_rate: usize) {
-        self.inner_synth.reset(sample_rate);
+impl Configurable for Drumkit {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.inner_synth.update_sample_rate(sample_rate);
     }
 }
 impl Ticks for Drumkit {
@@ -134,7 +136,7 @@ impl Drumkit {
         }
     }
 
-    pub fn sample_rate(&self) -> usize {
+    pub fn sample_rate(&self) -> SampleRate {
         self.sample_rate
     }
 

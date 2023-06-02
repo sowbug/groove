@@ -6,8 +6,8 @@ use super::{sequencers::Sequencer, SequencerParams};
 use crate::EntityMessage;
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage},
-    time::{MusicalTime, PerfectTimeUnit},
-    traits::{Controls, IsController, Performs, Resets},
+    time::{MusicalTime, PerfectTimeUnit, SampleRate},
+    traits::{Configurable, Controls, IsController, Performs},
     ParameterType,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -40,9 +40,9 @@ pub struct Arpeggiator {
     note_semaphore: i16,
 }
 impl IsController for Arpeggiator {}
-impl Resets for Arpeggiator {
-    fn reset(&mut self, sample_rate: usize) {
-        self.sequencer.reset(sample_rate);
+impl Configurable for Arpeggiator {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.sequencer.update_sample_rate(sample_rate);
     }
 }
 impl Controls for Arpeggiator {

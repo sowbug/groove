@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    traits::{IsEffect, Resets, TransformsAudio},
+    traits::{Configurable, IsEffect, TransformsAudio},
     Sample, SampleType,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -32,7 +32,7 @@ impl TransformsAudio for Bitcrusher {
         (((input / self.c).floor() * self.c / I16_SCALE) * sign).into()
     }
 }
-impl Resets for Bitcrusher {}
+impl Configurable for Bitcrusher {}
 impl Bitcrusher {
     pub fn new_with(params: &BitcrusherParams) -> Self {
         let mut r = Self {

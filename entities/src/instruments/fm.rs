@@ -4,9 +4,10 @@ use groove_core::{
     generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams, Waveform},
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
+    time::SampleRate,
     traits::{
-        Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes,
-        Resets, Ticks,
+        Configurable, Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice,
+        PlaysNotes, Ticks,
     },
     voices::StealingVoiceStore,
     BipolarNormal, Dca, DcaParams, FrequencyHz, Normal, ParameterType, Ratio, Sample, StereoSample,
@@ -45,7 +46,7 @@ pub struct FmVoice {
     note_on_velocity: u8,
     steal_is_underway: bool,
 
-    sample_rate: usize,
+    sample_rate: SampleRate,
 }
 impl IsStereoSampleVoice for FmVoice {}
 impl IsVoice<StereoSample> for FmVoice {}
@@ -87,13 +88,13 @@ impl Generates<StereoSample> for FmVoice {
         todo!()
     }
 }
-impl Resets for FmVoice {
-    fn reset(&mut self, sample_rate: usize) {
+impl Configurable for FmVoice {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
-        self.carrier_envelope.reset(sample_rate);
-        self.modulator_envelope.reset(sample_rate);
-        self.carrier.reset(sample_rate);
-        self.modulator.reset(sample_rate);
+        self.carrier_envelope.update_sample_rate(sample_rate);
+        self.modulator_envelope.update_sample_rate(sample_rate);
+        self.carrier.update_sample_rate(sample_rate);
+        self.modulator.update_sample_rate(sample_rate);
     }
 }
 impl Ticks for FmVoice {
@@ -245,9 +246,9 @@ impl Generates<StereoSample> for FmSynth {
         self.inner_synth.batch_values(values);
     }
 }
-impl Resets for FmSynth {
-    fn reset(&mut self, sample_rate: usize) {
-        self.inner_synth.reset(sample_rate)
+impl Configurable for FmSynth {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.inner_synth.update_sample_rate(sample_rate)
     }
 }
 impl Ticks for FmSynth {

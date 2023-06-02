@@ -4,12 +4,10 @@
 
 use anyhow::Ok;
 use clap::Parser;
-use groove::{
-    app_version, {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
-};
+use groove::{app_version, DEFAULT_BPM};
 use groove_core::{
-    time::{ClockParams, TimeSignatureParams},
-    traits::Resets,
+    time::{ClockParams, SampleRate, TimeSignatureParams},
+    traits::Configurable,
     StereoSample, SAMPLE_BUFFER_SIZE,
 };
 use groove_orchestration::{helpers::IOHelper, Orchestrator};
@@ -113,8 +111,8 @@ fn main() -> anyhow::Result<()> {
         if !args.quiet {
             print!("Performing to queue ");
         }
-        orchestrator.reset(if args.wav {
-            DEFAULT_SAMPLE_RATE
+        orchestrator.update_sample_rate(if args.wav {
+            SampleRate::DEFAULT
         } else {
             IOHelper::get_output_device_sample_rate()
         });
@@ -130,12 +128,12 @@ fn main() -> anyhow::Result<()> {
             println!(
                 " Samples per msec: {:.2?} (goal >{:.2?})",
                 performance.worker.len() as f32 / start_instant.elapsed().as_millis() as f32,
-                performance.sample_rate as f32 / 1000.0
+                performance.sample_rate.value() as f32 / 1000.0
             );
             println!(
                 " usec per sample: {:.2?} (goal <{:.2?})",
                 start_instant.elapsed().as_micros() as f32 / performance.worker.len() as f32,
-                1000000.0 / performance.sample_rate as f32
+                1000000.0 / performance.sample_rate.value() as f32
             );
         }
         if !args.quiet {

@@ -4,7 +4,7 @@ pub use crate::midi::HandlesMidi;
 
 use crate::{
     midi::u7,
-    time::{MusicalTime, PerfectTimeUnit},
+    time::{MusicalTime, PerfectTimeUnit, SampleRate, Tempo},
     Normal, Sample, StereoSample,
 };
 use std::ops::Range;
@@ -34,7 +34,7 @@ pub trait IsController:
 /// output. It does not get called unless there is audio input to provide to it
 /// (which can include silence, e.g., in the case of a muted instrument).
 pub trait IsEffect:
-    TransformsAudio + Controllable + Resets + HasUid + Shows + Send + std::fmt::Debug
+    TransformsAudio + Controllable + Configurable + HasUid + Shows + Send + std::fmt::Debug
 {
 }
 
@@ -106,29 +106,18 @@ pub trait HasUid {
     fn name(&self) -> &'static str;
 }
 
-/// Something that Resets also either [Ticks] or [TicksWithMessages]. Since the
-/// Ticks family of traits don't get access to a global clock, they have to
-/// maintain internal clocks and trust that they'll be asked to tick exactly the
-/// same number of times as everyone else in the system. Resets::reset() ensures
-/// that everyone starts from the beginning at the same time, and that everyone
-/// agrees how long a tick lasts.
-///
-/// Sometimes we'll refer to a tick's "time slice" or "frame." These all mean
-/// the same thing.
-pub trait Resets {
-    /// The entity should reset its internal state.
-    ///
-    /// The system will call reset() when the global sample rate changes, and
-    /// whenever the global clock is reset. Since most entities that care about
-    /// sample rate need to know it during construction, the system *won't* call
-    /// reset() on entity construction; entities can require the sample rate as
-    /// part of their new() functions, and if desired call reset() within that
-    /// function.
+/// [Configurable] is interested in staying in sync with global configuration.
+pub trait Configurable {
+    /// The sample rate changed.
     #[allow(unused_variables)]
-    fn reset(&mut self, sample_rate: usize) {}
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {}
+
+    /// Tempo (beats per minute) changed.
+    #[allow(unused_variables)]
+    fn update_tempo(&mut self, tempo: Tempo) {}
 }
 
-pub trait Ticks: Resets + Send + std::fmt::Debug {
+pub trait Ticks: Configurable + Send + std::fmt::Debug {
     /// The entity should perform work for the current frame or frames. Under
     /// normal circumstances, successive tick()s represent successive frames.
     /// Exceptions include, for example, restarting a performance, which would
@@ -146,7 +135,7 @@ pub trait Ticks: Resets + Send + std::fmt::Debug {
     fn tick(&mut self, tick_count: usize);
 }
 
-pub trait Controls: Resets + Send + std::fmt::Debug {
+pub trait Controls: Configurable + Send + std::fmt::Debug {
     type Message;
 
     #[allow(unused_variables)]

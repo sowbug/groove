@@ -25,14 +25,13 @@ mod metrics;
 mod tests {
     use groove_core::ParameterType;
 
-    pub const DEFAULT_SAMPLE_RATE: usize = 44100;
     pub const DEFAULT_BPM: ParameterType = 128.0;
     pub const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
 
     mod params {
         use groove_core::{
             control::F32ControlValue,
-            traits::{Controllable, Resets},
+            traits::{Configurable, Controllable},
         };
         use groove_proc_macros::{Control, Params, Uid};
         use strum::EnumCount;
@@ -139,7 +138,7 @@ mod tests {
             #[params(leaf = true)]
             abnormal: Abnormal,
         }
-        impl Resets for Stuff {}
+        impl Configurable for Stuff {}
 
         impl Stuff {
             pub fn new(params: StuffParams) -> Self {
@@ -225,7 +224,7 @@ mod tests {
             #[control]
             stuff: Stuff,
         }
-        impl Resets for Misc {}
+        impl Configurable for Misc {}
         impl Misc {
             pub fn new(params: MiscParams) -> Self {
                 Self {

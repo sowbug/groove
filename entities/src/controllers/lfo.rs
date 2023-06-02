@@ -6,7 +6,7 @@ use groove_core::{
     generators::{Oscillator, OscillatorParams, Waveform},
     midi::HandlesMidi,
     time::{MusicalTime, SampleRate, Tempo},
-    traits::{Controls, Generates, IsController, Performs, Resets, Ticks},
+    traits::{Configurable, Controls, Generates, IsController, Performs, Ticks},
     FrequencyHz, Normal, ParameterType,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -48,9 +48,9 @@ pub struct LfoController {
     last_frame: usize,
 }
 impl IsController for LfoController {}
-impl Resets for LfoController {
-    fn reset(&mut self, sample_rate: usize) {
-        self.oscillator.reset(sample_rate);
+impl Configurable for LfoController {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.oscillator.update_sample_rate(sample_rate);
     }
 }
 impl Controls for LfoController {

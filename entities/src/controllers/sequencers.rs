@@ -4,8 +4,8 @@ use crate::EntityMessage;
 use btreemultimap::BTreeMultiMap;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage, MidiNoteMinder},
-    time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, TimeSignatureParams},
-    traits::{Controls, IsController, Performs, Resets},
+    time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, TimeSignatureParams},
+    traits::{Configurable, Controls, IsController, Performs},
     ParameterType,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -221,9 +221,9 @@ impl Sequencer {
         self.bpm = bpm;
     }
 }
-impl Resets for Sequencer {
-    fn reset(&mut self, sample_rate: usize) {
-        self.temp_hack_clock.reset(sample_rate);
+impl Configurable for Sequencer {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.temp_hack_clock.update_sample_rate(sample_rate);
 
         // TODO: how can we make sure this stays in sync with the clock when the
         // clock is changed?
@@ -444,8 +444,8 @@ mod tired {
             self.midi_ticks_per_second = midi_ticks_per_second;
         }
     }
-    impl Resets for MidiTickSequencer {
-        fn reset(&mut self, sample_rate: usize) {
+    impl Configurable for MidiTickSequencer {
+        fn reset(&mut self, sample_rate: SampleRate) {
             self.temp_hack_clock.set_sample_rate(sample_rate);
             self.temp_hack_clock.reset(sample_rate);
 
@@ -583,16 +583,12 @@ mod tired {
 mod tests {
     #[cfg(tired)]
     use super::{MidiTickEventsMap, MidiTickSequencer};
-    use crate::{
-        messages::EntityMessage,
-        tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
-    };
+    use crate::tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND};
     #[cfg(tired)]
     use groove_core::time::MidiTicks;
     use groove_core::{
         midi::MidiChannel,
         time::{Clock, ClockParams, TimeSignatureParams},
-        traits::{IsController, Ticks},
     };
 
     #[cfg(tired)]
@@ -640,6 +636,7 @@ mod tests {
     //     }
     // }
 
+    #[allow(unused_variables)]
     #[test]
     fn sequencer_mainline() {
         const DEVICE_MIDI_CHANNEL: MidiChannel = 7;

@@ -2,11 +2,25 @@
 
 use crate::{
     midi::u7,
-    traits::{Generates, IsStereoSampleVoice, Resets, StoresVoices, Ticks},
+    time::SampleRate,
+    traits::{Configurable, Generates, IsStereoSampleVoice, StoresVoices, Ticks},
     StereoSample,
 };
 use anyhow::{anyhow, Result};
+use derive_more::{Add, Display, From, Into};
 use rustc_hash::FxHashMap;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, From, Into, Add, Display)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(serde::Serialize, serde::Deserialize)
+)]
+pub struct VoiceCount(usize);
+impl Default for VoiceCount {
+    fn default() -> Self {
+        Self(8)
+    }
+}
 
 /// A [StoresVoices](crate::traits::StoresVoices) that fails when too many
 /// voices are used simultaneously.
@@ -62,9 +76,11 @@ impl<V: IsStereoSampleVoice> Generates<StereoSample> for VoiceStore<V> {
         todo!()
     }
 }
-impl<V: IsStereoSampleVoice> Resets for VoiceStore<V> {
-    fn reset(&mut self, sample_rate: usize) {
-        self.voices.iter_mut().for_each(|v| v.reset(sample_rate));
+impl<V: IsStereoSampleVoice> Configurable for VoiceStore<V> {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.voices
+            .iter_mut()
+            .for_each(|v| v.update_sample_rate(sample_rate));
     }
 }
 impl<V: IsStereoSampleVoice> Ticks for VoiceStore<V> {
@@ -93,12 +109,12 @@ impl<V: IsStereoSampleVoice> VoiceStore<V> {
         self.notes_playing.push(u7::from(0));
     }
 
-    pub fn new_with_voice<F>(voice_capacity: usize, new_voice_fn: F) -> Self
+    pub fn new_with_voice<F>(voice_capacity: VoiceCount, new_voice_fn: F) -> Self
     where
         F: Fn() -> V,
     {
         let mut voice_store = Self::new();
-        for _ in 0..voice_capacity {
+        for _ in 0..voice_capacity.0 {
             voice_store.add_voice(Box::new(new_voice_fn()));
         }
         voice_store
@@ -165,9 +181,11 @@ impl<V: IsStereoSampleVoice> Generates<StereoSample> for StealingVoiceStore<V> {
         todo!()
     }
 }
-impl<V: IsStereoSampleVoice> Resets for StealingVoiceStore<V> {
-    fn reset(&mut self, sample_rate: usize) {
-        self.voices.iter_mut().for_each(|v| v.reset(sample_rate));
+impl<V: IsStereoSampleVoice> Configurable for StealingVoiceStore<V> {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.voices
+            .iter_mut()
+            .for_each(|v| v.update_sample_rate(sample_rate));
     }
 }
 impl<V: IsStereoSampleVoice> Ticks for StealingVoiceStore<V> {
@@ -255,9 +273,11 @@ impl<V: IsStereoSampleVoice> Generates<StereoSample> for VoicePerNoteStore<V> {
         todo!()
     }
 }
-impl<V: IsStereoSampleVoice> Resets for VoicePerNoteStore<V> {
-    fn reset(&mut self, sample_rate: usize) {
-        self.voices.values_mut().for_each(|v| v.reset(sample_rate));
+impl<V: IsStereoSampleVoice> Configurable for VoicePerNoteStore<V> {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.voices
+            .values_mut()
+            .for_each(|v| v.update_sample_rate(sample_rate));
     }
 }
 impl<V: IsStereoSampleVoice> Ticks for VoicePerNoteStore<V> {
@@ -292,8 +312,12 @@ pub(crate) mod tests {
     use crate::{
         generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams, Waveform},
         midi::{note_to_frequency, u7},
+        time::SampleRate,
         traits::{GeneratesEnvelope, IsVoice, PlaysNotes, StoresVoices, Ticks},
-        voices::{Generates, IsStereoSampleVoice, Resets, StealingVoiceStore, VoiceStore},
+        voices::{
+            Configurable, Generates, IsStereoSampleVoice, StealingVoiceStore, VoiceCount,
+            VoiceStore,
+        },
         FrequencyHz, ParameterType, StereoSample,
     };
     use float_cmp::approx_eq;
@@ -301,7 +325,7 @@ pub(crate) mod tests {
 
     #[derive(Debug)]
     pub struct TestVoice {
-        sample_rate: usize,
+        sample_rate: SampleRate,
         oscillator: Oscillator,
         envelope: Envelope,
 
@@ -349,11 +373,11 @@ pub(crate) mod tests {
             }
         }
     }
-    impl Resets for TestVoice {
-        fn reset(&mut self, sample_rate: usize) {
+    impl Configurable for TestVoice {
+        fn update_sample_rate(&mut self, sample_rate: SampleRate) {
             self.sample_rate = sample_rate;
-            self.oscillator.reset(sample_rate);
-            self.envelope.reset(sample_rate);
+            self.oscillator.update_sample_rate(sample_rate);
+            self.envelope.update_sample_rate(sample_rate);
         }
     }
     impl Ticks for TestVoice {
@@ -407,7 +431,8 @@ pub(crate) mod tests {
 
     #[test]
     fn simple_voice_store_mainline() {
-        let mut voice_store = VoiceStore::<TestVoice>::new_with_voice(2, || TestVoice::new());
+        let mut voice_store =
+            VoiceStore::<TestVoice>::new_with_voice(VoiceCount(2), || TestVoice::new());
         assert_gt!(!voice_store.voice_count(), 0);
         assert_eq!(voice_store.active_voice_count(), 0);
 
@@ -476,7 +501,8 @@ pub(crate) mod tests {
 
     #[test]
     fn voice_store_simultaneous_events() {
-        let mut voice_store = VoiceStore::<TestVoice>::new_with_voice(2, || TestVoice::new());
+        let mut voice_store =
+            VoiceStore::<TestVoice>::new_with_voice(VoiceCount(2), || TestVoice::new());
         assert_gt!(voice_store.voice_count(), 0);
         assert_eq!(voice_store.active_voice_count(), 0);
 

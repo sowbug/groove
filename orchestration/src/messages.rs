@@ -6,6 +6,7 @@
 use crate::entities::OtherEntityMessage;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
+    time::SampleRate,
     traits::MessageBounds,
 };
 use groove_entities::EntityMessage;
@@ -42,7 +43,7 @@ pub enum GrooveInput {
     SkipToStart,
 
     /// Someone has requested this sample rate.
-    SetSampleRate(usize),
+    SetSampleRate(SampleRate),
 }
 impl MessageBounds for GrooveInput {}
 

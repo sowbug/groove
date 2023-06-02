@@ -105,7 +105,7 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
                 #( Entity::#structs(e) => e.as_mut(), )*
                 }
             }
-            pub fn as_resets_mut(&mut self) -> &mut dyn #core_crate::traits::Resets {
+            pub fn as_configurable_mut(&mut self) -> &mut dyn #core_crate::traits::Configurable {
                 match self {
                 #( Entity::#structs(e) => e.as_mut(), )*
                 }

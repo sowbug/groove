@@ -12,14 +12,16 @@ use groove::egui_widgets::{
 };
 use groove_audio::AudioQueue;
 use groove_core::{
-    generators::{EnvelopeParams, Waveform},
     midi::{MidiChannel, MidiMessage},
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
-    traits::{gui::Shows, Generates, IsController, IsEffect, IsInstrument, Resets, Ticks},
+    traits::{gui::Shows, Configurable, Generates, IsController, IsEffect, IsInstrument, Ticks},
     StereoSample,
 };
-use groove_entities::{instruments::WelshSynth, EntityMessage};
-use groove_toys::{ToyInstrument, ToySynth, ToySynthParams};
+use groove_entities::{
+    instruments::{WelshSynth, WelshSynthParams},
+    EntityMessage,
+};
+use groove_toys::{ToyInstrument, ToyInstrumentParams, ToySynth, ToySynthParams};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -95,13 +97,15 @@ impl<T> Default for ChannelPair<T> {
 }
 
 struct OrchestratorPanel {
+    factory: Arc<EntityFactory>,
     orchestrator: Arc<Mutex<MiniOrchestrator>>,
     input_channel_pair: ChannelPair<MiniOrchestratorInput>,
     event_channel_pair: ChannelPair<MiniOrchestratorEvent>,
 }
-impl Default for OrchestratorPanel {
-    fn default() -> Self {
+impl OrchestratorPanel {
+    fn new_with(factory: Arc<EntityFactory>) -> Self {
         let mut r = Self {
+            factory,
             orchestrator: Default::default(),
             input_channel_pair: Default::default(),
             event_channel_pair: Default::default(),
@@ -109,8 +113,6 @@ impl Default for OrchestratorPanel {
         r.start_thread();
         r
     }
-}
-impl OrchestratorPanel {
     fn start_thread(&mut self) {
         let receiver = self.input_channel_pair.receiver.clone();
         let sender = self.event_channel_pair.sender.clone();
@@ -267,7 +269,7 @@ struct MiniOrchestrator {
 }
 impl Default for MiniOrchestrator {
     fn default() -> Self {
-        let mut r = Self {
+        Self {
             time_signature: Default::default(),
             tempo: Default::default(),
             next_id: Id(1),
@@ -278,17 +280,7 @@ impl Default for MiniOrchestrator {
             sample_rate: Default::default(),
             frames: Default::default(),
             musical_time: Default::default(),
-        };
-
-        if r.instruments.is_empty() {
-            let _id = r.add_instrument(Box::new(ToySynth::new_with(&ToySynthParams {
-                voice_count: 3,
-                waveform: Waveform::Sine,
-                envelope: EnvelopeParams::safe_default(),
-            })));
         }
-
-        r
     }
 }
 impl MiniOrchestrator {
@@ -300,7 +292,7 @@ impl MiniOrchestrator {
     fn set_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
         for i in self.instruments.values_mut() {
-            i.reset(sample_rate.value());
+            i.update_sample_rate(sample_rate);
         }
     }
 
@@ -352,7 +344,7 @@ impl MiniOrchestrator {
     }
 
     fn add_instrument(&mut self, mut instrument: Box<dyn NewIsInstrument>) -> Id {
-        instrument.reset(self.sample_rate.value());
+        instrument.update_sample_rate(self.sample_rate);
         let id = self.next_id();
         self.instruments.insert(id, instrument);
         id
@@ -384,7 +376,7 @@ impl Ticks for MiniOrchestrator {
         panic!()
     }
 }
-impl Resets for MiniOrchestrator {}
+impl Configurable for MiniOrchestrator {}
 impl Shows for MiniOrchestrator {
     fn show(&mut self, ui: &mut egui::Ui) {
         ui.label(format!(
@@ -399,17 +391,63 @@ impl Shows for MiniOrchestrator {
     }
 }
 
+type InstrumentEntityFactoryFn = fn() -> Box<dyn NewIsInstrument>;
+#[derive(Debug, Default)]
+struct EntityFactory {
+    instruments: HashMap<String, InstrumentEntityFactoryFn>,
+}
+impl EntityFactory {
+    pub fn register_instrument(&mut self, name: &str, f: InstrumentEntityFactoryFn) {
+        self.instruments.insert(name.to_string(), f);
+    }
+    pub fn new_instrument(&self, name: &str) -> Option<Box<dyn NewIsInstrument>> {
+        if let Some(f) = self.instruments.get(name) {
+            Some(f())
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
+struct PalettePanel {
+    factory: Arc<EntityFactory>,
+}
+impl Shows for PalettePanel {
+    fn show(&mut self, ui: &mut egui::Ui) {
+        todo!()
+    }
+}
+impl PalettePanel {
+    pub fn new_with(factory: Arc<EntityFactory>) -> Self {
+        Self { factory }
+    }
+}
+
 struct MiniDaw {
     mini_orchestrator: Arc<Mutex<MiniOrchestrator>>,
+    factory: Arc<EntityFactory>,
+
     orchestrator_panel: OrchestratorPanel,
     control_panel: ControlPanel,
     audio_panel: AudioPanel2,
     midi_panel: MidiPanel,
+    palette_panel: PalettePanel,
 }
 impl MiniDaw {
     pub fn new(cc: &CreationContext) -> Self {
-        let orchestrator_panel = OrchestratorPanel::default();
+        let mut factory = EntityFactory::default();
+        Self::register_entities(&mut factory);
+        let factory = Arc::new(factory);
+
+        let orchestrator_panel = OrchestratorPanel::new_with(Arc::clone(&factory));
         let mini_orchestrator = Arc::clone(orchestrator_panel.orchestrator());
+
+        if let Ok(mut o) = mini_orchestrator.lock() {
+            if o.instruments.is_empty() {
+                o.add_instrument(factory.new_instrument("toy-synth").unwrap());
+            }
+        }
 
         let mini_orchestrator_for_fn = Arc::clone(&mini_orchestrator);
         let needs_audio: NeedsAudioFn = Box::new(move |audio_queue, samples_requested| {
@@ -420,10 +458,13 @@ impl MiniDaw {
 
         let mut r = Self {
             mini_orchestrator,
+            factory: Arc::clone(&factory),
             orchestrator_panel,
             control_panel: Default::default(),
             audio_panel: AudioPanel2::new_with(Box::new(needs_audio)),
             midi_panel: Default::default(),
+
+            palette_panel: PalettePanel { factory },
         };
         r.spawn_channel_watcher(cc.egui_ctx.clone());
         r
@@ -541,6 +582,21 @@ impl MiniDaw {
                 .orchestrator_panel
                 .send_to_service(MiniOrchestratorInput::Save(path)),
         }
+    }
+
+    fn register_entities(factory: &mut EntityFactory) {
+        // TODO: might be nice to move HasUid::name() to be a function... and
+        // while we're at it, I guess make the mondo IsEntity trait that allows
+        // discovery of IsInstrument/Effect/Controller.
+        factory.register_instrument("toy-synth", || {
+            Box::new(ToySynth::new_with(&ToySynthParams::default()))
+        });
+        factory.register_instrument("toy-instrument", || {
+            Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default()))
+        });
+        factory.register_instrument("welsh-synth", || {
+            Box::new(WelshSynth::new_with(&WelshSynthParams::default()))
+        });
     }
 }
 impl eframe::App for MiniDaw {

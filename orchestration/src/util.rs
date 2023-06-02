@@ -24,15 +24,15 @@ pub(crate) fn transform_linear_to_mma_convex(linear_value: f64) -> f64 {
 pub mod tests {
     use crate::{
         entities::Entity,
-        tests::{DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
+        tests::DEFAULT_MIDI_TICKS_PER_SECOND,
         util::{transform_linear_to_mma_concave, transform_linear_to_mma_convex},
         Orchestrator,
     };
     use groove_core::{
         generators::Waveform,
         midi::MidiChannel,
-        time::{ClockParams, MusicalTime, MusicalTimeParams, TimeSignatureParams},
-        traits::Resets,
+        time::{ClockParams, MusicalTime, MusicalTimeParams, SampleRate, TimeSignatureParams},
+        traits::Configurable,
         DcaParams, FrequencyHz, Normal, StereoSample, SAMPLE_BUFFER_SIZE,
     };
     use groove_entities::controllers::{
@@ -53,7 +53,7 @@ pub mod tests {
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
-        o.reset(DEFAULT_SAMPLE_RATE);
+        o.update_sample_rate(SampleRate::DEFAULT);
 
         // A simple audio source.
         let synth_uid = o.add(Entity::DebugSynth(Box::new(DebugSynth::new())));
@@ -68,7 +68,6 @@ pub mod tests {
         let _ = o.connect_to_main_mixer(effect_uid);
 
         // Run the main loop for a while.
-        const SECONDS: usize = 1;
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             duration: MusicalTimeParams {
                 units: MusicalTime::beats_to_units(4),
@@ -106,7 +105,7 @@ pub mod tests {
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
-        o.reset(DEFAULT_SAMPLE_RATE);
+        o.update_sample_rate(SampleRate::DEFAULT);
 
         // The synth's frequency is modulated by the LFO.
         let synth_1_uid = o.add(Entity::DebugSynth(Box::new(DebugSynth::new())));
@@ -120,7 +119,6 @@ pub mod tests {
         // We'll hear the synth's audio output.
         let _ = o.connect_to_main_mixer(synth_1_uid);
 
-        const SECONDS: usize = 1;
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             duration: MusicalTimeParams {
                 units: MusicalTime::beats_to_units(4),
@@ -156,7 +154,7 @@ pub mod tests {
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
-        o.reset(DEFAULT_SAMPLE_RATE);
+        o.update_sample_rate(SampleRate::DEFAULT);
 
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
         let instrument_uid = o.add(Entity::ToyInstrument(Box::new(ToyInstrument::new_with(
@@ -181,7 +179,6 @@ pub mod tests {
         o.connect_midi_downstream(instrument_uid, TEST_MIDI_CHANNEL);
         o.connect_midi_downstream(arpeggiator_uid, ARP_MIDI_CHANNEL);
 
-        const SECONDS: usize = 1;
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             duration: MusicalTimeParams {
                 units: MusicalTime::beats_to_units(4),
@@ -210,8 +207,8 @@ pub mod tests {
 
         // Let's turn on the arpeggiator.
         o.debug_send_midi_note(ARP_MIDI_CHANNEL, true);
-        o.reset(DEFAULT_SAMPLE_RATE);
-        if let Ok(samples) = o.run(&mut sample_buffer) {
+        o.update_sample_rate(SampleRate::DEFAULT);
+        if let Ok(_samples) = o.run(&mut sample_buffer) {
             // TODO #tired
             // assert!(
             //     samples.iter().any(|&s| s != StereoSample::SILENCE),
@@ -233,13 +230,13 @@ pub mod tests {
         // It's actually immaterial to this test whether this has any sound in
         // it. We're just giving the arpeggiator a bit of time to clear out any
         // leftover note.
-        o.reset(DEFAULT_SAMPLE_RATE);
+        o.update_sample_rate(SampleRate::DEFAULT);
         if o.run(&mut sample_buffer).is_err() {
             panic!("impossible!");
         }
 
         // But by now it should be silent.
-        o.reset(DEFAULT_SAMPLE_RATE);
+        o.update_sample_rate(SampleRate::DEFAULT);
         if let Ok(samples) = o.run(&mut sample_buffer) {
             assert!(
                 samples.iter().all(|&s| s == StereoSample::SILENCE),
@@ -253,7 +250,7 @@ pub mod tests {
         // connection.
         o.debug_send_midi_note(ARP_MIDI_CHANNEL, true);
         o.disconnect_midi_downstream(instrument_uid, TEST_MIDI_CHANNEL);
-        o.reset(DEFAULT_SAMPLE_RATE);
+        o.update_sample_rate(SampleRate::DEFAULT);
         if let Ok(samples) = o.run(&mut sample_buffer) {
             assert!(
                 samples.iter().all(|&s| s == StereoSample::SILENCE),
@@ -271,7 +268,7 @@ pub mod tests {
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
-        o.reset(DEFAULT_SAMPLE_RATE);
+        o.update_sample_rate(SampleRate::DEFAULT);
 
         // A simple audio source.
         let entity_groove = Entity::DebugSynth(Box::new(DebugSynth::new()));
@@ -287,7 +284,6 @@ pub mod tests {
         let _ = o.connect_to_main_mixer(effect_uid);
 
         // Run the main loop for a while.
-        const SECONDS: usize = 1;
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             duration: MusicalTimeParams {
                 units: MusicalTime::beats_to_units(4),

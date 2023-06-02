@@ -2,7 +2,8 @@
 
 use crate::{
     midi::{HandlesMidi, MidiChannel, MidiMessage},
-    traits::{Generates, IsStereoSampleVoice, Resets, StoresVoices, Ticks},
+    time::SampleRate,
+    traits::{Configurable, Generates, IsStereoSampleVoice, StoresVoices, Ticks},
     BipolarNormal, Normal, StereoSample,
 };
 
@@ -17,7 +18,7 @@ use crate::{
 /// other projects without needing all the other crates.
 #[derive(Debug, Default)]
 pub struct Synthesizer<V: IsStereoSampleVoice> {
-    sample_rate: usize,
+    sample_rate: SampleRate,
 
     voice_store: Option<Box<dyn StoresVoices<Voice = V>>>,
 
@@ -50,11 +51,11 @@ impl<V: IsStereoSampleVoice> Generates<StereoSample> for Synthesizer<V> {
         }
     }
 }
-impl<V: IsStereoSampleVoice> Resets for Synthesizer<V> {
-    fn reset(&mut self, sample_rate: usize) {
+impl<V: IsStereoSampleVoice> Configurable for Synthesizer<V> {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
         if let Some(vs) = self.voice_store.as_mut() {
-            vs.reset(sample_rate);
+            vs.update_sample_rate(sample_rate);
         }
     }
 }
@@ -120,13 +121,13 @@ impl<V: IsStereoSampleVoice> Synthesizer<V> {
         self.pan = pan;
     }
 
-    pub fn sample_rate(&self) -> usize {
+    pub fn sample_rate(&self) -> SampleRate {
         self.sample_rate
     }
 
     pub fn is_midi_recently_active(&self) -> bool {
         // Last quarter-second
-        self.ticks_since_last_midi_input < self.sample_rate() / 4
+        self.ticks_since_last_midi_input < self.sample_rate().value() / 4
     }
 }
 impl<V: IsStereoSampleVoice> HandlesMidi for Synthesizer<V> {
@@ -172,8 +173,9 @@ mod tests {
     use crate::{
         instruments::Synthesizer,
         midi::{new_note_on, HandlesMidi, MidiChannel, MidiMessage},
-        traits::{Generates, Resets, Ticks},
-        voices::{tests::TestVoice, VoiceStore},
+        time::SampleRate,
+        traits::{Configurable, Generates, Ticks},
+        voices::{tests::TestVoice, VoiceCount, VoiceStore},
         StereoSample,
     };
 
@@ -198,9 +200,9 @@ mod tests {
             self.inner_synth.batch_values(values)
         }
     }
-    impl Resets for TestSynthesizer {
-        fn reset(&mut self, sample_rate: usize) {
-            self.inner_synth.reset(sample_rate);
+    impl Configurable for TestSynthesizer {
+        fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+            self.inner_synth.update_sample_rate(sample_rate);
         }
     }
     impl Ticks for TestSynthesizer {
@@ -212,7 +214,9 @@ mod tests {
         fn default() -> Self {
             Self {
                 inner_synth: Synthesizer::<TestVoice>::new_with(Box::new(
-                    VoiceStore::<TestVoice>::new_with_voice(4, || TestVoice::new()),
+                    VoiceStore::<TestVoice>::new_with_voice(VoiceCount::from(4), || {
+                        TestVoice::new()
+                    }),
                 )),
             }
         }

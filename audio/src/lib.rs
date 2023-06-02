@@ -8,7 +8,7 @@ use cpal::{
 };
 use crossbeam::queue::ArrayQueue;
 use crossbeam_channel::{unbounded, Receiver, Sender};
-use groove_core::StereoSample;
+use groove_core::{time::SampleRate, StereoSample};
 use std::{fmt::Debug, result::Result::Ok, sync::Arc, thread::JoinHandle, time::Instant};
 
 pub enum AudioInterfaceInput {
@@ -23,7 +23,7 @@ pub enum AudioInterfaceInput {
 #[derive(Clone, Debug)]
 pub enum AudioInterfaceEvent {
     /// Sample rate, channel count, queue for pushing audio samples
-    Reset(usize, u16, AudioQueue),
+    Reset(SampleRate, u16, AudioQueue),
 
     /// A timestamp for measuring latency, and the number of samples requested
     /// by the audio interface
@@ -159,9 +159,9 @@ impl AudioStream {
     }
 
     /// Returns the sample rate of the current audio stream.
-    pub fn sample_rate(&self) -> usize {
+    pub fn sample_rate(&self) -> SampleRate {
         let config: &cpal::StreamConfig = &self.config.clone().into();
-        config.sample_rate.0 as usize
+        SampleRate::new(config.sample_rate.0 as usize)
     }
 
     /// Returns the channel count of the current audio stream.

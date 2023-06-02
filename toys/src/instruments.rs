@@ -4,12 +4,12 @@ use groove_core::{
     generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams, Waveform},
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
-    time::ClockTimeUnit,
+    time::{ClockTimeUnit, SampleRate},
     traits::{
-        Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes,
-        Resets, Ticks,
+        Configurable, Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice,
+        PlaysNotes, Ticks,
     },
-    voices::VoiceStore,
+    voices::{VoiceCount, VoiceStore},
     BipolarNormal, Dca, DcaParams, Normal, ParameterType, Sample, SampleType, StereoSample,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -70,9 +70,9 @@ impl Generates<StereoSample> for ToyInstrument {
         todo!()
     }
 }
-impl Resets for ToyInstrument {
-    fn reset(&mut self, sample_rate: usize) {
-        self.oscillator.reset(sample_rate);
+impl Configurable for ToyInstrument {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.oscillator.update_sample_rate(sample_rate);
     }
 }
 impl Ticks for ToyInstrument {
@@ -228,7 +228,8 @@ pub struct DebugSynth {
     #[params]
     fake_value: Normal,
 
-    sample_rate: usize,
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
     sample: StereoSample,
 
@@ -248,10 +249,10 @@ impl Generates<StereoSample> for DebugSynth {
         todo!()
     }
 }
-impl Resets for DebugSynth {
-    fn reset(&mut self, sample_rate: usize) {
+impl Configurable for DebugSynth {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
-        self.oscillator.reset(sample_rate);
+        self.oscillator.update_sample_rate(sample_rate);
     }
 }
 impl Ticks for DebugSynth {
@@ -336,9 +337,8 @@ impl DebugSynth {
 pub struct ToySynth {
     uid: usize,
 
-    #[control]
     #[params]
-    voice_count: usize,
+    voice_count: VoiceCount,
 
     #[control]
     #[params]
@@ -374,9 +374,9 @@ impl Ticks for ToySynth {
         self.inner.tick(tick_count)
     }
 }
-impl Resets for ToySynth {
-    fn reset(&mut self, sample_rate: usize) {
-        self.inner.reset(sample_rate)
+impl Configurable for ToySynth {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.inner.update_sample_rate(sample_rate)
     }
 }
 impl ToySynth {
@@ -401,11 +401,11 @@ impl ToySynth {
         }
     }
 
-    pub fn voice_count(&self) -> usize {
+    pub fn voice_count(&self) -> VoiceCount {
         self.voice_count
     }
 
-    pub fn set_voice_count(&mut self, voice_count: usize) {
+    pub fn set_voice_count(&mut self, voice_count: VoiceCount) {
         self.voice_count = voice_count;
     }
 
@@ -470,10 +470,10 @@ impl Ticks for ToyVoice {
             StereoSample::from(self.oscillator.value().value() * self.envelope.value().value());
     }
 }
-impl Resets for ToyVoice {
-    fn reset(&mut self, sample_rate: usize) {
-        self.oscillator.reset(sample_rate);
-        self.envelope.reset(sample_rate);
+impl Configurable for ToyVoice {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.oscillator.update_sample_rate(sample_rate);
+        self.envelope.update_sample_rate(sample_rate);
     }
 }
 impl ToyVoice {
@@ -510,8 +510,8 @@ impl Generates<StereoSample> for ToyAudioSource {
         todo!()
     }
 }
-impl Resets for ToyAudioSource {
-    fn reset(&mut self, _sample_rate: usize) {}
+impl Configurable for ToyAudioSource {
+    fn update_sample_rate(&mut self, _sample_rate: SampleRate) {}
 }
 impl Ticks for ToyAudioSource {
     fn tick(&mut self, _tick_count: usize) {}

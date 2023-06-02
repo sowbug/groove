@@ -9,7 +9,7 @@ use cpal::{
     traits::{DeviceTrait, HostTrait},
     SupportedStreamConfig,
 };
-use groove_core::SampleType;
+use groove_core::{time::SampleRate, SampleType};
 use std::path::PathBuf;
 
 pub struct IOHelper {}
@@ -30,10 +30,12 @@ impl IOHelper {
         }
     }
 
-    pub fn get_output_device_sample_rate() -> usize {
-        Self::default_output_config(&Self::default_output_device())
-            .sample_rate()
-            .0 as usize
+    pub fn get_output_device_sample_rate() -> SampleRate {
+        SampleRate::new(
+            Self::default_output_config(&Self::default_output_device())
+                .sample_rate()
+                .0 as usize,
+        )
     }
 
     #[allow(unused_variables)]
@@ -79,7 +81,7 @@ impl IOHelper {
         const AMPLITUDE: SampleType = i16::MAX as SampleType;
         let spec = hound::WavSpec {
             channels: 2,
-            sample_rate: performance.sample_rate as u32,
+            sample_rate: performance.sample_rate.value() as u32,
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };

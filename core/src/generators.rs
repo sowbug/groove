@@ -2,8 +2,8 @@
 
 use crate::{
     control::F32ControlValue,
-    time::{Clock, ClockTimeUnit, TimeUnit},
-    traits::{Generates, GeneratesEnvelope, Resets, Ticks},
+    time::{Clock, ClockTimeUnit, SampleRate, TimeUnit},
+    traits::{Configurable, Generates, GeneratesEnvelope, Ticks},
     BipolarNormal, FrequencyHz, Normal, ParameterType, Ratio, SignalType,
 };
 use groove_proc_macros::{Control, Params};
@@ -130,7 +130,7 @@ pub struct Oscillator {
 
     /// An internal copy of the current sample rate.
     #[cfg_attr(feature = "serialization", serde(skip))]
-    sample_rate: usize,
+    sample_rate: SampleRate,
 
     /// The internal clock. Advances once per tick().
     ///
@@ -201,8 +201,8 @@ impl Generates<BipolarNormal> for Oscillator {
         todo!()
     }
 }
-impl Resets for Oscillator {
-    fn reset(&mut self, sample_rate: usize) {
+impl Configurable for Oscillator {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
         self.is_reset_pending = true;
     }
@@ -306,7 +306,8 @@ impl Oscillator {
 
     fn update_delta(&mut self) {
         if self.delta_needs_update {
-            self.delta = (self.adjusted_frequency() / FrequencyHz::from(self.sample_rate)).0;
+            self.delta =
+                (self.adjusted_frequency() / FrequencyHz::from(self.sample_rate.value())).0;
 
             // This resets the accumulated error.
             self.cycle_position = KahanSum::new_with_value(self.cycle_position.sum());
@@ -417,7 +418,7 @@ impl Oscillator {
         self.frequency_tune = frequency_tune;
     }
 
-    pub fn sample_rate(&self) -> usize {
+    pub fn sample_rate(&self) -> SampleRate {
         self.sample_rate
     }
 
@@ -484,7 +485,7 @@ pub struct Envelope {
     release: ParameterType,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
-    sample_rate: f64,
+    sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
     state: State,
     #[cfg_attr(feature = "serialization", serde(skip))]
@@ -558,9 +559,9 @@ impl Generates<Normal> for Envelope {
         }
     }
 }
-impl Resets for Envelope {
-    fn reset(&mut self, sample_rate: usize) {
-        self.sample_rate = sample_rate as f64;
+impl Configurable for Envelope {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.sample_rate = sample_rate;
         self.was_reset = true;
     }
 }
@@ -576,7 +577,7 @@ impl Ticks for Envelope {
                 self.ticks += 1;
                 self.update_amplitude();
             }
-            self.time = TimeUnit(self.ticks as f64 / self.sample_rate);
+            self.time = TimeUnit(self.ticks as f64 / self.sample_rate.value() as f64);
 
             self.handle_state();
 
@@ -769,7 +770,7 @@ impl Envelope {
             };
             self.time_target = self.time + duration;
             self.delta = if duration != TimeUnit::zero() {
-                range / (duration.0 * self.sample_rate + fast_reaction_extra_frame)
+                range / (duration.0 * self.sample_rate.value() as f64 + fast_reaction_extra_frame)
             } else {
                 0.0
             };
@@ -1230,15 +1231,13 @@ pub mod tests {
     use crate::{
         midi::{note_type_to_frequency, MidiNote},
         time::Clock,
-        traits::{tests::DebugTicks, Generates, GeneratesEnvelope, Resets, Ticks},
+        traits::{tests::DebugTicks, Configurable, Generates, GeneratesEnvelope, Ticks},
         util::tests::TestOnlyPaths,
         Normal, ParameterType, Sample, SampleType, SAMPLE_BUFFER_SIZE,
     };
     use float_cmp::approx_eq;
     use more_asserts::{assert_gt, assert_lt};
     use std::path::PathBuf;
-
-    const DEFAULT_SAMPLE_RATE: usize = 44100;
 
     impl DebugTicks for Oscillator {
         fn debug_tick_until(&mut self, tick_number: usize) {
@@ -1276,19 +1275,19 @@ pub mod tests {
     // 1.0, which means that every value is either 1.0 or -1.0.
     #[test]
     fn square_wave_is_correct_amplitude() {
-        const SAMPLE_RATE: usize = 63949; // Prime number
+        const SAMPLE_RATE: SampleRate = SampleRate::new(63949); // Prime number
         const FREQUENCY: FrequencyHz = FrequencyHz(499.0);
         let mut oscillator = Oscillator::new_with(&OscillatorParams {
             waveform: Waveform::Square,
             frequency: FREQUENCY,
             ..Default::default()
         });
-        oscillator.reset(SAMPLE_RATE);
+        oscillator.update_sample_rate(SAMPLE_RATE);
 
         // Below Nyquist limit
-        assert_lt!(FREQUENCY, FrequencyHz((SAMPLE_RATE / 2) as f64));
+        assert_lt!(FREQUENCY, FrequencyHz((SAMPLE_RATE.value() / 2) as f64));
 
-        for _ in 0..SAMPLE_RATE {
+        for _ in 0..SAMPLE_RATE.value() {
             oscillator.tick(1);
             let f = oscillator.value().value();
             assert_eq!(f, f.signum());
@@ -1299,20 +1298,20 @@ pub mod tests {
     fn square_wave_frequency_is_accurate() {
         // For this test, we want the sample rate and frequency to be nice even
         // numbers so that we don't have to deal with edge cases.
-        const SAMPLE_RATE: usize = 65536;
+        const SAMPLE_RATE: SampleRate = SampleRate::new(65536);
         const FREQUENCY: FrequencyHz = FrequencyHz(128.0);
         let mut oscillator = Oscillator::new_with(&OscillatorParams {
             waveform: Waveform::Square,
             frequency: FREQUENCY,
             ..Default::default()
         });
-        oscillator.reset(SAMPLE_RATE);
+        oscillator.update_sample_rate(SAMPLE_RATE);
 
         let mut n_pos = 0;
         let mut n_neg = 0;
         let mut last_sample = 1.0;
         let mut transitions = 0;
-        for _ in 0..SAMPLE_RATE {
+        for _ in 0..SAMPLE_RATE.value() {
             oscillator.tick(1);
             let f = oscillator.value().value();
             if f == 1.0 {
@@ -1327,7 +1326,7 @@ pub mod tests {
                 last_sample = f;
             }
         }
-        assert_eq!(n_pos + n_neg, SAMPLE_RATE);
+        assert_eq!(n_pos + n_neg, SAMPLE_RATE.value());
         assert_eq!(n_pos, n_neg);
 
         // The -1 is because we stop at the end of the cycle, and the transition
@@ -1337,14 +1336,14 @@ pub mod tests {
 
     #[test]
     fn square_wave_shape_is_accurate() {
-        const SAMPLE_RATE: usize = 65536;
+        const SAMPLE_RATE: SampleRate = SampleRate::new(65536);
         const FREQUENCY: FrequencyHz = FrequencyHz(2.0);
         let mut oscillator = Oscillator::new_with(&OscillatorParams {
             waveform: Waveform::Square,
             frequency: FREQUENCY,
             ..Default::default()
         });
-        oscillator.reset(SAMPLE_RATE);
+        oscillator.update_sample_rate(SAMPLE_RATE);
 
         oscillator.tick(1);
         assert_eq!(
@@ -1363,7 +1362,7 @@ pub mod tests {
         // reasonably to clock.set_samples(). I haven't decided whether entities
         // need to pay close attention to clock.set_samples() other than not
         // exploding, so I might end up deleting that part of the test.
-        oscillator.tick(SAMPLE_RATE / 4 - 2);
+        oscillator.tick(SAMPLE_RATE.value() / 4 - 2);
         assert_eq!(oscillator.value().value(), 1.0);
         oscillator.tick(1);
         assert_eq!(oscillator.value().value(), 1.0);
@@ -1376,7 +1375,7 @@ pub mod tests {
         // cycle.
         //
         // As noted above, we're using clock.set_samples() here.
-        oscillator.debug_tick_until(SAMPLE_RATE / 2 - 2);
+        oscillator.debug_tick_until(SAMPLE_RATE.value() / 2 - 2);
         assert_eq!(oscillator.value().value(), -1.0);
         oscillator.tick(1);
         assert_eq!(oscillator.value().value(), -1.0);
@@ -1394,12 +1393,12 @@ pub mod tests {
             frequency: FREQUENCY,
             ..Default::default()
         });
-        oscillator.reset(DEFAULT_SAMPLE_RATE);
+        oscillator.update_sample_rate(SampleRate::DEFAULT);
 
         let mut n_pos = 0;
         let mut n_neg = 0;
         let mut n_zero = 0;
-        for _ in 0..DEFAULT_SAMPLE_RATE {
+        for _ in 0..SampleRate::DEFAULT_SAMPLE_RATE {
             oscillator.tick(1);
             let f = oscillator.value().value();
             if f < -0.0000001 {
@@ -1412,7 +1411,7 @@ pub mod tests {
         }
         assert_eq!(n_zero, 2);
         assert_eq!(n_pos, n_neg);
-        assert_eq!(n_pos + n_neg + n_zero, DEFAULT_SAMPLE_RATE);
+        assert_eq!(n_pos + n_neg + n_zero, SampleRate::DEFAULT_SAMPLE_RATE);
     }
 
     // For now, only Oscillator implements source_signal(). We'll probably make
@@ -1422,7 +1421,7 @@ pub mod tests {
         run_length_in_seconds: usize,
     ) -> Vec<Sample> {
         let mut samples = Vec::default();
-        for _ in 0..DEFAULT_SAMPLE_RATE * run_length_in_seconds {
+        for _ in 0..SampleRate::DEFAULT_SAMPLE_RATE * run_length_in_seconds {
             source.tick(1);
             samples.push(Sample::from(source.value().value()));
         }
@@ -1612,9 +1611,9 @@ pub mod tests {
             Oscillator::new_with(&OscillatorParams::default_with_waveform(Waveform::Sine));
         const FREQUENCY: FrequencyHz = FrequencyHz(2.0);
         oscillator.set_frequency(FREQUENCY);
-        oscillator.reset(DEFAULT_SAMPLE_RATE);
+        oscillator.update_sample_rate(SampleRate::DEFAULT);
 
-        const TICKS_IN_CYCLE: usize = DEFAULT_SAMPLE_RATE / 2; // That 2 is FREQUENCY
+        const TICKS_IN_CYCLE: usize = SampleRate::DEFAULT_SAMPLE_RATE / 2; // That 2 is FREQUENCY
         assert_eq!(TICKS_IN_CYCLE, 44100 / 2);
 
         // We assume that synced oscillators can take care of their own init.
@@ -1656,7 +1655,7 @@ pub mod tests {
         // oscillator cycle. No normal audio performance will involve a clock
         // shift, so it's OK to have the wrong timbre for a tiny fraction of a
         // second.
-        oscillator.reset(DEFAULT_SAMPLE_RATE);
+        oscillator.update_sample_rate(SampleRate::DEFAULT);
         oscillator.tick(1);
         assert!(
             oscillator.should_sync(),
@@ -1670,9 +1669,9 @@ pub mod tests {
 
         // Let's run through again, but this time go for a whole second, and
         // count the number of flags.
-        oscillator.reset(DEFAULT_SAMPLE_RATE);
+        oscillator.update_sample_rate(SampleRate::DEFAULT);
         let mut cycles = 0;
-        for _ in 0..DEFAULT_SAMPLE_RATE {
+        for _ in 0..SampleRate::DEFAULT_SAMPLE_RATE {
             oscillator.tick(1);
             if oscillator.should_sync() {
                 cycles += 1;
@@ -1756,8 +1755,8 @@ pub mod tests {
     fn generates_envelope_trait_instant_trigger_response() {
         let (mut clock, mut e) = get_ge_trait_stuff();
 
-        clock.reset(DEFAULT_SAMPLE_RATE);
-        e.reset(DEFAULT_SAMPLE_RATE);
+        clock.update_sample_rate(SampleRate::DEFAULT);
+        e.update_sample_rate(SampleRate::DEFAULT);
 
         e.trigger_attack();
         e.tick(1);
@@ -1794,8 +1793,8 @@ pub mod tests {
             Envelope::new_with(&EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE));
 
         // An even sample rate means we can easily calculate how much time was spent in each state.
-        clock.reset(100);
-        envelope.reset(100);
+        clock.update_sample_rate(SampleRate::from(100));
+        envelope.update_sample_rate(SampleRate::from(100));
 
         let mut time_marker = clock.seconds() + ATTACK;
         envelope.trigger_attack();
@@ -1936,8 +1935,8 @@ pub mod tests {
         let mut envelope =
             Envelope::new_with(&EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE));
 
-        clock.reset(DEFAULT_SAMPLE_RATE);
-        envelope.reset(DEFAULT_SAMPLE_RATE);
+        clock.update_sample_rate(SampleRate::DEFAULT);
+        envelope.update_sample_rate(SampleRate::DEFAULT);
 
         envelope.tick(1);
         clock.tick(1);
@@ -2055,8 +2054,8 @@ pub mod tests {
         let mut envelope =
             Envelope::new_with(&EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE));
 
-        clock.reset(DEFAULT_SAMPLE_RATE);
-        envelope.reset(DEFAULT_SAMPLE_RATE);
+        clock.update_sample_rate(SampleRate::DEFAULT);
+        envelope.update_sample_rate(SampleRate::DEFAULT);
 
         // Decay after note-on should be shorter than the decay value.
         envelope.trigger_attack();
@@ -2149,7 +2148,7 @@ pub mod tests {
     #[test]
     fn envelope_shutdown_state() {
         let mut e = Envelope::new_with(&EnvelopeParams::new_with(0.0, 0.0, Normal::maximum(), 0.5));
-        e.reset(2000);
+        e.update_sample_rate(SampleRate::from(2000));
 
         // With sample rate 1000, each sample is 0.5 millisecond.
         let mut amplitudes: [Normal; 10] = [Normal::default(); 10];
@@ -2189,7 +2188,7 @@ pub mod tests {
     fn sustain_full() {
         let mut e =
             Envelope::new_with(&EnvelopeParams::new_with(0.0, 0.67, Normal::maximum(), 0.5));
-        e.reset(44100);
+        e.update_sample_rate(SampleRate::from(44100));
         assert_eq!(e.value().value(), 0.0);
         e.tick(1);
         assert_eq!(e.value().value(), 0.0);
