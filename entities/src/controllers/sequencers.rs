@@ -160,15 +160,13 @@ impl Sequencer {
         self.next_instant
     }
 
-    fn stop_pending_notes(&mut self) -> Vec<EntityMessage> {
-        let mut v = Vec::new();
+    fn stop_pending_notes(&mut self, messages_fn: &mut dyn FnMut(EntityMessage)) {
         for channel in 0..MidiChannel::MAX {
             let channel_msgs = self.active_notes[channel as usize].generate_off_messages();
             for msg in channel_msgs.into_iter() {
-                v.push(EntityMessage::Midi(channel.into(), msg));
+                messages_fn(EntityMessage::Midi(channel.into(), msg));
             }
         }
-        v
     }
 
     fn generate_midi_messages_for_interval(
@@ -235,15 +233,13 @@ impl Controls for Sequencer {
         }
     }
 
-    fn work(&mut self) -> Option<Vec<Self::Message>> {
+    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
         if !self.is_performing || self.is_finished() {
-            return None;
+            return;
         }
-        let mut v = Vec::default();
-
         if self.should_stop_pending_notes {
             self.should_stop_pending_notes = false;
-            v.extend(self.stop_pending_notes());
+            self.stop_pending_notes(messages_fn);
         }
 
         if self.is_enabled() {
@@ -251,7 +247,7 @@ impl Controls for Sequencer {
                 self.time_range_handled = true;
                 let time_range = self.time_range.clone();
                 self.generate_midi_messages_for_interval(&time_range, &mut |channel, message| {
-                    v.push(EntityMessage::Midi(channel, message))
+                    messages_fn(EntityMessage::Midi(channel, message))
                 });
             }
         };
@@ -274,12 +270,6 @@ impl Controls for Sequencer {
         //         v.extend(self.stop_pending_notes());
         //     }
         // }
-
-        if v.is_empty() {
-            None
-        } else {
-            Some(v)
-        }
     }
 
     fn is_finished(&self) -> bool {
@@ -452,7 +442,7 @@ mod tired {
     impl Controls for MidiTickSequencer {
         type Message = EntityMessage;
 
-        fn work(&mut self) -> Option<Vec<Self::Message>> {
+        fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
             if self.is_finished() || !self.is_performing {
                 return (None, 0);
             }

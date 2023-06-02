@@ -135,9 +135,8 @@ impl Controls for Timer {
         }
     }
 
-    fn work(&mut self) -> Option<Vec<Self::Message>> {
+    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
         // All the state was computable during update_time(), so there's nothing to do here.
-        None
     }
 
     fn is_finished(&self) -> bool {
@@ -186,12 +185,10 @@ impl Controls for Trigger {
         self.timer.update_time(range)
     }
 
-    fn work(&mut self) -> Option<Vec<Self::Message>> {
+    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
         if self.timer.is_finished() && self.is_performing && !self.has_triggered {
             self.has_triggered = true;
-            Some(vec![EntityMessage::ControlF32(self.value())])
-        } else {
-            None
+            messages_fn(EntityMessage::ControlF32(self.value()));
         }
     }
 
@@ -266,16 +263,14 @@ impl Controls for SignalPassthroughController {
         // We can ignore because we already have our own de-duplicating logic.
     }
 
-    fn work(&mut self) -> Option<Vec<Self::Message>> {
+    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
         if !self.is_performing {
-            return None;
+            return;
         }
         if self.has_signal_changed {
             self.has_signal_changed = false;
             let normal: Normal = self.signal.into();
-            Some(vec![EntityMessage::ControlF32(normal.value_as_f32())])
-        } else {
-            None
+            messages_fn(EntityMessage::ControlF32(normal.value_as_f32()))
         }
     }
 
@@ -393,8 +388,7 @@ impl Controls for ToyController {
         self.time_range = range.clone();
     }
 
-    fn work(&mut self) -> Option<Vec<Self::Message>> {
-        let mut v = Vec::default();
+    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
         match self.what_to_do() {
             TestControllerAction::Nothing => {}
             TestControllerAction::NoteOn => {
@@ -403,7 +397,7 @@ impl Controls for ToyController {
                 // then we still send the off note,
                 if self.is_enabled && self.is_performing {
                     self.is_playing = true;
-                    v.push(EntityMessage::Midi(
+                    messages_fn(EntityMessage::Midi(
                         self.midi_channel_out,
                         new_note_on(60, 127),
                     ));
@@ -411,17 +405,12 @@ impl Controls for ToyController {
             }
             TestControllerAction::NoteOff => {
                 if self.is_playing {
-                    v.push(EntityMessage::Midi(
+                    messages_fn(EntityMessage::Midi(
                         self.midi_channel_out,
                         new_note_off(60, 0),
                     ));
                 }
             }
-        }
-        if v.is_empty() {
-            None
-        } else {
-            Some(v)
         }
     }
 
@@ -605,16 +594,21 @@ mod tests {
             start: MusicalTime::default(),
             end: MusicalTime::new_with_parts(1),
         });
-        let m = trigger.work();
-        assert!(m.is_none());
+        let mut count = 0;
+        trigger.work(&mut |_| {
+            count += 1;
+        });
+        assert_eq!(count, 0);
         assert!(!trigger.is_finished());
 
         trigger.update_time(&Range {
             start: MusicalTime::new_with_bars(&ts, 1),
             end: MusicalTime::new(&ts, 1, 0, 0, 1),
         });
-        let m = trigger.work();
-        assert!(m.is_some());
+        trigger.work(&mut |_| {
+            count += 1;
+        });
+        assert!(count != 0);
         assert!(trigger.is_finished());
     }
 }

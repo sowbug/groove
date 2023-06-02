@@ -152,10 +152,11 @@ pub trait Controls: Configurable + Send + std::fmt::Debug {
     /// The entity should perform work for the time range specified in the
     /// previous update_time().
     ///
-    /// Returns zero or more messages.
+    /// If the work produces any messages, use messages_fn to ask the system to
+    /// queue them. They might be handled right away, or later.
     ///
     /// Returns the number of requested ticks handled before terminating.
-    fn work(&mut self) -> Option<Vec<Self::Message>>;
+    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message));
 
     /// Returns true if the entity is done with all its scheduled work. An
     /// entity that performs work only on command should always return true, as

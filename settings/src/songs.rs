@@ -112,7 +112,7 @@ impl SongSettings {
     ) -> Result<Orchestrator> {
         let mut o: Orchestrator = Orchestrator::new_with(&self.clock);
         o.set_title(self.title.clone());
-        self.instantiate_devices(paths, &mut o, &self.clock, load_only_test_entities);
+        self.instantiate_devices(paths, &mut o, load_only_test_entities);
         self.instantiate_patch_cables(&mut o)?;
         self.instantiate_controls(&mut o)?;
         self.instantiate_tracks(&mut o);
@@ -124,7 +124,6 @@ impl SongSettings {
         &self,
         paths: &Paths,
         orchestrator: &mut Orchestrator,
-        clock: &ClockParams,
         load_only_test_entities: bool,
     ) {
         for device in &self.devices {
@@ -136,7 +135,7 @@ impl SongSettings {
                 }
                 DeviceSettings::Controller(uvid, settings) => {
                     let (channel_in, _channel_out, entity) =
-                        settings.instantiate(clock.bpm(), load_only_test_entities);
+                        settings.instantiate(load_only_test_entities);
                     let uid = orchestrator.add_with_uvid(entity, uvid);
                     // TODO: do we care about channel_out?
                     orchestrator.connect_midi_downstream(uid, channel_in);

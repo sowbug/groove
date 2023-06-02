@@ -60,7 +60,7 @@ impl Controls for LfoController {
         self.time_range = range.clone();
     }
 
-    fn work(&mut self) -> Option<Vec<Self::Message>> {
+    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
         let frames = self.time_range.start.as_frames(
             Tempo::from(120),
             SampleRate::from(self.oscillator.sample_rate()),
@@ -85,9 +85,9 @@ impl Controls for LfoController {
             self.last_frame += tick_count;
             self.oscillator.tick(tick_count);
         }
-        Some(vec![EntityMessage::ControlF32(
+        messages_fn(EntityMessage::ControlF32(
             Normal::from(self.oscillator.value()).into(),
-        )])
+        ));
     }
 
     fn is_finished(&self) -> bool {

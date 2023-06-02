@@ -231,8 +231,7 @@ impl Controls for ControlTrip {
 
     fn update_time(&mut self, range: &Range<MusicalTime>) {}
 
-    fn work(&mut self) -> Option<Vec<Self::Message>> {
-        let mut v = Vec::default();
+    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
         if self.is_performing {
             // #[cfg(tired)] TODO not sure if this should survive
             // for i in 0..tick_count {
@@ -265,11 +264,6 @@ impl Controls for ControlTrip {
             //         v.push(EntityMessage::ControlF32(self.current_value as f32));
             //     }
             // }
-        }
-        if v.is_empty() {
-            None
-        } else {
-            Some(v)
         }
     }
 

@@ -703,11 +703,17 @@ impl Orchestrator {
             let response = Response::batch(uids.iter().fold(Vec::new(), |mut v, uid| {
                 if let Some(e) = self.store.get_mut(*uid) {
                     if let Some(e) = e.as_is_controller_mut() {
-                        if let Some(messages) = e.work() {
-                            for message in messages {
-                                // This is where outputs get turned into inputs.
-                                v.push(self.update(GrooveInput::EntityMessage(*uid, message)));
-                            }
+                        let mut messages = Vec::default();
+                        e.work(&mut |message| {
+                            messages.push(message);
+                        });
+
+                        // I couldn't avoid the temporary vec because the borrow
+                        // checker yelled at me for a second borrow of mut self.
+                        // TODO: become smarter and/or get better at Rust
+                        for message in messages {
+                            // This is where outputs get turned into inputs.
+                            v.push(self.update(GrooveInput::EntityMessage(*uid, message)));
                         }
                     }
                 }

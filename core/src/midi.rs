@@ -46,10 +46,6 @@ impl From<MidiChannel> for u8 {
     }
 }
 
-pub trait ProvidesMidiMessageFnT: FnMut(MidiChannel, MidiMessage) {}
-// impl<F> ProvideMidiMessageFnT for F where F: FnMut(MidiChannel, MidiMessage) + Sync + Send {}
-// pub type ProvideMidiMessageFn = dyn ProvideMidiMessageFnT;
-
 /// Takes standard MIDI messages. Implementers can ignore MidiChannel if it's
 /// not important, as the virtual cabling model tries to route only relevant
 /// traffic to individual devices.

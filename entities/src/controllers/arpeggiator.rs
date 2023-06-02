@@ -52,8 +52,8 @@ impl Controls for Arpeggiator {
         self.sequencer.update_time(range);
     }
 
-    fn work(&mut self) -> Option<Vec<Self::Message>> {
-        self.sequencer.work()
+    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
+        self.sequencer.work(messages_fn)
     }
 
     fn is_finished(&self) -> bool {

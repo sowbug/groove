@@ -123,7 +123,6 @@ pub enum ControllerSettings {
 impl ControllerSettings {
     pub(crate) fn instantiate(
         &self,
-        bpm: ParameterType,
         load_only_test_entities: bool,
     ) -> (MidiChannel, MidiChannel, Entity) {
         if load_only_test_entities {
