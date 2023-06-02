@@ -33,7 +33,7 @@
 //! # use groove_toys::{ToySynth, ToySynthParams};
 //! #
 //! # const BPM: f64 = 128.0;
-//! # const MIDI_0: MidiChannel = 0;
+//! # const MIDI_0: MidiChannel = MidiChannel::new(0);
 //! #
 //! // The system needs a working buffer for audio.
 //! let mut buffer = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
