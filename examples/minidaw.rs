@@ -293,7 +293,7 @@ impl Default for MiniOrchestrator {
             instruments: Default::default(),
             effects: Default::default(),
 
-            tracks: Default::default(),
+            tracks: vec![Default::default()],
 
             sample_rate: Default::default(),
             frames: Default::default(),
@@ -459,37 +459,46 @@ impl Shows for MiniOrchestrator {
         ));
         ui.label(format!("There are {} tracks", self.tracks.len()));
         for track in self.tracks.clone().iter() {
-            let desired_size = Vec2::new(ui.available_width(), 64.0);
-            ui.allocate_ui(desired_size, |ui| {
-                Frame::none()
-                    .stroke(Stroke::new(2.0, Color32::GRAY))
-                    .fill(Color32::DARK_GRAY)
-                    .inner_margin(Margin::same(2.0))
-                    .outer_margin(Margin {
-                        left: 0.0,
-                        right: 0.0,
-                        top: 0.0,
-                        bottom: 5.0,
-                    })
-                    .show(ui, |ui| {
+            Frame::none()
+                .stroke(Stroke::new(2.0, Color32::GRAY))
+                .fill(Color32::BLACK)
+                .inner_margin(Margin::same(2.0))
+                .outer_margin(Margin {
+                    left: 0.0,
+                    right: 0.0,
+                    top: 0.0,
+                    bottom: 5.0,
+                })
+                .show(ui, |ui| {
+                    let desired_size = Vec2::new(ui.available_width(), 64.0);
+                    ui.set_min_size(desired_size);
+
+                    if track.is_empty() {
+                        ui.label("Empty track");
+                    } else {
                         ui.horizontal(|ui| {
                             for id in track.iter() {
-                                if let Some(e) = self.instrument_mut(id) {
-                                    let desired_size = Vec2::new(128.0, 64.0);
-                                    ui.allocate_ui(desired_size, |ui| {
-                                        e.show(ui);
+                                Frame::none()
+                                    .stroke(Stroke::new(2.0, Color32::GRAY))
+                                    .fill(Color32::DARK_GRAY)
+                                    .inner_margin(Margin::same(2.0))
+                                    .outer_margin(Margin::same(0.0))
+                                    .show(ui, |ui| {
+                                        if let Some(e) = self.instrument_mut(id) {
+                                            let desired_size = Vec2::new(128.0, 64.0);
+                                            ui.set_min_size(desired_size);
+                                            e.show(ui);
+                                        }
+                                        if let Some(e) = self.effect_mut(id) {
+                                            let desired_size = Vec2::new(128.0, 64.0);
+                                            ui.set_min_size(desired_size);
+                                            e.show(ui);
+                                        }
                                     });
-                                }
-                                if let Some(e) = self.effect_mut(id) {
-                                    let desired_size = Vec2::new(128.0, 64.0);
-                                    ui.allocate_ui(desired_size, |ui| {
-                                        e.show(ui);
-                                    });
-                                }
                             }
-                        })
-                    })
-            });
+                        });
+                    }
+                });
         }
         ui.label("Controllers");
         for e in self.controllers.values_mut() {
@@ -897,7 +906,7 @@ impl MiniDaw {
             match action {
                 PaletteAction::NewController(key) => {
                     if let Some(controller) = self.factory.new_controller(key.as_str()) {
-                        let id = o.add_controller(controller);
+                        let _ = o.add_controller(controller);
                     }
                 }
                 PaletteAction::NewEffect(key) => {
