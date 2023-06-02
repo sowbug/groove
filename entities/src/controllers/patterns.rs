@@ -593,7 +593,7 @@ impl PatternProgrammer {
                     // This is an empty slot in the pattern. Don't do anything.
                     continue;
                 }
-                let i = MusicalTime::new(0, 0, (i * 4) as u8, 0);
+                let i = MusicalTime::new(&self.time_signature, 0, 0, i as u64 * 4, 0);
                 let note_start = self.cursor + i;
                 sequencer.insert(
                     &note_start,
@@ -609,7 +609,7 @@ impl PatternProgrammer {
                 // expression correctly, rather than continuing to hardcode 0.49
                 // as the duration.
                 sequencer.insert(
-                    &(note_start + MusicalTime::new(0, 0, 4, 0)),
+                    &(note_start + MusicalTime::new(&self.time_signature, 0, 0, 4, 0)),
                     channel,
                     MidiMessage::NoteOff {
                         key: note.key.into(),
@@ -624,7 +624,7 @@ impl PatternProgrammer {
         let top = self.time_signature.top as f64;
         let rounded_max_pattern_len =
             (max_track_len as f64 * pattern_multiplier / top).ceil() * top;
-        self.cursor = self.cursor + MusicalTime::new(0, rounded_max_pattern_len as u8, 0, 0);
+        self.cursor = self.cursor + MusicalTime::new_with_beats(rounded_max_pattern_len as u64);
         sequencer.set_min_end_time(&self.cursor);
     }
 
@@ -690,21 +690,25 @@ mod tests {
         assert_eq!(programmer.cursor(), MusicalTime::default());
 
         programmer.insert_pattern_at_cursor(&mut sequencer, &0, &pattern);
-        assert_eq!(programmer.cursor(), MusicalTime::new(2, 0, 0, 0));
+        assert_eq!(
+            programmer.cursor(),
+            MusicalTime::new_with_bars(&TimeSignature::default(), 2)
+        );
         assert_eq!(sequencer.debug_events().len(), expected_note_count * 2); // one on, one off
     }
 
     #[test]
     fn multi_pattern_track() {
-        let time_signature = TimeSignatureParams { top: 7, bottom: 8 };
+        let time_signature_params = TimeSignatureParams { top: 7, bottom: 8 };
+        let ts = TimeSignature::new(&time_signature_params).unwrap();
         let mut sequencer = Sequencer::new_with(&SequencerParams { bpm: 128.0 });
-        let mut programmer = PatternProgrammer::new_with(&time_signature);
+        let mut programmer = PatternProgrammer::new_with(&time_signature_params);
 
         // since these patterns are denominated in a quarter notes, but the time
         // signature calls for eighth notes, they last twice as long as they
         // seem.
         //
-        // four quarter-notes in 7/8 time = 8 beats = 2 measures
+        // four quarter-notes in 7/8 time = 8 beats = 2 measures (1 bar, 1 beat)
         let mut note_pattern_1 = Vec::new();
         for i in 1..=4 {
             note_pattern_1.push(Note {
@@ -713,7 +717,7 @@ mod tests {
                 duration: PerfectTimeUnit(1.0),
             });
         }
-        // eight quarter-notes in 7/8 time = 16 beats = 3 measures
+        // eight quarter-notes in 7/8 time = 16 beats = 3 measures (2 bars, 2 beats)
         let mut note_pattern_2 = Vec::new();
         for i in 11..=18 {
             note_pattern_2.push(Note {
@@ -737,7 +741,40 @@ mod tests {
         programmer.insert_pattern_at_cursor(&mut sequencer, &0, &pattern);
 
         // expect max of (2, 3) measures
-        assert_eq!(programmer.cursor(), MusicalTime::new(5, 1, 0, 0)); // TODO: not sure this is right,
+        let expected = MusicalTime::new(&ts, 3, 0, 0, 0);
+        assert_eq!(
+            programmer.cursor(),
+            expected,
+            "got {}, but was expecting {}",
+            programmer.cursor(),
+            expected
+        );
         assert_eq!(sequencer.debug_events().len(), expected_note_count * 2); // one on, one off
+    }
+
+    #[test]
+    fn pattern_default_note_value() {
+        let time_signature_params = TimeSignatureParams { top: 7, bottom: 4 };
+        let ts = TimeSignature::new(&time_signature_params).unwrap();
+        let mut sequencer = Sequencer::new_with(&SequencerParams { bpm: 128.0 });
+        let mut programmer = PatternProgrammer::new_with(&time_signature_params);
+        let pattern = Pattern {
+            note_value: None,
+            notes: vec![vec![Note {
+                key: 1,
+                velocity: 127,
+                duration: PerfectTimeUnit(1.0),
+            }]],
+        };
+        programmer.insert_pattern_at_cursor(&mut sequencer, &0, &pattern);
+
+        let expected = MusicalTime::new(&ts, 1, 0, 0, 0);
+        assert_eq!(
+            programmer.cursor(),
+            expected,
+            "got {} but expected {}",
+            programmer.cursor(),
+            expected
+        );
     }
 }

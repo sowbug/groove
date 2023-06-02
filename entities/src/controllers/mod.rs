@@ -499,7 +499,7 @@ impl ToyController {
     fn what_to_do(&mut self) -> TestControllerAction {
         if !self.time_range.contains(&self.last_time_handled) {
             self.last_time_handled = self.time_range.start;
-            if self.time_range.start.subparts() == 0 {
+            if self.time_range.start.units() == 0 {
                 if self.time_range.start.parts() == 0 {
                     return TestControllerAction::NoteOn;
                 }
@@ -554,20 +554,18 @@ mod tests {
         tests::DEFAULT_SAMPLE_RATE,
     };
     use groove_core::{
-        time::{MusicalTime, MusicalTimeParams},
+        time::{MusicalTime, MusicalTimeParams, TimeSignature},
         traits::{Controls, Performs, Resets},
     };
 
     #[test]
     fn instantiate_trigger() {
+        let ts = TimeSignature::default();
         let mut trigger = Trigger::new_with(&TriggerParams {
             timer: TimerParams {
                 duration: {
                     MusicalTimeParams {
-                        bars: 1,
-                        beats: 0,
-                        parts: 0,
-                        subparts: 0,
+                        units: MusicalTime::bars_to_units(&ts, 1),
                     }
                 },
             },
@@ -577,16 +575,16 @@ mod tests {
         trigger.play();
 
         trigger.update_time(&Range {
-            start: MusicalTime::new(0, 0, 0, 0),
-            end: MusicalTime::new(0, 0, 0, 1),
+            start: MusicalTime::default(),
+            end: MusicalTime::new_with_parts(1),
         });
         let m = trigger.work();
         assert!(m.is_none());
         assert!(!trigger.is_finished());
 
         trigger.update_time(&Range {
-            start: MusicalTime::new(1, 0, 0, 0),
-            end: MusicalTime::new(1, 0, 0, 1),
+            start: MusicalTime::new_with_bars(&ts, 1),
+            end: MusicalTime::new(&ts, 1, 0, 0, 1),
         });
         let m = trigger.work();
         assert!(m.is_some());

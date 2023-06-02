@@ -666,20 +666,18 @@ impl Orchestrator {
     // Call every Controller's work() and gather their responses.
     fn handle_work(&mut self, tick_count: usize) -> (Response<GrooveEvent>, usize) {
         let uids: Vec<usize> = self.store.controller_uids().collect();
-        let time_start = MusicalTime::new_from_frames(
-            &self.time_signature(),
+        let time_start = MusicalTime::new_with_units(MusicalTime::frames_to_units(
             Tempo::from(self.bpm()),
             SampleRate::from(self.sample_rate()),
             self.clock.frames(),
-        );
-        let mut time_end = MusicalTime::new_from_frames(
-            &self.time_signature(),
+        ));
+        let mut time_end = MusicalTime::new_with_units(MusicalTime::frames_to_units(
             Tempo::from(self.bpm()),
             SampleRate::from(self.sample_rate()),
             self.clock.frames() + tick_count,
-        );
+        ));
         if time_start == time_end {
-            time_end = time_start + MusicalTime::new(0, 0, 0, 1);
+            time_end = time_start + MusicalTime::new_with_units(1);
         }
         let time_range = Range {
             start: time_start,
@@ -1031,8 +1029,8 @@ impl Performs for Orchestrator {
     fn skip_to_start(&mut self) {
         self.clock.seek(0);
         self.last_time_range = Range {
-            start: MusicalTime::new(usize::MAX, 0, 0, 0),
-            end: MusicalTime::new(usize::MAX, 0, 0, 0),
+            start: MusicalTime::end_of_time(),
+            end: MusicalTime::end_of_time(),
         };
         for entity in self.store.values_mut() {
             if let Some(controller) = entity.as_is_controller_mut() {
@@ -1579,7 +1577,7 @@ pub mod tests {
         midi::{MidiChannel, MidiMessage},
         time::{
             BeatValue, Clock, ClockParams, MusicalTime, MusicalTimeParams, PerfectTimeUnit,
-            TimeSignatureParams,
+            TimeSignature, TimeSignatureParams,
         },
         traits::{Performs, Resets},
         DcaParams, Normal, StereoSample,
@@ -1861,7 +1859,7 @@ pub mod tests {
         o.reset(DEFAULT_SAMPLE_RATE);
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             duration: MusicalTimeParams {
-                beats: 4,
+                units: MusicalTime::beats_to_units(4),
                 ..Default::default()
             },
         }))));
@@ -1924,7 +1922,7 @@ pub mod tests {
         o.reset(24000);
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             duration: MusicalTimeParams {
-                beats: 4,
+                units: MusicalTime::beats_to_units(4),
                 ..Default::default()
             },
         }))));
@@ -1949,24 +1947,6 @@ pub mod tests {
     // TODO: a bunch of these tests belong in the entities crate, but I
     // implemented them using Orchestrator, so they can't fit there now.
     // Reimplement as smaller tests.
-
-    #[test]
-    fn pattern_default_note_value() {
-        let time_signature = TimeSignatureParams { top: 7, bottom: 4 };
-        let mut sequencer = Sequencer::new_with(&SequencerParams { bpm: 128.0 });
-        let mut programmer = PatternProgrammer::new_with(&time_signature);
-        let pattern = Pattern {
-            note_value: None,
-            notes: vec![vec![Note {
-                key: 1,
-                velocity: 127,
-                duration: PerfectTimeUnit(1.0),
-            }]],
-        };
-        programmer.insert_pattern_at_cursor(&mut sequencer, &0, &pattern);
-
-        assert_eq!(programmer.cursor(), MusicalTime::new(1, 3, 0, 0));
-    }
 
     #[test]
     fn random_access() {
@@ -2091,7 +2071,7 @@ pub mod tests {
         // first note off (not on!) and the second note on/off.
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             duration: MusicalTimeParams {
-                beats: 4, // TODO need to look and see what this should be
+                units: MusicalTime::beats_to_units(4), // TODO need to look and see what this should be
                 ..Default::default()
             },
         }))));
@@ -2108,9 +2088,10 @@ pub mod tests {
     // A pattern of all zeroes should last as long as a pattern of nonzeroes.
     #[test]
     fn empty_pattern() {
-        let time_signature = TimeSignatureParams { top: 4, bottom: 4 };
+        let time_signature_params = TimeSignatureParams { top: 4, bottom: 4 };
+        let ts = TimeSignature::new(&time_signature_params).unwrap();
         let mut sequencer = Box::new(Sequencer::new_with(&SequencerParams { bpm: DEFAULT_BPM }));
-        let mut programmer = PatternProgrammer::new_with(&time_signature);
+        let mut programmer = PatternProgrammer::new_with(&time_signature_params);
 
         let note_pattern = vec![Note {
             key: 0,
@@ -2126,7 +2107,7 @@ pub mod tests {
         assert_eq!(pattern.notes[0].len(), 1); // one note in track
 
         programmer.insert_pattern_at_cursor(&mut sequencer, &0, &pattern);
-        assert_eq!(programmer.cursor(), MusicalTime::new(1, 0, 0, 0));
+        assert_eq!(programmer.cursor(), MusicalTime::new(&ts, 1, 0, 0, 0));
         assert_eq!(sequencer.debug_events().len(), 0);
 
         let mut o = Orchestrator::new_with(&ClockParams {
@@ -2204,7 +2185,7 @@ pub mod tests {
         let _ = o.connect_to_main_mixer(instrument_uid);
         let mut buffer = [StereoSample::SILENCE; 64];
         let performance = o.run(&mut buffer);
-        if let Ok(samples) = performance {
+        if let Ok(_samples) = performance {
             // DISABLED SO I CAN CHECK IN #tired            assert!(samples.iter().any(|s| *s != StereoSample::SILENCE));
 
             // TODO: this assertion fails for serious reasons: Orchestrator

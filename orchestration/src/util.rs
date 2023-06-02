@@ -24,14 +24,14 @@ pub(crate) fn transform_linear_to_mma_convex(linear_value: f64) -> f64 {
 pub mod tests {
     use crate::{
         entities::Entity,
-        tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
+        tests::{DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
         util::{transform_linear_to_mma_concave, transform_linear_to_mma_convex},
         Orchestrator,
     };
     use groove_core::{
         generators::Waveform,
         midi::MidiChannel,
-        time::{ClockParams, MusicalTimeParams, TimeSignatureParams},
+        time::{ClockParams, MusicalTime, MusicalTimeParams, TimeSignatureParams},
         traits::Resets,
         DcaParams, FrequencyHz, Normal, StereoSample, SAMPLE_BUFFER_SIZE,
     };
@@ -71,7 +71,7 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             duration: MusicalTimeParams {
-                beats: 4,
+                units: MusicalTime::beats_to_units(4),
                 ..Default::default()
             },
         }))));
@@ -123,7 +123,7 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             duration: MusicalTimeParams {
-                beats: 4,
+                units: MusicalTime::beats_to_units(4),
                 ..Default::default()
             },
         }))));
@@ -184,7 +184,7 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             duration: MusicalTimeParams {
-                beats: 4,
+                units: MusicalTime::beats_to_units(4),
                 ..Default::default()
             },
         }))));
@@ -290,7 +290,7 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
             duration: MusicalTimeParams {
-                beats: 4,
+                units: MusicalTime::beats_to_units(4),
                 ..Default::default()
             },
         }))));

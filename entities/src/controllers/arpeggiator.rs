@@ -157,11 +157,11 @@ impl Arpeggiator {
         self.sequencer.clear();
 
         let start_beat = self.sequencer.cursor().clone();
-        let duration = MusicalTime::new(0, 0, 4, 0);
+        let duration = MusicalTime::new_with_parts(4); // TODO: we're ignoring time signature!
         let scale_notes = [0, 2, 4, 5, 7, 9, 11];
         for (index, offset) in scale_notes.iter().enumerate() {
             // TODO - more examples of needing wider range for smaller parts
-            let when = start_beat + MusicalTime::new(0, 0, (4 * index) as u8, 0);
+            let when = start_beat + MusicalTime::new_with_parts(4 * index as u64);
             self.insert_one_note(&when, &duration, key + offset, vel);
         }
     }
