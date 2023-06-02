@@ -8,7 +8,7 @@ use std::{
 use eframe::egui::{self, DragValue};
 use groove_core::{
     time::{PerfectTimeUnit, Tempo},
-    traits::Performs,
+    traits::{gui::Shows, Performs},
 };
 use groove_orchestration::Orchestrator;
 
@@ -40,23 +40,30 @@ impl ControlPanel {
     }
 
     /// Renders the control bar and maybe returns a UI action.
-    pub fn show(&mut self, ui: &mut egui::Ui) -> Option<ControlPanelAction> {
+    pub fn show_with_action(&mut self, ui: &mut egui::Ui) -> Option<ControlPanelAction> {
         let mut action = None;
-        ui.label(format!("{}", self.tempo));
-        if ui.button("play").clicked() {
-            action = Some(ControlPanelAction::Play);
-        }
-        if ui.button("stop").clicked() {
-            action = Some(ControlPanelAction::Stop);
-        }
-        if ui.button("load").clicked() {
-            action = Some(ControlPanelAction::Load(PathBuf::from("minidaw.json")));
-        }
-        if ui.button("save").clicked() {
-            action = Some(ControlPanelAction::Save(PathBuf::from("minidaw.json")));
-        }
+        ui.horizontal_centered(|ui| {
+            ui.label(format!("{}", self.tempo));
+            if ui.button("play").clicked() {
+                action = Some(ControlPanelAction::Play);
+            }
+            if ui.button("stop").clicked() {
+                action = Some(ControlPanelAction::Stop);
+            }
+            if ui.button("load").clicked() {
+                action = Some(ControlPanelAction::Load(PathBuf::from("minidaw.json")));
+            }
+            if ui.button("save").clicked() {
+                action = Some(ControlPanelAction::Save(PathBuf::from("minidaw.json")));
+            }
+        });
 
         action
+    }
+}
+impl Shows for ControlPanel {
+    fn show(&mut self, ui: &mut egui::Ui) {
+        let _ = self.show_with_action(ui);
     }
 }
 

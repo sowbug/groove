@@ -3,12 +3,17 @@
 use anyhow::{anyhow, Result};
 use crossbeam_channel::{Receiver, Select, Sender};
 use eframe::{
-    egui::{self, Context},
+    egui::{self, Context, Layout, RichText, ScrollArea},
+    emath::Align2,
     CreationContext,
 };
-use groove::egui_widgets::{
-    AudioPanel2, AudioPanelEvent, ControlPanel, ControlPanelAction, MidiPanel, MidiPanelEvent,
-    NeedsAudioFn,
+use egui_toast::Toasts;
+use groove::{
+    app_version,
+    egui_widgets::{
+        AudioPanel2, AudioPanelEvent, ControlPanel, ControlPanelAction, MidiPanel, MidiPanelEvent,
+        NeedsAudioFn,
+    },
 };
 use groove_audio::AudioQueue;
 use groove_core::{
@@ -24,7 +29,7 @@ use groove_entities::{
 use groove_toys::{ToyInstrument, ToyInstrumentParams, ToySynth, ToySynthParams};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     hash::Hash,
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -97,6 +102,7 @@ impl<T> Default for ChannelPair<T> {
 }
 
 struct OrchestratorPanel {
+    #[allow(dead_code)]
     factory: Arc<EntityFactory>,
     orchestrator: Arc<Mutex<MiniOrchestrator>>,
     input_channel_pair: ChannelPair<MiniOrchestratorInput>,
@@ -262,9 +268,11 @@ struct MiniOrchestrator {
     sample_rate: SampleRate,
 
     #[serde(skip)]
+    #[allow(dead_code)]
     frames: usize,
 
     #[serde(skip)]
+    #[allow(dead_code)]
     musical_time: MusicalTime,
 }
 impl Default for MiniOrchestrator {
@@ -395,10 +403,18 @@ type InstrumentEntityFactoryFn = fn() -> Box<dyn NewIsInstrument>;
 #[derive(Debug, Default)]
 struct EntityFactory {
     instruments: HashMap<String, InstrumentEntityFactoryFn>,
+    names: HashSet<String>,
 }
 impl EntityFactory {
     pub fn register_instrument(&mut self, name: &str, f: InstrumentEntityFactoryFn) {
-        self.instruments.insert(name.to_string(), f);
+        if self.names.insert(name.to_string()) {
+            self.instruments.insert(name.to_string(), f);
+        } else {
+            panic!(
+                "Found duplicate key '{}' when adding an entity to EntityFactory. Exiting.",
+                name
+            );
+        }
     }
     pub fn new_instrument(&self, name: &str) -> Option<Box<dyn NewIsInstrument>> {
         if let Some(f) = self.instruments.get(name) {
@@ -415,12 +431,24 @@ struct PalettePanel {
 }
 impl Shows for PalettePanel {
     fn show(&mut self, ui: &mut egui::Ui) {
-        todo!()
+        for name in &self.factory.names {
+            ui.label(name);
+        }
     }
 }
 impl PalettePanel {
     pub fn new_with(factory: Arc<EntityFactory>) -> Self {
         Self { factory }
+    }
+
+    fn show_with_action(&mut self, ui: &mut egui::Ui) -> Option<String> {
+        let mut action = None;
+        for name in &self.factory.names {
+            if ui.button(name).clicked() {
+                action = Some(name.to_string());
+            };
+        }
+        action
     }
 }
 
@@ -433,6 +461,8 @@ struct MiniDaw {
     audio_panel: AudioPanel2,
     midi_panel: MidiPanel,
     palette_panel: PalettePanel,
+
+    toasts: Toasts,
 }
 impl MiniDaw {
     pub fn new(cc: &CreationContext) -> Self {
@@ -442,12 +472,6 @@ impl MiniDaw {
 
         let orchestrator_panel = OrchestratorPanel::new_with(Arc::clone(&factory));
         let mini_orchestrator = Arc::clone(orchestrator_panel.orchestrator());
-
-        if let Ok(mut o) = mini_orchestrator.lock() {
-            if o.instruments.is_empty() {
-                o.add_instrument(factory.new_instrument("toy-synth").unwrap());
-            }
-        }
 
         let mini_orchestrator_for_fn = Arc::clone(&mini_orchestrator);
         let needs_audio: NeedsAudioFn = Box::new(move |audio_queue, samples_requested| {
@@ -463,8 +487,11 @@ impl MiniDaw {
             control_panel: Default::default(),
             audio_panel: AudioPanel2::new_with(Box::new(needs_audio)),
             midi_panel: Default::default(),
+            palette_panel: PalettePanel::new_with(factory),
 
-            palette_panel: PalettePanel { factory },
+            toasts: Toasts::new()
+                .anchor(Align2::RIGHT_BOTTOM, (-10.0, -10.0))
+                .direction(egui::Direction::BottomUp),
         };
         r.spawn_channel_watcher(cc.egui_ctx.clone());
         r
@@ -598,23 +625,83 @@ impl MiniDaw {
             Box::new(WelshSynth::new_with(&WelshSynthParams::default()))
         });
     }
+
+    fn handle_palette_action(&mut self, action: String) {
+        if let Ok(mut o) = self.mini_orchestrator.lock() {
+            if let Some(instrument) = self.factory.new_instrument(action.as_str()) {
+                o.add_instrument(instrument);
+            }
+        }
+    }
+
+    fn show_top(&mut self, ui: &mut egui::Ui) {
+        if let Some(action) = self.control_panel.show_with_action(ui) {
+            self.handle_control_panel_action(action);
+        }
+    }
+
+    fn show_bottom(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            egui::warn_if_debug_build(ui);
+            ui.with_layout(Layout::right_to_left(eframe::emath::Align::Center), |ui| {
+                ui.label(RichText::new(format!("Build: {:?}", app_version())))
+            });
+        });
+    }
+
+    fn show_left(&mut self, ui: &mut egui::Ui) {
+        if let Some(action) = self.palette_panel.show_with_action(ui) {
+            self.handle_palette_action(action);
+        }
+    }
+
+    fn show_right(&mut self, ui: &mut egui::Ui) {
+        self.audio_panel.show(ui);
+        self.midi_panel.show(ui);
+    }
+
+    fn show_center(&mut self, ui: &mut egui::Ui) {
+        if let Ok(mut o) = self.mini_orchestrator.lock() {
+            o.show(ui);
+        }
+    }
 }
 impl eframe::App for MiniDaw {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.handle_message_channels();
-        let top = egui::TopBottomPanel::top("top");
+        let top = egui::TopBottomPanel::top("top-panel")
+            .resizable(false)
+            .exact_height(64.0);
+        let bottom = egui::TopBottomPanel::bottom("bottom-panel")
+            .resizable(false)
+            .exact_height(64.0);
+        let left = egui::SidePanel::left("left-panel")
+            .resizable(true)
+            .default_width(150.0)
+            .width_range(80.0..=200.0);
+        let right = egui::SidePanel::right("right-panel")
+            .resizable(true)
+            .default_width(150.0)
+            .width_range(80.0..=200.0);
+
         let center = egui::CentralPanel::default();
         top.show(ctx, |ui| {
-            if let Some(action) = self.control_panel.show(ui) {
-                self.handle_control_panel_action(action);
-            }
+            self.show_top(ui);
+        });
+        bottom.show(ctx, |ui| {
+            self.show_bottom(ui);
+        });
+        left.show(ctx, |ui| {
+            self.show_left(ui);
+        });
+        right.show(ctx, |ui| {
+            self.show_right(ui);
         });
         center.show(ctx, |ui| {
-            self.audio_panel.show(ui);
-            self.midi_panel.show(ui);
-            if let Ok(mut o) = self.mini_orchestrator.lock() {
-                o.show(ui);
-            }
+            ScrollArea::vertical().show(ui, |ui| {
+                self.show_center(ui);
+            });
+            self.toasts.show(ctx);
         });
     }
 
