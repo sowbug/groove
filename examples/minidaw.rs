@@ -3,9 +3,12 @@
 use anyhow::{anyhow, Result};
 use crossbeam_channel::{Receiver, Select, Sender};
 use eframe::{
-    egui::{self, Context, FontData, FontDefinitions, Layout, RichText, ScrollArea, TextStyle},
+    egui::{
+        self, Context, FontData, FontDefinitions, Frame, Layout, Margin, RichText, ScrollArea,
+        TextStyle,
+    },
     emath::Align2,
-    epaint::{Color32, FontFamily, FontId},
+    epaint::{Color32, FontFamily, FontId, Stroke, Vec2},
     CreationContext,
 };
 use egui_toast::Toasts;
@@ -266,6 +269,8 @@ struct MiniOrchestrator {
     instruments: HashMap<Id, Box<dyn NewIsInstrument>>,
     effects: HashMap<Id, Box<dyn NewIsEffect>>,
 
+    tracks: Vec<Vec<Id>>,
+
     // Nothing below this comment should be serialized.
     #[serde(skip)]
     sample_rate: SampleRate,
@@ -287,6 +292,8 @@ impl Default for MiniOrchestrator {
             controllers: Default::default(),
             instruments: Default::default(),
             effects: Default::default(),
+
+            tracks: Default::default(),
 
             sample_rate: Default::default(),
             frames: Default::default(),
@@ -382,6 +389,44 @@ impl MiniOrchestrator {
     fn prepare_successor(&self, new: &mut MiniOrchestrator) {
         new.set_sample_rate(self.sample_rate());
     }
+
+    // TODO: ordering should be controllers, instruments, then effects. Within
+    // those groups, the user can reorder as desired (but instrument order
+    // doesn't matter because they're all simultaneous)
+    fn push_to_last_track(&mut self, id: Id) {
+        if self.tracks.is_empty() {
+            self.tracks.push(Vec::default());
+        }
+        if let Some(track) = self.tracks.last_mut() {
+            track.push(id);
+        }
+    }
+
+    // TODO: this is getting cumbersome! Think about that uber-trait!
+
+    fn controller(&self, id: &Id) -> Option<&Box<dyn NewIsController>> {
+        self.controllers.get(id)
+    }
+
+    fn controller_mut(&mut self, id: &Id) -> Option<&mut Box<dyn NewIsController>> {
+        self.controllers.get_mut(id)
+    }
+
+    fn effect(&self, id: &Id) -> Option<&Box<dyn NewIsEffect>> {
+        self.effects.get(id)
+    }
+
+    fn effect_mut(&mut self, id: &Id) -> Option<&mut Box<dyn NewIsEffect>> {
+        self.effects.get_mut(id)
+    }
+
+    fn instrument(&self, id: &Id) -> Option<&Box<dyn NewIsInstrument>> {
+        self.instruments.get(id)
+    }
+
+    fn instrument_mut(&mut self, id: &Id) -> Option<&mut Box<dyn NewIsInstrument>> {
+        self.instruments.get_mut(id)
+    }
 }
 impl Generates<StereoSample> for MiniOrchestrator {
     fn value(&self) -> StereoSample {
@@ -412,13 +457,42 @@ impl Shows for MiniOrchestrator {
             self.instruments.len(),
             self.effects.len()
         ));
+        ui.label(format!("There are {} tracks", self.tracks.len()));
+        for track in self.tracks.clone().iter() {
+            let desired_size = Vec2::new(ui.available_width(), 64.0);
+            ui.allocate_ui(desired_size, |ui| {
+                Frame::none()
+                    .stroke(Stroke::new(2.0, Color32::GRAY))
+                    .fill(Color32::DARK_GRAY)
+                    .inner_margin(Margin::same(2.0))
+                    .outer_margin(Margin {
+                        left: 0.0,
+                        right: 0.0,
+                        top: 0.0,
+                        bottom: 5.0,
+                    })
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            for id in track.iter() {
+                                if let Some(e) = self.instrument_mut(id) {
+                                    let desired_size = Vec2::new(128.0, 64.0);
+                                    ui.allocate_ui(desired_size, |ui| {
+                                        e.show(ui);
+                                    });
+                                }
+                                if let Some(e) = self.effect_mut(id) {
+                                    let desired_size = Vec2::new(128.0, 64.0);
+                                    ui.allocate_ui(desired_size, |ui| {
+                                        e.show(ui);
+                                    });
+                                }
+                            }
+                        })
+                    })
+            });
+        }
+        ui.label("Controllers");
         for e in self.controllers.values_mut() {
-            e.show(ui);
-        }
-        for e in self.effects.values_mut() {
-            e.show(ui);
-        }
-        for e in self.instruments.values_mut() {
             e.show(ui);
         }
     }
@@ -823,17 +897,19 @@ impl MiniDaw {
             match action {
                 PaletteAction::NewController(key) => {
                     if let Some(controller) = self.factory.new_controller(key.as_str()) {
-                        o.add_controller(controller);
+                        let id = o.add_controller(controller);
                     }
                 }
                 PaletteAction::NewEffect(key) => {
                     if let Some(effect) = self.factory.new_effect(key.as_str()) {
-                        o.add_effect(effect);
+                        let id = o.add_effect(effect);
+                        o.push_to_last_track(id);
                     }
                 }
                 PaletteAction::NewInstrument(key) => {
                     if let Some(instrument) = self.factory.new_instrument(key.as_str()) {
-                        o.add_instrument(instrument);
+                        let id = o.add_instrument(instrument);
+                        o.push_to_last_track(id);
                     }
                 }
             }
