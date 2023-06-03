@@ -2,13 +2,14 @@
 
 use anyhow::{anyhow, Result};
 use crossbeam_channel::{Receiver, Select, Sender};
+use derive_more::Display;
 use eframe::{
     egui::{
-        self, Context, FontData, FontDefinitions, Frame, Layout, Margin, RichText, ScrollArea,
-        TextStyle,
+        self, Context, CursorIcon, FontData, FontDefinitions, Frame, Id as EguiId, InnerResponse,
+        LayerId, Layout, Margin, Order, ScrollArea, Sense, TextStyle, Ui,
     },
     emath::Align2,
-    epaint::{Color32, FontFamily, FontId, Stroke, Vec2},
+    epaint::{self, Color32, FontFamily, FontId, Rect, Shape, Stroke, Vec2},
     CreationContext,
 };
 use egui_toast::Toasts;
@@ -110,14 +111,19 @@ impl<T> Default for ChannelPair<T> {
 struct OrchestratorPanel {
     #[allow(dead_code)]
     factory: Arc<EntityFactory>,
+    drag_drop_manager: Arc<Mutex<DragDropManager>>,
     orchestrator: Arc<Mutex<MiniOrchestrator>>,
     input_channel_pair: ChannelPair<MiniOrchestratorInput>,
     event_channel_pair: ChannelPair<MiniOrchestratorEvent>,
 }
 impl OrchestratorPanel {
-    fn new_with(factory: Arc<EntityFactory>) -> Self {
+    fn new_with(
+        factory: Arc<EntityFactory>,
+        drag_drop_manager: Arc<Mutex<DragDropManager>>,
+    ) -> Self {
         let mut r = Self {
             factory,
+            drag_drop_manager,
             orchestrator: Default::default(),
             input_channel_pair: Default::default(),
             event_channel_pair: Default::default(),
@@ -256,6 +262,15 @@ impl OrchestratorPanel {
     fn exit(&self) {
         eprintln!("MiniOrchestratorInput::Quit");
         self.send_to_service(MiniOrchestratorInput::Quit);
+    }
+}
+impl Shows for OrchestratorPanel {
+    fn show(&mut self, ui: &mut Ui) {
+        if let Ok(mut o) = self.orchestrator.lock() {
+            if let Ok(mut dnd) = self.drag_drop_manager.lock() {
+                o.show_with(ui, &self.factory, &mut dnd);
+            }
+        }
     }
 }
 
@@ -427,6 +442,98 @@ impl MiniOrchestrator {
     fn instrument_mut(&mut self, id: &Id) -> Option<&mut Box<dyn NewIsInstrument>> {
         self.instruments.get_mut(id)
     }
+
+    fn show_tracks(&mut self, ui: &mut Ui, factory: &EntityFactory, dnd: &mut DragDropManager) {
+        for (track_index, track) in self.tracks.clone().iter().enumerate() {
+            Frame::none()
+                .stroke(Stroke::new(2.0, Color32::GRAY))
+                .fill(Color32::BLACK)
+                .inner_margin(Margin::same(2.0))
+                .outer_margin(Margin {
+                    left: 0.0,
+                    right: 0.0,
+                    top: 0.0,
+                    bottom: 5.0,
+                })
+                .show(ui, |ui| {
+                    let desired_size = Vec2::new(ui.available_width(), 64.0);
+                    ui.set_min_size(desired_size);
+
+                    let mut drop_track_index = None;
+                    if track.is_empty() {
+                        let response = dnd
+                            .drop_target(ui, true, |ui| {
+                                ui.label("Empty track");
+                            })
+                            .response;
+                        if response.hovered() {
+                            drop_track_index = Some(track_index);
+                            eprintln!("hovering!");
+                        }
+                    } else {
+                        ui.horizontal(|ui| {
+                            for id in track.iter() {
+                                Frame::none()
+                                    .stroke(Stroke::new(2.0, Color32::GRAY))
+                                    .fill(Color32::DARK_GRAY)
+                                    .inner_margin(Margin::same(2.0))
+                                    .outer_margin(Margin::same(0.0))
+                                    .show(ui, |ui| {
+                                        if let Some(e) = self.instrument_mut(id) {
+                                            let desired_size = Vec2::new(128.0, 64.0);
+                                            ui.set_min_size(desired_size);
+                                            e.show(ui);
+                                        }
+                                        if let Some(e) = self.effect_mut(id) {
+                                            let desired_size = Vec2::new(128.0, 64.0);
+                                            ui.set_min_size(desired_size);
+                                            e.show(ui);
+                                        }
+                                    });
+                            }
+                        });
+                    }
+                    if let Some(drop_track_index) = drop_track_index {
+                        if ui.input(|i| i.pointer.any_released()) {
+                            if let Some(source) = &dnd.source {
+                                match source {
+                                    DragDropSource::NewController(key) => {
+                                        if let Some(controller) = factory.new_controller(key) {
+                                            let id = self.add_controller(controller);
+                                            self.push_to_last_track(id);
+                                        }
+                                    }
+                                    DragDropSource::NewEffect(key) => {
+                                        if let Some(effect) = factory.new_effect(key) {
+                                            let id = self.add_effect(effect);
+                                            self.push_to_last_track(id);
+                                        }
+                                    }
+                                    DragDropSource::NewInstrument(key) => {
+                                        if let Some(instrument) = factory.new_instrument(key) {
+                                            let id = self.add_instrument(instrument);
+                                            self.push_to_last_track(id);
+                                        }
+                                    }
+                                }
+                            } else {
+                                eprintln!(
+                                    "dropped on track {drop_track_index}, but source is missing!"
+                                );
+                            }
+                        }
+                    }
+                });
+        }
+    }
+
+    fn show_with(&mut self, ui: &mut egui::Ui, factory: &EntityFactory, dnd: &mut DragDropManager) {
+        self.show_tracks(ui, factory, dnd);
+        ui.label("Controllers");
+        for e in self.controllers.values_mut() {
+            e.show(ui);
+        }
+    }
 }
 impl Generates<StereoSample> for MiniOrchestrator {
     fn value(&self) -> StereoSample {
@@ -451,59 +558,22 @@ impl Ticks for MiniOrchestrator {
 impl Configurable for MiniOrchestrator {}
 impl Shows for MiniOrchestrator {
     fn show(&mut self, ui: &mut egui::Ui) {
-        ui.label(format!(
-            "I have {} controllers, {} instruments, and {} effects",
-            self.controllers.len(),
-            self.instruments.len(),
-            self.effects.len()
-        ));
-        ui.label(format!("There are {} tracks", self.tracks.len()));
-        for track in self.tracks.clone().iter() {
-            Frame::none()
-                .stroke(Stroke::new(2.0, Color32::GRAY))
-                .fill(Color32::BLACK)
-                .inner_margin(Margin::same(2.0))
-                .outer_margin(Margin {
-                    left: 0.0,
-                    right: 0.0,
-                    top: 0.0,
-                    bottom: 5.0,
-                })
-                .show(ui, |ui| {
-                    let desired_size = Vec2::new(ui.available_width(), 64.0);
-                    ui.set_min_size(desired_size);
+        ui.label("not used");
+    }
+}
 
-                    if track.is_empty() {
-                        ui.label("Empty track");
-                    } else {
-                        ui.horizontal(|ui| {
-                            for id in track.iter() {
-                                Frame::none()
-                                    .stroke(Stroke::new(2.0, Color32::GRAY))
-                                    .fill(Color32::DARK_GRAY)
-                                    .inner_margin(Margin::same(2.0))
-                                    .outer_margin(Margin::same(0.0))
-                                    .show(ui, |ui| {
-                                        if let Some(e) = self.instrument_mut(id) {
-                                            let desired_size = Vec2::new(128.0, 64.0);
-                                            ui.set_min_size(desired_size);
-                                            e.show(ui);
-                                        }
-                                        if let Some(e) = self.effect_mut(id) {
-                                            let desired_size = Vec2::new(128.0, 64.0);
-                                            ui.set_min_size(desired_size);
-                                            e.show(ui);
-                                        }
-                                    });
-                            }
-                        });
-                    }
-                });
-        }
-        ui.label("Controllers");
-        for e in self.controllers.values_mut() {
-            e.show(ui);
-        }
+/// A globally unique identifier for a kind of thing, such as an arpeggiator
+/// controller, an FM synthesizer, or a reverb effect.
+#[derive(Clone, Debug, Display, Eq, Hash, PartialEq)]
+struct Key(String);
+impl From<&String> for Key {
+    fn from(value: &String) -> Self {
+        Key(value.to_string())
+    }
+}
+impl From<&str> for Key {
+    fn from(value: &str) -> Self {
+        Key(value.to_string())
     }
 }
 
@@ -512,48 +582,48 @@ type InstrumentEntityFactoryFn = fn() -> Box<dyn NewIsInstrument>;
 type EffectEntityFactoryFn = fn() -> Box<dyn NewIsEffect>;
 #[derive(Debug, Default)]
 struct EntityFactory {
-    controllers: HashMap<String, ControllerEntityFactoryFn>,
-    instruments: HashMap<String, InstrumentEntityFactoryFn>,
-    effects: HashMap<String, EffectEntityFactoryFn>,
-    keys: HashSet<String>,
+    controllers: HashMap<Key, ControllerEntityFactoryFn>,
+    instruments: HashMap<Key, InstrumentEntityFactoryFn>,
+    effects: HashMap<Key, EffectEntityFactoryFn>,
+    keys: HashSet<Key>,
 }
 impl EntityFactory {
-    pub fn register_controller(&mut self, key: &str, f: ControllerEntityFactoryFn) {
-        if self.keys.insert(key.to_string()) {
-            self.controllers.insert(key.to_string(), f);
+    pub fn register_controller(&mut self, key: Key, f: ControllerEntityFactoryFn) {
+        if self.keys.insert(key.clone()) {
+            self.controllers.insert(key, f);
         } else {
             panic!("register_controller({}): duplicate key. Exiting.", key);
         }
     }
-    pub fn new_controller(&self, key: &str) -> Option<Box<dyn NewIsController>> {
+    pub fn new_controller(&self, key: &Key) -> Option<Box<dyn NewIsController>> {
         if let Some(f) = self.controllers.get(key) {
             Some(f())
         } else {
             None
         }
     }
-    pub fn register_instrument(&mut self, key: &str, f: InstrumentEntityFactoryFn) {
-        if self.keys.insert(key.to_string()) {
-            self.instruments.insert(key.to_string(), f);
+    pub fn register_instrument(&mut self, key: Key, f: InstrumentEntityFactoryFn) {
+        if self.keys.insert(key.clone()) {
+            self.instruments.insert(key, f);
         } else {
             panic!("register_instrument({}): duplicate key. Exiting.", key);
         }
     }
-    pub fn new_instrument(&self, key: &str) -> Option<Box<dyn NewIsInstrument>> {
+    pub fn new_instrument(&self, key: &Key) -> Option<Box<dyn NewIsInstrument>> {
         if let Some(f) = self.instruments.get(key) {
             Some(f())
         } else {
             None
         }
     }
-    pub fn register_effect(&mut self, key: &str, f: EffectEntityFactoryFn) {
-        if self.keys.insert(key.to_string()) {
-            self.effects.insert(key.to_string(), f);
+    pub fn register_effect(&mut self, key: Key, f: EffectEntityFactoryFn) {
+        if self.keys.insert(key.clone()) {
+            self.effects.insert(key, f);
         } else {
             panic!("register_effect({}): duplicate key. Exiting.", key);
         }
     }
-    pub fn new_effect(&self, key: &str) -> Option<Box<dyn NewIsEffect>> {
+    pub fn new_effect(&self, key: &Key) -> Option<Box<dyn NewIsEffect>> {
         if let Some(f) = self.effects.get(key) {
             Some(f())
         } else {
@@ -563,32 +633,33 @@ impl EntityFactory {
 
     pub fn controller_keys(
         &self,
-    ) -> std::collections::hash_map::Keys<String, fn() -> Box<dyn NewIsController>> {
+    ) -> std::collections::hash_map::Keys<Key, fn() -> Box<dyn NewIsController>> {
         self.controllers.keys()
     }
 
     pub fn effect_keys(
         &self,
-    ) -> std::collections::hash_map::Keys<String, fn() -> Box<dyn NewIsEffect>> {
+    ) -> std::collections::hash_map::Keys<Key, fn() -> Box<dyn NewIsEffect>> {
         self.effects.keys()
     }
 
     pub fn instrument_keys(
         &self,
-    ) -> std::collections::hash_map::Keys<String, fn() -> Box<dyn NewIsInstrument>> {
+    ) -> std::collections::hash_map::Keys<Key, fn() -> Box<dyn NewIsInstrument>> {
         self.instruments.keys()
     }
 }
 
 #[derive(Debug)]
 enum PaletteAction {
-    NewController(String),
-    NewEffect(String),
-    NewInstrument(String),
+    NewController(Key),
+    NewEffect(Key),
+    NewInstrument(Key),
 }
 #[derive(Debug)]
 struct PalettePanel {
     factory: Arc<EntityFactory>,
+    drag_drop_manager: Arc<Mutex<DragDropManager>>,
 }
 impl Shows for PalettePanel {
     fn show(&mut self, ui: &mut egui::Ui) {
@@ -598,28 +669,147 @@ impl Shows for PalettePanel {
     }
 }
 impl PalettePanel {
-    pub fn new_with(factory: Arc<EntityFactory>) -> Self {
-        Self { factory }
+    pub fn new_with(
+        factory: Arc<EntityFactory>,
+        drag_drop_manager: Arc<Mutex<DragDropManager>>,
+    ) -> Self {
+        Self {
+            factory,
+            drag_drop_manager,
+        }
     }
 
     fn show_with_action(&mut self, ui: &mut egui::Ui) -> Option<PaletteAction> {
         let mut action = None;
-        for name in self.factory.controller_keys() {
-            if ui.button(name.to_string()).clicked() {
-                action = Some(PaletteAction::NewController(name.to_string()));
-            };
-        }
-        for name in self.factory.effect_keys() {
-            if ui.button(name.to_string()).clicked() {
-                action = Some(PaletteAction::NewEffect(name.to_string()));
-            };
-        }
-        for name in self.factory.instrument_keys() {
-            if ui.button(name.to_string()).clicked() {
-                action = Some(PaletteAction::NewInstrument(name.to_string()));
-            };
+        if let Ok(mut dnd) = self.drag_drop_manager.lock() {
+            for key in self.factory.controller_keys() {
+                dnd.drag_source(
+                    ui,
+                    EguiId::new(key),
+                    DragDropSource::NewController(key.clone()),
+                    |ui| {
+                        if ui.button(key.to_string()).clicked() {
+                            action = Some(PaletteAction::NewController(key.clone()));
+                        }
+                    },
+                );
+            }
+            for key in self.factory.effect_keys() {
+                dnd.drag_source(
+                    ui,
+                    EguiId::new(key),
+                    DragDropSource::NewEffect(key.clone()),
+                    |ui| {
+                        if ui.button(key.to_string()).clicked() {
+                            action = Some(PaletteAction::NewEffect(key.clone()));
+                        }
+                    },
+                );
+            }
+            for key in self.factory.instrument_keys() {
+                dnd.drag_source(
+                    ui,
+                    EguiId::new(key),
+                    DragDropSource::NewInstrument(key.clone()),
+                    |ui| {
+                        if ui.button(key.to_string()).clicked() {
+                            action = Some(PaletteAction::NewInstrument(key.clone()));
+                        }
+                    },
+                );
+            }
         }
         action
+    }
+}
+
+#[derive(Debug)]
+enum DragDropSource {
+    NewController(Key),
+    NewEffect(Key),
+    NewInstrument(Key),
+}
+
+#[derive(Debug, Default)]
+struct DragDropManager {
+    source: Option<DragDropSource>,
+}
+impl DragDropManager {
+    fn reset(&mut self) {
+        self.source = None;
+    }
+
+    // These two functions are based on egui_demo_lib/src/demo/drag_and_drop.rs
+    fn drag_source(
+        &mut self,
+        ui: &mut Ui,
+        id: EguiId,
+        dnd_id: DragDropSource,
+        body: impl FnOnce(&mut Ui),
+    ) {
+        let is_being_dragged = ui.memory(|mem| mem.is_being_dragged(id));
+
+        if is_being_dragged {
+            self.source = Some(dnd_id);
+            ui.ctx().set_cursor_icon(CursorIcon::Grabbing);
+            let layer_id = LayerId::new(Order::Tooltip, id);
+            let response = ui.with_layer_id(layer_id, body).response;
+            if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
+                let delta = pointer_pos - response.rect.center();
+                ui.ctx().translate_layer(layer_id, delta);
+            }
+        } else {
+            let response = ui.scope(body).response;
+            let response = ui.interact(response.rect, id, Sense::drag());
+            if response.hovered() {
+                ui.ctx().set_cursor_icon(CursorIcon::Grab);
+            }
+        }
+    }
+
+    fn drop_target<R>(
+        &mut self,
+        ui: &mut Ui,
+        can_accept_what_is_being_dragged: bool,
+        body: impl FnOnce(&mut Ui) -> R,
+    ) -> InnerResponse<R> {
+        let is_being_dragged = ui.memory(|mem| mem.is_anything_being_dragged());
+
+        let margin = Vec2::splat(4.0);
+
+        let outer_rect_bounds = ui.available_rect_before_wrap();
+        let inner_rect = outer_rect_bounds.shrink2(margin);
+        let where_to_put_background = ui.painter().add(Shape::Noop);
+        let mut content_ui = ui.child_ui(inner_rect, *ui.layout());
+        let ret = body(&mut content_ui);
+        let outer_rect =
+            Rect::from_min_max(outer_rect_bounds.min, content_ui.min_rect().max + margin);
+        let (rect, response) = ui.allocate_at_least(outer_rect.size(), Sense::hover());
+
+        let style = if is_being_dragged && can_accept_what_is_being_dragged && response.hovered() {
+            ui.visuals().widgets.active
+        } else {
+            ui.visuals().widgets.inactive
+        };
+
+        let mut fill = style.bg_fill;
+        let mut stroke = style.bg_stroke;
+        if is_being_dragged && !can_accept_what_is_being_dragged {
+            fill = ui.visuals().gray_out(fill);
+            stroke.color = ui.visuals().gray_out(stroke.color);
+        }
+
+        ui.painter().set(
+            where_to_put_background,
+            epaint::RectShape {
+                rounding: style.rounding,
+                fill,
+                stroke,
+                rect,
+            },
+        );
+
+        InnerResponse::new(ret, response)
     }
 }
 
@@ -634,6 +824,7 @@ struct MiniDaw {
     palette_panel: PalettePanel,
 
     first_update_done: bool,
+    drag_drop_manager: Arc<Mutex<DragDropManager>>,
 
     #[allow(dead_code)]
     regular_font_id: FontId,
@@ -658,7 +849,9 @@ impl MiniDaw {
         Self::register_entities(&mut factory);
         let factory = Arc::new(factory);
 
-        let orchestrator_panel = OrchestratorPanel::new_with(Arc::clone(&factory));
+        let drag_drop_manager = Arc::new(Mutex::new(DragDropManager::default()));
+        let orchestrator_panel =
+            OrchestratorPanel::new_with(Arc::clone(&factory), Arc::clone(&drag_drop_manager));
         let mini_orchestrator = Arc::clone(orchestrator_panel.orchestrator());
 
         let mini_orchestrator_for_fn = Arc::clone(&mini_orchestrator);
@@ -675,9 +868,10 @@ impl MiniDaw {
             control_panel: Default::default(),
             audio_panel: AudioPanel2::new_with(Box::new(needs_audio)),
             midi_panel: Default::default(),
-            palette_panel: PalettePanel::new_with(factory),
+            palette_panel: PalettePanel::new_with(factory, Arc::clone(&drag_drop_manager)),
 
             first_update_done: Default::default(),
+            drag_drop_manager,
 
             regular_font_id: FontId::proportional(14.0),
             bold_font_id: FontId::new(12.0, FontFamily::Name(Self::FONT_BOLD.into())),
@@ -881,22 +1075,22 @@ impl MiniDaw {
         // while we're at it, I guess make the mondo IsEntity trait that allows
         // discovery of IsInstrument/Effect/Controller.
 
-        factory.register_controller("arpeggiator", || {
+        factory.register_controller(Key::from("arpeggiator"), || {
             Box::new(Arpeggiator::new_with(
                 &ArpeggiatorParams::default(),
                 MidiChannel::new(0),
             ))
         });
-        factory.register_effect("reverb", || {
+        factory.register_effect(Key::from("reverb"), || {
             Box::new(Reverb::new_with(&ReverbParams::default()))
         });
-        factory.register_instrument("toy-synth", || {
+        factory.register_instrument(Key::from("toy-synth"), || {
             Box::new(ToySynth::new_with(&ToySynthParams::default()))
         });
-        factory.register_instrument("toy-instrument", || {
+        factory.register_instrument(Key::from("toy-instrument"), || {
             Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default()))
         });
-        factory.register_instrument("welsh-synth", || {
+        factory.register_instrument(Key::from("welsh-synth"), || {
             Box::new(WelshSynth::new_with(&WelshSynthParams::default()))
         });
     }
@@ -905,18 +1099,19 @@ impl MiniDaw {
         if let Ok(mut o) = self.mini_orchestrator.lock() {
             match action {
                 PaletteAction::NewController(key) => {
-                    if let Some(controller) = self.factory.new_controller(key.as_str()) {
-                        let _ = o.add_controller(controller);
+                    if let Some(controller) = self.factory.new_controller(&key) {
+                        let id = o.add_controller(controller);
+                        o.push_to_last_track(id);
                     }
                 }
                 PaletteAction::NewEffect(key) => {
-                    if let Some(effect) = self.factory.new_effect(key.as_str()) {
+                    if let Some(effect) = self.factory.new_effect(&key) {
                         let id = o.add_effect(effect);
                         o.push_to_last_track(id);
                     }
                 }
                 PaletteAction::NewInstrument(key) => {
-                    if let Some(instrument) = self.factory.new_instrument(key.as_str()) {
+                    if let Some(instrument) = self.factory.new_instrument(&key) {
                         let id = o.add_instrument(instrument);
                         o.push_to_last_track(id);
                     }
@@ -935,7 +1130,7 @@ impl MiniDaw {
         ui.horizontal(|ui| {
             egui::warn_if_debug_build(ui);
             ui.with_layout(Layout::right_to_left(eframe::emath::Align::Center), |ui| {
-                ui.label(RichText::new(format!("Build: {:?}", app_version())))
+                ui.label(app_version())
             });
         });
     }
@@ -952,13 +1147,14 @@ impl MiniDaw {
     }
 
     fn show_center(&mut self, ui: &mut egui::Ui) {
-        if let Ok(mut o) = self.mini_orchestrator.lock() {
-            o.show(ui);
-        }
+        self.orchestrator_panel.show(ui);
     }
 }
 impl eframe::App for MiniDaw {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if let Ok(mut dnd) = self.drag_drop_manager.lock() {
+            dnd.reset();
+        }
         self.handle_message_channels();
         if !self.first_update_done {
             self.first_update_done = true;
