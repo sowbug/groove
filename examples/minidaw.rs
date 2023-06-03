@@ -460,39 +460,38 @@ impl MiniOrchestrator {
                     ui.set_min_size(desired_size);
 
                     let mut drop_track_index = None;
-                    if track.is_empty() {
+                    ui.horizontal(|ui| {
+                        for id in track.iter() {
+                            Frame::none()
+                                .stroke(Stroke::new(2.0, Color32::GRAY))
+                                .fill(Color32::DARK_GRAY)
+                                .inner_margin(Margin::same(2.0))
+                                .outer_margin(Margin::same(0.0))
+                                .show(ui, |ui| {
+                                    if let Some(e) = self.instrument_mut(id) {
+                                        let desired_size = Vec2::new(128.0, 64.0);
+                                        ui.set_min_size(desired_size);
+                                        e.show(ui);
+                                    }
+                                    if let Some(e) = self.effect_mut(id) {
+                                        let desired_size = Vec2::new(128.0, 64.0);
+                                        ui.set_min_size(desired_size);
+                                        e.show(ui);
+                                    }
+                                });
+                        }
+                        // Drop target at the end for new stuff
                         let response = dnd
                             .drop_target(ui, true, |ui| {
-                                ui.label("Empty track");
+                                let desired_size = Vec2::new(128.0, 64.0);
+                                ui.set_min_size(desired_size);
+                                ui.label("Drag something here");
                             })
                             .response;
                         if response.hovered() {
                             drop_track_index = Some(track_index);
-                            eprintln!("hovering!");
                         }
-                    } else {
-                        ui.horizontal(|ui| {
-                            for id in track.iter() {
-                                Frame::none()
-                                    .stroke(Stroke::new(2.0, Color32::GRAY))
-                                    .fill(Color32::DARK_GRAY)
-                                    .inner_margin(Margin::same(2.0))
-                                    .outer_margin(Margin::same(0.0))
-                                    .show(ui, |ui| {
-                                        if let Some(e) = self.instrument_mut(id) {
-                                            let desired_size = Vec2::new(128.0, 64.0);
-                                            ui.set_min_size(desired_size);
-                                            e.show(ui);
-                                        }
-                                        if let Some(e) = self.effect_mut(id) {
-                                            let desired_size = Vec2::new(128.0, 64.0);
-                                            ui.set_min_size(desired_size);
-                                            e.show(ui);
-                                        }
-                                    });
-                            }
-                        });
-                    }
+                    });
                     if let Some(drop_track_index) = drop_track_index {
                         if ui.input(|i| i.pointer.any_released()) {
                             if let Some(source) = &dnd.source {
