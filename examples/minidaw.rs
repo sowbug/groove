@@ -10,6 +10,7 @@ use eframe::{
     },
     emath::Align2,
     epaint::{self, Color32, FontFamily, FontId, Rect, Shape, Stroke, Vec2},
+    glow::UNSIGNED_INT_SAMPLER_BUFFER,
     CreationContext,
 };
 use egui_toast::Toasts;
@@ -417,6 +418,18 @@ impl MiniOrchestrator {
         }
     }
 
+    fn push_to_track(&mut self, track_index: usize, id: Id) {
+        if track_index < self.tracks.len() {
+            self.tracks[track_index].push(id);
+        }
+        // Did we just add the first item to the last track?
+        if track_index == self.tracks.len() - 1 {
+            if self.tracks[track_index].len() == 1 {
+                self.push_new_track();
+            }
+        }
+    }
+
     // TODO: this is getting cumbersome! Think about that uber-trait!
 
     fn controller(&self, id: &Id) -> Option<&Box<dyn NewIsController>> {
@@ -468,13 +481,16 @@ impl MiniOrchestrator {
                                 .inner_margin(Margin::same(2.0))
                                 .outer_margin(Margin::same(0.0))
                                 .show(ui, |ui| {
+                                    let desired_size = Vec2::new(128.0, 64.0);
+                                    if let Some(e) = self.controller_mut(id) {
+                                        ui.set_min_size(desired_size);
+                                        e.show(ui);
+                                    }
                                     if let Some(e) = self.instrument_mut(id) {
-                                        let desired_size = Vec2::new(128.0, 64.0);
                                         ui.set_min_size(desired_size);
                                         e.show(ui);
                                     }
                                     if let Some(e) = self.effect_mut(id) {
-                                        let desired_size = Vec2::new(128.0, 64.0);
                                         ui.set_min_size(desired_size);
                                         e.show(ui);
                                     }
@@ -499,19 +515,19 @@ impl MiniOrchestrator {
                                     DragDropSource::NewController(key) => {
                                         if let Some(controller) = factory.new_controller(key) {
                                             let id = self.add_controller(controller);
-                                            self.push_to_last_track(id);
+                                            self.push_to_track(drop_track_index, id);
                                         }
                                     }
                                     DragDropSource::NewEffect(key) => {
                                         if let Some(effect) = factory.new_effect(key) {
                                             let id = self.add_effect(effect);
-                                            self.push_to_last_track(id);
+                                            self.push_to_track(drop_track_index, id);
                                         }
                                     }
                                     DragDropSource::NewInstrument(key) => {
                                         if let Some(instrument) = factory.new_instrument(key) {
                                             let id = self.add_instrument(instrument);
-                                            self.push_to_last_track(id);
+                                            self.push_to_track(drop_track_index, id);
                                         }
                                     }
                                 }
@@ -532,6 +548,10 @@ impl MiniOrchestrator {
         for e in self.controllers.values_mut() {
             e.show(ui);
         }
+    }
+
+    fn push_new_track(&mut self) {
+        self.tracks.push(Default::default());
     }
 }
 impl Generates<StereoSample> for MiniOrchestrator {
@@ -729,6 +749,7 @@ enum DragDropSource {
     NewInstrument(Key),
 }
 
+// TODO: a way to express rules about what can and can't be dropped
 #[derive(Debug, Default)]
 struct DragDropManager {
     source: Option<DragDropSource>,
