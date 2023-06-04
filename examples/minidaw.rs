@@ -6,11 +6,10 @@ use derive_more::Display;
 use eframe::{
     egui::{
         self, Context, CursorIcon, FontData, FontDefinitions, Frame, Id as EguiId, InnerResponse,
-        LayerId, Layout, Margin, Order, ScrollArea, Sense, TextStyle, Ui,
+        LayerId, Layout, Order, RichText, ScrollArea, Sense, TextStyle, Ui,
     },
     emath::Align2,
-    epaint::{self, Color32, FontFamily, FontId, Rect, Shape, Stroke, Vec2},
-    glow::UNSIGNED_INT_SAMPLER_BUFFER,
+    epaint::{self, Color32, FontFamily, FontId, Rect, Shape, Vec2},
     CreationContext,
 };
 use egui_toast::Toasts;
@@ -60,7 +59,7 @@ use std::{
 //   analysis. These should be APIs directly on the struct, and we'll leave it
 //   up to the app to lock the struct and get what it needs.
 
-#[derive(Copy, Clone, Serialize, Deserialize, Debug, Default, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Serialize, Deserialize, Debug, Default, Display, Eq, PartialEq, Hash)]
 struct Id(usize);
 impl Id {
     fn increment(&mut self) {
@@ -430,6 +429,16 @@ impl MiniOrchestrator {
         }
     }
 
+    fn move_item_track(&mut self, old_track: usize, new_track: usize, id: Id) {
+        self.tracks[old_track].retain(|i| i != &id);
+        self.tracks[new_track].push(id);
+    }
+
+    fn move_item_position(&mut self, track: usize, id: Id, new_position: usize) {
+        self.tracks[track].retain(|i| i != &id);
+        self.tracks[track].insert(new_position, id);
+    }
+
     // TODO: this is getting cumbersome! Think about that uber-trait!
 
     fn controller(&self, id: &Id) -> Option<&Box<dyn NewIsController>> {
@@ -456,52 +465,64 @@ impl MiniOrchestrator {
         self.instruments.get_mut(id)
     }
 
+    fn add_track_element(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui)) {
+        let style = ui.visuals().widgets.inactive;
+        Frame::none()
+            .stroke(style.fg_stroke)
+            .fill(style.bg_fill)
+            .show(ui, |ui| {
+                add_contents(ui);
+            });
+    }
+
     fn show_tracks(&mut self, ui: &mut Ui, factory: &EntityFactory, dnd: &mut DragDropManager) {
+        let style = ui.visuals().widgets.inactive;
         for (track_index, track) in self.tracks.clone().iter().enumerate() {
             Frame::none()
-                .stroke(Stroke::new(2.0, Color32::GRAY))
-                .fill(Color32::BLACK)
-                .inner_margin(Margin::same(2.0))
-                .outer_margin(Margin {
-                    left: 0.0,
-                    right: 0.0,
-                    top: 0.0,
-                    bottom: 5.0,
-                })
+                .stroke(style.fg_stroke)
+                .fill(style.bg_fill)
                 .show(ui, |ui| {
-                    let desired_size = Vec2::new(ui.available_width(), 64.0);
+                    let desired_size =
+                        Vec2::new(ui.available_width(), 64.0 - style.fg_stroke.width);
                     ui.set_min_size(desired_size);
+                    ui.set_max_size(desired_size);
 
                     let mut drop_track_index = None;
-                    ui.horizontal(|ui| {
+                    ui.horizontal_centered(|ui| {
+                        let desired_size = Vec2::new(96.0, ui.available_height());
                         for id in track.iter() {
-                            Frame::none()
-                                .stroke(Stroke::new(2.0, Color32::GRAY))
-                                .fill(Color32::DARK_GRAY)
-                                .inner_margin(Margin::same(2.0))
-                                .outer_margin(Margin::same(0.0))
-                                .show(ui, |ui| {
-                                    let desired_size = Vec2::new(128.0, 64.0);
-                                    if let Some(e) = self.controller_mut(id) {
-                                        ui.set_min_size(desired_size);
-                                        e.show(ui);
-                                    }
-                                    if let Some(e) = self.instrument_mut(id) {
-                                        ui.set_min_size(desired_size);
-                                        e.show(ui);
-                                    }
-                                    if let Some(e) = self.effect_mut(id) {
-                                        ui.set_min_size(desired_size);
-                                        e.show(ui);
-                                    }
-                                });
+                            Self::add_track_element(ui, |ui| {
+                                ui.set_min_size(desired_size);
+                                ui.set_max_size(desired_size);
+                                if let Some(e) = self.controller_mut(id) {
+                                    dnd.drag_source(
+                                        ui,
+                                        EguiId::new(ui.next_auto_id()),
+                                        DragDropSource::ControllerInTrack(track_index, *id),
+                                        |ui| {
+                                            e.show(ui);
+                                        },
+                                    );
+                                }
+                                if let Some(e) = self.instrument_mut(id) {
+                                    e.show(ui);
+                                }
+                                if let Some(e) = self.effect_mut(id) {
+                                    e.show(ui);
+                                }
+                            });
                         }
+
                         // Drop target at the end for new stuff
+                        ui.add_space(1.0);
                         let response = dnd
                             .drop_target(ui, true, |ui| {
-                                let desired_size = Vec2::new(128.0, 64.0);
-                                ui.set_min_size(desired_size);
-                                ui.label("Drag something here");
+                                Self::add_track_element(ui, |ui| {
+                                    let desired_size =
+                                        Vec2::new(desired_size.x / 4.0, desired_size.y - 8.0);
+                                    ui.set_max_size(desired_size);
+                                    ui.label(RichText::new("+").size(24.0));
+                                });
                             })
                             .response;
                         if response.hovered() {
@@ -530,6 +551,17 @@ impl MiniOrchestrator {
                                             self.push_to_track(drop_track_index, id);
                                         }
                                     }
+                                    DragDropSource::ControllerInTrack(old_track_index, id) => {
+                                        if drop_track_index == *old_track_index {
+                                            self.move_item_position(drop_track_index, *id, 0);
+                                        } else {
+                                            self.move_item_track(
+                                                *old_track_index,
+                                                drop_track_index,
+                                                *id,
+                                            );
+                                        }
+                                    }
                                 }
                             } else {
                                 eprintln!(
@@ -544,10 +576,6 @@ impl MiniOrchestrator {
 
     fn show_with(&mut self, ui: &mut egui::Ui, factory: &EntityFactory, dnd: &mut DragDropManager) {
         self.show_tracks(ui, factory, dnd);
-        ui.label("Controllers");
-        for e in self.controllers.values_mut() {
-            e.show(ui);
-        }
     }
 
     fn push_new_track(&mut self) {
@@ -747,6 +775,7 @@ enum DragDropSource {
     NewController(Key),
     NewEffect(Key),
     NewInstrument(Key),
+    ControllerInTrack(usize, Id),
 }
 
 // TODO: a way to express rules about what can and can't be dropped
@@ -795,7 +824,7 @@ impl DragDropManager {
     ) -> InnerResponse<R> {
         let is_being_dragged = ui.memory(|mem| mem.is_anything_being_dragged());
 
-        let margin = Vec2::splat(4.0);
+        let margin = Vec2::splat(2.0);
 
         let outer_rect_bounds = ui.available_rect_before_wrap();
         let inner_rect = outer_rect_bounds.shrink2(margin);
