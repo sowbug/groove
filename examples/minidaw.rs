@@ -503,12 +503,24 @@ impl MiniOrchestrator {
                                             e.show(ui);
                                         },
                                     );
-                                }
-                                if let Some(e) = self.instrument_mut(id) {
-                                    e.show(ui);
-                                }
-                                if let Some(e) = self.effect_mut(id) {
-                                    e.show(ui);
+                                } else if let Some(e) = self.instrument_mut(id) {
+                                    dnd.drag_source(
+                                        ui,
+                                        EguiId::new(ui.next_auto_id()),
+                                        DragDropSource::InstrumentInTrack(track_index, *id),
+                                        |ui| {
+                                            e.show(ui);
+                                        },
+                                    );
+                                } else if let Some(e) = self.effect_mut(id) {
+                                    dnd.drag_source(
+                                        ui,
+                                        EguiId::new(ui.next_auto_id()),
+                                        DragDropSource::EffectInTrack(track_index, *id),
+                                        |ui| {
+                                            e.show(ui);
+                                        },
+                                    );
                                 }
                             });
                         }
@@ -551,7 +563,9 @@ impl MiniOrchestrator {
                                             self.push_to_track(drop_track_index, id);
                                         }
                                     }
-                                    DragDropSource::ControllerInTrack(old_track_index, id) => {
+                                    DragDropSource::ControllerInTrack(old_track_index, id)
+                                    | DragDropSource::InstrumentInTrack(old_track_index, id)
+                                    | DragDropSource::EffectInTrack(old_track_index, id) => {
                                         if drop_track_index == *old_track_index {
                                             self.move_item_position(drop_track_index, *id, 0);
                                         } else {
@@ -772,10 +786,12 @@ impl PalettePanel {
 
 #[derive(Debug)]
 enum DragDropSource {
+    ControllerInTrack(usize, Id),
+    EffectInTrack(usize, Id),
+    InstrumentInTrack(usize, Id),
     NewController(Key),
     NewEffect(Key),
     NewInstrument(Key),
-    ControllerInTrack(usize, Id),
 }
 
 // TODO: a way to express rules about what can and can't be dropped
