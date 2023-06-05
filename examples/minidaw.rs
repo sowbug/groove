@@ -12,7 +12,7 @@ use eframe::{
     epaint::{self, Color32, FontFamily, FontId, Rect, Shape, Vec2},
     CreationContext,
 };
-use egui_toast::Toasts;
+use egui_toast::{Toast, ToastOptions, Toasts};
 use groove::{
     app_version,
     egui_widgets::{
@@ -81,6 +81,7 @@ enum MiniOrchestratorInput {
     Midi(MidiChannel, MidiMessage),
     Play,
     Stop,
+    New,
     Load(PathBuf),
     Save(PathBuf),
 
@@ -88,9 +89,18 @@ enum MiniOrchestratorInput {
     Quit,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 enum MiniOrchestratorEvent {
     Tempo(Tempo),
+
+    /// A new, empty project was created.
+    New,
+
+    Loaded(PathBuf, Option<String>),
+    LoadError(PathBuf, anyhow::Error),
+
+    Saved(PathBuf),
+    SaveError(PathBuf, anyhow::Error),
 
     /// Acknowledge request to quit.
     Quit,
@@ -144,25 +154,40 @@ impl OrchestratorPanel {
                     }
                     MiniOrchestratorInput::Play => eprintln!("Play"),
                     MiniOrchestratorInput::Stop => eprintln!("Stop"),
+                    MiniOrchestratorInput::New => {
+                        let mut mo = MiniOrchestrator::default();
+                        if let Ok(mut o) = orchestrator.lock() {
+                            o.prepare_successor(&mut mo);
+                            *o = mo;
+                            let _ = sender.send(MiniOrchestratorEvent::New);
+                        }
+                    }
                     MiniOrchestratorInput::Load(path) => {
                         match Self::handle_input_load(&path) {
                             Ok(mut mo) => {
                                 if let Ok(mut o) = orchestrator.lock() {
                                     o.prepare_successor(&mut mo);
                                     *o = mo;
-                                    eprintln!("loaded from {:?}", &path);
+                                    let _ = sender.send(MiniOrchestratorEvent::Loaded(
+                                        path,
+                                        o.title().cloned(),
+                                    ));
                                 }
                             }
-                            Err(_) => todo!(),
+                            Err(err) => {
+                                let _ = sender.send(MiniOrchestratorEvent::LoadError(path, err));
+                            }
                         }
                         {}
                     }
                     MiniOrchestratorInput::Save(path) => {
                         match Self::handle_input_save(&orchestrator, &path) {
                             Ok(_) => {
-                                eprintln!("saved to {:?}", &path)
+                                let _ = sender.send(MiniOrchestratorEvent::Saved(path));
                             }
-                            Err(_) => todo!(),
+                            Err(err) => {
+                                let _ = sender.send(MiniOrchestratorEvent::SaveError(path, err));
+                            }
                         }
                     }
                     MiniOrchestratorInput::Quit => {
@@ -221,10 +246,16 @@ impl OrchestratorPanel {
     fn handle_input_load(path: &PathBuf) -> Result<MiniOrchestrator> {
         match std::fs::read_to_string(path) {
             Ok(project_string) => match serde_json::from_str(&project_string) {
-                Ok(mo) => anyhow::Ok(mo),
-                Err(err) => Err(anyhow!("Error while parsing {:?}: {}", path, err)),
+                Ok(mo) => {
+                    return anyhow::Ok(mo);
+                }
+                Err(err) => {
+                    return Err(anyhow!("Error while parsing: {}", err));
+                }
             },
-            Err(err) => Err(anyhow!("Error while reading {:?}: {}", path, err)),
+            Err(err) => {
+                return Err(anyhow!("Error while reading: {}", err));
+            }
         }
     }
 
@@ -239,13 +270,9 @@ impl OrchestratorPanel {
             {
                 Ok(json) => match std::fs::write(path, json) {
                     Ok(_) => Ok(()),
-                    Err(err) => Err(anyhow!("While writing project to {:?}: {}", path, err)),
+                    Err(err) => Err(anyhow!("While writing project: {}", err)),
                 },
-                Err(err) => Err(anyhow!(
-                    "While serializing project to be written to {:?}: {}",
-                    path,
-                    err
-                )),
+                Err(err) => Err(anyhow!("While serializing project: {}", err)),
             }
         } else {
             Err(anyhow!("Couldn't get lock"))
@@ -276,6 +303,7 @@ impl Shows for OrchestratorPanel {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct MiniOrchestrator {
+    title: Option<String>,
     time_signature: TimeSignature,
     tempo: Tempo,
 
@@ -301,6 +329,7 @@ struct MiniOrchestrator {
 impl Default for MiniOrchestrator {
     fn default() -> Self {
         Self {
+            title: None,
             time_signature: Default::default(),
             tempo: Default::default(),
             next_id: Id(1),
@@ -594,6 +623,14 @@ impl MiniOrchestrator {
 
     fn push_new_track(&mut self) {
         self.tracks.push(Default::default());
+    }
+
+    fn title(&self) -> Option<&String> {
+        self.title.as_ref()
+    }
+
+    fn set_title(&mut self, title: Option<String>) {
+        self.title = title;
     }
 }
 impl Generates<StereoSample> for MiniOrchestrator {
@@ -905,6 +942,8 @@ impl MiniDaw {
     pub const FONT_REGULAR: &str = "font-regular";
     pub const FONT_BOLD: &str = "font-bold";
     pub const FONT_MONO: &str = "font-mono";
+    pub const APP_NAME: &str = "MiniDAW";
+    pub const DEFAULT_PROJECT_NAME: &str = "Untitled";
 
     pub fn new(cc: &CreationContext) -> Self {
         Self::initialize_fonts(cc);
@@ -1080,6 +1119,53 @@ impl MiniDaw {
                 MiniOrchestratorEvent::Quit => {
                     eprintln!("MiniOrchestratorEvent::Quit")
                 }
+                MiniOrchestratorEvent::Loaded(path, title) => {
+                    self.toasts.add(Toast {
+                        kind: egui_toast::ToastKind::Success,
+                        text: format!(
+                            "Loaded {} from {}",
+                            if let Some(title) = title {
+                                title
+                            } else {
+                                Self::DEFAULT_PROJECT_NAME.to_string()
+                            },
+                            path.display()
+                        )
+                        .into(),
+                        options: ToastOptions::default()
+                            .duration_in_seconds(2.0)
+                            .show_progress(false),
+                    });
+                }
+                MiniOrchestratorEvent::LoadError(path, error) => {
+                    self.toasts.add(Toast {
+                        kind: egui_toast::ToastKind::Error,
+                        text: format!("Error loading {}: {}", path.display(), error).into(),
+                        options: ToastOptions::default().duration_in_seconds(5.0),
+                    });
+                }
+                MiniOrchestratorEvent::Saved(path) => {
+                    // TODO: this should happen only if the save operation was
+                    // explicit. Autosaves should be invisible.
+                    self.toasts.add(Toast {
+                        kind: egui_toast::ToastKind::Success,
+                        text: format!("Saved to {}", path.display()).into(),
+                        options: ToastOptions::default()
+                            .duration_in_seconds(1.0)
+                            .show_progress(false),
+                    });
+                }
+                MiniOrchestratorEvent::SaveError(path, error) => {
+                    self.toasts.add(Toast {
+                        kind: egui_toast::ToastKind::Error,
+                        text: format!("Error saving {}: {}", path.display(), error).into(),
+                        options: ToastOptions::default().duration_in_seconds(5.0),
+                    });
+                }
+                MiniOrchestratorEvent::New => {
+                    // No special UI needed for this.
+                    eprintln!("asdfasd");
+                }
             }
             true
         } else {
@@ -1126,6 +1212,9 @@ impl MiniDaw {
             ControlPanelAction::Stop => self
                 .orchestrator_panel
                 .send_to_service(MiniOrchestratorInput::Stop),
+            ControlPanelAction::New => self
+                .orchestrator_panel
+                .send_to_service(MiniOrchestratorInput::New),
             ControlPanelAction::Load(path) => self
                 .orchestrator_panel
                 .send_to_service(MiniOrchestratorInput::Load(path)),
@@ -1214,17 +1303,40 @@ impl MiniDaw {
     fn show_center(&mut self, ui: &mut egui::Ui) {
         self.orchestrator_panel.show(ui);
     }
+
+    fn update_window_title(&mut self, frame: &mut eframe::Frame) {
+        // TODO: it seems like the window remembers its title, so this isn't
+        // something we should be doing on every frame.
+        let full_title = format!(
+            "{} - {}",
+            Self::APP_NAME,
+            if let Some(title) = {
+                if let Ok(o) = self.orchestrator_panel.orchestrator().lock() {
+                    o.title().cloned()
+                } else {
+                    None
+                }
+            } {
+                title
+            } else {
+                Self::DEFAULT_PROJECT_NAME.to_string()
+            }
+        );
+        frame.set_window_title(&full_title);
+    }
 }
 impl eframe::App for MiniDaw {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if let Ok(mut dnd) = self.drag_drop_manager.lock() {
-            dnd.reset();
-        }
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.handle_message_channels();
         if !self.first_update_done {
             self.first_update_done = true;
             ctx.fonts(|f| self.bold_font_height = f.row_height(&self.bold_font_id));
         }
+        if let Ok(mut dnd) = self.drag_drop_manager.lock() {
+            dnd.reset();
+        }
+
+        self.update_window_title(frame);
 
         let top = egui::TopBottomPanel::top("top-panel")
             .resizable(false)

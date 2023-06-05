@@ -20,6 +20,9 @@ pub enum ControlPanelAction {
     /// Stop button pressed.
     Stop,
 
+    /// The user asked to create a new project.
+    New,
+
     /// The user asked to load the project having the given filename.
     Load(PathBuf),
 
@@ -49,6 +52,10 @@ impl ControlPanel {
             }
             if ui.button("stop").clicked() {
                 action = Some(ControlPanelAction::Stop);
+            }
+            ui.separator();
+            if ui.button("new").clicked() {
+                action = Some(ControlPanelAction::New);
             }
             if ui.button("load").clicked() {
                 action = Some(ControlPanelAction::Load(PathBuf::from("minidaw.json")));
