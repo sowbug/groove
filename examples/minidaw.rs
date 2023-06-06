@@ -121,6 +121,7 @@ impl<T> Default for ChannelPair<T> {
 struct OrchestratorPanel {
     #[allow(dead_code)]
     factory: Arc<EntityFactory>,
+    #[allow(dead_code)]
     drag_drop_manager: Arc<Mutex<DragDropManager>>,
     orchestrator: Arc<Mutex<MiniOrchestrator>>,
     input_channel_pair: ChannelPair<MiniOrchestratorInput>,
@@ -294,9 +295,7 @@ impl OrchestratorPanel {
 impl Shows for OrchestratorPanel {
     fn show(&mut self, ui: &mut Ui) {
         if let Ok(mut o) = self.orchestrator.lock() {
-            if let Ok(mut dnd) = self.drag_drop_manager.lock() {
-                o.show_with(ui, &self.factory, &mut dnd);
-            }
+            o.show_with(ui, &self.factory);
         }
     }
 }
@@ -337,7 +336,7 @@ impl Default for MiniOrchestrator {
             instruments: Default::default(),
             effects: Default::default(),
 
-            tracks: vec![Default::default()],
+            tracks: vec![Default::default(); 8],
 
             sample_rate: Default::default(),
             frames: Default::default(),
@@ -437,39 +436,110 @@ impl MiniOrchestrator {
     // TODO: ordering should be controllers, instruments, then effects. Within
     // those groups, the user can reorder as desired (but instrument order
     // doesn't matter because they're all simultaneous)
-    fn push_to_last_track(&mut self, id: Id) {
-        if self.tracks.is_empty() {
-            self.tracks.push(Vec::default());
+
+    fn push_to_track(&mut self, track_index: usize, id: Id) -> Result<()> {
+        if track_index >= self.tracks.len() {
+            return Err(anyhow!("track index {track_index} is out of bounds"));
         }
-        if let Some(track) = self.tracks.last_mut() {
-            track.push(id);
+        if self.tracks[track_index].contains(&id) {
+            return Err(anyhow!("Tried to add id {id} twice to a track"));
+        }
+        self.tracks[track_index].push(id);
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    fn move_item_track(
+        &mut self,
+        old_track_index: usize,
+        new_track_index: usize,
+        id: Id,
+    ) -> Result<()> {
+        if !self.tracks[old_track_index].contains(&id) {
+            return Err(anyhow!(
+                "move_item_track: id {id} not in track {old_track_index}"
+            ));
+        }
+        if self.tracks[new_track_index].contains(&id) {
+            return Err(anyhow!(
+                "move_item_track: id {id} already in track {new_track_index}"
+            ));
+        }
+        let _ = self.remove_item_from_track(old_track_index, id);
+        let _ = self.push_to_track(new_track_index, id);
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    fn move_item_position(&mut self, track_index: usize, id: Id, new_position: usize) {
+        self.tracks[track_index].retain(|i| i != &id);
+        self.tracks[track_index].insert(new_position, id);
+    }
+
+    fn move_item_left(&mut self, track_index: usize, id: Id) -> Result<()> {
+        let track = &mut self.tracks[track_index];
+        if let Some(index) = track.iter().position(|i| i == &id) {
+            if index == 0 {
+                return Err(anyhow!(
+                    "Can't move leftmost item {id} in track {track_index} farther left"
+                ));
+            }
+            track.retain(|i| i != &id);
+            track.insert(index - 1, id);
+            Ok(())
+        } else {
+            Err(anyhow!("Item {id} not found in track {track_index}"))
         }
     }
 
-    fn push_to_track(&mut self, track_index: usize, id: Id) {
-        if track_index < self.tracks.len() {
-            self.tracks[track_index].push(id);
+    fn move_item_right(&mut self, track_index: usize, id: Id) -> Result<()> {
+        let track = &mut self.tracks[track_index];
+        if let Some(index) = track.iter().position(|i| i == &id) {
+            if index == track.len() - 1 {
+                return Err(anyhow!(
+                    "Can't move rightmost item {id} in track {track_index} farther right"
+                ));
+            }
+            track.retain(|i| i != &id);
+            track.insert(index + 1, id);
+            Ok(())
+        } else {
+            Err(anyhow!("Item {id} not found in track {track_index}"))
         }
-        // Did we just add the first item to the last track?
-        if track_index == self.tracks.len() - 1 {
-            if self.tracks[track_index].len() == 1 {
-                self.push_new_track();
+    }
+
+    // remove = it still exists, but it's not in this track anymore.
+    fn remove_item_from_track(&mut self, track_index: usize, id: Id) -> Result<()> {
+        let track = &mut self.tracks[track_index];
+        if !track.contains(&id) {
+            return Err(anyhow!("Item {id} not found in track {track_index}"));
+        }
+        track.retain(|i| i != &id);
+        Ok(())
+    }
+
+    // delete = it's gone. TODO: if you want to delete something, then you shouldn't
+    // have to specify the track. Counterargument: I can't think of UI paths where
+    // we wouldn't know the track.
+    fn delete_item_from_track(&mut self, track_index: usize, id: Id) -> Result<()> {
+        match self.remove_item_from_track(track_index, id) {
+            Ok(_) => return self.delete_item(id),
+            Err(e) => {
+                return Err(anyhow!("Error while deleting item: {e}"));
             }
         }
     }
 
-    fn move_item_track(&mut self, old_track: usize, new_track: usize, id: Id) {
-        self.tracks[old_track].retain(|i| i != &id);
-        self.tracks[new_track].push(id);
-    }
-
-    fn move_item_position(&mut self, track: usize, id: Id, new_position: usize) {
-        self.tracks[track].retain(|i| i != &id);
-        self.tracks[track].insert(new_position, id);
+    fn delete_item(&mut self, id: Id) -> Result<()> {
+        self.controllers.remove(&id);
+        self.effects.remove(&id);
+        self.instruments.remove(&id);
+        Ok(())
     }
 
     // TODO: this is getting cumbersome! Think about that uber-trait!
 
+    #[allow(dead_code)]
     fn controller(&self, id: &Id) -> Option<&Box<dyn NewIsController>> {
         self.controllers.get(id)
     }
@@ -478,6 +548,7 @@ impl MiniOrchestrator {
         self.controllers.get_mut(id)
     }
 
+    #[allow(dead_code)]
     fn effect(&self, id: &Id) -> Option<&Box<dyn NewIsEffect>> {
         self.effects.get(id)
     }
@@ -486,6 +557,7 @@ impl MiniOrchestrator {
         self.effects.get_mut(id)
     }
 
+    #[allow(dead_code)]
     fn instrument(&self, id: &Id) -> Option<&Box<dyn NewIsInstrument>> {
         self.instruments.get(id)
     }
@@ -494,17 +566,45 @@ impl MiniOrchestrator {
         self.instruments.get_mut(id)
     }
 
-    fn add_track_element(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui)) {
+    fn add_track_element(
+        ui: &mut Ui,
+        show_left_button: bool,
+        show_right_button: bool,
+        show_delete_button: bool,
+        add_contents: impl FnOnce(&mut Ui),
+    ) -> Option<TrackElementAction> {
+        let mut action = None;
         let style = ui.visuals().widgets.inactive;
         Frame::none()
             .stroke(style.fg_stroke)
             .fill(style.bg_fill)
             .show(ui, |ui| {
-                add_contents(ui);
+                ui.vertical(|ui| {
+                    ui.horizontal(|ui| {
+                        if show_left_button {
+                            if ui.button("<").clicked() {
+                                action = Some(TrackElementAction::MoveLeft);
+                            }
+                        }
+                        if show_right_button {
+                            if ui.button(">").clicked() {
+                                action = Some(TrackElementAction::MoveRight);
+                            }
+                        }
+                        if show_delete_button {
+                            if ui.button("x").clicked() {
+                                action = Some(TrackElementAction::Delete);
+                            }
+                        }
+                        add_contents(ui);
+                    });
+                });
             });
+        action
     }
 
-    fn show_tracks(&mut self, ui: &mut Ui, factory: &EntityFactory, dnd: &mut DragDropManager) {
+    fn show_tracks(&mut self, ui: &mut Ui, factory: &EntityFactory) -> Option<TrackAction> {
+        let mut action = None;
         let style = ui.visuals().widgets.inactive;
         for (track_index, track) in self.tracks.clone().iter().enumerate() {
             Frame::none()
@@ -516,111 +616,122 @@ impl MiniOrchestrator {
                     ui.set_min_size(desired_size);
                     ui.set_max_size(desired_size);
 
-                    let mut drop_track_index = None;
                     ui.horizontal_centered(|ui| {
                         let desired_size = Vec2::new(96.0, ui.available_height());
-                        for id in track.iter() {
-                            Self::add_track_element(ui, |ui| {
-                                ui.set_min_size(desired_size);
-                                ui.set_max_size(desired_size);
-                                if let Some(e) = self.controller_mut(id) {
-                                    dnd.drag_source(
-                                        ui,
-                                        EguiId::new(ui.next_auto_id()),
-                                        DragDropSource::ControllerInTrack(track_index, *id),
-                                        |ui| {
-                                            e.show(ui);
-                                        },
-                                    );
-                                } else if let Some(e) = self.instrument_mut(id) {
-                                    dnd.drag_source(
-                                        ui,
-                                        EguiId::new(ui.next_auto_id()),
-                                        DragDropSource::InstrumentInTrack(track_index, *id),
-                                        |ui| {
-                                            e.show(ui);
-                                        },
-                                    );
-                                } else if let Some(e) = self.effect_mut(id) {
-                                    dnd.drag_source(
-                                        ui,
-                                        EguiId::new(ui.next_auto_id()),
-                                        DragDropSource::EffectInTrack(track_index, *id),
-                                        |ui| {
-                                            e.show(ui);
-                                        },
-                                    );
+                        for (index, id) in track.iter().enumerate() {
+                            let show_left_button = index != 0;
+                            let show_right_button = index != track.len() - 1;
+                            let show_delete_button = true;
+                            if let Some(action) = Self::add_track_element(
+                                ui,
+                                show_left_button,
+                                show_right_button,
+                                show_delete_button,
+                                |ui| {
+                                    ui.set_min_size(desired_size);
+                                    ui.set_max_size(desired_size);
+                                    if let Some(e) = self.controller_mut(id) {
+                                        e.show(ui);
+                                    } else if let Some(e) = self.instrument_mut(id) {
+                                        e.show(ui);
+                                    } else if let Some(e) = self.effect_mut(id) {
+                                        e.show(ui);
+                                    }
+                                },
+                            ) {
+                                {
+                                    match action {
+                                        TrackElementAction::MoveLeft => {
+                                            let _ = self.move_item_left(track_index, *id);
+                                        }
+                                        TrackElementAction::MoveRight => {
+                                            let _ = self.move_item_right(track_index, *id);
+                                        }
+                                        TrackElementAction::Delete => {
+                                            let _ = self.delete_item_from_track(track_index, *id);
+                                        }
+                                    }
                                 }
-                            });
+                            };
                         }
 
-                        // Drop target at the end for new stuff
+                        // Context menu at the end for new stuff
                         ui.add_space(1.0);
-                        let response = dnd
-                            .drop_target(ui, true, |ui| {
-                                Self::add_track_element(ui, |ui| {
-                                    let desired_size =
-                                        Vec2::new(desired_size.x / 4.0, desired_size.y - 8.0);
-                                    ui.set_max_size(desired_size);
-                                    ui.label(RichText::new("+").size(24.0));
+                        Self::add_track_element(ui, false, false, false, |ui| {
+                            let desired_size =
+                                Vec2::new(desired_size.x / 4.0, desired_size.y - 8.0);
+                            ui.set_max_size(desired_size);
+                            ui.label(RichText::new("+").size(24.0)).context_menu(|ui| {
+                                ui.menu_button("Controllers", |ui| {
+                                    factory.controller_keys().for_each(|k| {
+                                        if ui.button(k.to_string()).clicked() {
+                                            action = Some(TrackAction::NewController(
+                                                track_index,
+                                                k.clone(),
+                                            ));
+                                        }
+                                    });
                                 });
-                            })
-                            .response;
-                        if response.hovered() {
-                            drop_track_index = Some(track_index);
-                        }
+                                ui.menu_button("Instruments", |ui| {
+                                    factory.instrument_keys().for_each(|k| {
+                                        if ui.button(k.to_string()).clicked() {
+                                            action = Some(TrackAction::NewInstrument(
+                                                track_index,
+                                                k.clone(),
+                                            ));
+                                        }
+                                    });
+                                });
+                                ui.menu_button("Effects", |ui| {
+                                    factory.effect_keys().for_each(|k| {
+                                        if ui.button(k.to_string()).clicked() {
+                                            action = Some(TrackAction::NewEffect(
+                                                track_index,
+                                                k.clone(),
+                                            ));
+                                        }
+                                    });
+                                });
+                            });
+                        });
                     });
-                    if let Some(drop_track_index) = drop_track_index {
-                        if ui.input(|i| i.pointer.any_released()) {
-                            if let Some(source) = &dnd.source {
-                                match source {
-                                    DragDropSource::NewController(key) => {
-                                        if let Some(controller) = factory.new_controller(key) {
-                                            let id = self.add_controller(controller);
-                                            self.push_to_track(drop_track_index, id);
-                                        }
-                                    }
-                                    DragDropSource::NewEffect(key) => {
-                                        if let Some(effect) = factory.new_effect(key) {
-                                            let id = self.add_effect(effect);
-                                            self.push_to_track(drop_track_index, id);
-                                        }
-                                    }
-                                    DragDropSource::NewInstrument(key) => {
-                                        if let Some(instrument) = factory.new_instrument(key) {
-                                            let id = self.add_instrument(instrument);
-                                            self.push_to_track(drop_track_index, id);
-                                        }
-                                    }
-                                    DragDropSource::ControllerInTrack(old_track_index, id)
-                                    | DragDropSource::InstrumentInTrack(old_track_index, id)
-                                    | DragDropSource::EffectInTrack(old_track_index, id) => {
-                                        if drop_track_index == *old_track_index {
-                                            self.move_item_position(drop_track_index, *id, 0);
-                                        } else {
-                                            self.move_item_track(
-                                                *old_track_index,
-                                                drop_track_index,
-                                                *id,
-                                            );
-                                        }
-                                    }
-                                }
-                            } else {
-                                eprintln!(
-                                    "dropped on track {drop_track_index}, but source is missing!"
-                                );
-                            }
-                        }
-                    }
                 });
+        }
+        action
+    }
+
+    fn show_with(&mut self, ui: &mut egui::Ui, factory: &EntityFactory) {
+        if let Some(action) = self.show_tracks(ui, factory) {
+            self.handle_track_action(factory, action);
         }
     }
 
-    fn show_with(&mut self, ui: &mut egui::Ui, factory: &EntityFactory, dnd: &mut DragDropManager) {
-        self.show_tracks(ui, factory, dnd);
+    fn handle_track_action(&mut self, factory: &EntityFactory, action: TrackAction) {
+        match action {
+            TrackAction::NewController(track, key) => {
+                // TODO: will instruments ever exist outside of tracks? If not,
+                // then why go through the new/add/push sequence?
+                if let Some(e) = factory.new_controller(&key) {
+                    let id = self.add_controller(e);
+                    let _ = self.push_to_track(track, id);
+                }
+            }
+            TrackAction::NewEffect(track, key) => {
+                if let Some(e) = factory.new_effect(&key) {
+                    let id = self.add_effect(e);
+                    let _ = self.push_to_track(track, id);
+                }
+            }
+            TrackAction::NewInstrument(track, key) => {
+                if let Some(e) = factory.new_instrument(&key) {
+                    let id = self.add_instrument(e);
+                    let _ = self.push_to_track(track, id);
+                }
+            }
+        }
     }
 
+    #[allow(dead_code)]
     fn push_new_track(&mut self) {
         self.tracks.push(Default::default());
     }
@@ -629,6 +740,7 @@ impl MiniOrchestrator {
         self.title.as_ref()
     }
 
+    #[allow(dead_code)]
     fn set_title(&mut self, title: Option<String>) {
         self.title = title;
     }
@@ -749,6 +861,20 @@ impl EntityFactory {
 }
 
 #[derive(Debug)]
+enum TrackElementAction {
+    MoveLeft,
+    MoveRight,
+    Delete,
+}
+
+#[derive(Debug)]
+enum TrackAction {
+    NewController(usize, Key),
+    NewEffect(usize, Key),
+    NewInstrument(usize, Key),
+}
+
+#[derive(Debug)]
 enum PaletteAction {
     NewController(Key),
     NewEffect(Key),
@@ -821,6 +947,7 @@ impl PalettePanel {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 enum DragDropSource {
     ControllerInTrack(usize, Id),
@@ -869,6 +996,7 @@ impl DragDropManager {
         }
     }
 
+    #[allow(dead_code)]
     fn drop_target<R>(
         &mut self,
         ui: &mut Ui,
@@ -917,7 +1045,6 @@ impl DragDropManager {
 
 struct MiniDaw {
     mini_orchestrator: Arc<Mutex<MiniOrchestrator>>,
-    factory: Arc<EntityFactory>,
 
     orchestrator_panel: OrchestratorPanel,
     control_panel: ControlPanel,
@@ -967,7 +1094,6 @@ impl MiniDaw {
 
         let mut r = Self {
             mini_orchestrator,
-            factory: Arc::clone(&factory),
             orchestrator_panel,
             control_panel: Default::default(),
             audio_panel: AudioPanel2::new_with(Box::new(needs_audio)),
@@ -1224,7 +1350,7 @@ impl MiniDaw {
         }
     }
 
-    fn register_entities(factory: &mut EntityFactory) {
+    pub fn register_entities(factory: &mut EntityFactory) {
         // TODO: might be nice to move HasUid::name() to be a function... and
         // while we're at it, I guess make the mondo IsEntity trait that allows
         // discovery of IsInstrument/Effect/Controller.
@@ -1249,30 +1375,30 @@ impl MiniDaw {
         });
     }
 
-    fn handle_palette_action(&mut self, action: PaletteAction) {
-        if let Ok(mut o) = self.mini_orchestrator.lock() {
-            match action {
-                PaletteAction::NewController(key) => {
-                    if let Some(controller) = self.factory.new_controller(&key) {
-                        let id = o.add_controller(controller);
-                        o.push_to_last_track(id);
-                    }
-                }
-                PaletteAction::NewEffect(key) => {
-                    if let Some(effect) = self.factory.new_effect(&key) {
-                        let id = o.add_effect(effect);
-                        o.push_to_last_track(id);
-                    }
-                }
-                PaletteAction::NewInstrument(key) => {
-                    if let Some(instrument) = self.factory.new_instrument(&key) {
-                        let id = o.add_instrument(instrument);
-                        o.push_to_last_track(id);
-                    }
-                }
-            }
-        }
-    }
+    // fn handle_palette_action(&mut self, action: PaletteAction) {
+    //     if let Ok(mut o) = self.mini_orchestrator.lock() {
+    //         match action {
+    //             PaletteAction::NewController(key) => {
+    //                 if let Some(controller) = self.factory.new_controller(&key) {
+    //                     let id = o.add_controller(controller);
+    //                     o.push_to_last_track(id);
+    //                 }
+    //             }
+    //             PaletteAction::NewEffect(key) => {
+    //                 if let Some(effect) = self.factory.new_effect(&key) {
+    //                     let id = o.add_effect(effect);
+    //                     o.push_to_last_track(id);
+    //                 }
+    //             }
+    //             PaletteAction::NewInstrument(key) => {
+    //                 if let Some(instrument) = self.factory.new_instrument(&key) {
+    //                     let id = o.add_instrument(instrument);
+    //                     o.push_to_last_track(id);
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
     fn show_top(&mut self, ui: &mut egui::Ui) {
         if let Some(action) = self.control_panel.show_with_action(ui) {
@@ -1290,8 +1416,9 @@ impl MiniDaw {
     }
 
     fn show_left(&mut self, ui: &mut egui::Ui) {
-        if let Some(action) = self.palette_panel.show_with_action(ui) {
-            self.handle_palette_action(action);
+        if let Some(_action) = self.palette_panel.show_with_action(ui) {
+            // these are inactive for now because we're skipping the drag/drop stuff.
+            //self.handle_palette_action(action);
         }
     }
 
@@ -1404,4 +1531,96 @@ fn main() -> anyhow::Result<(), eframe::Error> {
         options,
         Box::new(|cc| Box::new(MiniDaw::new(cc))),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use groove_toys::{ToyInstrument, ToyInstrumentParams};
+
+    use crate::{EntityFactory, Id, Key, MiniDaw, MiniOrchestrator};
+
+    #[test]
+    fn entity_creation() {
+        let mut factory = EntityFactory::default();
+        assert!(factory.controllers.is_empty());
+        assert!(factory.instruments.is_empty());
+        assert!(factory.effects.is_empty());
+
+        // Register, then rebind as immutable
+        MiniDaw::register_entities(&mut factory);
+        let factory = factory;
+
+        assert!(!factory.controllers.is_empty());
+        assert!(!factory.instruments.is_empty());
+        assert!(!factory.effects.is_empty());
+
+        assert!(factory.new_instrument(&Key::from(".9-#$%)@#)")).is_none());
+
+        for key in factory.instrument_keys() {
+            let e = factory.new_instrument(key);
+            assert!(e.is_some());
+            if let Some(e) = e {
+                assert!(!e.name().is_empty());
+            }
+        }
+
+        // TODO: expand with other entity types, and create the uber-trait that
+        // lets us create an entity and then grab the specific IsWhatever trait.
+    }
+
+    #[test]
+    fn orchestrator_basic_operations() {
+        let mut o = MiniOrchestrator::default();
+
+        // A new orchestrator should have at least one track.
+        assert!(!o.tracks.is_empty());
+
+        // Create an instrument and add it to a track.
+        assert!(o.tracks[0].is_empty());
+        let instrument = ToyInstrument::new_with(&ToyInstrumentParams::default());
+        let id1 = o.add_instrument(Box::new(instrument));
+        assert!(o.push_to_track(0, id1).is_ok());
+        assert!(!o.tracks[0].is_empty());
+
+        // Can't add twice to a track.
+        assert!(o.push_to_track(0, id1).is_err());
+
+        // Add a second instrument to the track.
+        let instrument = ToyInstrument::new_with(&ToyInstrumentParams::default());
+        let id2 = o.add_instrument(Box::new(instrument));
+        assert!(o.push_to_track(0, id2).is_ok());
+        assert_eq!(o.tracks[0].len(), 2);
+
+        // Ordering within track is correct, and we can move items around
+        // depending on where they are.
+        assert_eq!(o.tracks[0][0], id1);
+        assert_eq!(o.tracks[0][1], id2);
+        assert!(o.move_item_left(0, id1).is_err()); // Already leftmost.
+        assert!(o.move_item_right(0, id2).is_err()); // Already rightmost.
+        assert!(o.move_item_right(0, id1).is_ok());
+        assert_eq!(o.tracks[0][0], id2);
+        assert_eq!(o.tracks[0][1], id1);
+
+        // Can move to different track.
+        assert!(o.move_item_track(0, 1, id1).is_ok());
+        assert_eq!(o.tracks[0].len(), 1);
+        assert_eq!(o.tracks[1].len(), 1);
+        assert_eq!(o.tracks[0][0], id2);
+        assert_eq!(o.tracks[1][0], id1);
+
+        // Can't move a nonexistent item.
+        assert!(o.move_item_left(0, Id(99999)).is_err());
+
+        // Remove items. TODO: If every entity needs to live in a track, then is this a valid public API?
+        assert!(o.remove_item_from_track(0, id1).is_err());
+        assert!(o.remove_item_from_track(1, id1).is_ok());
+        assert_eq!(o.tracks[0].len(), 1);
+        assert_eq!(o.tracks[1].len(), 0);
+
+        // Delete items.
+        assert!(o.delete_item_from_track(0, id1).is_err());
+        assert!(o.delete_item_from_track(0, id2).is_ok());
+        assert!(o.tracks[0].is_empty());
+        assert!(o.tracks[1].is_empty());
+    }
 }
