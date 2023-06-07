@@ -84,6 +84,8 @@ enum MiniOrchestratorInput {
     New,
     Load(PathBuf),
     Save(PathBuf),
+    TrackNew,
+    TrackDelete(usize),
 
     /// Request that the orchestrator service quit.
     Quit,
@@ -142,6 +144,7 @@ impl OrchestratorPanel {
         r.start_thread();
         r
     }
+
     fn start_thread(&mut self) {
         let receiver = self.input_channel_pair.receiver.clone();
         let sender = self.event_channel_pair.sender.clone();
@@ -195,6 +198,16 @@ impl OrchestratorPanel {
                         let _ = sender.send(MiniOrchestratorEvent::Quit);
                         break;
                     }
+                    MiniOrchestratorInput::TrackNew => {
+                        if let Ok(mut o) = orchestrator.lock() {
+                            o.new_track();
+                        }
+                    }
+                    MiniOrchestratorInput::TrackDelete(index) => {
+                        if let Ok(mut o) = orchestrator.lock() {
+                            o.delete_track(index);
+                        }
+                    }
                 },
                 Err(err) => {
                     eprintln!(
@@ -211,6 +224,14 @@ impl OrchestratorPanel {
     fn introduce(&self) {
         if let Ok(o) = self.orchestrator.lock() {
             self.broadcast_tempo(o.tempo());
+        }
+    }
+
+    pub fn selected_track(&self) -> Option<usize> {
+        if let Ok(o) = self.orchestrator.lock() {
+            o.selected_track
+        } else {
+            None
         }
     }
 
@@ -1046,9 +1067,12 @@ impl MiniOrchestrator {
         }
     }
 
-    #[allow(dead_code)]
-    fn push_new_track(&mut self) {
+    fn new_track(&mut self) {
         self.tracks.push(Default::default());
+    }
+
+    fn delete_track(&mut self, index: usize) {
+        self.tracks.remove(index);
     }
 
     fn title(&self) -> Option<&String> {
@@ -1205,6 +1229,50 @@ enum TrackAction {
     NewController(usize, Key),
     NewEffect(usize, Key),
     NewInstrument(usize, Key),
+}
+
+#[derive(Debug)]
+enum MenuBarAction {
+    Quit,
+    TrackNew,
+    TrackDelete(usize),
+}
+#[derive(Debug, Default)]
+struct MenuBar {}
+impl Shows for MenuBar {
+    fn show(&mut self, ui: &mut Ui) {
+        todo!()
+    }
+}
+impl MenuBar {
+    fn show_with_action(
+        &mut self,
+        ui: &mut Ui,
+        selected_track: Option<usize>,
+    ) -> Option<MenuBarAction> {
+        let mut action = None;
+        ui.horizontal(|ui| {
+            ui.menu_button("File", |ui| {
+                if ui.button("Quit").clicked() {
+                    ui.close_menu();
+                    action = Some(MenuBarAction::Quit);
+                }
+            });
+            ui.menu_button("Track", |ui| {
+                if ui.button("New").clicked() {
+                    ui.close_menu();
+                    action = Some(MenuBarAction::TrackNew);
+                }
+                if let Some(selected_track) = selected_track {
+                    if ui.button("Delete").clicked() {
+                        ui.close_menu();
+                        action = Some(MenuBarAction::TrackDelete(selected_track));
+                    }
+                }
+            });
+        });
+        action
+    }
 }
 
 #[derive(Debug)]
@@ -1381,13 +1449,15 @@ impl DragDropManager {
 struct MiniDaw {
     mini_orchestrator: Arc<Mutex<MiniOrchestrator>>,
 
-    orchestrator_panel: OrchestratorPanel,
+    menu_bar: MenuBar,
     control_panel: ControlPanel,
+    orchestrator_panel: OrchestratorPanel,
     audio_panel: AudioPanel2,
     midi_panel: MidiPanel,
     palette_panel: PalettePanel,
 
     first_update_done: bool,
+    exit_requested: bool,
     drag_drop_manager: Arc<Mutex<DragDropManager>>,
 
     #[allow(dead_code)]
@@ -1429,13 +1499,15 @@ impl MiniDaw {
 
         let mut r = Self {
             mini_orchestrator,
-            orchestrator_panel,
+            menu_bar: Default::default(),
             control_panel: Default::default(),
+            orchestrator_panel,
             audio_panel: AudioPanel2::new_with(Box::new(needs_audio)),
             midi_panel: Default::default(),
             palette_panel: PalettePanel::new_with(factory, Arc::clone(&drag_drop_manager)),
 
             first_update_done: Default::default(),
+            exit_requested: Default::default(),
             drag_drop_manager,
 
             regular_font_id: FontId::proportional(14.0),
@@ -1666,22 +1738,27 @@ impl MiniDaw {
     }
 
     fn handle_control_panel_action(&mut self, action: ControlPanelAction) {
+        let input = match action {
+            ControlPanelAction::Play => MiniOrchestratorInput::Play,
+            ControlPanelAction::Stop => MiniOrchestratorInput::Stop,
+            ControlPanelAction::New => MiniOrchestratorInput::New,
+            ControlPanelAction::Load(path) => MiniOrchestratorInput::Load(path),
+            ControlPanelAction::Save(path) => MiniOrchestratorInput::Save(path),
+        };
+        self.orchestrator_panel.send_to_service(input);
+    }
+
+    fn handle_menu_bar_action(&mut self, action: MenuBarAction) {
+        let mut input = None;
         match action {
-            ControlPanelAction::Play => self
-                .orchestrator_panel
-                .send_to_service(MiniOrchestratorInput::Play),
-            ControlPanelAction::Stop => self
-                .orchestrator_panel
-                .send_to_service(MiniOrchestratorInput::Stop),
-            ControlPanelAction::New => self
-                .orchestrator_panel
-                .send_to_service(MiniOrchestratorInput::New),
-            ControlPanelAction::Load(path) => self
-                .orchestrator_panel
-                .send_to_service(MiniOrchestratorInput::Load(path)),
-            ControlPanelAction::Save(path) => self
-                .orchestrator_panel
-                .send_to_service(MiniOrchestratorInput::Save(path)),
+            MenuBarAction::Quit => self.exit_requested = true,
+            MenuBarAction::TrackNew => input = Some(MiniOrchestratorInput::TrackNew),
+            MenuBarAction::TrackDelete(index) => {
+                input = Some(MiniOrchestratorInput::TrackDelete(index))
+            }
+        }
+        if let Some(input) = input {
+            self.orchestrator_panel.send_to_service(input);
         }
     }
 
@@ -1741,6 +1818,13 @@ impl MiniDaw {
     }
 
     fn show_top(&mut self, ui: &mut egui::Ui) {
+        if let Some(action) = self
+            .menu_bar
+            .show_with_action(ui, self.orchestrator_panel.selected_track())
+        {
+            self.handle_menu_bar_action(action);
+        }
+        ui.separator();
         if let Some(action) = self.control_panel.show_with_action(ui) {
             self.handle_control_panel_action(action);
         }
@@ -1839,6 +1923,10 @@ impl eframe::App for MiniDaw {
             });
             self.toasts.show(ctx);
         });
+
+        if self.exit_requested {
+            frame.close();
+        }
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
