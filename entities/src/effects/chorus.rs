@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Default, Control, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Chorus {
-    uid: usize,
+    uid: groove_core::Uid,
 
     #[control]
     #[params]

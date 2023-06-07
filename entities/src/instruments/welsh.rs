@@ -321,7 +321,7 @@ impl WelshVoice {
 #[derive(Debug, Control, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct WelshSynth {
-    uid: usize,
+    uid: groove_core::Uid,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
     inner_synth: Synthesizer<WelshVoice>,

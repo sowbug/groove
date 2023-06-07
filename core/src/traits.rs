@@ -3,9 +3,10 @@
 pub use crate::midi::HandlesMidi;
 
 use crate::{
+    control::F32ControlValue,
     midi::u7,
     time::{MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
-    Normal, Sample, StereoSample,
+    Normal, Sample, StereoSample, Uid,
 };
 use std::ops::Range;
 
@@ -87,22 +88,23 @@ pub trait Controllable {
     fn control_name_for_index(&self, index: usize) -> Option<String> {
         unimplemented!()
     }
-    fn control_set_param_by_name(&mut self, name: &str, value: crate::control::F32ControlValue) {
+    fn control_set_param_by_name(&mut self, name: &str, value: F32ControlValue) {
         unimplemented!()
     }
-    fn control_set_param_by_index(&mut self, index: usize, value: crate::control::F32ControlValue) {
+    fn control_set_param_by_index(&mut self, index: usize, value: F32ControlValue) {
         unimplemented!()
     }
 }
 
-/// A HasUid has an ephemeral but globally unique numeric identifier, which is
-/// useful for one entity to refer to another without getting into icky Rust
-/// ownership questions. It's the foundation of any ECS
-/// (entity/component/system) design. We're not using any ECS, but our uids work
-/// similarly to how they do in an ECS.
+/// A HasUid has a [Uid], which is useful for one entity to refer to another
+/// without getting into icky Rust ownership questions. It's the foundation of
+/// any ECS (entity/component/system) design. We're not using any ECS, but our
+/// [Uid]s work similarly to how they do in an ECS.
+///
+/// TODO: name() is hitchhiking along with Uid for now.
 pub trait HasUid {
-    fn uid(&self) -> usize;
-    fn set_uid(&mut self, uid: usize);
+    fn uid(&self) -> Uid;
+    fn set_uid(&mut self, uid: Uid);
     fn name(&self) -> &'static str;
 }
 

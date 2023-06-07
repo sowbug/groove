@@ -32,7 +32,7 @@ use groove_core::{
         gui::Shows, Configurable, Generates, HandlesMidi, IsController, IsEffect, IsInstrument,
         Ticks,
     },
-    StereoSample,
+    StereoSample, Uid,
 };
 use groove_entities::{
     controllers::{Arpeggiator, ArpeggiatorParams},
@@ -66,9 +66,6 @@ use strum_macros::EnumIter;
 //   directly from the struct. Example: an LFO signal or a real-time spectrum
 //   analysis. These should be APIs directly on the struct, and we'll leave it
 //   up to the app to lock the struct and get what it needs.
-
-#[derive(Copy, Clone, Serialize, Deserialize, Debug, Default, Display, Eq, PartialEq, Hash)]
-struct Id(usize);
 
 #[typetag::serde(tag = "type")]
 trait NewIsController: IsController<Message = EntityMessage> {}
@@ -922,19 +919,19 @@ impl MiniOrchestrator {
     }
 
     #[allow(dead_code)]
-    fn add_controller(&mut self, track_index: usize, mut e: Box<dyn NewIsController>) -> Id {
+    fn add_controller(&mut self, track_index: usize, mut e: Box<dyn NewIsController>) -> Uid {
         e.update_sample_rate(self.sample_rate);
-        let id = Id(e.uid());
+        let uid = e.uid();
         self.tracks[track_index].append_controller(e);
-        id
+        uid
     }
 
     #[allow(dead_code)]
-    fn add_effect(&mut self, track_index: usize, mut e: Box<dyn NewIsEffect>) -> Id {
+    fn add_effect(&mut self, track_index: usize, mut e: Box<dyn NewIsEffect>) -> Uid {
         e.update_sample_rate(self.sample_rate);
-        let id = Id(e.uid());
+        let uid = e.uid();
         self.tracks[track_index].append_effect(e);
-        id
+        uid
     }
 
     #[allow(dead_code)]
@@ -942,11 +939,11 @@ impl MiniOrchestrator {
         &mut self,
         track_index: usize,
         mut e: Box<dyn NewIsInstrument>,
-    ) -> Result<Id> {
+    ) -> Result<Uid> {
         e.update_sample_rate(self.sample_rate);
-        let id = Id(e.uid());
+        let uid = e.uid();
         self.tracks[track_index].append_instrument(e);
-        Ok(id)
+        Ok(uid)
     }
 
     #[allow(dead_code)]
@@ -1125,7 +1122,7 @@ impl EntityFactory {
     pub fn new_controller(&self, key: &Key) -> Option<Box<dyn NewIsController>> {
         if let Some(f) = self.controllers.get(key) {
             let mut r = f();
-            r.set_uid(self.next_id.inc());
+            r.set_uid(Uid(self.next_id.inc()));
             Some(r)
         } else {
             None
@@ -1141,7 +1138,7 @@ impl EntityFactory {
     pub fn new_instrument(&self, key: &Key) -> Option<Box<dyn NewIsInstrument>> {
         if let Some(f) = self.instruments.get(key) {
             let mut r = f();
-            r.set_uid(self.next_id.inc());
+            r.set_uid(Uid(self.next_id.inc()));
             Some(r)
         } else {
             None
@@ -1157,7 +1154,7 @@ impl EntityFactory {
     pub fn new_effect(&self, key: &Key) -> Option<Box<dyn NewIsEffect>> {
         if let Some(f) = self.effects.get(key) {
             let mut r = f();
-            r.set_uid(self.next_id.inc());
+            r.set_uid(Uid(self.next_id.inc()));
             Some(r)
         } else {
             None
@@ -1281,9 +1278,9 @@ impl PalettePanel {
 #[allow(dead_code)]
 #[derive(Debug)]
 enum DragDropSource {
-    ControllerInTrack(usize, Id),
-    EffectInTrack(usize, Id),
-    InstrumentInTrack(usize, Id),
+    ControllerInTrack(usize, Uid),
+    EffectInTrack(usize, Uid),
+    InstrumentInTrack(usize, Uid),
     NewController(Key),
     NewEffect(Key),
     NewInstrument(Key),
@@ -1867,7 +1864,7 @@ fn main() -> anyhow::Result<(), eframe::Error> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{EntityFactory, Id, Key, MiniDaw, MiniOrchestrator, Track};
+    use crate::{EntityFactory, Key, MiniDaw, MiniOrchestrator, Track, Uid};
     use groove_core::traits::HasUid;
     use groove_toys::{ToyInstrument, ToyInstrumentParams};
     use std::collections::HashSet;
@@ -1889,14 +1886,14 @@ mod tests {
 
         assert!(factory.new_instrument(&Key::from(".9-#$%)@#)")).is_none());
 
-        let mut ids: HashSet<Id> = HashSet::default();
+        let mut ids: HashSet<Uid> = HashSet::default();
         for key in factory.instrument_keys() {
             let e = factory.new_instrument(key);
             assert!(e.is_some());
             if let Some(e) = e {
                 assert!(!e.name().is_empty());
-                assert!(!ids.contains(&Id(e.uid())));
-                ids.insert(Id(e.uid()));
+                assert!(!ids.contains(&Uid(e.uid())));
+                ids.insert(Uid(e.uid()));
             }
         }
 
@@ -1913,26 +1910,26 @@ mod tests {
 
         // Create an instrument and add it to a track.
         let instrument = ToyInstrument::new_with(&ToyInstrumentParams::default());
-        let id1 = Id(instrument.uid());
+        let id1 = Uid(instrument.uid());
         t.append_instrument(Box::new(instrument));
 
         // Add a second instrument to the track.
         let instrument = ToyInstrument::new_with(&ToyInstrumentParams::default());
-        let id2 = Id(instrument.uid());
+        let id2 = Uid(instrument.uid());
         t.append_instrument(Box::new(instrument));
 
         // Ordering within track is correct, and we can move items around
         // depending on where they are.
-        assert_eq!(Id(t.instruments[0].uid()), id1);
-        assert_eq!(Id(t.instruments[1].uid()), id2);
+        assert_eq!(Uid(t.instruments[0].uid()), id1);
+        assert_eq!(Uid(t.instruments[1].uid()), id2);
         assert!(t.shift_instrument_left(0).is_err()); // Already leftmost.
         assert!(t.shift_instrument_right(1).is_err()); // Already rightmost.
         assert!(t.shift_instrument_left(1).is_ok());
-        assert_eq!(Id(t.instruments[0].uid()), id2);
-        assert_eq!(Id(t.instruments[1].uid()), id1);
+        assert_eq!(Uid(t.instruments[0].uid()), id2);
+        assert_eq!(Uid(t.instruments[1].uid()), id1);
 
         let instrument = t.remove_instrument(0).unwrap();
-        assert_eq!(Id(instrument.uid()), id2);
+        assert_eq!(Uid(instrument.uid()), id2);
         assert_eq!(t.instruments.len(), 1);
     }
 
@@ -1955,8 +1952,8 @@ mod tests {
                 Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default())),
             )
             .unwrap();
-        assert_eq!(Id(o.tracks[0].instruments[0].uid()), id1);
-        assert_eq!(Id(o.tracks[0].instruments[1].uid()), id2);
+        assert_eq!(Uid(o.tracks[0].instruments[0].uid()), id1);
+        assert_eq!(Uid(o.tracks[0].instruments[1].uid()), id2);
 
         assert!(o.tracks.len() > 1);
         let id3 = o
@@ -1972,6 +1969,6 @@ mod tests {
         assert!(o.move_instrument(1, 0, 0, 0).is_ok());
         assert_eq!(o.tracks[0].instruments.len(), 3);
         assert_eq!(o.tracks[1].instruments.len(), 0);
-        assert_eq!(o.tracks[0].instruments[0].uid(), id3.0);
+        assert_eq!(o.tracks[0].instruments[0].uid(), id3);
     }
 }

@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Control, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToyInstrument {
-    uid: usize,
+    uid: groove_core::Uid,
 
     #[control]
     #[params]
@@ -224,7 +224,7 @@ impl ToyInstrument {
 #[derive(Debug, Control, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct DebugSynth {
-    uid: usize,
+    uid: groove_core::Uid,
 
     #[control]
     #[params]
@@ -337,7 +337,7 @@ impl DebugSynth {
 #[derive(Debug, Control, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToySynth {
-    uid: usize,
+    uid: groove_core::Uid,
 
     #[params]
     voice_count: VoiceCount,
@@ -494,7 +494,7 @@ impl ToyVoice {
 #[derive(Debug, Default, Control, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToyAudioSource {
-    uid: usize,
+    uid: groove_core::Uid,
 
     // This should be a Normal, but we use this audio source for testing edge
     // conditions. Thus we need to let it go out of range.

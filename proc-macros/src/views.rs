@@ -70,7 +70,7 @@ pub(crate) fn parse_and_generate_views(data: &Data) -> proc_macro2::TokenStream 
     let (structs, _, _, messages) = build_lists(things.iter().filter(|thing| thing.is_viewable));
     let viewable_dispatchers = quote! {
         impl View {
-            fn entity_view<'a>(&self, uid: usize, entity: &'a Entity) -> Element<'a, ViewMessage> {
+            fn entity_view<'a>(&self, uid: groove_core::Uid, entity: &'a Entity) -> Element<'a, ViewMessage> {
                 match entity {
                 #(
                     Entity::#structs(e) => {
@@ -84,7 +84,7 @@ pub(crate) fn parse_and_generate_views(data: &Data) -> proc_macro2::TokenStream 
 
             fn entity_create(
                 &mut self,
-                uid: usize,
+                uid: groove_core::Uid,
                 message: OtherEntityMessage,
             )  {
                 match message {

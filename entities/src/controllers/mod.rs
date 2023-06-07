@@ -75,7 +75,7 @@ pub struct MidiChannelOutputParams {
 #[derive(Debug, Control, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Timer {
-    uid: usize,
+    uid: groove_core::Uid,
 
     #[params]
     duration: MusicalTime,
@@ -166,7 +166,7 @@ impl Performs for Timer {
 #[derive(Debug, Control, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Trigger {
-    uid: usize,
+    uid: groove_core::Uid,
 
     #[params]
     timer: Timer,
@@ -246,7 +246,7 @@ impl Trigger {
 #[derive(Control, Debug, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct SignalPassthroughController {
-    uid: usize,
+    uid: groove_core::Uid,
     #[cfg_attr(feature = "serialization", serde(skip))]
     signal: BipolarNormal,
     #[cfg_attr(feature = "serialization", serde(skip))]
@@ -353,7 +353,7 @@ enum TestControllerAction {
 #[derive(Debug, Control, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToyController {
-    uid: usize,
+    uid: groove_core::Uid,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
     midi_channel_out: MidiChannel,

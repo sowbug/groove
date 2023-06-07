@@ -27,7 +27,7 @@ pub(crate) type BeatEventsMap = BTreeMultiMap<MusicalTime, (MidiChannel, MidiMes
 #[derive(Debug, Control, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Sequencer {
-    uid: usize,
+    uid: groove_core::Uid,
     #[control]
     #[params]
     bpm: ParameterType,
@@ -307,7 +307,7 @@ mod tired {
     #[derive(Debug, Control, Params, Uid)]
     #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
     pub struct MidiTickSequencer {
-        uid: usize,
+        uid: groove_core::Uid,
 
         #[control]
         #[params]

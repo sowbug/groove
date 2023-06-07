@@ -22,7 +22,7 @@ pub struct Metronome {
 
     clock: Clock,
 
-    uid: usize,
+    uid: groove_core::Uid,
     oscillator: Oscillator,
 
     is_playing: bool,

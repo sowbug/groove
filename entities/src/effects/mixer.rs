@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Default, Control, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Mixer {
-    uid: usize,
+    uid: groove_core::Uid,
 }
 impl IsEffect for Mixer {}
 impl Configurable for Mixer {}

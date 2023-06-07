@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToyEffect {
     #[cfg_attr(feature = "serialization", serde(skip))]
-    uid: usize,
+    uid: groove_core::Uid,
 
     #[control]
     #[params]

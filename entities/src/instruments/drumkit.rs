@@ -25,7 +25,7 @@ pub struct Drumkit {
     #[params]
     name: String,
 
-    uid: usize,
+    uid: groove_core::Uid,
     #[cfg_attr(feature = "serialization", serde(skip))]
     sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]

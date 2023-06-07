@@ -121,7 +121,7 @@ mod tests {
 
         #[derive(Control, Debug, Params, PartialEq, Uid)]
         pub struct Stuff {
-            uid: usize,
+            uid: groove_core::Uid,
 
             #[params]
             #[control]
@@ -211,7 +211,7 @@ mod tests {
 
         #[derive(Control, Debug, Params, Uid)]
         pub struct Misc {
-            uid: usize,
+            uid: groove_core::Uid,
 
             #[params]
             #[control]

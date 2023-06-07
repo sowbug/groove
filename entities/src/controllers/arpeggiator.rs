@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Control, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Arpeggiator {
-    uid: usize,
+    uid: groove_core::Uid,
     midi_channel_out: MidiChannel,
     sequencer: Sequencer,
 

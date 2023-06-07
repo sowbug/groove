@@ -13,7 +13,7 @@ use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
     traits::{Configurable, Performs},
-    ParameterType, StereoSample,
+    ParameterType, StereoSample, Uid,
 };
 use groove_entities::{
     controllers::{PatternManager, Sequencer, SequencerParams},
@@ -70,7 +70,7 @@ impl Performance {
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Orchestrator {
     #[cfg_attr(feature = "serialization", serde(skip))]
-    uid: usize,
+    uid: Uid,
 
     title: Option<String>,
 
@@ -83,13 +83,13 @@ pub struct Orchestrator {
     is_performing: bool,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
-    main_mixer_uid: usize,
+    main_mixer_uid: Uid,
     #[cfg_attr(feature = "serialization", serde(skip))]
-    pattern_manager_uid: usize,
+    pattern_manager_uid: Uid,
     #[cfg_attr(feature = "serialization", serde(skip))]
-    sequencer_uid: usize,
+    sequencer_uid: Uid,
     #[cfg_attr(feature = "serialization", serde(skip))]
-    metronome_uid: usize,
+    metronome_uid: Uid,
 
     #[cfg(feature = "metrics")]
     #[cfg_attr(feature = "serialization", serde(skip))]
@@ -99,13 +99,7 @@ pub struct Orchestrator {
     should_output_perf: bool,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
-    last_track_samples: Vec<StereoSample>,
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    last_entity_samples: Vec<StereoSample>,
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    main_mixer_source_uids: FxHashSet<usize>,
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    last_samples: FxHashMap<usize, StereoSample>,
+    main_mixer_source_uids: FxHashSet<Uid>,
 
     loop_range: Option<Range<PerfectTimeUnit>>,
     is_loop_enabled: bool,
@@ -125,14 +119,14 @@ impl Orchestrator {
     pub const METRONOME_UVID: &str = "metronome";
 
     #[cfg(feature = "metrics")]
-    fn install_entity_metric(&mut self, uvid: Option<&str>, uid: usize) {
+    fn install_entity_metric(&mut self, uvid: Option<&str>, uid: Uid) {
         let name = format!("entity {}", uvid.unwrap_or(format!("uid {uid}").as_str()));
         self.metrics
             .entity_audio_times
             .insert(uid, self.metrics.bucket.timer(name.as_str()));
     }
 
-    fn add_with_optional_uvid(&mut self, mut entity: Entity, uvid: Option<&str>) -> usize {
+    fn add_with_optional_uvid(&mut self, mut entity: Entity, uvid: Option<&str>) -> Uid {
         #[cfg(feature = "metrics")]
         self.metrics.entity_count.mark();
 
@@ -147,15 +141,15 @@ impl Orchestrator {
         uid
     }
 
-    pub fn add(&mut self, entity: Entity) -> usize {
+    pub fn add(&mut self, entity: Entity) -> Uid {
         self.add_with_optional_uvid(entity, None)
     }
 
-    pub fn add_with_uvid(&mut self, entity: Entity, uvid: &str) -> usize {
+    pub fn add_with_uvid(&mut self, entity: Entity, uvid: &str) -> Uid {
         self.add_with_optional_uvid(entity, Some(uvid))
     }
 
-    pub fn entity_iter(&self) -> std::collections::hash_map::Iter<usize, Entity> {
+    pub fn entity_iter(&self) -> std::collections::hash_map::Iter<Uid, Entity> {
         self.store.iter()
     }
 
@@ -163,11 +157,11 @@ impl Orchestrator {
         self.store.flattened_control_links()
     }
 
-    pub fn get(&self, uid: usize) -> Option<&Entity> {
+    pub fn get(&self, uid: Uid) -> Option<&Entity> {
         self.store.get(uid)
     }
 
-    pub fn get_mut(&mut self, uid: usize) -> Option<&mut Entity> {
+    pub fn get_mut(&mut self, uid: Uid) -> Option<&mut Entity> {
         self.store.get_mut(uid)
     }
 
@@ -181,14 +175,14 @@ impl Orchestrator {
         self.store.get_by_uvid_mut(uvid)
     }
 
-    pub fn get_uid_by_uvid(&self, uvid: &str) -> Option<usize> {
+    pub fn get_uid_by_uvid(&self, uvid: &str) -> Option<Uid> {
         self.store.get_uid(uvid)
     }
 
     pub fn link_control_by_id(
         &mut self,
-        source_uid: usize,
-        target_uid: usize,
+        source_uid: Uid,
+        target_uid: Uid,
         control_index: usize,
     ) -> anyhow::Result<()> {
         if let Some(target) = self.store.get(target_uid) {
@@ -220,8 +214,8 @@ impl Orchestrator {
 
     pub fn link_control_by_name(
         &mut self,
-        controller_uid: usize,
-        target_uid: usize,
+        controller_uid: Uid,
+        target_uid: Uid,
         param_name: &str,
     ) -> anyhow::Result<()> {
         if let Some(target) = self.store.get(target_uid) {
@@ -249,8 +243,8 @@ impl Orchestrator {
 
     pub fn unlink_control_by_id(
         &mut self,
-        controller_uid: usize,
-        target_uid: usize,
+        controller_uid: Uid,
+        target_uid: Uid,
         control_index: usize,
     ) {
         self.store
@@ -260,8 +254,8 @@ impl Orchestrator {
     #[cfg(test)]
     pub(crate) fn unlink_control_by_name(
         &mut self,
-        controller_uid: usize,
-        target_uid: usize,
+        controller_uid: Uid,
+        target_uid: Uid,
         param_name: &str,
     ) {
         if let Some(target) = self.store.get(target_uid) {
@@ -274,7 +268,7 @@ impl Orchestrator {
         }
     }
 
-    pub fn patch(&mut self, output_uid: usize, input_uid: usize) -> anyhow::Result<()> {
+    pub fn patch(&mut self, output_uid: Uid, input_uid: Uid) -> anyhow::Result<()> {
         // TODO: detect loops
 
         // Validate that input_uid refers to something that has audio input
@@ -324,7 +318,7 @@ impl Orchestrator {
     /// TODO: when we get more interactive, we'll need to think more
     /// transactionally, and validate the whole chain before plugging in
     /// anything.
-    pub fn patch_chain_to_main_mixer(&mut self, entity_uids: &[usize]) -> anyhow::Result<()> {
+    pub fn patch_chain_to_main_mixer(&mut self, entity_uids: &[Uid]) -> anyhow::Result<()> {
         let mut previous_entity_uid = None;
         for &entity_uid in entity_uids {
             if let Some(previous_uid) = previous_entity_uid {
@@ -339,7 +333,7 @@ impl Orchestrator {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn unpatch(&mut self, output_uid: usize, input_uid: usize) -> anyhow::Result<()> {
+    pub(crate) fn unpatch(&mut self, output_uid: Uid, input_uid: Uid) -> anyhow::Result<()> {
         if input_uid == self.main_mixer_uid {
             self.main_mixer_source_uids.remove(&input_uid);
         }
@@ -348,12 +342,12 @@ impl Orchestrator {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn connect_to_main_mixer(&mut self, source_uid: usize) -> anyhow::Result<()> {
+    pub(crate) fn connect_to_main_mixer(&mut self, source_uid: Uid) -> anyhow::Result<()> {
         self.patch(source_uid, self.main_mixer_uid)
     }
 
     #[allow(dead_code)]
-    pub(crate) fn disconnect_from_main_mixer(&mut self, source_uid: usize) -> anyhow::Result<()> {
+    pub(crate) fn disconnect_from_main_mixer(&mut self, source_uid: Uid) -> anyhow::Result<()> {
         self.unpatch(source_uid, self.main_mixer_uid)
     }
 
@@ -379,17 +373,10 @@ impl Orchestrator {
     // marker pops up, eval with the current sum (nodes are effects, so they
     // take an input), then add to the running sum.
     fn gather_audio(&mut self, samples: &mut [StereoSample]) {
-        // TODO: we are wasting work by putting stuff in the last-sample hash
-        // map for all but the last iteration of this loop.
-        self.last_samples.clear();
-        self.last_entity_samples.clear();
-        self.last_entity_samples
-            .resize(256, StereoSample::default()); // HACK HACK HACK
-
         for sample in samples {
             enum StackEntry {
-                ToVisit(usize),
-                CollectResultFor(usize, StereoSample),
+                ToVisit(Uid),
+                CollectResultFor(Uid, StereoSample),
             }
             #[cfg(feature = "metrics")]
             let gather_audio_start_time = self.metrics.gather_audio_fn_timer.start();
@@ -428,8 +415,6 @@ impl Orchestrator {
                                 #[cfg(not(feature = "metrics"))]
                                 entity.tick(1);
 
-                                self.last_samples.insert(uid, entity.value());
-                                self.last_entity_samples[uid] = entity.value();
                                 sum += entity.value();
                             } else if entity.as_is_effect().is_some() {
                                 // If it's a node, push its children on the stack,
@@ -477,8 +462,6 @@ impl Orchestrator {
                                 let entity_value = entity.transform_audio(sum);
 
                                 sum = accumulated_sum + entity_value;
-                                self.last_samples.insert(uid, entity_value);
-                                self.last_entity_samples[uid] = entity_value;
                             }
                         }
                     }
@@ -492,17 +475,11 @@ impl Orchestrator {
 
             *sample = sum;
         }
-        self.last_track_samples.clear();
-        for uid in self.main_mixer_source_uids.iter() {
-            if let Some(sample) = self.last_samples.get(uid) {
-                self.last_track_samples.push(*sample);
-            }
-        }
     }
 
     pub fn connect_midi_downstream(
         &mut self,
-        receiver_uid: usize,
+        receiver_uid: Uid,
         receiver_midi_channel: MidiChannel,
     ) {
         if let Some(e) = self.get(receiver_uid) {
@@ -523,7 +500,7 @@ impl Orchestrator {
     #[allow(dead_code)]
     pub(crate) fn disconnect_midi_downstream(
         &mut self,
-        receiver_uid: usize,
+        receiver_uid: Uid,
         receiver_midi_channel: MidiChannel,
     ) {
         self.store
@@ -534,15 +511,15 @@ impl Orchestrator {
         self.should_output_perf = value;
     }
 
-    pub fn sequencer_uid(&self) -> usize {
+    pub fn sequencer_uid(&self) -> Uid {
         self.sequencer_uid
     }
 
-    pub fn main_mixer_uid(&self) -> usize {
+    pub fn main_mixer_uid(&self) -> Uid {
         self.main_mixer_uid
     }
 
-    pub fn pattern_manager_uid(&self) -> usize {
+    pub fn pattern_manager_uid(&self) -> Uid {
         self.pattern_manager_uid
     }
 
@@ -564,10 +541,7 @@ impl Orchestrator {
             #[cfg(feature = "metrics")]
             metrics: Default::default(),
             should_output_perf: Default::default(),
-            last_track_samples: Default::default(),
-            last_entity_samples: Default::default(),
             main_mixer_source_uids: Default::default(),
-            last_samples: Default::default(),
             loop_range: Default::default(),
             is_loop_enabled: Default::default(),
             last_time_range: Default::default(),
@@ -667,7 +641,7 @@ impl Orchestrator {
 
     // Call every Controller's work() and gather their responses.
     fn handle_work(&mut self, tick_count: usize) -> (Response<GrooveEvent>, usize) {
-        let uids: Vec<usize> = self.store.controller_uids().collect();
+        let uids: Vec<Uid> = self.store.controller_uids().collect();
         let time_start = MusicalTime::new_with_units(MusicalTime::frames_to_units(
             Tempo::from(self.bpm()),
             SampleRate::from(self.sample_rate()),
@@ -765,7 +739,7 @@ impl Orchestrator {
         }
         let midi_messages_in_response = receiver_uids.iter().fold(
             Vec::new(),
-            |mut v: Vec<(MidiChannel, MidiMessage)>, uid: &usize| {
+            |mut v: Vec<(MidiChannel, MidiMessage)>, uid: &Uid| {
                 let uid = *uid;
                 if let Some(e) = self.store.get_mut(uid) {
                     if let Some(e) = e.as_handles_midi_mut() {
@@ -789,7 +763,7 @@ impl Orchestrator {
     }
 
     #[cfg(not(feature = "iced-framework"))]
-    fn generate_control_update_messages(&mut self, uid: usize, value: f32) -> Vec<GrooveInput> {
+    fn generate_control_update_messages(&mut self, uid: Uid, value: f32) -> Vec<GrooveInput> {
         if let Some(control_links) = self.store.control_links(uid) {
             return control_links
                 .iter()
@@ -805,7 +779,7 @@ impl Orchestrator {
     }
 
     #[cfg(feature = "iced-framework")]
-    fn generate_control_update_messages(&mut self, uid: usize, value: f32) -> Vec<GrooveInput> {
+    fn generate_control_update_messages(&mut self, uid: Uid, value: f32) -> Vec<GrooveInput> {
         if let Some(control_links) = self.store.control_links(uid) {
             return control_links
                 .iter()
@@ -923,19 +897,6 @@ impl Orchestrator {
         (commands, ticks_completed)
     }
 
-    pub fn last_track_sample(&self, index: usize) -> &StereoSample {
-        if let Some(uid) = self.main_mixer_source_uids.get(&index) {
-            if let Some(sample) = self.last_track_samples.get(*uid) {
-                return sample;
-            }
-        }
-        &StereoSample::SILENCE
-    }
-
-    pub fn track_samples(&self) -> &[StereoSample] {
-        &self.last_track_samples
-    }
-
     pub fn sample_rate(&self) -> SampleRate {
         self.clock.sample_rate()
     }
@@ -958,18 +919,8 @@ impl Orchestrator {
         self.title.as_ref().map(|title| title.clone())
     }
 
-    pub fn last_audio_wad(&self) -> Vec<(usize, StereoSample)> {
-        self.last_entity_samples.iter().enumerate().fold(
-            Vec::default(),
-            |mut v, (index, sample)| {
-                v.push((index, *sample));
-                v
-            },
-        )
-    }
-
     #[cfg(feature = "iced-framework")]
-    fn update_controllable(&mut self, uid: usize, message: OtherEntityMessage) {
+    fn update_controllable(&mut self, uid: Uid, message: OtherEntityMessage) {
         if let Some(entity) = self.store.get_mut(uid) {
             entity.update(message)
         }
@@ -983,7 +934,7 @@ impl Orchestrator {
         &self.clock
     }
 
-    fn handle_control_f32(&mut self, uid: usize, param_id: usize, value: f32) {
+    fn handle_control_f32(&mut self, uid: Uid, param_id: usize, value: f32) {
         if let Some(entity) = self.store.get_mut(uid) {
             if let Some(controllable) = entity.as_controllable_mut() {
                 controllable.control_set_param_by_index(param_id, F32ControlValue(value));
@@ -1094,7 +1045,7 @@ mod gui {
         epaint::{Color32, Stroke, Vec2},
     };
     use egui_extras::{Size, StripBuilder};
-    use groove_core::traits::gui::Shows;
+    use groove_core::{traits::gui::Shows, Uid};
     use groove_entities::controllers::NewPattern;
     use num_derive::FromPrimitive;
     use num_traits::FromPrimitive;
@@ -1135,13 +1086,13 @@ mod gui {
                     .with_cross_align(Align::Min)
                     .with_cross_justify(true),
                 |ui| {
-                    let uids: Vec<usize> = self.entity_iter().map(|(uid, _)| *uid).collect();
+                    let uids: Vec<Uid> = self.entity_iter().map(|(uid, _)| *uid).collect();
                     uids.iter().for_each(|uid| self.ui_container(ui, *uid));
                 },
             );
         }
 
-        fn ui_container(&mut self, ui: &mut Ui, uid: usize) {
+        fn ui_container(&mut self, ui: &mut Ui, uid: Uid) {
             let entity = self.get_mut(uid).unwrap();
             ui.allocate_ui(Vec2::new(256.0, ui.available_height()), |ui| {
                 Frame::none()
@@ -1173,7 +1124,7 @@ mod gui {
 
         fn ui_audio(&mut self, ui: &mut Ui) {
             ui.vertical(|ui| {
-                let uids: Vec<usize> = self
+                let uids: Vec<Uid> = self
                     .entity_iter()
                     .filter(|(_, entity)| entity.as_is_instrument().is_some())
                     .map(|(uid, _)| *uid)
@@ -1183,7 +1134,7 @@ mod gui {
             });
         }
 
-        fn ui_audio_container(&mut self, ui: &mut Ui, uid: usize) {
+        fn ui_audio_container(&mut self, ui: &mut Ui, uid: Uid) {
             let entity = self.get_mut(uid).unwrap();
             ui.allocate_ui(Vec2::new(ui.available_width(), 128.0), |ui| {
                 Frame::none()
@@ -1369,27 +1320,27 @@ mod gui {
 #[derive(Debug, Default)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub(crate) struct Store {
-    last_uid: usize,
-    uid_to_item: FxHashMap<usize, Entity>,
+    last_uid: Uid,
+    uid_to_item: FxHashMap<Uid, Entity>,
 
     /// Linked controls (one entity controls another entity's parameter)
-    uid_to_control: FxHashMap<usize, Vec<(usize, usize)>>,
+    uid_to_control: FxHashMap<Uid, Vec<(Uid, usize)>>,
 
     /// Same as uid_to_control but flattened
     flattened_control_links: Vec<ControlLink>,
 
     /// Patch cables
-    audio_sink_uid_to_source_uids: FxHashMap<usize, Vec<usize>>,
+    audio_sink_uid_to_source_uids: FxHashMap<Uid, Vec<Uid>>,
 
     /// MIDI connections
-    midi_channel_to_receiver_uid: FxHashMap<MidiChannel, Vec<usize>>,
+    midi_channel_to_receiver_uid: FxHashMap<MidiChannel, Vec<Uid>>,
 
     /// Human-readable UIDs to internal UIDs
-    uvid_to_uid: FxHashMap<String, usize>,
+    uvid_to_uid: FxHashMap<String, Uid>,
 }
 
 impl Store {
-    pub(crate) fn add(&mut self, uvid: Option<&str>, mut entity: Entity) -> usize {
+    pub(crate) fn add(&mut self, uvid: Option<&str>, mut entity: Entity) -> Uid {
         let uid = self.get_next_uid();
         entity.as_has_uid_mut().set_uid(uid);
 
@@ -1400,11 +1351,11 @@ impl Store {
         uid
     }
 
-    pub(crate) fn get(&self, uid: usize) -> Option<&Entity> {
+    pub(crate) fn get(&self, uid: Uid) -> Option<&Entity> {
         self.uid_to_item.get(&uid)
     }
 
-    pub fn get_mut(&mut self, uid: usize) -> Option<&mut Entity> {
+    pub fn get_mut(&mut self, uid: Uid) -> Option<&mut Entity> {
         self.uid_to_item.get_mut(&uid)
     }
 
@@ -1424,24 +1375,24 @@ impl Store {
         }
     }
 
-    pub(crate) fn get_uid(&self, uvid: &str) -> Option<usize> {
+    pub(crate) fn get_uid(&self, uvid: &str) -> Option<Uid> {
         self.uvid_to_uid.get(uvid).copied()
     }
 
-    pub fn iter(&self) -> std::collections::hash_map::Iter<usize, Entity> {
+    pub fn iter(&self) -> std::collections::hash_map::Iter<Uid, Entity> {
         self.uid_to_item.iter()
     }
 
     #[allow(dead_code)]
-    pub(crate) fn values(&self) -> std::collections::hash_map::Values<usize, Entity> {
+    pub(crate) fn values(&self) -> std::collections::hash_map::Values<Uid, Entity> {
         self.uid_to_item.values()
     }
 
-    pub(crate) fn values_mut(&mut self) -> std::collections::hash_map::ValuesMut<usize, Entity> {
+    pub(crate) fn values_mut(&mut self) -> std::collections::hash_map::ValuesMut<Uid, Entity> {
         self.uid_to_item.values_mut()
     }
 
-    pub(crate) fn controller_uids(&self) -> impl Iterator<Item = usize> {
+    pub(crate) fn controller_uids(&self) -> impl Iterator<Item = Uid> {
         self.uid_to_item
             .values()
             .fold(Vec::new(), |mut v, e| {
@@ -1453,17 +1404,12 @@ impl Store {
             .into_iter()
     }
 
-    fn get_next_uid(&mut self) -> usize {
-        self.last_uid += 1;
+    fn get_next_uid(&mut self) -> Uid {
+        self.last_uid.increment();
         self.last_uid
     }
 
-    pub(crate) fn link_control(
-        &mut self,
-        source_uid: usize,
-        target_uid: usize,
-        control_index: usize,
-    ) {
+    pub(crate) fn link_control(&mut self, source_uid: Uid, target_uid: Uid, control_index: usize) {
         self.uid_to_control
             .entry(source_uid)
             .or_default()
@@ -1477,8 +1423,8 @@ impl Store {
 
     pub(crate) fn unlink_control(
         &mut self,
-        source_uid: usize,
-        target_uid: usize,
+        source_uid: Uid,
+        target_uid: Uid,
         control_index: usize,
     ) {
         self.uid_to_control
@@ -1501,18 +1447,18 @@ impl Store {
         }
     }
 
-    pub(crate) fn control_links(&self, source_uid: usize) -> Option<&Vec<(usize, usize)>> {
+    pub(crate) fn control_links(&self, source_uid: Uid) -> Option<&Vec<(Uid, usize)>> {
         self.uid_to_control.get(&source_uid)
     }
 
-    pub(crate) fn patch(&mut self, output_uid: usize, input_uid: usize) {
+    pub(crate) fn patch(&mut self, output_uid: Uid, input_uid: Uid) {
         self.audio_sink_uid_to_source_uids
             .entry(input_uid)
             .or_default()
             .push(output_uid);
     }
 
-    pub(crate) fn unpatch(&mut self, output_uid: usize, input_uid: usize) {
+    pub(crate) fn unpatch(&mut self, output_uid: Uid, input_uid: Uid) {
         self.audio_sink_uid_to_source_uids
             .entry(input_uid)
             .or_default()
@@ -1524,24 +1470,24 @@ impl Store {
         Ok(())
     }
 
-    pub(crate) fn patches(&self, input_uid: usize) -> Option<&Vec<usize>> {
+    pub(crate) fn patches(&self, input_uid: Uid) -> Option<&Vec<Uid>> {
         self.audio_sink_uid_to_source_uids.get(&input_uid)
     }
 
-    pub(crate) fn midi_receivers(&mut self, channel: &MidiChannel) -> &Vec<usize> {
+    pub(crate) fn midi_receivers(&mut self, channel: &MidiChannel) -> &Vec<Uid> {
         self.midi_channel_to_receiver_uid
             .entry(*channel)
             .or_default()
     }
 
-    pub(crate) fn connect_midi_receiver(&mut self, receiver_uid: usize, channel: MidiChannel) {
+    pub(crate) fn connect_midi_receiver(&mut self, receiver_uid: Uid, channel: MidiChannel) {
         self.midi_channel_to_receiver_uid
             .entry(channel)
             .or_default()
             .push(receiver_uid);
     }
 
-    pub(crate) fn disconnect_midi_receiver(&mut self, receiver_uid: usize, channel: MidiChannel) {
+    pub(crate) fn disconnect_midi_receiver(&mut self, receiver_uid: Uid, channel: MidiChannel) {
         self.midi_channel_to_receiver_uid
             .entry(channel)
             .or_default()
@@ -1590,7 +1536,7 @@ pub mod tests {
             SampleRate, TimeSignature, TimeSignatureParams,
         },
         traits::{Configurable, Performs},
-        DcaParams, Normal, StereoSample,
+        DcaParams, Normal, StereoSample, Uid,
     };
     use groove_entities::{
         controllers::{
@@ -1951,7 +1897,7 @@ pub mod tests {
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
-        assert!(o.patch(3, 2).is_err());
+        assert!(o.patch(Uid(3), Uid(2)).is_err());
     }
 
     // TODO: a bunch of these tests belong in the entities crate, but I

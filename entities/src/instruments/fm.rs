@@ -232,7 +232,7 @@ pub struct FmSynth {
     #[params]
     dca: Dca,
 
-    uid: usize,
+    uid: groove_core::Uid,
     #[cfg_attr(feature = "serialization", serde(skip))]
     inner_synth: Synthesizer<FmVoice>,
 }

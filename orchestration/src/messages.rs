@@ -8,6 +8,7 @@ use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::SampleRate,
     traits::MessageBounds,
+    Uid,
 };
 use groove_entities::EntityMessage;
 use std::fmt::Debug;
@@ -17,7 +18,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
 pub enum GrooveInput {
-    EntityMessage(usize, EntityMessage),
+    EntityMessage(Uid, EntityMessage),
 
     /// A MIDI message that has arrived from outside Groove, typically from
     /// MidiInputHandler.
@@ -71,8 +72,8 @@ impl MessageBounds for GrooveEvent {}
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ControlLink {
-    pub source_uid: usize,
-    pub target_uid: usize,
+    pub source_uid: Uid,
+    pub target_uid: Uid,
     pub control_index: usize,
 }
 

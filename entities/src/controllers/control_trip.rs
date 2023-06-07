@@ -49,7 +49,7 @@ pub enum ControlStep {
 #[derive(Debug, Control, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ControlTrip {
-    uid: usize,
+    uid: groove_core::Uid,
     #[control]
     #[params]
     time_signature_top: usize,
@@ -105,7 +105,7 @@ impl ControlTrip {
 
     pub fn new_with(params: &ControlTripParams) -> Self {
         Self {
-            uid: usize::default(),
+            uid: Default::default(),
             time_signature_top: params.time_signature_top,
             time_signature_bottom: params.time_signature_bottom,
             time_signature: TimeSignature {

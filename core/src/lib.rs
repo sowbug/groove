@@ -3,6 +3,7 @@
 //! Fundamental structs and traits.
 
 use control::F32ControlValue;
+use derive_more::Display;
 use groove_proc_macros::{Control, Params};
 use std::{
     fmt::Display,
@@ -452,6 +453,15 @@ impl Into<f32> for BipolarNormal {
 impl Into<f32> for Normal {
     fn into(self) -> f32 {
         self.value_as_f32()
+    }
+}
+
+/// A [Uid] is an identifier that's unique within the current project.
+#[derive(Copy, Clone, Serialize, Deserialize, Debug, Default, Display, Eq, PartialEq, Hash)]
+pub struct Uid(pub usize);
+impl Uid {
+    pub fn increment(&mut self) {
+        self.0 += 1;
     }
 }
 

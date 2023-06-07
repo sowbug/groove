@@ -57,7 +57,7 @@ impl<T: Default> Pattern<T> {
 #[derive(Clone, Debug, Default, Control, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct PatternManager {
-    uid: usize,
+    uid: groove_core::Uid,
     patterns: Vec<Pattern<Note>>,
     selected_pattern: usize,
 }

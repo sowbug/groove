@@ -2,7 +2,7 @@
 
 use crate::{
     traits::{Configurable, Ticks},
-    ParameterType,
+    ParameterType, Uid,
 };
 use anyhow::{anyhow, Error};
 use core::fmt;
@@ -88,7 +88,7 @@ pub struct Clock {
     was_reset: bool,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
-    uid: usize,
+    uid: Uid,
 }
 impl Clock {
     pub fn new_with(params: &ClockParams) -> Self {
@@ -203,14 +203,6 @@ impl Clock {
             ClockMessage::Clock(s) => *self = Self::new_with(s),
             _ => self.derived_update(message),
         }
-    }
-
-    pub fn uid(&self) -> usize {
-        self.uid
-    }
-
-    pub fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
     }
 
     pub fn midi_ticks_per_second(&self) -> usize {

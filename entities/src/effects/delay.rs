@@ -199,7 +199,7 @@ impl Configurable for AllPassDelayLine {
 #[derive(Debug, Default, Control, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Delay {
-    uid: usize,
+    uid: groove_core::Uid,
 
     #[control]
     #[params]
