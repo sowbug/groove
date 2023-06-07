@@ -24,7 +24,7 @@ pub enum ControlPanelAction {
     New,
 
     /// The user asked to load the project having the given filename.
-    Load(PathBuf),
+    Open(PathBuf),
 
     /// The user asked to save the current project to the given filename.
     Save(PathBuf),
@@ -57,8 +57,8 @@ impl ControlPanel {
             if ui.button("new").clicked() {
                 action = Some(ControlPanelAction::New);
             }
-            if ui.button("load").clicked() {
-                action = Some(ControlPanelAction::Load(PathBuf::from("minidaw.json")));
+            if ui.button("open").clicked() {
+                action = Some(ControlPanelAction::Open(PathBuf::from("minidaw.json")));
             }
             if ui.button("save").clicked() {
                 action = Some(ControlPanelAction::Save(PathBuf::from("minidaw.json")));

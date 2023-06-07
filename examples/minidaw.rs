@@ -79,7 +79,7 @@ trait NewIsEffect: IsEffect {}
 #[derive(Clone, Debug)]
 enum MiniOrchestratorInput {
     Midi(MidiChannel, MidiMessage),
-    ProjectLoad(PathBuf),
+    ProjectOpen(PathBuf),
     ProjectNew,
     ProjectPlay,
     ProjectSave(PathBuf),
@@ -168,7 +168,7 @@ impl OrchestratorPanel {
                             let _ = sender.send(MiniOrchestratorEvent::New);
                         }
                     }
-                    MiniOrchestratorInput::ProjectLoad(path) => {
+                    MiniOrchestratorInput::ProjectOpen(path) => {
                         match Self::handle_input_load(&path) {
                             Ok(mut mo) => {
                                 if let Ok(mut o) = orchestrator.lock() {
@@ -1311,6 +1311,9 @@ enum TrackAction {
 #[derive(Clone, Copy, Debug)]
 enum MenuBarAction {
     Quit,
+    ProjectNew,
+    ProjectOpen,
+    ProjectSave,
     TrackNew,
     TrackNewSend,
     TrackDuplicate,
@@ -1377,8 +1380,13 @@ impl MenuBar {
         ui.horizontal(|ui| {
             let menus = vec![
                 MenuBarItem::node(
-                    "File",
-                    vec![MenuBarItem::leaf("Quit", MenuBarAction::Quit, true)],
+                    "Project",
+                    vec![
+                        MenuBarItem::leaf("New", MenuBarAction::ProjectNew, true),
+                        MenuBarItem::leaf("Open", MenuBarAction::ProjectOpen, true),
+                        MenuBarItem::leaf("Save", MenuBarAction::ProjectSave, true),
+                        MenuBarItem::leaf("Quit", MenuBarAction::Quit, true),
+                    ],
                 ),
                 MenuBarItem::node(
                     "Track",
@@ -1888,7 +1896,7 @@ impl MiniDaw {
             ControlPanelAction::Play => MiniOrchestratorInput::ProjectPlay,
             ControlPanelAction::Stop => MiniOrchestratorInput::ProjectStop,
             ControlPanelAction::New => MiniOrchestratorInput::ProjectNew,
-            ControlPanelAction::Load(path) => MiniOrchestratorInput::ProjectLoad(path),
+            ControlPanelAction::Open(path) => MiniOrchestratorInput::ProjectOpen(path),
             ControlPanelAction::Save(path) => MiniOrchestratorInput::ProjectSave(path),
         };
         self.orchestrator_panel.send_to_service(input);
@@ -1908,6 +1916,17 @@ impl MiniDaw {
                     text: "Coming soon!".into(),
                     options: ToastOptions::default(),
                 });
+            }
+            MenuBarAction::ProjectNew => input = Some(MiniOrchestratorInput::ProjectNew),
+            MenuBarAction::ProjectOpen => {
+                input = Some(MiniOrchestratorInput::ProjectOpen(PathBuf::from(
+                    "minidaw.json",
+                )))
+            }
+            MenuBarAction::ProjectSave => {
+                input = Some(MiniOrchestratorInput::ProjectSave(PathBuf::from(
+                    "minidaw.json",
+                )))
             }
         }
         if let Some(input) = input {
