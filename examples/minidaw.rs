@@ -1251,8 +1251,8 @@ enum TrackAction {
 enum MenuBarAction {
     Quit,
     TrackNew,
-    TrackDuplicate(usize),
-    TrackDelete(usize),
+    TrackDuplicate,
+    TrackDelete,
     ComingSoon,
 }
 
@@ -1306,18 +1306,13 @@ impl MenuBarItem {
 #[derive(Debug, Default)]
 struct MenuBar {}
 impl MenuBar {
-    fn show_with_action(
-        &mut self,
-        ui: &mut Ui,
-        selected_track: Option<usize>,
-    ) -> Option<MenuBarAction> {
+    fn show_with_action(&mut self, ui: &mut Ui, is_track_selected: bool) -> Option<MenuBarAction> {
         let mut action = None;
+
+        // Menus should look like menus, not buttons
+        ui.style_mut().visuals.button_frame = false;
+
         ui.horizontal(|ui| {
-            let (is_track_selected, selected_track) = if selected_track.is_some() {
-                (true, selected_track.unwrap())
-            } else {
-                (false, usize::MAX)
-            };
             let menus = vec![
                 MenuBarItem::node(
                     "File",
@@ -1327,16 +1322,13 @@ impl MenuBar {
                     "Track",
                     vec![
                         MenuBarItem::leaf("New", MenuBarAction::TrackNew, true),
+                        MenuBarItem::leaf("New Send", MenuBarAction::ComingSoon, true),
                         MenuBarItem::leaf(
                             "Duplicate",
-                            MenuBarAction::TrackDuplicate(selected_track),
+                            MenuBarAction::TrackDuplicate,
                             is_track_selected,
                         ),
-                        MenuBarItem::leaf(
-                            "Delete",
-                            MenuBarAction::TrackDelete(selected_track),
-                            is_track_selected,
-                        ),
+                        MenuBarItem::leaf("Delete", MenuBarAction::TrackDelete, is_track_selected),
                     ],
                 ),
                 MenuBarItem::node(
@@ -1347,6 +1339,13 @@ impl MenuBar {
                         MenuBarItem::leaf("Shift Right", MenuBarAction::ComingSoon, true),
                         MenuBarItem::leaf("Move Up", MenuBarAction::ComingSoon, true),
                         MenuBarItem::leaf("Move Down", MenuBarAction::ComingSoon, true),
+                    ],
+                ),
+                MenuBarItem::node(
+                    "Control",
+                    vec![
+                        MenuBarItem::leaf("Connect", MenuBarAction::ComingSoon, true),
+                        MenuBarItem::leaf("Disconnect", MenuBarAction::ComingSoon, true),
                     ],
                 ),
             ];
@@ -1838,11 +1837,15 @@ impl MiniDaw {
         match action {
             MenuBarAction::Quit => self.exit_requested = true,
             MenuBarAction::TrackNew => input = Some(MiniOrchestratorInput::TrackNew),
-            MenuBarAction::TrackDelete(index) => {
-                input = Some(MiniOrchestratorInput::TrackDelete(index))
+            MenuBarAction::TrackDelete => {
+                if let Some(index) = self.orchestrator_panel.selected_track() {
+                    input = Some(MiniOrchestratorInput::TrackDelete(index))
+                }
             }
-            MenuBarAction::TrackDuplicate(index) => {
-                input = Some(MiniOrchestratorInput::TrackDuplicate(index))
+            MenuBarAction::TrackDuplicate => {
+                if let Some(index) = self.orchestrator_panel.selected_track() {
+                    input = Some(MiniOrchestratorInput::TrackDuplicate(index))
+                }
             }
             MenuBarAction::ComingSoon => {
                 self.toasts.add(Toast {
@@ -1915,7 +1918,7 @@ impl MiniDaw {
     fn show_top(&mut self, ui: &mut egui::Ui) {
         if let Some(action) = self
             .menu_bar
-            .show_with_action(ui, self.orchestrator_panel.selected_track())
+            .show_with_action(ui, self.orchestrator_panel.selected_track().is_some())
         {
             self.handle_menu_bar_action(action);
         }
