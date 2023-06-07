@@ -1,7 +1,5 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use std::{ops::Range, option::Option};
-
 use super::{sequencers::Sequencer, SequencerParams};
 use crate::EntityMessage;
 use groove_core::{
@@ -11,6 +9,7 @@ use groove_core::{
     ParameterType,
 };
 use groove_proc_macros::{Control, Params, Uid};
+use std::{ops::Range, option::Option};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
