@@ -106,7 +106,7 @@ pub struct Oscillator {
     /// instead. TODO: Option<>
     #[control]
     #[params]
-    fixed_frequency: FrequencyHz,
+    fixed_frequency: Option<FrequencyHz>,
 
     /// Designed for pitch correction at construction time.
     #[control]
@@ -238,7 +238,8 @@ impl Oscillator {
         let mut r = Self::default();
         r.waveform = params.waveform();
         r.frequency = params.frequency();
-        r.fixed_frequency = params.fixed_frequency();
+        // TODO https://github.com/sowbug/groove/issues/135
+        // r.fixed_frequency = params.fixed_frequency();
         r.frequency_tune = params.frequency_tune();
         r.frequency_modulation = params.frequency_modulation();
         r.delta_needs_update = true;
@@ -247,10 +248,10 @@ impl Oscillator {
     }
 
     fn adjusted_frequency(&self) -> FrequencyHz {
-        let unmodulated_frequency = if self.fixed_frequency == 0.0.into() {
-            self.frequency * self.frequency_tune
+        let unmodulated_frequency = if let Some(fixed_frequency) = self.fixed_frequency {
+            fixed_frequency
         } else {
-            self.fixed_frequency
+            self.frequency * self.frequency_tune
         };
         unmodulated_frequency
             * FrequencyHz(
@@ -264,7 +265,7 @@ impl Oscillator {
     }
 
     pub fn set_fixed_frequency(&mut self, frequency: FrequencyHz) {
-        self.fixed_frequency = frequency;
+        self.fixed_frequency = Some(frequency);
         self.delta_needs_update = true;
     }
 
@@ -424,7 +425,7 @@ impl Oscillator {
         self.sample_rate
     }
 
-    pub fn fixed_frequency(&self) -> FrequencyHz {
+    pub fn fixed_frequency(&self) -> Option<FrequencyHz> {
         self.fixed_frequency
     }
 
