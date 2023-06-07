@@ -37,10 +37,11 @@ use groove_core::{
 use groove_entities::{
     controllers::{Arpeggiator, ArpeggiatorParams},
     effects::{BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbParams, Reverb, ReverbParams},
-    instruments::{WelshSynth, WelshSynthParams},
+    instruments::{Drumkit, DrumkitParams, WelshSynth, WelshSynthParams},
     EntityMessage,
 };
 use groove_toys::{ToyInstrument, ToyInstrumentParams, ToySynth, ToySynthParams};
+use groove_utils::Paths;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
@@ -1962,6 +1963,12 @@ impl MiniDaw {
         factory.register_instrument(Key::from("welsh-synth"), || {
             Box::new(WelshSynth::new_with(&WelshSynthParams::default()))
         });
+        factory.register_instrument(Key::from("drumkit"), || {
+            Box::new(Drumkit::new_with(
+                &DrumkitParams::default(),
+                &Paths::default(),
+            ))
+        });
     }
 
     fn handle_palette_action(&mut self, _action: PaletteAction) {
@@ -2110,6 +2117,8 @@ impl eframe::App for MiniDaw {
 
 #[typetag::serde]
 impl NewIsController for Arpeggiator {}
+#[typetag::serde]
+impl NewIsInstrument for Drumkit {}
 #[typetag::serde]
 impl NewIsInstrument for WelshSynth {}
 #[typetag::serde]

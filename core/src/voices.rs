@@ -272,7 +272,10 @@ impl<V: IsStereoSampleVoice> Generates<StereoSample> for VoicePerNoteStore<V> {
 
     #[allow(unused_variables)]
     fn batch_values(&mut self, values: &mut [StereoSample]) {
-        todo!()
+        for value in values {
+            self.tick(1);
+            *value = self.value();
+        }
     }
 }
 impl<V: IsStereoSampleVoice> Configurable for VoicePerNoteStore<V> {
