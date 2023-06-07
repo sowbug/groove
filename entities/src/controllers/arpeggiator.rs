@@ -187,12 +187,17 @@ impl Arpeggiator {
 #[cfg(feature = "egui-framework")]
 mod gui {
     use super::Arpeggiator;
-    use eframe::egui::Ui;
-    use groove_core::traits::{gui::Shows, HasUid};
+    use eframe::egui::{ComboBox, Ui};
+    use groove_core::traits::gui::Shows;
 
     impl Shows for Arpeggiator {
         fn show(&mut self, ui: &mut Ui) {
-            ui.label(self.name());
+            let alternatives = ["major", "minor"];
+            let mut selected = 1;
+            if ComboBox::from_label("Scale")
+                .show_index(ui, &mut selected, alternatives.len(), |i| alternatives[i])
+                .clicked()
+            {}
         }
     }
 }
