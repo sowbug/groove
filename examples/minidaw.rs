@@ -7,10 +7,13 @@ use derive_more::Display;
 use eframe::{
     egui::{
         self, Context, CursorIcon, FontData, FontDefinitions, Frame, Id as EguiId, InnerResponse,
-        LayerId, Layout, Order, RichText, ScrollArea, Sense, TextStyle, Ui,
+        LayerId, Layout, Order, Response, RichText, ScrollArea, Sense, TextStyle, Ui,
     },
-    emath::Align2,
-    epaint::{self, Color32, FontFamily, FontId, Rect, Shape, Vec2},
+    emath::{self, Align2},
+    epaint::{
+        self, pos2, vec2, Color32, FontFamily, FontId, Pos2, Rect, RectShape, Rounding, Shape,
+        Stroke, Vec2,
+    },
     CreationContext,
 };
 use egui_toast::{Toast, ToastOptions, Toasts};
@@ -313,9 +316,6 @@ struct Track {
     controllers: Vec<Box<dyn NewIsController>>,
     instruments: Vec<Box<dyn NewIsInstrument>>,
     effects: Vec<Box<dyn NewIsEffect>>,
-
-    #[serde(skip)]
-    background_color: Color32,
 }
 impl Default for Track {
     fn default() -> Self {
@@ -323,7 +323,6 @@ impl Default for Track {
             controllers: Default::default(),
             instruments: Default::default(),
             effects: Default::default(),
-            background_color: Color32::DARK_BLUE,
         }
     }
 }
@@ -489,14 +488,71 @@ impl Track {
         (left, right)
     }
 
-    fn show(&mut self, ui: &mut Ui, factory: &EntityFactory, _track_index: usize) {
+    fn show_arrangement(&mut self, ui: &mut Ui, is_selected: bool) -> Response {
+        ui.ctx().request_repaint();
+        let color = if ui.visuals().dark_mode {
+            Color32::from_additive_luminance(196)
+        } else {
+            Color32::from_black_alpha(240)
+        };
+
+        let (response, painter) =
+            ui.allocate_painter(vec2(ui.available_width(), 64.0), Sense::click());
+
+        let time = ui.input(|i| i.time);
+        let to_screen = emath::RectTransform::from_to(
+            Rect::from_x_y_ranges(0.0..=1.0, -1.0..=1.0),
+            response.rect,
+        );
+
+        let mut shapes = vec![];
+        if is_selected {
+            shapes.push(Shape::Rect(RectShape::filled(
+                painter.clip_rect(),
+                Rounding::none(),
+                Color32::DARK_BLUE,
+            )));
+        }
+
+        for &mode in &[2, 3, 5] {
+            let mode = mode as f64;
+            let n = 120;
+            let speed = 1.5;
+
+            let points: Vec<Pos2> = (0..=n)
+                .map(|i| {
+                    let t = i as f64 / (n as f64);
+                    let amp = (time * speed * mode).sin() / mode;
+                    let y = amp * (t * std::f64::consts::TAU / 2.0 * mode).sin();
+                    to_screen * pos2(t as f32, y as f32)
+                })
+                .collect();
+
+            let thickness = 10.0 / mode as f32;
+            shapes.push(Shape::line(points, Stroke::new(thickness, color)));
+        }
+
+        shapes.push(Shape::LineSegment {
+            points: [to_screen * pos2(0.0, 1.0), to_screen * pos2(1.0, 1.0)],
+            stroke: Stroke { width: 1.0, color },
+        });
+
+        painter.extend(shapes);
+
+        response
+    }
+
+    // TODO: ordering should be controllers, instruments, then effects. Within
+    // those groups, the user can reorder as desired (but instrument order
+    // doesn't matter because they're all simultaneous)
+    fn show_detail(&mut self, ui: &mut Ui, factory: &EntityFactory, _track_index: usize) {
         let style = ui.visuals().widgets.inactive;
 
         Frame::none()
             .stroke(style.fg_stroke)
-            .fill(self.background_color)
+            .fill(style.bg_fill)
             .show(ui, |ui| {
-                let desired_size = Vec2::new(ui.available_width(), 64.0 - style.fg_stroke.width);
+                let desired_size = Vec2::new(ui.available_width(), 256.0 - style.fg_stroke.width);
                 ui.set_min_size(desired_size);
                 ui.set_max_size(desired_size);
 
@@ -785,6 +841,8 @@ struct MiniOrchestrator {
     #[serde(skip)]
     #[allow(dead_code)]
     musical_time: MusicalTime,
+
+    selected_track: Option<usize>,
 }
 impl Default for MiniOrchestrator {
     fn default() -> Self {
@@ -798,6 +856,7 @@ impl Default for MiniOrchestrator {
             sample_rate: Default::default(),
             frames: Default::default(),
             musical_time: Default::default(),
+            selected_track: Default::default(),
         }
     }
 }
@@ -890,21 +949,6 @@ impl MiniOrchestrator {
         Ok(id)
     }
 
-    // TODO: ordering should be controllers, instruments, then effects. Within
-    // those groups, the user can reorder as desired (but instrument order
-    // doesn't matter because they're all simultaneous)
-
-    // fn push_to_track(&mut self, track_index: usize, id: Id) -> Result<()> {
-    //     if track_index >= self.tracks.len() {
-    //         return Err(anyhow!("track index {track_index} is out of bounds"));
-    //     }
-    //     if self.tracks[track_index].contains(&id) {
-    //         return Err(anyhow!("Tried to add id {id} twice to a track"));
-    //     }
-    //     self.tracks[track_index].push(id);
-    //     Ok(())
-    // }
-
     #[allow(dead_code)]
     fn move_controller(
         &mut self,
@@ -950,10 +994,17 @@ impl MiniOrchestrator {
         }
     }
 
-    fn show_tracks(&mut self, ui: &mut Ui, factory: &EntityFactory) -> Option<TrackAction> {
+    fn show_tracks(&mut self, ui: &mut Ui, _factory: &EntityFactory) -> Option<TrackAction> {
         let action = None;
         for (track_index, track) in self.tracks.iter_mut().enumerate() {
-            track.show(ui, factory, track_index);
+            let is_selected = if let Some(selected) = self.selected_track {
+                track_index == selected
+            } else {
+                false
+            };
+            if track.show_arrangement(ui, is_selected).clicked() {
+                self.selected_track = Some(track_index);
+            }
         }
         action
     }
@@ -961,6 +1012,12 @@ impl MiniOrchestrator {
     fn show_with(&mut self, ui: &mut egui::Ui, factory: &EntityFactory) {
         if let Some(action) = self.show_tracks(ui, factory) {
             self.handle_track_action(factory, action);
+        }
+        if let Some(selected) = self.selected_track {
+            let bottom = egui::TopBottomPanel::bottom("orchestrator-bottom-panel").resizable(true);
+            bottom.show_inside(ui, |ui| {
+                self.tracks[selected].show_detail(ui, factory, selected);
+            });
         }
     }
 
@@ -1325,7 +1382,6 @@ struct MiniDaw {
     control_panel: ControlPanel,
     audio_panel: AudioPanel2,
     midi_panel: MidiPanel,
-    #[allow(dead_code)]
     palette_panel: PalettePanel,
 
     first_update_done: bool,
@@ -1651,30 +1707,30 @@ impl MiniDaw {
         });
     }
 
-    // fn handle_palette_action(&mut self, action: PaletteAction) {
-    //     if let Ok(mut o) = self.mini_orchestrator.lock() {
-    //         match action {
-    //             PaletteAction::NewController(key) => {
-    //                 if let Some(controller) = self.factory.new_controller(&key) {
-    //                     let id = o.add_controller(controller);
-    //                     o.push_to_last_track(id);
-    //                 }
-    //             }
-    //             PaletteAction::NewEffect(key) => {
-    //                 if let Some(effect) = self.factory.new_effect(&key) {
-    //                     let id = o.add_effect(effect);
-    //                     o.push_to_last_track(id);
-    //                 }
-    //             }
-    //             PaletteAction::NewInstrument(key) => {
-    //                 if let Some(instrument) = self.factory.new_instrument(&key) {
-    //                     let id = o.add_instrument(instrument);
-    //                     o.push_to_last_track(id);
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+    fn handle_palette_action(&mut self, _action: PaletteAction) {
+        if let Ok(_o) = self.mini_orchestrator.lock() {
+            // match action {
+            //     PaletteAction::NewController(key) => {
+            //         if let Some(controller) = self.factory.new_controller(&key) {
+            //             let id = o.add_controller(controller);
+            //             o.push_to_last_track(id);
+            //         }
+            //     }
+            //     PaletteAction::NewEffect(key) => {
+            //         if let Some(effect) = self.factory.new_effect(&key) {
+            //             let id = o.add_effect(effect);
+            //             o.push_to_last_track(id);
+            //         }
+            //     }
+            //     PaletteAction::NewInstrument(key) => {
+            //         if let Some(instrument) = self.factory.new_instrument(&key) {
+            //             let id = o.add_instrument(instrument);
+            //             o.push_to_last_track(id);
+            //         }
+            //     }
+            // }
+        }
+    }
 
     fn show_top(&mut self, ui: &mut egui::Ui) {
         if let Some(action) = self.control_panel.show_with_action(ui) {
@@ -1691,11 +1747,11 @@ impl MiniDaw {
         });
     }
 
-    fn show_left(&mut self, _ui: &mut egui::Ui) {
-        // if let Some(_action) = self.palette_panel.show_with_action(ui) {
-        //     // these are inactive for now because we're skipping the drag/drop stuff.
-        //     //self.handle_palette_action(action);
-        // }
+    fn show_left(&mut self, ui: &mut egui::Ui) {
+        if let Some(action) = self.palette_panel.show_with_action(ui) {
+            // these are inactive for now because we're skipping the drag/drop stuff.
+            self.handle_palette_action(action);
+        }
     }
 
     fn show_right(&mut self, ui: &mut egui::Ui) {
@@ -1744,9 +1800,6 @@ impl eframe::App for MiniDaw {
         let top = egui::TopBottomPanel::top("top-panel")
             .resizable(false)
             .exact_height(64.0);
-        let bottom = egui::TopBottomPanel::bottom("bottom-panel")
-            .resizable(false)
-            .exact_height(self.bold_font_height + 2.0);
         let left = egui::SidePanel::left("left-panel")
             .resizable(true)
             .default_width(150.0)
@@ -1755,19 +1808,22 @@ impl eframe::App for MiniDaw {
             .resizable(true)
             .default_width(150.0)
             .width_range(80.0..=200.0);
-
+        let bottom = egui::TopBottomPanel::bottom("bottom-panel")
+            .resizable(false)
+            .exact_height(self.bold_font_height + 2.0);
         let center = egui::CentralPanel::default();
+
         top.show(ctx, |ui| {
             self.show_top(ui);
-        });
-        bottom.show(ctx, |ui| {
-            self.show_bottom(ui);
         });
         left.show(ctx, |ui| {
             self.show_left(ui);
         });
         right.show(ctx, |ui| {
             self.show_right(ui);
+        });
+        bottom.show(ctx, |ui| {
+            self.show_bottom(ui);
         });
         center.show(ctx, |ui| {
             ScrollArea::vertical().show(ui, |ui| {
