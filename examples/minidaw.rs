@@ -7,9 +7,9 @@ use derive_more::Display;
 use eframe::{
     egui::{
         self, Context, CursorIcon, FontData, FontDefinitions, Frame, Id as EguiId, InnerResponse,
-        LayerId, Layout, Order, Response, RichText, ScrollArea, Sense, TextStyle, Ui,
+        LayerId, Layout, Margin, Order, Response, ScrollArea, Sense, TextStyle, Ui,
     },
-    emath::{self, Align2},
+    emath::{self, Align, Align2},
     epaint::{
         self, pos2, vec2, Color32, FontFamily, FontId, Pos2, Rect, RectShape, Rounding, Shape,
         Stroke, Vec2,
@@ -545,13 +545,48 @@ impl Track {
     fn show_detail(&mut self, ui: &mut Ui, factory: &EntityFactory, _track_index: usize) {
         let style = ui.visuals().widgets.inactive;
 
-        Frame::none()
-            .stroke(style.fg_stroke)
-            .fill(style.bg_fill)
-            .show(ui, |ui| {
+        ui.with_layout(
+            egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
+            |ui| {
                 let desired_size = Vec2::new(ui.available_width(), 256.0 - style.fg_stroke.width);
                 ui.set_min_size(desired_size);
                 ui.set_max_size(desired_size);
+
+                ui.horizontal(|ui| {
+                    ui.menu_button("+", |ui| {
+                        ui.menu_button("Controllers", |ui| {
+                            factory.controller_keys().for_each(|k| {
+                                if ui.button(k.to_string()).clicked() {
+                                    if let Some(e) = factory.new_controller(k) {
+                                        self.append_controller(e);
+                                    }
+                                    ui.close_menu();
+                                }
+                            });
+                        });
+                        ui.menu_button("Instruments", |ui| {
+                            factory.instrument_keys().for_each(|k| {
+                                if ui.button(k.to_string()).clicked() {
+                                    if let Some(e) = factory.new_instrument(k) {
+                                        self.append_instrument(e);
+                                    }
+                                    ui.close_menu();
+                                }
+                            });
+                        });
+                        ui.menu_button("Effects", |ui| {
+                            factory.effect_keys().for_each(|k| {
+                                if ui.button(k.to_string()).clicked() {
+                                    if let Some(e) = factory.new_effect(k) {
+                                        self.append_effect(e);
+                                    }
+                                    ui.close_menu();
+                                }
+                            });
+                        });
+                    });
+                });
+                ui.add(egui::Separator::default().grow(8.0));
 
                 ui.horizontal_centered(|ui| {
                     let desired_size = Vec2::new(96.0, ui.available_height());
@@ -652,44 +687,9 @@ impl Track {
                             }
                         }
                     }
-
-                    // Context menu at the end for new stuff
-                    ui.add_space(1.0);
-                    Self::add_track_element(ui, 0, EntityType::None, false, false, false, |ui| {
-                        let desired_size = Vec2::new(desired_size.x / 4.0, desired_size.y - 8.0);
-                        ui.set_max_size(desired_size);
-                        ui.label(RichText::new("+").size(24.0)).context_menu(|ui| {
-                            ui.menu_button("Controllers", |ui| {
-                                factory.controller_keys().for_each(|k| {
-                                    if ui.button(k.to_string()).clicked() {
-                                        if let Some(e) = factory.new_controller(k) {
-                                            self.append_controller(e);
-                                        }
-                                    }
-                                });
-                            });
-                            ui.menu_button("Instruments", |ui| {
-                                factory.instrument_keys().for_each(|k| {
-                                    if ui.button(k.to_string()).clicked() {
-                                        if let Some(e) = factory.new_instrument(k) {
-                                            self.append_instrument(e);
-                                        }
-                                    }
-                                });
-                            });
-                            ui.menu_button("Effects", |ui| {
-                                factory.effect_keys().for_each(|k| {
-                                    if ui.button(k.to_string()).clicked() {
-                                        if let Some(e) = factory.new_effect(k) {
-                                            self.append_effect(e);
-                                        }
-                                    }
-                                });
-                            });
-                        });
-                    });
                 });
-            });
+            },
+        );
     }
 
     fn add_track_element(
@@ -706,9 +706,10 @@ impl Track {
         Frame::none()
             .stroke(style.fg_stroke)
             .fill(style.bg_fill)
+            .inner_margin(Margin::same(2.0))
             .show(ui, |ui| {
                 ui.vertical(|ui| {
-                    ui.horizontal(|ui| {
+                    ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                         if show_left_button {
                             if ui.button("<").clicked() {
                                 action = match entity_type {
@@ -757,6 +758,8 @@ impl Track {
                                 };
                             }
                         }
+                    });
+                    ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                         add_contents(ui);
                     });
                 });
