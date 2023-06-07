@@ -36,7 +36,7 @@ use groove_core::{
 };
 use groove_entities::{
     controllers::{Arpeggiator, ArpeggiatorParams},
-    effects::{Reverb, ReverbParams},
+    effects::{BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbParams, Reverb, ReverbParams},
     instruments::{WelshSynth, WelshSynthParams},
     EntityMessage,
 };
@@ -596,63 +596,67 @@ impl Track {
                     // controller
                     let len = self.controllers.len();
                     for (index, e) in self.controllers.iter_mut().enumerate() {
-                        let (show_left, show_right) = Self::button_states(index, len);
-                        if let Some(a) = Self::add_track_element(
-                            ui,
-                            index,
-                            EntityType::Controller,
-                            show_left,
-                            show_right,
-                            true,
-                            |ui| {
-                                ui.set_min_size(desired_size);
-                                ui.set_max_size(desired_size);
-                                e.show(ui);
-                            },
-                        ) {
-                            action = Some(a);
-                        };
+                        ui.allocate_ui(desired_size, |ui| {
+                            let (show_left, show_right) = Self::button_states(index, len);
+                            if let Some(a) = Self::add_track_element(
+                                ui,
+                                index,
+                                EntityType::Controller,
+                                show_left,
+                                show_right,
+                                true,
+                                |ui| {
+                                    e.show(ui);
+                                },
+                            ) {
+                                action = Some(a);
+                            };
+                        });
                     }
 
                     // instrument
                     for (index, e) in self.instruments.iter_mut().enumerate() {
-                        // Instrument order in a track doesn't matter, so left/right are always off.
-                        if let Some(a) = Self::add_track_element(
-                            ui,
-                            index,
-                            EntityType::Instrument,
-                            false,
-                            false,
-                            true,
-                            |ui| {
-                                ui.set_min_size(desired_size);
-                                ui.set_max_size(desired_size);
-                                e.show(ui);
-                            },
-                        ) {
-                            action = Some(a);
-                        };
+                        ui.allocate_ui(desired_size, |ui| {
+                            // Instrument order in a track doesn't matter, so left/right are always off.
+                            if let Some(a) = Self::add_track_element(
+                                ui,
+                                index,
+                                EntityType::Instrument,
+                                false,
+                                false,
+                                true,
+                                |ui| {
+                                    ui.set_min_size(desired_size);
+                                    ui.set_max_size(desired_size);
+                                    e.show(ui);
+                                },
+                            ) {
+                                action = Some(a);
+                            };
+                        });
                     }
 
                     // effect
                     let len = self.effects.len();
                     for (index, e) in self.effects.iter_mut().enumerate() {
-                        let (show_left, show_right) = Self::button_states(index, len);
-                        if let Some(a) = Self::add_track_element(
-                            ui,
-                            index,
-                            EntityType::Effect,
-                            show_left,
-                            show_right,
-                            true,
-                            |ui| {
-                                ui.set_min_size(desired_size);
-                                ui.set_max_size(desired_size);
-                                e.show(ui);
-                            },
-                        ) {
-                            action = Some(a);
-                        };
+                        ui.allocate_ui(desired_size, |ui| {
+                            let (show_left, show_right) = Self::button_states(index, len);
+                            if let Some(a) = Self::add_track_element(
+                                ui,
+                                index,
+                                EntityType::Effect,
+                                show_left,
+                                show_right,
+                                true,
+                                |ui| {
+                                    ui.set_min_size(desired_size);
+                                    ui.set_max_size(desired_size);
+                                    e.show(ui);
+                                },
+                            ) {
+                                action = Some(a);
+                            };
+                        });
                     }
 
                     // check action
@@ -705,7 +709,6 @@ impl Track {
         let style = ui.visuals().widgets.inactive;
         Frame::none()
             .stroke(style.fg_stroke)
-            .fill(style.bg_fill)
             .inner_margin(Margin::same(2.0))
             .show(ui, |ui| {
                 ui.vertical(|ui| {
@@ -759,7 +762,7 @@ impl Track {
                             }
                         }
                     });
-                    ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                    ui.vertical(|ui| {
                         add_contents(ui);
                     });
                 });
@@ -1696,6 +1699,11 @@ impl MiniDaw {
         factory.register_effect(Key::from("reverb"), || {
             Box::new(Reverb::new_with(&ReverbParams::default()))
         });
+        factory.register_effect(Key::from("filter-low-pass-24db"), || {
+            Box::new(BiQuadFilterLowPass24db::new_with(
+                &BiQuadFilterLowPass24dbParams::default(),
+            ))
+        });
         factory.register_instrument(Key::from("toy-synth"), || {
             Box::new(ToySynth::new_with(&ToySynthParams::default()))
         });
@@ -1848,6 +1856,8 @@ impl NewIsInstrument for WelshSynth {}
 impl NewIsInstrument for ToySynth {}
 #[typetag::serde]
 impl NewIsInstrument for ToyInstrument {}
+#[typetag::serde]
+impl NewIsEffect for BiQuadFilterLowPass24db {}
 #[typetag::serde]
 impl NewIsEffect for Reverb {}
 
