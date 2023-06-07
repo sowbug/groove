@@ -42,14 +42,7 @@ pub trait IsEffect:
 /// An [IsInstrument] produces audio, usually upon request from MIDI or
 /// [IsController] input.
 pub trait IsInstrument:
-    Generates<StereoSample>
-    + Ticks
-    + HandlesMidi
-    + Controllable
-    + HasUid
-    + Shows
-    + Send
-    + std::fmt::Debug
+    Generates<StereoSample> + HandlesMidi + Controllable + HasUid + Shows + Send + std::fmt::Debug
 {
 }
 

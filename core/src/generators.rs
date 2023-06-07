@@ -196,9 +196,11 @@ impl Generates<BipolarNormal> for Oscillator {
         self.signal
     }
 
-    #[allow(unused_variables)]
     fn batch_values(&mut self, values: &mut [BipolarNormal]) {
-        todo!()
+        for v in values {
+            self.tick(1);
+            *v = self.value();
+        }
     }
 }
 impl Configurable for Oscillator {
@@ -553,9 +555,9 @@ impl Generates<Normal> for Envelope {
         // TODO: this is probably no more efficient than calling amplitude()
         // individually, but for now we're just getting the interface right.
         // Later we'll take advantage of it.
-        for item in values {
+        for v in values {
             self.tick(1);
-            *item = self.value();
+            *v = self.value();
         }
     }
 }
@@ -1262,11 +1264,13 @@ pub mod tests {
         let mut oscillator =
             Oscillator::new_with(&OscillatorParams::default_with_waveform(Waveform::Sine));
 
-        // we'll run two ticks in case the oscillator happens to start at zero
-        oscillator.tick(2);
+        // we'll get a few samples in case the oscillator happens to start at
+        // zero
+        let mut values = [BipolarNormal::default(); 3];
+        oscillator.batch_values(&mut values);
         assert_ne!(
             0.0,
-            oscillator.value().value(),
+            values[1].value(),
             "Default Oscillator should not be silent"
         );
     }

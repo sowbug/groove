@@ -47,7 +47,9 @@ impl<V: IsStereoSampleVoice> Generates<StereoSample> for Synthesizer<V> {
         if let Some(vs) = self.voice_store.as_mut() {
             vs.batch_values(values);
         } else {
-            todo!()
+            for v in values {
+                *v = StereoSample::default()
+            }
         }
     }
 }
@@ -228,8 +230,11 @@ mod tests {
         let mut s = TestSynthesizer::default();
         s.handle_midi_message(&new_note_on(100, 99), &mut |_, _| {});
 
-        // Tick a few because the oscillator correctly starts at zero.
-        s.tick(3);
-        assert!(s.value() != StereoSample::from(StereoSample::SILENCE));
+        // Get a few samples because the oscillator correctly starts at zero.
+        let mut samples = [StereoSample::default(); 5];
+        s.batch_values(&mut samples);
+        assert!(samples
+            .iter()
+            .any(|s| { s != &StereoSample::from(StereoSample::SILENCE) }));
     }
 }
