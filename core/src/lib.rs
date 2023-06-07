@@ -530,7 +530,7 @@ impl Dca {
 /// to 192KHz (2x for sampling a 96KHz signal).
 ///
 /// Eventually we might impose a non-negative restriction on this type.
-#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct FrequencyHz(ParameterType);
 impl FrequencyHz {
@@ -568,6 +568,11 @@ impl FrequencyHz {
 
     pub fn value(&self) -> f64 {
         self.0
+    }
+}
+impl Default for FrequencyHz {
+    fn default() -> Self {
+        Self(440.0)
     }
 }
 impl From<f64> for FrequencyHz {
