@@ -6,8 +6,8 @@ use crossbeam_channel::{Receiver, Select, Sender};
 use derive_more::Display;
 use eframe::{
     egui::{
-        self, Context, CursorIcon, FontData, FontDefinitions, Frame, Id as EguiId, InnerResponse,
-        LayerId, Layout, Margin, Order, Response, ScrollArea, Sense, TextStyle, Ui,
+        self, Button, Context, CursorIcon, FontData, FontDefinitions, Frame, Id as EguiId,
+        InnerResponse, LayerId, Layout, Margin, Order, Response, ScrollArea, Sense, TextStyle, Ui,
     },
     emath::{self, Align, Align2},
     epaint::{
@@ -79,13 +79,14 @@ trait NewIsEffect: IsEffect {}
 #[derive(Clone, Debug)]
 enum MiniOrchestratorInput {
     Midi(MidiChannel, MidiMessage),
-    Play,
-    Stop,
-    New,
-    Load(PathBuf),
-    Save(PathBuf),
-    TrackNew,
+    ProjectLoad(PathBuf),
+    ProjectNew,
+    ProjectPlay,
+    ProjectSave(PathBuf),
+    ProjectStop,
     TrackDelete(usize),
+    TrackDuplicate(usize),
+    TrackNew,
 
     /// Request that the orchestrator service quit.
     Quit,
@@ -156,9 +157,9 @@ impl OrchestratorPanel {
                     MiniOrchestratorInput::Midi(channel, message) => {
                         Self::handle_input_midi(&orchestrator, channel, message);
                     }
-                    MiniOrchestratorInput::Play => eprintln!("Play"),
-                    MiniOrchestratorInput::Stop => eprintln!("Stop"),
-                    MiniOrchestratorInput::New => {
+                    MiniOrchestratorInput::ProjectPlay => eprintln!("Play"),
+                    MiniOrchestratorInput::ProjectStop => eprintln!("Stop"),
+                    MiniOrchestratorInput::ProjectNew => {
                         let mut mo = MiniOrchestrator::default();
                         if let Ok(mut o) = orchestrator.lock() {
                             o.prepare_successor(&mut mo);
@@ -166,7 +167,7 @@ impl OrchestratorPanel {
                             let _ = sender.send(MiniOrchestratorEvent::New);
                         }
                     }
-                    MiniOrchestratorInput::Load(path) => {
+                    MiniOrchestratorInput::ProjectLoad(path) => {
                         match Self::handle_input_load(&path) {
                             Ok(mut mo) => {
                                 if let Ok(mut o) = orchestrator.lock() {
@@ -184,7 +185,7 @@ impl OrchestratorPanel {
                         }
                         {}
                     }
-                    MiniOrchestratorInput::Save(path) => {
+                    MiniOrchestratorInput::ProjectSave(path) => {
                         match Self::handle_input_save(&orchestrator, &path) {
                             Ok(_) => {
                                 let _ = sender.send(MiniOrchestratorEvent::Saved(path));
@@ -207,6 +208,9 @@ impl OrchestratorPanel {
                         if let Ok(mut o) = orchestrator.lock() {
                             o.delete_track(index);
                         }
+                    }
+                    MiniOrchestratorInput::TrackDuplicate(_index) => {
+                        todo!();
                     }
                 },
                 Err(err) => {
@@ -851,6 +855,10 @@ struct MiniOrchestrator {
 
     tracks: Vec<Track>,
 
+    // TODO: This is wrong, but simple and fast. We should be allowing for
+    // multiple item selection.
+    selected_track: Option<usize>,
+
     //////////////////////////////////////////////////////
     // Nothing below this comment should be serialized. //
     //////////////////////////////////////////////////////
@@ -865,8 +873,6 @@ struct MiniOrchestrator {
     #[serde(skip)]
     #[allow(dead_code)]
     musical_time: MusicalTime,
-
-    selected_track: Option<usize>,
 }
 impl Default for MiniOrchestrator {
     fn default() -> Self {
@@ -1073,6 +1079,16 @@ impl MiniOrchestrator {
 
     fn delete_track(&mut self, index: usize) {
         self.tracks.remove(index);
+        if let Some(selected) = self.selected_track {
+            if index == selected {
+                self.selected_track = None;
+            } else if index < selected {
+                // If the user can delete only the selected track, then it seems
+                // like it shouldn't be able to happen. But we're checking
+                // anyway in case the UI evolves.
+                self.selected_track = Some(selected - 1);
+            }
+        }
     }
 
     fn title(&self) -> Option<&String> {
@@ -1231,19 +1247,64 @@ enum TrackAction {
     NewInstrument(usize, Key),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 enum MenuBarAction {
     Quit,
     TrackNew,
+    TrackDuplicate(usize),
     TrackDelete(usize),
+    ComingSoon,
 }
-#[derive(Debug, Default)]
-struct MenuBar {}
-impl Shows for MenuBar {
-    fn show(&mut self, ui: &mut Ui) {
-        todo!()
+
+#[derive(Debug)]
+struct MenuBarItem {
+    name: String,
+    children: Option<Vec<MenuBarItem>>,
+    action: Option<MenuBarAction>,
+    enabled: bool,
+}
+impl MenuBarItem {
+    fn node(name: &str, children: Vec<MenuBarItem>) -> Self {
+        Self {
+            name: name.to_string(),
+            children: Some(children),
+            action: None,
+            enabled: true,
+        }
+    }
+    fn leaf(name: &str, action: MenuBarAction, enabled: bool) -> Self {
+        Self {
+            name: name.to_string(),
+            children: None,
+            action: Some(action),
+            enabled,
+        }
+    }
+    fn show(&self, ui: &mut Ui) -> Option<MenuBarAction> {
+        let mut action = None;
+        if let Some(children) = self.children.as_ref() {
+            ui.menu_button(&self.name, |ui| {
+                for child in children.iter() {
+                    if let Some(a) = child.show(ui) {
+                        action = Some(a);
+                    }
+                }
+            });
+        } else if let Some(action_to_perform) = &self.action {
+            if ui
+                .add_enabled(self.enabled, Button::new(&self.name))
+                .clicked()
+            {
+                ui.close_menu();
+                action = Some(*action_to_perform);
+            }
+        }
+        action
     }
 }
+
+#[derive(Debug, Default)]
+struct MenuBar {}
 impl MenuBar {
     fn show_with_action(
         &mut self,
@@ -1252,24 +1313,48 @@ impl MenuBar {
     ) -> Option<MenuBarAction> {
         let mut action = None;
         ui.horizontal(|ui| {
-            ui.menu_button("File", |ui| {
-                if ui.button("Quit").clicked() {
-                    ui.close_menu();
-                    action = Some(MenuBarAction::Quit);
+            let (is_track_selected, selected_track) = if selected_track.is_some() {
+                (true, selected_track.unwrap())
+            } else {
+                (false, usize::MAX)
+            };
+            let menus = vec![
+                MenuBarItem::node(
+                    "File",
+                    vec![MenuBarItem::leaf("Quit", MenuBarAction::Quit, true)],
+                ),
+                MenuBarItem::node(
+                    "Track",
+                    vec![
+                        MenuBarItem::leaf("New", MenuBarAction::TrackNew, true),
+                        MenuBarItem::leaf(
+                            "Duplicate",
+                            MenuBarAction::TrackDuplicate(selected_track),
+                            is_track_selected,
+                        ),
+                        MenuBarItem::leaf(
+                            "Delete",
+                            MenuBarAction::TrackDelete(selected_track),
+                            is_track_selected,
+                        ),
+                    ],
+                ),
+                MenuBarItem::node(
+                    "Device",
+                    vec![
+                        MenuBarItem::leaf("New", MenuBarAction::ComingSoon, true),
+                        MenuBarItem::leaf("Shift Left", MenuBarAction::ComingSoon, true),
+                        MenuBarItem::leaf("Shift Right", MenuBarAction::ComingSoon, true),
+                        MenuBarItem::leaf("Move Up", MenuBarAction::ComingSoon, true),
+                        MenuBarItem::leaf("Move Down", MenuBarAction::ComingSoon, true),
+                    ],
+                ),
+            ];
+            for item in menus.iter() {
+                if let Some(a) = item.show(ui) {
+                    action = Some(a);
                 }
-            });
-            ui.menu_button("Track", |ui| {
-                if ui.button("New").clicked() {
-                    ui.close_menu();
-                    action = Some(MenuBarAction::TrackNew);
-                }
-                if let Some(selected_track) = selected_track {
-                    if ui.button("Delete").clicked() {
-                        ui.close_menu();
-                        action = Some(MenuBarAction::TrackDelete(selected_track));
-                    }
-                }
-            });
+            }
         });
         action
     }
@@ -1739,11 +1824,11 @@ impl MiniDaw {
 
     fn handle_control_panel_action(&mut self, action: ControlPanelAction) {
         let input = match action {
-            ControlPanelAction::Play => MiniOrchestratorInput::Play,
-            ControlPanelAction::Stop => MiniOrchestratorInput::Stop,
-            ControlPanelAction::New => MiniOrchestratorInput::New,
-            ControlPanelAction::Load(path) => MiniOrchestratorInput::Load(path),
-            ControlPanelAction::Save(path) => MiniOrchestratorInput::Save(path),
+            ControlPanelAction::Play => MiniOrchestratorInput::ProjectPlay,
+            ControlPanelAction::Stop => MiniOrchestratorInput::ProjectStop,
+            ControlPanelAction::New => MiniOrchestratorInput::ProjectNew,
+            ControlPanelAction::Load(path) => MiniOrchestratorInput::ProjectLoad(path),
+            ControlPanelAction::Save(path) => MiniOrchestratorInput::ProjectSave(path),
         };
         self.orchestrator_panel.send_to_service(input);
     }
@@ -1755,6 +1840,16 @@ impl MiniDaw {
             MenuBarAction::TrackNew => input = Some(MiniOrchestratorInput::TrackNew),
             MenuBarAction::TrackDelete(index) => {
                 input = Some(MiniOrchestratorInput::TrackDelete(index))
+            }
+            MenuBarAction::TrackDuplicate(index) => {
+                input = Some(MiniOrchestratorInput::TrackDuplicate(index))
+            }
+            MenuBarAction::ComingSoon => {
+                self.toasts.add(Toast {
+                    kind: egui_toast::ToastKind::Info,
+                    text: "Coming soon!".into(),
+                    options: ToastOptions::default(),
+                });
             }
         }
         if let Some(input) = input {

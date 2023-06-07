@@ -295,7 +295,9 @@ pub mod gui {
 
     /// Implements egui content inside a Window or SidePanel.
     pub trait Shows {
-        fn show(&mut self, ui: &mut Ui);
+        fn show(&mut self, ui: &mut Ui) {
+            ui.label("Coming soon!");
+        }
     }
 }
 #[cfg(test)]
