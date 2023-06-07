@@ -84,9 +84,10 @@ enum MiniOrchestratorInput {
     ProjectPlay,
     ProjectSave(PathBuf),
     ProjectStop,
-    TrackDelete(usize),
-    TrackDuplicate(usize),
+    TrackDelete,
+    TrackDuplicate,
     TrackNew,
+    TrackNewSend,
 
     /// Request that the orchestrator service quit.
     Quit,
@@ -204,13 +205,18 @@ impl OrchestratorPanel {
                             o.new_track();
                         }
                     }
-                    MiniOrchestratorInput::TrackDelete(index) => {
+                    MiniOrchestratorInput::TrackDelete => {
                         if let Ok(mut o) = orchestrator.lock() {
-                            o.delete_track(index);
+                            o.delete_selected_tracks();
                         }
                     }
-                    MiniOrchestratorInput::TrackDuplicate(_index) => {
-                        todo!();
+                    MiniOrchestratorInput::TrackDuplicate => {
+                        todo!("duplicate selected tracks");
+                    }
+                    MiniOrchestratorInput::TrackNewSend => {
+                        if let Ok(mut o) = orchestrator.lock() {
+                            o.new_send_track();
+                        }
                     }
                 },
                 Err(err) => {
@@ -228,14 +234,6 @@ impl OrchestratorPanel {
     fn introduce(&self) {
         if let Ok(o) = self.orchestrator.lock() {
             self.broadcast_tempo(o.tempo());
-        }
-    }
-
-    pub fn selected_track(&self) -> Option<usize> {
-        if let Ok(o) = self.orchestrator.lock() {
-            o.selected_track
-        } else {
-            None
         }
     }
 
@@ -316,10 +314,20 @@ impl OrchestratorPanel {
         eprintln!("MiniOrchestratorInput::Quit");
         self.send_to_service(MiniOrchestratorInput::Quit);
     }
+
+    // TODO: this looks cheap, but it's more expensive than that.
+    fn is_any_track_selected(&self) -> bool {
+        if let Ok(o) = self.orchestrator.lock() {
+            o.tracks.iter().any(|t| t.is_selected)
+        } else {
+            false
+        }
+    }
 }
 impl Shows for OrchestratorPanel {
     fn show(&mut self, ui: &mut Ui) {
         if let Ok(mut o) = self.orchestrator.lock() {
+            o.update_selection_tracking();
             o.show_with(ui, &self.factory);
         }
     }
@@ -335,20 +343,33 @@ enum EntityType {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Track {
+    is_send: bool,
     controllers: Vec<Box<dyn NewIsController>>,
     instruments: Vec<Box<dyn NewIsInstrument>>,
     effects: Vec<Box<dyn NewIsEffect>>,
+
+    #[serde(skip)]
+    is_selected: bool,
 }
 impl Default for Track {
     fn default() -> Self {
         Self {
+            is_send: false,
             controllers: Default::default(),
             instruments: Default::default(),
             effects: Default::default(),
+            is_selected: Default::default(),
         }
     }
 }
 impl Track {
+    pub fn send() -> Self {
+        Self {
+            is_send: true,
+            ..Default::default()
+        }
+    }
+
     // TODO: this is getting cumbersome! Think about that uber-trait!
 
     #[allow(dead_code)]
@@ -510,7 +531,7 @@ impl Track {
         (left, right)
     }
 
-    fn show_arrangement(&mut self, ui: &mut Ui, is_selected: bool) -> Response {
+    fn show_arrangement(&mut self, ui: &mut Ui) -> Response {
         ui.ctx().request_repaint();
         let color = if ui.visuals().dark_mode {
             Color32::from_additive_luminance(196)
@@ -528,7 +549,7 @@ impl Track {
         );
 
         let mut shapes = vec![];
-        if is_selected {
+        if self.is_selected {
             shapes.push(Shape::Rect(RectShape::filled(
                 painter.clip_rect(),
                 Rounding::none(),
@@ -562,6 +583,25 @@ impl Track {
         painter.extend(shapes);
 
         response
+    }
+
+    fn show_send(&mut self, ui: &mut Ui) -> Response {
+        Frame::default()
+            .stroke(Stroke::new(
+                1.0,
+                if self.is_selected {
+                    Color32::LIGHT_GREEN
+                } else {
+                    Color32::GREEN
+                },
+            ))
+            .show(ui, |ui| {
+                let desired_size = Vec2::new(ui.available_width(), 64.0);
+                let response = ui.allocate_response(desired_size, Sense::click());
+                ui.vertical_centered(|ui| ui.label("I'm a send track"));
+                response
+            })
+            .inner
     }
 
     // TODO: ordering should be controllers, instruments, then effects. Within
@@ -794,6 +834,10 @@ impl Track {
             });
         action
     }
+
+    fn toggle_selection(&mut self) {
+        self.is_selected = !self.is_selected;
+    }
 }
 impl Generates<StereoSample> for Track {
     fn value(&self) -> StereoSample {
@@ -855,9 +899,8 @@ struct MiniOrchestrator {
 
     tracks: Vec<Track>,
 
-    // TODO: This is wrong, but simple and fast. We should be allowing for
-    // multiple item selection.
-    selected_track: Option<usize>,
+    // If one track is selected, then this is set.
+    single_track_selection_position: Option<usize>,
 
     //////////////////////////////////////////////////////
     // Nothing below this comment should be serialized. //
@@ -882,11 +925,11 @@ impl Default for MiniOrchestrator {
             tempo: Default::default(),
 
             tracks: vec![Default::default(), Default::default(), Default::default()],
+            single_track_selection_position: None,
 
             sample_rate: Default::default(),
             frames: Default::default(),
             musical_time: Default::default(),
-            selected_track: Default::default(),
         }
     }
 }
@@ -1026,15 +1069,23 @@ impl MiniOrchestrator {
 
     fn show_tracks(&mut self, ui: &mut Ui, _factory: &EntityFactory) -> Option<TrackAction> {
         let action = None;
-        for (track_index, track) in self.tracks.iter_mut().enumerate() {
-            let is_selected = if let Some(selected) = self.selected_track {
-                track_index == selected
-            } else {
-                false
-            };
-            if track.show_arrangement(ui, is_selected).clicked() {
-                self.selected_track = Some(track_index);
+        let mut update = false;
+        for track in self.tracks.iter_mut().filter(|t| !t.is_send) {
+            if track.show_arrangement(ui).clicked() {
+                track.toggle_selection();
+                update = true;
             }
+        }
+
+        // Send tracks are last
+        for track in self.tracks.iter_mut().filter(|t| t.is_send) {
+            if track.show_send(ui).clicked() {
+                track.toggle_selection();
+                update = true;
+            }
+        }
+        if update {
+            self.update_selection_tracking();
         }
         action
     }
@@ -1043,7 +1094,7 @@ impl MiniOrchestrator {
         if let Some(action) = self.show_tracks(ui, factory) {
             self.handle_track_action(factory, action);
         }
-        if let Some(selected) = self.selected_track {
+        if let Some(selected) = self.single_track_selection_position {
             let bottom = egui::TopBottomPanel::bottom("orchestrator-bottom-panel").resizable(true);
             bottom.show_inside(ui, |ui| {
                 self.tracks[selected].show_detail(ui, factory, selected);
@@ -1077,18 +1128,17 @@ impl MiniOrchestrator {
         self.tracks.push(Default::default());
     }
 
+    fn new_send_track(&mut self) {
+        self.tracks.push(Track::send());
+    }
+
+    #[allow(dead_code)]
     fn delete_track(&mut self, index: usize) {
         self.tracks.remove(index);
-        if let Some(selected) = self.selected_track {
-            if index == selected {
-                self.selected_track = None;
-            } else if index < selected {
-                // If the user can delete only the selected track, then it seems
-                // like it shouldn't be able to happen. But we're checking
-                // anyway in case the UI evolves.
-                self.selected_track = Some(selected - 1);
-            }
-        }
+    }
+
+    fn delete_selected_tracks(&mut self) {
+        self.tracks.retain(|t| !t.is_selected);
     }
 
     fn title(&self) -> Option<&String> {
@@ -1098,6 +1148,17 @@ impl MiniOrchestrator {
     #[allow(dead_code)]
     fn set_title(&mut self, title: Option<String>) {
         self.title = title;
+    }
+
+    // It's important for this to run at either the start or the end of the update
+    // block. It tells the UI whether exactly one track is selected.
+    fn update_selection_tracking(&mut self) {
+        let count = self.tracks.iter().filter(|t| t.is_selected).count();
+        self.single_track_selection_position = if count == 1 {
+            self.tracks.iter().position(|t| t.is_selected)
+        } else {
+            None
+        };
     }
 }
 impl Generates<StereoSample> for MiniOrchestrator {
@@ -1251,6 +1312,7 @@ enum TrackAction {
 enum MenuBarAction {
     Quit,
     TrackNew,
+    TrackNewSend,
     TrackDuplicate,
     TrackDelete,
     ComingSoon,
@@ -1322,7 +1384,7 @@ impl MenuBar {
                     "Track",
                     vec![
                         MenuBarItem::leaf("New", MenuBarAction::TrackNew, true),
-                        MenuBarItem::leaf("New Send", MenuBarAction::ComingSoon, true),
+                        MenuBarItem::leaf("New Send", MenuBarAction::TrackNewSend, true),
                         MenuBarItem::leaf(
                             "Duplicate",
                             MenuBarAction::TrackDuplicate,
@@ -1837,16 +1899,9 @@ impl MiniDaw {
         match action {
             MenuBarAction::Quit => self.exit_requested = true,
             MenuBarAction::TrackNew => input = Some(MiniOrchestratorInput::TrackNew),
-            MenuBarAction::TrackDelete => {
-                if let Some(index) = self.orchestrator_panel.selected_track() {
-                    input = Some(MiniOrchestratorInput::TrackDelete(index))
-                }
-            }
-            MenuBarAction::TrackDuplicate => {
-                if let Some(index) = self.orchestrator_panel.selected_track() {
-                    input = Some(MiniOrchestratorInput::TrackDuplicate(index))
-                }
-            }
+            MenuBarAction::TrackNewSend => input = Some(MiniOrchestratorInput::TrackNewSend),
+            MenuBarAction::TrackDelete => input = Some(MiniOrchestratorInput::TrackDelete),
+            MenuBarAction::TrackDuplicate => input = Some(MiniOrchestratorInput::TrackDuplicate),
             MenuBarAction::ComingSoon => {
                 self.toasts.add(Toast {
                     kind: egui_toast::ToastKind::Info,
@@ -1918,7 +1973,7 @@ impl MiniDaw {
     fn show_top(&mut self, ui: &mut egui::Ui) {
         if let Some(action) = self
             .menu_bar
-            .show_with_action(ui, self.orchestrator_panel.selected_track().is_some())
+            .show_with_action(ui, self.orchestrator_panel.is_any_track_selected())
         {
             self.handle_menu_bar_action(action);
         }
