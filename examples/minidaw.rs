@@ -1,6 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use anyhow::{anyhow, Result};
+use atomic_counter::{AtomicCounter, RelaxedCounter};
 use crossbeam_channel::{Receiver, Select, Sender};
 use derive_more::Display;
 use eframe::{
@@ -24,7 +25,10 @@ use groove_audio::AudioQueue;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
-    traits::{gui::Shows, Configurable, Generates, IsController, IsEffect, IsInstrument, Ticks},
+    traits::{
+        gui::Shows, Configurable, Generates, HandlesMidi, IsController, IsEffect, IsInstrument,
+        Ticks,
+    },
     StereoSample,
 };
 use groove_entities::{
@@ -41,6 +45,7 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
+use strum_macros::EnumIter;
 
 // Rules for communication among app components
 //
@@ -61,11 +66,6 @@ use std::{
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug, Default, Display, Eq, PartialEq, Hash)]
 struct Id(usize);
-impl Id {
-    fn increment(&mut self) {
-        self.0 += 1;
-    }
-}
 
 #[typetag::serde(tag = "type")]
 trait NewIsController: IsController<Message = EntityMessage> {}
@@ -300,20 +300,481 @@ impl Shows for OrchestratorPanel {
     }
 }
 
+#[derive(Debug, EnumIter)]
+enum EntityType {
+    None,
+    Controller,
+    Effect,
+    Instrument,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Track {
+    controllers: Vec<Box<dyn NewIsController>>,
+    instruments: Vec<Box<dyn NewIsInstrument>>,
+    effects: Vec<Box<dyn NewIsEffect>>,
+
+    #[serde(skip)]
+    background_color: Color32,
+}
+impl Default for Track {
+    fn default() -> Self {
+        Self {
+            controllers: Default::default(),
+            instruments: Default::default(),
+            effects: Default::default(),
+            background_color: Color32::DARK_BLUE,
+        }
+    }
+}
+impl Track {
+    // TODO: this is getting cumbersome! Think about that uber-trait!
+
+    #[allow(dead_code)]
+    fn controller(&self, index: usize) -> Option<&Box<dyn NewIsController>> {
+        self.controllers.get(index)
+    }
+
+    #[allow(dead_code)]
+    fn controller_mut(&mut self, index: usize) -> Option<&mut Box<dyn NewIsController>> {
+        self.controllers.get_mut(index)
+    }
+
+    #[allow(dead_code)]
+    fn effect(&self, index: usize) -> Option<&Box<dyn NewIsEffect>> {
+        self.effects.get(index)
+    }
+
+    #[allow(dead_code)]
+    fn effect_mut(&mut self, index: usize) -> Option<&mut Box<dyn NewIsEffect>> {
+        self.effects.get_mut(index)
+    }
+
+    #[allow(dead_code)]
+    fn instrument(&self, index: usize) -> Option<&Box<dyn NewIsInstrument>> {
+        self.instruments.get(index)
+    }
+
+    #[allow(dead_code)]
+    fn instrument_mut(&mut self, index: usize) -> Option<&mut Box<dyn NewIsInstrument>> {
+        self.instruments.get_mut(index)
+    }
+
+    fn append_controller(&mut self, e: Box<dyn NewIsController>) {
+        self.controllers.push(e);
+    }
+
+    fn append_effect(&mut self, e: Box<dyn NewIsEffect>) {
+        self.effects.push(e);
+    }
+
+    fn append_instrument(&mut self, e: Box<dyn NewIsInstrument>) {
+        self.instruments.push(e);
+    }
+
+    fn remove_controller(&mut self, index: usize) -> Option<Box<dyn NewIsController>> {
+        Some(self.controllers.remove(index))
+    }
+
+    fn remove_effect(&mut self, index: usize) -> Option<Box<dyn NewIsEffect>> {
+        Some(self.effects.remove(index))
+    }
+
+    fn remove_instrument(&mut self, index: usize) -> Option<Box<dyn NewIsInstrument>> {
+        Some(self.instruments.remove(index))
+    }
+
+    fn insert_controller(&mut self, index: usize, e: Box<dyn NewIsController>) -> Result<()> {
+        if index > self.controllers.len() {
+            return Err(anyhow!(
+                "can't insert at {} in {}-length vec",
+                index,
+                self.controllers.len()
+            ));
+        }
+        self.controllers.insert(index, e);
+        Ok(())
+    }
+
+    fn insert_effect(&mut self, index: usize, e: Box<dyn NewIsEffect>) -> Result<()> {
+        if index > self.effects.len() {
+            return Err(anyhow!(
+                "can't insert at {} in {}-length vec",
+                index,
+                self.effects.len()
+            ));
+        }
+        self.effects.insert(index, e);
+        Ok(())
+    }
+
+    fn insert_instrument(&mut self, index: usize, e: Box<dyn NewIsInstrument>) -> Result<()> {
+        if index > self.instruments.len() {
+            return Err(anyhow!(
+                "can't insert at {} in {}-length vec",
+                index,
+                self.instruments.len()
+            ));
+        }
+        self.instruments.insert(index, e);
+        Ok(())
+    }
+
+    fn shift_controller_left(&mut self, index: usize) -> Result<()> {
+        if index >= self.controllers.len() {
+            return Err(anyhow!("Index {index} out of bounds."));
+        }
+        if index == 0 {
+            return Err(anyhow!("Can't move leftmost item farther left."));
+        }
+        let element = self.controllers.remove(index);
+        self.insert_controller(index - 1, element)
+    }
+    fn shift_controller_right(&mut self, index: usize) -> Result<()> {
+        if index >= self.controllers.len() {
+            return Err(anyhow!("Index {index} out of bounds."));
+        }
+        if index == self.controllers.len() - 1 {
+            return Err(anyhow!("Can't move rightmost item farther right."));
+        }
+        let element = self.controllers.remove(index);
+        self.insert_controller(index + 1, element)
+    }
+
+    fn shift_effect_left(&mut self, index: usize) -> Result<()> {
+        if index >= self.effects.len() {
+            return Err(anyhow!("Index {index} out of bounds."));
+        }
+        if index == 0 {
+            return Err(anyhow!("Can't move leftmost item farther left."));
+        }
+        let element = self.effects.remove(index);
+        self.insert_effect(index - 1, element)
+    }
+    fn shift_effect_right(&mut self, index: usize) -> Result<()> {
+        if index >= self.effects.len() {
+            return Err(anyhow!("Index {index} out of bounds."));
+        }
+        if index == self.effects.len() - 1 {
+            return Err(anyhow!("Can't move rightmost item farther right."));
+        }
+        let element = self.effects.remove(index);
+        self.insert_effect(index + 1, element)
+    }
+
+    fn shift_instrument_left(&mut self, index: usize) -> Result<()> {
+        if index >= self.instruments.len() {
+            return Err(anyhow!("Index {index} out of bounds."));
+        }
+        if index == 0 {
+            return Err(anyhow!("Can't move leftmost item farther left."));
+        }
+        let element = self.instruments.remove(index);
+        self.insert_instrument(index - 1, element)
+    }
+    fn shift_instrument_right(&mut self, index: usize) -> Result<()> {
+        if index >= self.instruments.len() {
+            return Err(anyhow!("Index {index} out of bounds."));
+        }
+        if index == self.instruments.len() - 1 {
+            return Err(anyhow!("Can't move rightmost item farther right."));
+        }
+        let element = self.instruments.remove(index);
+        self.insert_instrument(index + 1, element)
+    }
+
+    fn button_states(index: usize, len: usize) -> (bool, bool) {
+        let left = index != 0;
+        let right = len > 1 && index != len - 1;
+        (left, right)
+    }
+
+    fn show(&mut self, ui: &mut Ui, factory: &EntityFactory, _track_index: usize) {
+        let style = ui.visuals().widgets.inactive;
+
+        Frame::none()
+            .stroke(style.fg_stroke)
+            .fill(self.background_color)
+            .show(ui, |ui| {
+                let desired_size = Vec2::new(ui.available_width(), 64.0 - style.fg_stroke.width);
+                ui.set_min_size(desired_size);
+                ui.set_max_size(desired_size);
+
+                ui.horizontal_centered(|ui| {
+                    let desired_size = Vec2::new(96.0, ui.available_height());
+
+                    let mut action = None;
+
+                    // controller
+                    let len = self.controllers.len();
+                    for (index, e) in self.controllers.iter_mut().enumerate() {
+                        let (show_left, show_right) = Self::button_states(index, len);
+                        if let Some(a) = Self::add_track_element(
+                            ui,
+                            index,
+                            EntityType::Controller,
+                            show_left,
+                            show_right,
+                            true,
+                            |ui| {
+                                ui.set_min_size(desired_size);
+                                ui.set_max_size(desired_size);
+                                e.show(ui);
+                            },
+                        ) {
+                            action = Some(a);
+                        };
+                    }
+
+                    // instrument
+                    for (index, e) in self.instruments.iter_mut().enumerate() {
+                        // Instrument order in a track doesn't matter, so left/right are always off.
+                        if let Some(a) = Self::add_track_element(
+                            ui,
+                            index,
+                            EntityType::Instrument,
+                            false,
+                            false,
+                            true,
+                            |ui| {
+                                ui.set_min_size(desired_size);
+                                ui.set_max_size(desired_size);
+                                e.show(ui);
+                            },
+                        ) {
+                            action = Some(a);
+                        };
+                    }
+
+                    // effect
+                    let len = self.effects.len();
+                    for (index, e) in self.effects.iter_mut().enumerate() {
+                        let (show_left, show_right) = Self::button_states(index, len);
+                        if let Some(a) = Self::add_track_element(
+                            ui,
+                            index,
+                            EntityType::Effect,
+                            show_left,
+                            show_right,
+                            true,
+                            |ui| {
+                                ui.set_min_size(desired_size);
+                                ui.set_max_size(desired_size);
+                                e.show(ui);
+                            },
+                        ) {
+                            action = Some(a);
+                        };
+                    }
+
+                    // check action
+                    if let Some(action) = action {
+                        match action {
+                            TrackElementAction::MoveControllerLeft(index) => {
+                                let _ = self.shift_controller_left(index);
+                            }
+                            TrackElementAction::MoveControllerRight(index) => {
+                                let _ = self.shift_controller_right(index);
+                            }
+                            TrackElementAction::RemoveController(index) => {
+                                let _ = self.remove_controller(index);
+                            }
+                            TrackElementAction::MoveEffectLeft(index) => {
+                                let _ = self.shift_effect_left(index);
+                            }
+                            TrackElementAction::MoveEffectRight(index) => {
+                                let _ = self.shift_effect_right(index);
+                            }
+                            TrackElementAction::RemoveEffect(index) => {
+                                let _ = self.remove_effect(index);
+                            }
+                            TrackElementAction::MoveInstrumentLeft(index) => {
+                                let _ = self.shift_instrument_left(index);
+                            }
+                            TrackElementAction::MoveInstrumentRight(index) => {
+                                let _ = self.shift_instrument_right(index);
+                            }
+                            TrackElementAction::RemoveInstrument(index) => {
+                                let _ = self.remove_instrument(index);
+                            }
+                        }
+                    }
+
+                    // Context menu at the end for new stuff
+                    ui.add_space(1.0);
+                    Self::add_track_element(ui, 0, EntityType::None, false, false, false, |ui| {
+                        let desired_size = Vec2::new(desired_size.x / 4.0, desired_size.y - 8.0);
+                        ui.set_max_size(desired_size);
+                        ui.label(RichText::new("+").size(24.0)).context_menu(|ui| {
+                            ui.menu_button("Controllers", |ui| {
+                                factory.controller_keys().for_each(|k| {
+                                    if ui.button(k.to_string()).clicked() {
+                                        if let Some(e) = factory.new_controller(k) {
+                                            self.append_controller(e);
+                                        }
+                                    }
+                                });
+                            });
+                            ui.menu_button("Instruments", |ui| {
+                                factory.instrument_keys().for_each(|k| {
+                                    if ui.button(k.to_string()).clicked() {
+                                        if let Some(e) = factory.new_instrument(k) {
+                                            self.append_instrument(e);
+                                        }
+                                    }
+                                });
+                            });
+                            ui.menu_button("Effects", |ui| {
+                                factory.effect_keys().for_each(|k| {
+                                    if ui.button(k.to_string()).clicked() {
+                                        if let Some(e) = factory.new_effect(k) {
+                                            self.append_effect(e);
+                                        }
+                                    }
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+    }
+
+    fn add_track_element(
+        ui: &mut Ui,
+        index: usize,
+        entity_type: EntityType,
+        show_left_button: bool,
+        show_right_button: bool,
+        show_delete_button: bool,
+        add_contents: impl FnOnce(&mut Ui),
+    ) -> Option<TrackElementAction> {
+        let mut action = None;
+        let style = ui.visuals().widgets.inactive;
+        Frame::none()
+            .stroke(style.fg_stroke)
+            .fill(style.bg_fill)
+            .show(ui, |ui| {
+                ui.vertical(|ui| {
+                    ui.horizontal(|ui| {
+                        if show_left_button {
+                            if ui.button("<").clicked() {
+                                action = match entity_type {
+                                    EntityType::Controller => {
+                                        Some(TrackElementAction::MoveControllerLeft(index))
+                                    }
+                                    EntityType::Effect => {
+                                        Some(TrackElementAction::MoveEffectLeft(index))
+                                    }
+                                    EntityType::Instrument => {
+                                        Some(TrackElementAction::MoveInstrumentLeft(index))
+                                    }
+                                    EntityType::None => None,
+                                };
+                            }
+                        }
+                        if show_right_button {
+                            if ui.button(">").clicked() {
+                                action = match entity_type {
+                                    EntityType::Controller => {
+                                        Some(TrackElementAction::MoveControllerRight(index))
+                                    }
+                                    EntityType::Effect => {
+                                        Some(TrackElementAction::MoveEffectRight(index))
+                                    }
+                                    EntityType::Instrument => {
+                                        Some(TrackElementAction::MoveInstrumentRight(index))
+                                    }
+                                    EntityType::None => None,
+                                };
+                            }
+                        }
+                        if show_delete_button {
+                            if ui.button("x").clicked() {
+                                action = match entity_type {
+                                    EntityType::Controller => {
+                                        Some(TrackElementAction::RemoveController(index))
+                                    }
+                                    EntityType::Effect => {
+                                        Some(TrackElementAction::RemoveEffect(index))
+                                    }
+                                    EntityType::Instrument => {
+                                        Some(TrackElementAction::RemoveInstrument(index))
+                                    }
+                                    EntityType::None => None,
+                                };
+                            }
+                        }
+                        add_contents(ui);
+                    });
+                });
+            });
+        action
+    }
+}
+impl Generates<StereoSample> for Track {
+    fn value(&self) -> StereoSample {
+        StereoSample::SILENCE
+    }
+
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        for e in self.instruments.iter_mut() {
+            e.batch_values(values);
+        }
+    }
+}
+impl Ticks for Track {
+    fn tick(&mut self, _tick_count: usize) {
+        todo!()
+    }
+}
+impl Configurable for Track {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        for e in self.controllers.iter_mut() {
+            e.update_sample_rate(sample_rate);
+        }
+        for e in self.effects.iter_mut() {
+            e.update_sample_rate(sample_rate);
+        }
+        for e in self.instruments.iter_mut() {
+            e.update_sample_rate(sample_rate);
+        }
+    }
+
+    fn update_tempo(&mut self, _tempo: Tempo) {
+        todo!()
+    }
+
+    fn update_time_signature(&mut self, _time_signature: TimeSignature) {
+        todo!()
+    }
+}
+impl HandlesMidi for Track {
+    fn handle_midi_message(
+        &mut self,
+        message: &MidiMessage,
+        messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+    ) {
+        for e in self.controllers.iter_mut() {
+            e.handle_midi_message(&message, messages_fn);
+        }
+        for e in self.instruments.iter_mut() {
+            e.handle_midi_message(&message, messages_fn);
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 struct MiniOrchestrator {
     title: Option<String>,
     time_signature: TimeSignature,
     tempo: Tempo,
 
-    next_id: Id,
-    controllers: HashMap<Id, Box<dyn NewIsController>>,
-    instruments: HashMap<Id, Box<dyn NewIsInstrument>>,
-    effects: HashMap<Id, Box<dyn NewIsEffect>>,
+    tracks: Vec<Track>,
 
-    tracks: Vec<Vec<Id>>,
-
-    // Nothing below this comment should be serialized.
+    //////////////////////////////////////////////////////
+    // Nothing below this comment should be serialized. //
+    //////////////////////////////////////////////////////
+    //
     #[serde(skip)]
     sample_rate: SampleRate,
 
@@ -331,12 +792,8 @@ impl Default for MiniOrchestrator {
             title: None,
             time_signature: Default::default(),
             tempo: Default::default(),
-            next_id: Id(1),
-            controllers: Default::default(),
-            instruments: Default::default(),
-            effects: Default::default(),
 
-            tracks: vec![Default::default(); 8],
+            tracks: vec![Default::default(), Default::default(), Default::default()],
 
             sample_rate: Default::default(),
             frames: Default::default(),
@@ -352,8 +809,8 @@ impl MiniOrchestrator {
 
     fn set_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
-        for i in self.instruments.values_mut() {
-            i.update_sample_rate(sample_rate);
+        for track in self.tracks.iter_mut() {
+            track.update_sample_rate(sample_rate);
         }
     }
 
@@ -392,39 +849,11 @@ impl MiniOrchestrator {
     // TODO: we're ignoring channels at the moment.
     #[allow(unused_variables)]
     fn handle_midi(&mut self, channel: MidiChannel, message: MidiMessage) {
-        for i in self.instruments.values_mut() {
-            i.handle_midi_message(&message, &mut |channel, message| {
+        for track in self.tracks.iter_mut() {
+            track.handle_midi_message(&message, &mut |channel, message| {
                 eprintln!("TODO discarding {}/{:?}", channel, message)
             });
         }
-    }
-
-    /// Returns the next unique [Id] to refer to a new entity.
-    fn next_id(&mut self) -> Id {
-        let r = self.next_id;
-        self.next_id.increment();
-        r
-    }
-
-    fn add_controller(&mut self, mut e: Box<dyn NewIsController>) -> Id {
-        e.update_sample_rate(self.sample_rate);
-        let id = self.next_id();
-        self.controllers.insert(id, e);
-        id
-    }
-
-    fn add_effect(&mut self, mut e: Box<dyn NewIsEffect>) -> Id {
-        e.update_sample_rate(self.sample_rate);
-        let id = self.next_id();
-        self.effects.insert(id, e);
-        id
-    }
-
-    fn add_instrument(&mut self, mut e: Box<dyn NewIsInstrument>) -> Id {
-        e.update_sample_rate(self.sample_rate);
-        let id = self.next_id();
-        self.instruments.insert(id, e);
-        id
     }
 
     /// After loading a new Self from disk, we want to copy all the appropriate
@@ -433,269 +862,98 @@ impl MiniOrchestrator {
         new.set_sample_rate(self.sample_rate());
     }
 
+    #[allow(dead_code)]
+    fn add_controller(&mut self, track_index: usize, mut e: Box<dyn NewIsController>) -> Id {
+        e.update_sample_rate(self.sample_rate);
+        let id = Id(e.uid());
+        self.tracks[track_index].append_controller(e);
+        id
+    }
+
+    #[allow(dead_code)]
+    fn add_effect(&mut self, track_index: usize, mut e: Box<dyn NewIsEffect>) -> Id {
+        e.update_sample_rate(self.sample_rate);
+        let id = Id(e.uid());
+        self.tracks[track_index].append_effect(e);
+        id
+    }
+
+    #[allow(dead_code)]
+    fn add_instrument(
+        &mut self,
+        track_index: usize,
+        mut e: Box<dyn NewIsInstrument>,
+    ) -> Result<Id> {
+        e.update_sample_rate(self.sample_rate);
+        let id = Id(e.uid());
+        self.tracks[track_index].append_instrument(e);
+        Ok(id)
+    }
+
     // TODO: ordering should be controllers, instruments, then effects. Within
     // those groups, the user can reorder as desired (but instrument order
     // doesn't matter because they're all simultaneous)
 
-    fn push_to_track(&mut self, track_index: usize, id: Id) -> Result<()> {
-        if track_index >= self.tracks.len() {
-            return Err(anyhow!("track index {track_index} is out of bounds"));
-        }
-        if self.tracks[track_index].contains(&id) {
-            return Err(anyhow!("Tried to add id {id} twice to a track"));
-        }
-        self.tracks[track_index].push(id);
-        Ok(())
-    }
+    // fn push_to_track(&mut self, track_index: usize, id: Id) -> Result<()> {
+    //     if track_index >= self.tracks.len() {
+    //         return Err(anyhow!("track index {track_index} is out of bounds"));
+    //     }
+    //     if self.tracks[track_index].contains(&id) {
+    //         return Err(anyhow!("Tried to add id {id} twice to a track"));
+    //     }
+    //     self.tracks[track_index].push(id);
+    //     Ok(())
+    // }
 
     #[allow(dead_code)]
-    fn move_item_track(
+    fn move_controller(
         &mut self,
         old_track_index: usize,
+        old_item_index: usize,
         new_track_index: usize,
-        id: Id,
+        new_item_index: usize,
     ) -> Result<()> {
-        if !self.tracks[old_track_index].contains(&id) {
-            return Err(anyhow!(
-                "move_item_track: id {id} not in track {old_track_index}"
-            ));
-        }
-        if self.tracks[new_track_index].contains(&id) {
-            return Err(anyhow!(
-                "move_item_track: id {id} already in track {new_track_index}"
-            ));
-        }
-        let _ = self.remove_item_from_track(old_track_index, id);
-        let _ = self.push_to_track(new_track_index, id);
-        Ok(())
-    }
-
-    #[allow(dead_code)]
-    fn move_item_position(&mut self, track_index: usize, id: Id, new_position: usize) {
-        self.tracks[track_index].retain(|i| i != &id);
-        self.tracks[track_index].insert(new_position, id);
-    }
-
-    fn move_item_left(&mut self, track_index: usize, id: Id) -> Result<()> {
-        let track = &mut self.tracks[track_index];
-        if let Some(index) = track.iter().position(|i| i == &id) {
-            if index == 0 {
-                return Err(anyhow!(
-                    "Can't move leftmost item {id} in track {track_index} farther left"
-                ));
-            }
-            track.retain(|i| i != &id);
-            track.insert(index - 1, id);
-            Ok(())
+        if let Some(e) = self.tracks[old_track_index].remove_controller(old_item_index) {
+            self.tracks[new_track_index].insert_controller(new_item_index, e)
         } else {
-            Err(anyhow!("Item {id} not found in track {track_index}"))
+            Err(anyhow!("controller not found"))
         }
     }
 
-    fn move_item_right(&mut self, track_index: usize, id: Id) -> Result<()> {
-        let track = &mut self.tracks[track_index];
-        if let Some(index) = track.iter().position(|i| i == &id) {
-            if index == track.len() - 1 {
-                return Err(anyhow!(
-                    "Can't move rightmost item {id} in track {track_index} farther right"
-                ));
-            }
-            track.retain(|i| i != &id);
-            track.insert(index + 1, id);
-            Ok(())
+    #[allow(dead_code)]
+    fn move_effect(
+        &mut self,
+        old_track_index: usize,
+        old_item_index: usize,
+        new_track_index: usize,
+        new_item_index: usize,
+    ) -> Result<()> {
+        if let Some(e) = self.tracks[old_track_index].remove_effect(old_item_index) {
+            self.tracks[new_track_index].insert_effect(new_item_index, e)
         } else {
-            Err(anyhow!("Item {id} not found in track {track_index}"))
+            Err(anyhow!("effect not found"))
         }
     }
 
-    // remove = it still exists, but it's not in this track anymore.
-    fn remove_item_from_track(&mut self, track_index: usize, id: Id) -> Result<()> {
-        let track = &mut self.tracks[track_index];
-        if !track.contains(&id) {
-            return Err(anyhow!("Item {id} not found in track {track_index}"));
+    #[allow(dead_code)]
+    fn move_instrument(
+        &mut self,
+        old_track_index: usize,
+        old_item_index: usize,
+        new_track_index: usize,
+        new_item_index: usize,
+    ) -> Result<()> {
+        if let Some(e) = self.tracks[old_track_index].remove_instrument(old_item_index) {
+            self.tracks[new_track_index].insert_instrument(new_item_index, e)
+        } else {
+            Err(anyhow!("instrument not found"))
         }
-        track.retain(|i| i != &id);
-        Ok(())
-    }
-
-    // delete = it's gone. TODO: if you want to delete something, then you shouldn't
-    // have to specify the track. Counterargument: I can't think of UI paths where
-    // we wouldn't know the track.
-    fn delete_item_from_track(&mut self, track_index: usize, id: Id) -> Result<()> {
-        match self.remove_item_from_track(track_index, id) {
-            Ok(_) => return self.delete_item(id),
-            Err(e) => {
-                return Err(anyhow!("Error while deleting item: {e}"));
-            }
-        }
-    }
-
-    fn delete_item(&mut self, id: Id) -> Result<()> {
-        self.controllers.remove(&id);
-        self.effects.remove(&id);
-        self.instruments.remove(&id);
-        Ok(())
-    }
-
-    // TODO: this is getting cumbersome! Think about that uber-trait!
-
-    #[allow(dead_code)]
-    fn controller(&self, id: &Id) -> Option<&Box<dyn NewIsController>> {
-        self.controllers.get(id)
-    }
-
-    fn controller_mut(&mut self, id: &Id) -> Option<&mut Box<dyn NewIsController>> {
-        self.controllers.get_mut(id)
-    }
-
-    #[allow(dead_code)]
-    fn effect(&self, id: &Id) -> Option<&Box<dyn NewIsEffect>> {
-        self.effects.get(id)
-    }
-
-    fn effect_mut(&mut self, id: &Id) -> Option<&mut Box<dyn NewIsEffect>> {
-        self.effects.get_mut(id)
-    }
-
-    #[allow(dead_code)]
-    fn instrument(&self, id: &Id) -> Option<&Box<dyn NewIsInstrument>> {
-        self.instruments.get(id)
-    }
-
-    fn instrument_mut(&mut self, id: &Id) -> Option<&mut Box<dyn NewIsInstrument>> {
-        self.instruments.get_mut(id)
-    }
-
-    fn add_track_element(
-        ui: &mut Ui,
-        show_left_button: bool,
-        show_right_button: bool,
-        show_delete_button: bool,
-        add_contents: impl FnOnce(&mut Ui),
-    ) -> Option<TrackElementAction> {
-        let mut action = None;
-        let style = ui.visuals().widgets.inactive;
-        Frame::none()
-            .stroke(style.fg_stroke)
-            .fill(style.bg_fill)
-            .show(ui, |ui| {
-                ui.vertical(|ui| {
-                    ui.horizontal(|ui| {
-                        if show_left_button {
-                            if ui.button("<").clicked() {
-                                action = Some(TrackElementAction::MoveLeft);
-                            }
-                        }
-                        if show_right_button {
-                            if ui.button(">").clicked() {
-                                action = Some(TrackElementAction::MoveRight);
-                            }
-                        }
-                        if show_delete_button {
-                            if ui.button("x").clicked() {
-                                action = Some(TrackElementAction::Delete);
-                            }
-                        }
-                        add_contents(ui);
-                    });
-                });
-            });
-        action
     }
 
     fn show_tracks(&mut self, ui: &mut Ui, factory: &EntityFactory) -> Option<TrackAction> {
-        let mut action = None;
-        let style = ui.visuals().widgets.inactive;
-        for (track_index, track) in self.tracks.clone().iter().enumerate() {
-            Frame::none()
-                .stroke(style.fg_stroke)
-                .fill(style.bg_fill)
-                .show(ui, |ui| {
-                    let desired_size =
-                        Vec2::new(ui.available_width(), 64.0 - style.fg_stroke.width);
-                    ui.set_min_size(desired_size);
-                    ui.set_max_size(desired_size);
-
-                    ui.horizontal_centered(|ui| {
-                        let desired_size = Vec2::new(96.0, ui.available_height());
-                        for (index, id) in track.iter().enumerate() {
-                            let show_left_button = index != 0;
-                            let show_right_button = index != track.len() - 1;
-                            let show_delete_button = true;
-                            if let Some(action) = Self::add_track_element(
-                                ui,
-                                show_left_button,
-                                show_right_button,
-                                show_delete_button,
-                                |ui| {
-                                    ui.set_min_size(desired_size);
-                                    ui.set_max_size(desired_size);
-                                    if let Some(e) = self.controller_mut(id) {
-                                        e.show(ui);
-                                    } else if let Some(e) = self.instrument_mut(id) {
-                                        e.show(ui);
-                                    } else if let Some(e) = self.effect_mut(id) {
-                                        e.show(ui);
-                                    }
-                                },
-                            ) {
-                                {
-                                    match action {
-                                        TrackElementAction::MoveLeft => {
-                                            let _ = self.move_item_left(track_index, *id);
-                                        }
-                                        TrackElementAction::MoveRight => {
-                                            let _ = self.move_item_right(track_index, *id);
-                                        }
-                                        TrackElementAction::Delete => {
-                                            let _ = self.delete_item_from_track(track_index, *id);
-                                        }
-                                    }
-                                }
-                            };
-                        }
-
-                        // Context menu at the end for new stuff
-                        ui.add_space(1.0);
-                        Self::add_track_element(ui, false, false, false, |ui| {
-                            let desired_size =
-                                Vec2::new(desired_size.x / 4.0, desired_size.y - 8.0);
-                            ui.set_max_size(desired_size);
-                            ui.label(RichText::new("+").size(24.0)).context_menu(|ui| {
-                                ui.menu_button("Controllers", |ui| {
-                                    factory.controller_keys().for_each(|k| {
-                                        if ui.button(k.to_string()).clicked() {
-                                            action = Some(TrackAction::NewController(
-                                                track_index,
-                                                k.clone(),
-                                            ));
-                                        }
-                                    });
-                                });
-                                ui.menu_button("Instruments", |ui| {
-                                    factory.instrument_keys().for_each(|k| {
-                                        if ui.button(k.to_string()).clicked() {
-                                            action = Some(TrackAction::NewInstrument(
-                                                track_index,
-                                                k.clone(),
-                                            ));
-                                        }
-                                    });
-                                });
-                                ui.menu_button("Effects", |ui| {
-                                    factory.effect_keys().for_each(|k| {
-                                        if ui.button(k.to_string()).clicked() {
-                                            action = Some(TrackAction::NewEffect(
-                                                track_index,
-                                                k.clone(),
-                                            ));
-                                        }
-                                    });
-                                });
-                            });
-                        });
-                    });
-                });
+        let action = None;
+        for (track_index, track) in self.tracks.iter_mut().enumerate() {
+            track.show(ui, factory, track_index);
         }
         action
     }
@@ -712,20 +970,17 @@ impl MiniOrchestrator {
                 // TODO: will instruments ever exist outside of tracks? If not,
                 // then why go through the new/add/push sequence?
                 if let Some(e) = factory.new_controller(&key) {
-                    let id = self.add_controller(e);
-                    let _ = self.push_to_track(track, id);
+                    self.tracks[track].append_controller(e);
                 }
             }
             TrackAction::NewEffect(track, key) => {
                 if let Some(e) = factory.new_effect(&key) {
-                    let id = self.add_effect(e);
-                    let _ = self.push_to_track(track, id);
+                    self.tracks[track].append_effect(e);
                 }
             }
             TrackAction::NewInstrument(track, key) => {
                 if let Some(e) = factory.new_instrument(&key) {
-                    let id = self.add_instrument(e);
-                    let _ = self.push_to_track(track, id);
+                    self.tracks[track].append_instrument(e);
                 }
             }
         }
@@ -751,11 +1006,14 @@ impl Generates<StereoSample> for MiniOrchestrator {
     }
 
     fn batch_values(&mut self, values: &mut [StereoSample]) {
-        let frames = 0..values.len();
-        for frame in frames {
-            for i in self.instruments.values_mut() {
-                i.tick(1);
-                values[frame] = i.value();
+        let len = values.len();
+        let frames = 0..len;
+        for track in self.tracks.iter_mut() {
+            let mut track_buffer = Vec::with_capacity(len);
+            track_buffer.resize(frames.end, StereoSample::default());
+            track.batch_values(&mut track_buffer);
+            for (i, v) in track_buffer.iter().enumerate() {
+                values[i] += *v;
             }
         }
     }
@@ -792,6 +1050,8 @@ type InstrumentEntityFactoryFn = fn() -> Box<dyn NewIsInstrument>;
 type EffectEntityFactoryFn = fn() -> Box<dyn NewIsEffect>;
 #[derive(Debug, Default)]
 struct EntityFactory {
+    next_id: RelaxedCounter,
+
     controllers: HashMap<Key, ControllerEntityFactoryFn>,
     instruments: HashMap<Key, InstrumentEntityFactoryFn>,
     effects: HashMap<Key, EffectEntityFactoryFn>,
@@ -807,7 +1067,9 @@ impl EntityFactory {
     }
     pub fn new_controller(&self, key: &Key) -> Option<Box<dyn NewIsController>> {
         if let Some(f) = self.controllers.get(key) {
-            Some(f())
+            let mut r = f();
+            r.set_uid(self.next_id.inc());
+            Some(r)
         } else {
             None
         }
@@ -821,7 +1083,9 @@ impl EntityFactory {
     }
     pub fn new_instrument(&self, key: &Key) -> Option<Box<dyn NewIsInstrument>> {
         if let Some(f) = self.instruments.get(key) {
-            Some(f())
+            let mut r = f();
+            r.set_uid(self.next_id.inc());
+            Some(r)
         } else {
             None
         }
@@ -835,7 +1099,9 @@ impl EntityFactory {
     }
     pub fn new_effect(&self, key: &Key) -> Option<Box<dyn NewIsEffect>> {
         if let Some(f) = self.effects.get(key) {
-            Some(f())
+            let mut r = f();
+            r.set_uid(self.next_id.inc());
+            Some(r)
         } else {
             None
         }
@@ -862,11 +1128,18 @@ impl EntityFactory {
 
 #[derive(Debug)]
 enum TrackElementAction {
-    MoveLeft,
-    MoveRight,
-    Delete,
+    MoveControllerLeft(usize),
+    MoveControllerRight(usize),
+    RemoveController(usize),
+    MoveEffectLeft(usize),
+    MoveEffectRight(usize),
+    RemoveEffect(usize),
+    MoveInstrumentLeft(usize),
+    MoveInstrumentRight(usize),
+    RemoveInstrument(usize),
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 enum TrackAction {
     NewController(usize, Key),
@@ -903,6 +1176,7 @@ impl PalettePanel {
         }
     }
 
+    #[allow(dead_code)]
     fn show_with_action(&mut self, ui: &mut egui::Ui) -> Option<PaletteAction> {
         let mut action = None;
         if let Ok(mut dnd) = self.drag_drop_manager.lock() {
@@ -969,6 +1243,7 @@ impl DragDropManager {
     }
 
     // These two functions are based on egui_demo_lib/src/demo/drag_and_drop.rs
+    #[allow(dead_code)]
     fn drag_source(
         &mut self,
         ui: &mut Ui,
@@ -1050,6 +1325,7 @@ struct MiniDaw {
     control_panel: ControlPanel,
     audio_panel: AudioPanel2,
     midi_panel: MidiPanel,
+    #[allow(dead_code)]
     palette_panel: PalettePanel,
 
     first_update_done: bool,
@@ -1415,11 +1691,11 @@ impl MiniDaw {
         });
     }
 
-    fn show_left(&mut self, ui: &mut egui::Ui) {
-        if let Some(_action) = self.palette_panel.show_with_action(ui) {
-            // these are inactive for now because we're skipping the drag/drop stuff.
-            //self.handle_palette_action(action);
-        }
+    fn show_left(&mut self, _ui: &mut egui::Ui) {
+        // if let Some(_action) = self.palette_panel.show_with_action(ui) {
+        //     // these are inactive for now because we're skipping the drag/drop stuff.
+        //     //self.handle_palette_action(action);
+        // }
     }
 
     fn show_right(&mut self, ui: &mut egui::Ui) {
@@ -1527,7 +1803,7 @@ fn main() -> anyhow::Result<(), eframe::Error> {
     };
 
     eframe::run_native(
-        "MiniDAW",
+        MiniDaw::APP_NAME,
         options,
         Box::new(|cc| Box::new(MiniDaw::new(cc))),
     )
@@ -1535,9 +1811,10 @@ fn main() -> anyhow::Result<(), eframe::Error> {
 
 #[cfg(test)]
 mod tests {
+    use crate::{EntityFactory, Id, Key, MiniDaw, MiniOrchestrator, Track};
+    use groove_core::traits::HasUid;
     use groove_toys::{ToyInstrument, ToyInstrumentParams};
-
-    use crate::{EntityFactory, Id, Key, MiniDaw, MiniOrchestrator};
+    use std::collections::HashSet;
 
     #[test]
     fn entity_creation() {
@@ -1556,11 +1833,14 @@ mod tests {
 
         assert!(factory.new_instrument(&Key::from(".9-#$%)@#)")).is_none());
 
+        let mut ids: HashSet<Id> = HashSet::default();
         for key in factory.instrument_keys() {
             let e = factory.new_instrument(key);
             assert!(e.is_some());
             if let Some(e) = e {
                 assert!(!e.name().is_empty());
+                assert!(!ids.contains(&Id(e.uid())));
+                ids.insert(Id(e.uid()));
             }
         }
 
@@ -1569,58 +1849,73 @@ mod tests {
     }
 
     #[test]
-    fn orchestrator_basic_operations() {
+    fn basic_track_operations() {
+        let mut t = Track::default();
+        assert!(t.controllers.is_empty());
+        assert!(t.effects.is_empty());
+        assert!(t.instruments.is_empty());
+
+        // Create an instrument and add it to a track.
+        let instrument = ToyInstrument::new_with(&ToyInstrumentParams::default());
+        let id1 = Id(instrument.uid());
+        t.append_instrument(Box::new(instrument));
+
+        // Add a second instrument to the track.
+        let instrument = ToyInstrument::new_with(&ToyInstrumentParams::default());
+        let id2 = Id(instrument.uid());
+        t.append_instrument(Box::new(instrument));
+
+        // Ordering within track is correct, and we can move items around
+        // depending on where they are.
+        assert_eq!(Id(t.instruments[0].uid()), id1);
+        assert_eq!(Id(t.instruments[1].uid()), id2);
+        assert!(t.shift_instrument_left(0).is_err()); // Already leftmost.
+        assert!(t.shift_instrument_right(1).is_err()); // Already rightmost.
+        assert!(t.shift_instrument_left(1).is_ok());
+        assert_eq!(Id(t.instruments[0].uid()), id2);
+        assert_eq!(Id(t.instruments[1].uid()), id1);
+
+        let instrument = t.remove_instrument(0).unwrap();
+        assert_eq!(Id(instrument.uid()), id2);
+        assert_eq!(t.instruments.len(), 1);
+    }
+
+    #[test]
+    fn mini_orchestrator_basic_operations() {
         let mut o = MiniOrchestrator::default();
 
         // A new orchestrator should have at least one track.
         assert!(!o.tracks.is_empty());
 
-        // Create an instrument and add it to a track.
-        assert!(o.tracks[0].is_empty());
-        let instrument = ToyInstrument::new_with(&ToyInstrumentParams::default());
-        let id1 = o.add_instrument(Box::new(instrument));
-        assert!(o.push_to_track(0, id1).is_ok());
-        assert!(!o.tracks[0].is_empty());
+        let id1 = o
+            .add_instrument(
+                0,
+                Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default())),
+            )
+            .unwrap();
+        let id2 = o
+            .add_instrument(
+                0,
+                Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default())),
+            )
+            .unwrap();
+        assert_eq!(Id(o.tracks[0].instruments[0].uid()), id1);
+        assert_eq!(Id(o.tracks[0].instruments[1].uid()), id2);
 
-        // Can't add twice to a track.
-        assert!(o.push_to_track(0, id1).is_err());
+        assert!(o.tracks.len() > 1);
+        let id3 = o
+            .add_instrument(
+                1,
+                Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default())),
+            )
+            .unwrap();
 
-        // Add a second instrument to the track.
-        let instrument = ToyInstrument::new_with(&ToyInstrumentParams::default());
-        let id2 = o.add_instrument(Box::new(instrument));
-        assert!(o.push_to_track(0, id2).is_ok());
-        assert_eq!(o.tracks[0].len(), 2);
-
-        // Ordering within track is correct, and we can move items around
-        // depending on where they are.
-        assert_eq!(o.tracks[0][0], id1);
-        assert_eq!(o.tracks[0][1], id2);
-        assert!(o.move_item_left(0, id1).is_err()); // Already leftmost.
-        assert!(o.move_item_right(0, id2).is_err()); // Already rightmost.
-        assert!(o.move_item_right(0, id1).is_ok());
-        assert_eq!(o.tracks[0][0], id2);
-        assert_eq!(o.tracks[0][1], id1);
-
-        // Can move to different track.
-        assert!(o.move_item_track(0, 1, id1).is_ok());
-        assert_eq!(o.tracks[0].len(), 1);
-        assert_eq!(o.tracks[1].len(), 1);
-        assert_eq!(o.tracks[0][0], id2);
-        assert_eq!(o.tracks[1][0], id1);
-
-        // Can't move a nonexistent item.
-        assert!(o.move_item_left(0, Id(99999)).is_err());
-
-        // Remove items. TODO: If every entity needs to live in a track, then is this a valid public API?
-        assert!(o.remove_item_from_track(0, id1).is_err());
-        assert!(o.remove_item_from_track(1, id1).is_ok());
-        assert_eq!(o.tracks[0].len(), 1);
-        assert_eq!(o.tracks[1].len(), 0);
-
-        // Delete items.
-        assert!(o.delete_item_from_track(0, id1).is_err());
-        assert!(o.delete_item_from_track(0, id2).is_ok());
-        assert!(o.tracks[0].is_empty());
-        assert!(o.tracks[1].is_empty());
+        // Moving something to another track works.
+        assert_eq!(o.tracks[0].instruments.len(), 2);
+        assert_eq!(o.tracks[1].instruments.len(), 1);
+        assert!(o.move_instrument(1, 0, 0, 0).is_ok());
+        assert_eq!(o.tracks[0].instruments.len(), 3);
+        assert_eq!(o.tracks[1].instruments.len(), 0);
+        assert_eq!(o.tracks[0].instruments[0].uid(), id3.0);
     }
 }

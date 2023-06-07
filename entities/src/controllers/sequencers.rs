@@ -626,7 +626,7 @@ mod tests {
     #[test]
     fn sequencer_mainline() {
         const DEVICE_MIDI_CHANNEL: MidiChannel = MidiChannel::new(7);
-        let mut clock = Clock::new_with(&ClockParams {
+        let clock = Clock::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },

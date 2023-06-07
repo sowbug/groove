@@ -69,7 +69,7 @@ impl Controls for PatternManager {
 
     fn update_time(&mut self, _range: &Range<MusicalTime>) {}
 
-    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {}
+    fn work(&mut self, _messages_fn: &mut dyn FnMut(Self::Message)) {}
 
     fn is_finished(&self) -> bool {
         true

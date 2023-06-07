@@ -29,6 +29,7 @@ pub struct Drumkit {
     #[cfg_attr(feature = "serialization", serde(skip))]
     sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
+    #[allow(dead_code)]
     paths: Paths,
     #[cfg_attr(feature = "serialization", serde(skip))]
     inner_synth: Synthesizer<SamplerVoice>,

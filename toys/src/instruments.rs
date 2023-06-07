@@ -65,9 +65,11 @@ impl Generates<StereoSample> for ToyInstrument {
         self.sample
     }
 
-    #[allow(unused_variables)]
     fn batch_values(&mut self, values: &mut [StereoSample]) {
-        todo!()
+        for value in values {
+            self.tick(1);
+            *value = self.value();
+        }
     }
 }
 impl Configurable for ToyInstrument {

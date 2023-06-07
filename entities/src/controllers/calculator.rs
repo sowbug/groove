@@ -517,7 +517,7 @@ impl Controls for Calculator {
         todo!()
     }
 
-    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
+    fn work(&mut self, _messages_fn: &mut dyn FnMut(Self::Message)) {
         self.handle_tick();
     }
 

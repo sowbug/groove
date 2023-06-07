@@ -229,9 +229,9 @@ impl Configurable for ControlTrip {
 impl Controls for ControlTrip {
     type Message = EntityMessage;
 
-    fn update_time(&mut self, range: &Range<MusicalTime>) {}
+    fn update_time(&mut self, _range: &Range<MusicalTime>) {}
 
-    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
+    fn work(&mut self, _messages_fn: &mut dyn FnMut(Self::Message)) {
         if self.is_performing {
             // #[cfg(tired)] TODO not sure if this should survive
             // for i in 0..tick_count {
@@ -306,8 +306,8 @@ mod tests {
             ControlStep::Flat { value: 0.2 },
             ControlStep::Flat { value: 0.3 },
         ];
-        let step_vec_len = step_vec.len();
-        let path = ControlPath {
+        let _step_vec_len = step_vec.len();
+        let _path = ControlPath {
             note_value: Some(BeatValue::Quarter),
             steps: step_vec,
         };
@@ -365,9 +365,9 @@ mod tests {
                 end: 1.0,
             },
         ];
-        let step_vec_len = step_vec.len();
-        const INTERPOLATED_VALUES: &[f32] = &[0.0, 0.5, 1.0, 0.75, 1.0, 0.5, 0.0, 0.5, 1.0];
-        let path = ControlPath {
+        let _step_vec_len = step_vec.len();
+        const _INTERPOLATED_VALUES: &[f32] = &[0.0, 0.5, 1.0, 0.75, 1.0, 0.5, 0.0, 0.5, 1.0];
+        let _path = ControlPath {
             note_value: Some(BeatValue::Quarter),
             steps: step_vec,
         };

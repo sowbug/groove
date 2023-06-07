@@ -135,7 +135,7 @@ impl Controls for Timer {
         }
     }
 
-    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
+    fn work(&mut self, _messages_fn: &mut dyn FnMut(Self::Message)) {
         // All the state was computable during update_time(), so there's nothing to do here.
     }
 
