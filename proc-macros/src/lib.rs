@@ -11,13 +11,11 @@ use quote::{format_ident, quote};
 use std::collections::HashSet;
 use syn::{parse_macro_input, DeriveInput, Ident};
 use uid::impl_uid_derive;
-use views::parse_and_generate_views;
 
 mod control;
 mod everything;
 mod params;
 mod uid;
-mod views;
 
 /// The [Uid] macro derives the boilerplate necessary for the HasUid trait. If a
 /// device needs to interoperate with Orchestrator, then it needs to have a
@@ -45,15 +43,6 @@ pub fn params_derive(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Everything, attributes(everything))]
 pub fn derive_everything(input: TokenStream) -> TokenStream {
     TokenStream::from(parse_and_generate_everything(
-        &(parse_macro_input!(input as DeriveInput)).data,
-    ))
-}
-
-/// The [Views] macro derives code that presents viewable entities as a single
-/// system.
-#[proc_macro_derive(Views, attributes(views))]
-pub fn derive_views(input: TokenStream) -> TokenStream {
-    TokenStream::from(parse_and_generate_views(
         &(parse_macro_input!(input as DeriveInput)).data,
     ))
 }
