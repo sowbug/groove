@@ -42,6 +42,7 @@ use groove_entities::{
 };
 use groove_toys::{ToyInstrument, ToyInstrumentParams, ToySynth, ToySynthParams};
 use groove_utils::Paths;
+use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
@@ -388,6 +389,9 @@ struct Track {
     is_selected: bool,
     // Thank you borrow checker: selection changes are two-pass.
     will_be_selected: bool,
+
+    #[serde(skip, default = "Track::init_buffer")]
+    buffer: [StereoSample; 64],
 }
 impl Default for Track {
     fn default() -> Self {
@@ -399,10 +403,15 @@ impl Default for Track {
             effects: Default::default(),
             is_selected: Default::default(),
             will_be_selected: Default::default(),
+            buffer: [StereoSample::default(); 64],
         }
     }
 }
 impl Track {
+    fn init_buffer() -> [StereoSample; 64] {
+        [StereoSample::default(); 64]
+    }
+
     // TODO: this is getting cumbersome! Think about that uber-trait!
 
     #[allow(dead_code)]
@@ -882,6 +891,14 @@ impl Track {
     fn set_will_be_selected(&mut self) {
         self.will_be_selected = true;
     }
+
+    fn batch_it_up(&mut self, len: usize) {
+        debug_assert_eq!(len, self.buffer.len());
+
+        for e in self.instruments.iter_mut() {
+            e.batch_values(&mut self.buffer);
+        }
+    }
 }
 impl Generates<StereoSample> for Track {
     fn value(&self) -> StereoSample {
@@ -1266,15 +1283,14 @@ impl Generates<StereoSample> for MiniOrchestrator {
 
     fn batch_values(&mut self, values: &mut [StereoSample]) {
         let len = values.len();
-        let frames = 0..len;
-        for track in self.tracks.iter_mut() {
-            let mut track_buffer = Vec::with_capacity(len);
-            track_buffer.resize(frames.end, StereoSample::default());
-            track.batch_values(&mut track_buffer);
-            for (i, v) in track_buffer.iter().enumerate() {
-                values[i] += *v;
+        self.tracks.par_iter_mut().for_each(|track| {
+            track.batch_it_up(len);
+        });
+        self.tracks.iter().for_each(|t| {
+            for i in 0..len {
+                values[i] += t.buffer[i];
             }
-        }
+        });
     }
 }
 impl Ticks for MiniOrchestrator {
