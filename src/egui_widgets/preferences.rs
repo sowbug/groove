@@ -10,7 +10,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-#[cfg(feature="serialization")]
+#[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
 /// User-specific preferences for the whole app
