@@ -73,6 +73,10 @@ required-features = ["egui-framework", "groove-midi"]
 name = "groove"
 path = "src/lib.rs"
 
+[[example]]
+name = "minidaw"
+required-features = ["egui-framework", "serialization"]
+
 [profile.release]
 strip = true
 lto = true
