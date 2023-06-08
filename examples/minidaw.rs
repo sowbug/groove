@@ -565,7 +565,7 @@ impl Track {
     }
 
     fn show_arrangement(&mut self, ui: &mut Ui) -> Response {
-        ui.label(&self.name);
+        ui.text_edit_singleline(&mut self.name);
         ui.ctx().request_repaint();
         let color = if ui.visuals().dark_mode {
             Color32::from_additive_luminance(196)
@@ -630,7 +630,7 @@ impl Track {
                 },
             ))
             .show(ui, |ui| {
-                ui.label(&self.name);
+                ui.text_edit_singleline(&mut self.name);
                 let desired_size = Vec2::new(ui.available_width(), 64.0);
                 let response = ui.allocate_response(desired_size, Sense::click());
                 ui.vertical_centered(|ui| ui.label("I'm a send track"));
