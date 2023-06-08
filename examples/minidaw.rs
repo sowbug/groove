@@ -324,12 +324,11 @@ impl OrchestratorPanel {
             false
         }
     }
-}
-impl Shows for OrchestratorPanel {
-    fn show(&mut self, ui: &mut Ui) {
+
+    pub fn show(&mut self, ui: &mut Ui, is_control_only_down: bool) {
         if let Ok(mut o) = self.orchestrator.lock() {
             o.update_selection_tracking();
-            o.show_with(ui, &self.factory);
+            o.show_with(ui, &self.factory, is_control_only_down);
         }
     }
 }
@@ -349,8 +348,10 @@ struct Track {
     instruments: Vec<Box<dyn NewIsInstrument>>,
     effects: Vec<Box<dyn NewIsEffect>>,
 
-    #[serde(skip)]
+    // Whether the track is selected in the UI.
     is_selected: bool,
+    // Thank you borrow checker: selection changes are two-pass.
+    will_be_selected: bool,
 }
 impl Default for Track {
     fn default() -> Self {
@@ -360,6 +361,7 @@ impl Default for Track {
             instruments: Default::default(),
             effects: Default::default(),
             is_selected: Default::default(),
+            will_be_selected: Default::default(),
         }
     }
 }
@@ -839,6 +841,15 @@ impl Track {
     fn toggle_selection(&mut self) {
         self.is_selected = !self.is_selected;
     }
+
+    #[allow(dead_code)]
+    fn set_selected(&mut self, is_selected: bool) {
+        self.is_selected = is_selected;
+    }
+
+    fn set_will_be_selected(&mut self) {
+        self.will_be_selected = true;
+    }
 }
 impl Generates<StereoSample> for Track {
     fn value(&self) -> StereoSample {
@@ -1068,12 +1079,25 @@ impl MiniOrchestrator {
         }
     }
 
-    fn show_tracks(&mut self, ui: &mut Ui, _factory: &EntityFactory) -> Option<TrackAction> {
+    fn show_tracks(
+        &mut self,
+        ui: &mut Ui,
+        _factory: &EntityFactory,
+        is_control_only_down: bool,
+    ) -> Option<TrackAction> {
         let action = None;
         let mut update = false;
+        let mut single_selection = false;
+
+        // Non-send tracks are first
         for track in self.tracks.iter_mut().filter(|t| !t.is_send) {
             if track.show_arrangement(ui).clicked() {
-                track.toggle_selection();
+                if is_control_only_down {
+                    track.toggle_selection();
+                } else {
+                    single_selection = true;
+                    track.set_will_be_selected();
+                }
                 update = true;
             }
         }
@@ -1081,9 +1105,18 @@ impl MiniOrchestrator {
         // Send tracks are last
         for track in self.tracks.iter_mut().filter(|t| t.is_send) {
             if track.show_send(ui).clicked() {
-                track.toggle_selection();
+                if is_control_only_down {
+                    track.toggle_selection();
+                } else {
+                    single_selection = true;
+                    track.set_will_be_selected();
+                }
                 update = true;
             }
+        }
+        if single_selection {
+            self.clear_track_selections();
+            self.promote_and_clear_will_selections();
         }
         if update {
             self.update_selection_tracking();
@@ -1091,8 +1124,13 @@ impl MiniOrchestrator {
         action
     }
 
-    fn show_with(&mut self, ui: &mut egui::Ui, factory: &EntityFactory) {
-        if let Some(action) = self.show_tracks(ui, factory) {
+    fn show_with(
+        &mut self,
+        ui: &mut egui::Ui,
+        factory: &EntityFactory,
+        is_control_only_down: bool,
+    ) {
+        if let Some(action) = self.show_tracks(ui, factory, is_control_only_down) {
             self.handle_track_action(factory, action);
         }
         if let Some(selected) = self.single_track_selection_position {
@@ -1160,6 +1198,26 @@ impl MiniOrchestrator {
         } else {
             None
         };
+    }
+
+    fn clear_track_selections(&mut self) {
+        self.tracks.iter_mut().for_each(|t| {
+            t.is_selected = false;
+        });
+    }
+
+    // Because of the borrow checker, we can't clear all track selections in the
+    // middle of another mut tracks loop. So we need to mark which one(s) we
+    // want selected, and then at the end of the loop, clear everyone, and set
+    // the ones that will be selected. Then we have to clean up the will-select
+    // flags.
+    fn promote_and_clear_will_selections(&mut self) {
+        self.tracks.iter_mut().for_each(|t| {
+            if t.will_be_selected {
+                t.will_be_selected = false;
+                t.is_selected = true;
+            }
+        });
     }
 }
 impl Generates<StereoSample> for MiniOrchestrator {
@@ -2030,8 +2088,8 @@ impl MiniDaw {
         self.midi_panel.show(ui);
     }
 
-    fn show_center(&mut self, ui: &mut egui::Ui) {
-        self.orchestrator_panel.show(ui);
+    fn show_center(&mut self, ui: &mut egui::Ui, is_shift_only_down: bool) {
+        self.orchestrator_panel.show(ui, is_shift_only_down);
     }
 
     fn update_window_title(&mut self, frame: &mut eframe::Frame) {
@@ -2065,8 +2123,14 @@ impl eframe::App for MiniDaw {
         if let Ok(mut dnd) = self.drag_drop_manager.lock() {
             dnd.reset();
         }
-
         self.update_window_title(frame);
+
+        let mut is_control_only_down = false;
+        ctx.input(|i| {
+            if i.modifiers.command_only() {
+                is_control_only_down = true;
+            }
+        });
 
         let top = egui::TopBottomPanel::top("top-panel")
             .resizable(false)
@@ -2098,7 +2162,7 @@ impl eframe::App for MiniDaw {
         });
         center.show(ctx, |ui| {
             ScrollArea::vertical().show(ui, |ui| {
-                self.show_center(ui);
+                self.show_center(ui, is_control_only_down);
             });
             self.toasts.show(ctx);
         });
