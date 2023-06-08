@@ -9,5 +9,5 @@ crossbeam = "0.8"
 crossbeam-channel = "0.5"
 crossbeam-utils = "0.8.15"
 groove-core = { path = "../core" }
-midir = "0.8.0"
+midir = "0.9.1"
 midly = "0.5.3"
