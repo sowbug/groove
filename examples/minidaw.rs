@@ -342,7 +342,43 @@ enum EntityType {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct TrackFactory {
+    next_track: usize,
+    next_send: usize,
+}
+impl Default for TrackFactory {
+    fn default() -> Self {
+        Self {
+            next_send: 1,
+            next_track: 1,
+        }
+    }
+}
+impl TrackFactory {
+    pub fn midi(&mut self) -> Track {
+        let name = format!("Track {}", self.next_track);
+        self.next_track += 1;
+        Track {
+            name,
+            is_send: false,
+            ..Default::default()
+        }
+    }
+
+    pub fn send(&mut self) -> Track {
+        let name = format!("Send {}", self.next_send);
+        self.next_send += 1;
+        Track {
+            name,
+            is_send: true,
+            ..Default::default()
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct Track {
+    name: String,
     is_send: bool,
     controllers: Vec<Box<dyn NewIsController>>,
     instruments: Vec<Box<dyn NewIsInstrument>>,
@@ -356,6 +392,7 @@ struct Track {
 impl Default for Track {
     fn default() -> Self {
         Self {
+            name: String::from("Untitled"),
             is_send: false,
             controllers: Default::default(),
             instruments: Default::default(),
@@ -366,13 +403,6 @@ impl Default for Track {
     }
 }
 impl Track {
-    pub fn send() -> Self {
-        Self {
-            is_send: true,
-            ..Default::default()
-        }
-    }
-
     // TODO: this is getting cumbersome! Think about that uber-trait!
 
     #[allow(dead_code)]
@@ -535,6 +565,7 @@ impl Track {
     }
 
     fn show_arrangement(&mut self, ui: &mut Ui) -> Response {
+        ui.label(&self.name);
         ui.ctx().request_repaint();
         let color = if ui.visuals().dark_mode {
             Color32::from_additive_luminance(196)
@@ -599,6 +630,7 @@ impl Track {
                 },
             ))
             .show(ui, |ui| {
+                ui.label(&self.name);
                 let desired_size = Vec2::new(ui.available_width(), 64.0);
                 let response = ui.allocate_response(desired_size, Sense::click());
                 ui.vertical_centered(|ui| ui.label("I'm a send track"));
@@ -910,6 +942,7 @@ struct MiniOrchestrator {
     tempo: Tempo,
 
     tracks: Vec<Track>,
+    track_factory: TrackFactory,
 
     // If one track is selected, then this is set.
     single_track_selection_position: Option<usize>,
@@ -931,12 +964,18 @@ struct MiniOrchestrator {
 }
 impl Default for MiniOrchestrator {
     fn default() -> Self {
+        let mut track_factory = TrackFactory::default();
         Self {
             title: None,
             time_signature: Default::default(),
             tempo: Default::default(),
 
-            tracks: vec![Default::default(), Default::default(), Default::default()],
+            tracks: vec![
+                track_factory.midi(),
+                track_factory.midi(),
+                track_factory.send(),
+            ],
+            track_factory,
             single_track_selection_position: None,
 
             sample_rate: Default::default(),
@@ -1164,11 +1203,11 @@ impl MiniOrchestrator {
     }
 
     fn new_track(&mut self) {
-        self.tracks.push(Default::default());
+        self.tracks.push(self.track_factory.midi());
     }
 
     fn new_send_track(&mut self) {
-        self.tracks.push(Track::send());
+        self.tracks.push(self.track_factory.send());
     }
 
     #[allow(dead_code)]
