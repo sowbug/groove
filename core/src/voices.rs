@@ -178,9 +178,11 @@ impl<V: IsStereoSampleVoice> Generates<StereoSample> for StealingVoiceStore<V> {
         self.sample
     }
 
-    #[allow(unused_variables)]
     fn batch_values(&mut self, values: &mut [StereoSample]) {
-        todo!()
+        for v in values {
+            self.tick(1);
+            *v = self.value();
+        }
     }
 }
 impl<V: IsStereoSampleVoice> Configurable for StealingVoiceStore<V> {
