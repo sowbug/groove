@@ -563,7 +563,7 @@ impl MusicalTime {
     }
 
     // The entire number expressed in beats.
-    fn total_beats(&self) -> u64 {
+    pub fn total_beats(&self) -> u64 {
         self.units / Self::UNITS_IN_BEAT
     }
 

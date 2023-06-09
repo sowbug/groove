@@ -461,8 +461,9 @@ impl Into<f32> for Normal {
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Uid(pub usize);
 impl Uid {
-    pub fn increment(&mut self) {
+    pub fn increment(&mut self) -> &Self {
         self.0 += 1;
+        self
     }
 }
 

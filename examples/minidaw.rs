@@ -9,7 +9,7 @@ use eframe::{
         self, Button, Context, CursorIcon, FontData, FontDefinitions, Frame, Id as EguiId,
         InnerResponse, LayerId, Layout, Margin, Order, Response, ScrollArea, Sense, TextStyle, Ui,
     },
-    emath::{self, Align, Align2},
+    emath::{self, Align, Align2, RectTransform},
     epaint::{
         self, pos2, vec2, Color32, FontFamily, FontId, Pos2, Rect, RectShape, Rounding, Shape,
         Stroke, Vec2,
@@ -29,8 +29,8 @@ use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
     traits::{
-        gui::Shows, Configurable, Generates, HandlesMidi, IsController, IsEffect, IsInstrument,
-        Ticks,
+        gui::Shows, Configurable, Controls, Generates, HandlesMidi, IsController, IsEffect,
+        IsInstrument, Performs, Ticks,
     },
     StereoSample, Uid,
 };
@@ -40,6 +40,7 @@ use groove_entities::{
     instruments::{Drumkit, DrumkitParams, WelshSynth, WelshSynthParams},
     EntityMessage,
 };
+use groove_proc_macros::{Control, Params, Uid};
 use groove_toys::{ToyInstrument, ToyInstrumentParams, ToySynth, ToySynthParams};
 use groove_utils::Paths;
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
@@ -47,6 +48,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
     hash::Hash,
+    ops::Range,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -77,6 +79,368 @@ trait NewIsInstrument: IsInstrument {}
 
 #[typetag::serde(tag = "type")]
 trait NewIsEffect: IsEffect {}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+enum MiniNoteUiState {
+    #[default]
+    Normal,
+    Hovered,
+    Selected,
+}
+
+/// A [MiniNote] is a single played note. It knows which key it's playing (which
+/// is more or less assumed to be a MIDI key value), and when (start/end) it's
+/// supposed to play, relative to time zero.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+struct MiniNote {
+    key: u8,
+    range: Range<MusicalTime>,
+
+    #[serde(skip)]
+    ui_state: MiniNoteUiState,
+}
+
+/// A [MiniPattern] contains a musical sequence. It is a series of [MiniNote]s
+/// and a [TimeSignature].
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct MiniPattern {
+    time_signature: TimeSignature,
+    notes: Vec<MiniNote>,
+
+    #[serde(skip)]
+    dragged_note: Option<MiniNote>,
+    #[serde(skip)]
+    drag_from_start: bool,
+    #[serde(skip)]
+    drag_from_end: bool,
+}
+impl Shows for MiniPattern {
+    fn show(&mut self, ui: &mut eframe::egui::Ui) {
+        Frame::canvas(ui.style()).show(ui, |ui| {
+            self.ui_content(ui);
+        });
+    }
+}
+impl MiniPattern {
+    pub fn add(&mut self, note: MiniNote) {
+        self.notes.push(note);
+    }
+
+    pub fn remove(&mut self, note: &MiniNote) {
+        self.notes.retain(|v| v != note);
+    }
+
+    #[allow(dead_code)]
+    pub fn clear(&mut self) {
+        self.notes.clear();
+    }
+
+    fn make_note_shapes(
+        &self,
+        note: &MiniNote,
+        to_screen: &RectTransform,
+        is_highlighted: bool,
+    ) -> Vec<Shape> {
+        let rect = to_screen
+            .transform_rect(self.rect_for_note(note))
+            .shrink(1.0);
+        let color = if note.ui_state == MiniNoteUiState::Selected {
+            Color32::LIGHT_GRAY
+        } else if is_highlighted {
+            Color32::WHITE
+        } else {
+            Color32::DARK_BLUE
+        };
+        vec![
+            Shape::rect_stroke(rect, Rounding::default(), Stroke { width: 2.0, color }),
+            Shape::rect_filled(rect.shrink(2.0), Rounding::default(), Color32::LIGHT_BLUE),
+        ]
+    }
+
+    fn rect_for_note(&self, note: &MiniNote) -> Rect {
+        let notes_vert = 24.0;
+        const FIGURE_THIS_OUT :f32 = 16.0;
+        let ul = Pos2 {
+            x: note.range.start.total_parts() as f32 / FIGURE_THIS_OUT ,
+            y: (note.key as f32) / notes_vert,
+        };
+        let br = Pos2 {
+            x: note.range.end.total_parts() as f32 / FIGURE_THIS_OUT ,
+            y: (1.0 + note.key as f32) / notes_vert,
+        };
+        Rect::from_two_pos(ul, br)
+    }
+
+    fn ui_content(&mut self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
+        let notes_vert = 24.0;
+        let steps_horiz = 16.0;
+
+        let desired_size = ui.available_size_before_wrap();
+        let desired_size = Vec2::new(desired_size.x, 256.0);
+        let (mut response, painter) = ui.allocate_painter(desired_size, Sense::click_and_drag());
+
+        let to_screen = emath::RectTransform::from_to(
+            Rect::from_min_size(Pos2::ZERO, Vec2::splat(1.0)),
+            response.rect,
+        );
+        let from_screen = to_screen.inverse();
+
+        painter.rect_filled(response.rect, Rounding::default(), Color32::GRAY);
+        for i in 0..16 {
+            let x = i as f32 / steps_horiz;
+            let lines = [to_screen * Pos2::new(x, 0.0), to_screen * Pos2::new(x, 1.0)];
+            painter.line_segment(
+                lines,
+                Stroke {
+                    width: 1.0,
+                    color: Color32::DARK_GRAY,
+                },
+            );
+        }
+
+        // Are we over any existing note?
+        let mut hovered_note = None;
+        // if yes, are we hovering at a duration adjustment point?
+        let mut hovering_at_start = false;
+        let mut hovering_at_end = false;
+        if let Some(hover_pos) = response.hover_pos() {
+            for note in &self.notes {
+                let note_rect = to_screen.transform_rect(self.rect_for_note(&note));
+                if note_rect.contains(hover_pos) {
+                    const SIDE_MARGIN: f32 = 6.0;
+                    hovered_note = Some(note.clone());
+                    let smaller_rect = Rect::from_min_size(
+                        note_rect.left_top(),
+                        Vec2::new(SIDE_MARGIN, note_rect.height()),
+                    );
+                    hovering_at_start = smaller_rect.contains(hover_pos);
+                    let smaller_rect =
+                        smaller_rect.translate(Vec2::new(note_rect.width() - SIDE_MARGIN, 0.0));
+                    hovering_at_end = smaller_rect.contains(hover_pos);
+                    break;
+                }
+            }
+        }
+
+        // Clicking means we add a new note in an empty space, or remove an existing one.
+        if response.clicked() {
+            if let Some(pointer_pos) = response.interact_pointer_pos() {
+                let note =
+                    self.note_for_position(&from_screen, steps_horiz, notes_vert, pointer_pos);
+
+                if let Some(hovered) = hovered_note {
+                    self.remove(&hovered);
+                    hovered_note = None;
+                } else {
+                    self.add(note);
+                    eprintln!("there are now {} notes", self.notes.len());
+                }
+                response.mark_changed();
+            }
+        } else if response.drag_started() {
+            // If a drag starts, then we grab the information we already calculated
+            // about what we were hovering over, and record it.
+            self.drag_from_start = false;
+            self.drag_from_end = false;
+            if hovered_note.is_some() {
+                if hovering_at_start {
+                    self.drag_from_start = true;
+                }
+                if hovering_at_end {
+                    self.drag_from_end = true;
+                }
+                self.dragged_note = hovered_note.take();
+                if let Some(n) = &self.dragged_note {
+                    self.remove(&n.clone());
+                }
+            } else {
+                self.dragged_note = None;
+            }
+        } else if response.dragged() {
+            if let Some(old_note) = &self.dragged_note {
+                if let Some(pointer_pos) = response.interact_pointer_pos() {
+                    let new_note = if self.drag_from_start || self.drag_from_end {
+                        let canvas_pos = from_screen * pointer_pos;
+                        MiniNote {
+                            key: old_note.key,
+                            range: if self.drag_from_start {
+                                Range {
+                                    start: MusicalTime::new_with_parts(
+                                        ((canvas_pos.x * steps_horiz * 8.0).floor() / 32.0) as u64,
+                                    ),
+                                    end: old_note.range.end,
+                                }
+                            } else {
+                                Range {
+                                    start: old_note.range.start,
+                                    end: MusicalTime::new_with_parts(
+                                        ((canvas_pos.x * steps_horiz * 8.0).floor() / 32.0) as u64,
+                                    ),
+                                }
+                            },
+                            ui_state: Default::default(),
+                        }
+                    } else {
+                        self.note_for_position(&from_screen, steps_horiz, notes_vert, pointer_pos)
+                    };
+                    eprintln!("dragged note {:#?}", new_note);
+                    painter.extend(self.make_note_shapes(&new_note, &to_screen, true));
+                }
+            }
+        } else if response.drag_released() {
+            if let Some(old_note) = &self.dragged_note {
+                if let Some(pointer_pos) = response.interact_pointer_pos() {
+                    let new_note = if self.drag_from_start || self.drag_from_end {
+                        let canvas_pos = from_screen * pointer_pos;
+                        MiniNote {
+                            key: old_note.key,
+                            range: if self.drag_from_start {
+                                Range {
+                                    start: MusicalTime::new_with_parts(
+                                        ((canvas_pos.x * steps_horiz * 8.0).floor() / 32.0) as u64,
+                                    ),
+                                    end: old_note.range.end,
+                                }
+                            } else {
+                                Range {
+                                    start: old_note.range.start,
+                                    end: MusicalTime::new_with_parts(
+                                        ((canvas_pos.x * steps_horiz * 8.0).floor() / 32.0) as u64,
+                                    ),
+                                }
+                            },
+                            ui_state: Default::default(),
+                        }
+                    } else {
+                        self.note_for_position(&from_screen, steps_horiz, notes_vert, pointer_pos)
+                    };
+                    self.add(new_note);
+                }
+            }
+            self.dragged_note = None;
+        }
+
+        let shapes = self.notes.iter().fold(Vec::default(), |mut v, note| {
+            let is_highlighted = if let Some(n) = &hovered_note {
+                n == note
+            } else {
+                false
+            };
+            v.extend(self.make_note_shapes(note, &to_screen, is_highlighted));
+            v
+        });
+
+        painter.extend(shapes);
+
+        response
+    }
+
+    fn note_for_position(
+        &self,
+        from_screen: &RectTransform,
+        steps_horiz: f32,
+        notes_vert: f32,
+        pointer_pos: Pos2,
+    ) -> MiniNote {
+        let canvas_pos = from_screen * pointer_pos;
+        let key = (canvas_pos.y * notes_vert) as u8;
+        let when = MusicalTime::new_with_parts(((canvas_pos.x * steps_horiz).floor()) as u64);
+
+        MiniNote {
+            key,
+            range: Range {
+                start: when,
+                end: when + MusicalTime::new_with_parts(1),
+            },
+            ui_state: Default::default(),
+        }
+    }
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct UidFactory {
+    previous_uid: Uid,
+}
+impl UidFactory {
+    pub fn next(&mut self) -> Uid {
+        self.previous_uid.increment().clone()
+    }
+}
+/// [MiniSequencer] converts a chain of [MiniPattern]s into MIDI notes according
+/// to a given [Tempo] and [TimeSignature].
+#[derive(Debug, Control, Params, Uid, Serialize, Deserialize)]
+struct MiniSequencer {
+    uid: groove_core::Uid,
+    midi_channel_out: MidiChannel,
+
+    uid_factory: UidFactory,
+
+    patterns: HashMap<Uid, MiniPattern>,
+    range: Range<MusicalTime>,
+}
+impl MiniSequencer {
+    fn new_with(_params: &MiniSequencerParams, midi_channel_out: MidiChannel) -> Self {
+        Self {
+            uid: Default::default(),
+            midi_channel_out,
+            uid_factory: Default::default(),
+            patterns: Default::default(),
+            range: Default::default(),
+        }
+    }
+}
+impl IsController for MiniSequencer {}
+impl Shows for MiniSequencer {
+    fn show(&mut self, ui: &mut Ui) {
+        ui.allocate_ui(vec2(ui.available_width(), 128.0), |ui| {
+            if ui.button("Add pattern").clicked() {
+                self.patterns
+                    .insert(self.uid_factory.next(), MiniPattern::default());
+            }
+            if self.patterns.is_empty() {
+                ui.label("Coming soon!");
+            } else {
+                self.patterns.values_mut().for_each(|p| {
+                    p.show(ui);
+                });
+            }
+        });
+    }
+}
+impl Performs for MiniSequencer {
+    fn play(&mut self) {
+        todo!()
+    }
+
+    fn stop(&mut self) {
+        todo!()
+    }
+
+    fn skip_to_start(&mut self) {
+        todo!()
+    }
+
+    fn is_performing(&self) -> bool {
+        todo!()
+    }
+}
+impl HandlesMidi for MiniSequencer {}
+impl Controls for MiniSequencer {
+    type Message = EntityMessage;
+
+    fn update_time(&mut self, range: &std::ops::Range<MusicalTime>) {
+        self.range = range.clone();
+    }
+
+    fn work(&mut self, _messages_fn: &mut dyn FnMut(Self::Message)) {
+        todo!()
+    }
+
+    fn is_finished(&self) -> bool {
+        todo!()
+    }
+}
+impl Configurable for MiniSequencer {}
 
 #[derive(Clone, Debug)]
 enum MiniOrchestratorInput {
@@ -698,7 +1062,7 @@ impl Track {
                 ui.add(egui::Separator::default().grow(8.0));
 
                 ui.horizontal_centered(|ui| {
-                    let desired_size = Vec2::new(96.0, ui.available_height());
+                    let desired_size = Vec2::new(256.0, ui.available_height());
 
                     let mut action = None;
 
@@ -2059,6 +2423,12 @@ impl MiniDaw {
                 MidiChannel::new(0),
             ))
         });
+        factory.register_controller(Key::from("sequencer"), || {
+            Box::new(MiniSequencer::new_with(
+                &MiniSequencerParams::default(),
+                MidiChannel::new(0),
+            ))
+        });
         factory.register_effect(Key::from("reverb"), || {
             Box::new(Reverb::new_with(&ReverbParams::default()))
         });
@@ -2236,6 +2606,8 @@ impl eframe::App for MiniDaw {
 
 #[typetag::serde]
 impl NewIsController for Arpeggiator {}
+#[typetag::serde]
+impl NewIsController for MiniSequencer {}
 #[typetag::serde]
 impl NewIsInstrument for Drumkit {}
 #[typetag::serde]
