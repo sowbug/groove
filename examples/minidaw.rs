@@ -159,13 +159,13 @@ impl MiniPattern {
 
     fn rect_for_note(&self, note: &MiniNote) -> Rect {
         let notes_vert = 24.0;
-        const FIGURE_THIS_OUT :f32 = 16.0;
+        const FIGURE_THIS_OUT: f32 = 16.0;
         let ul = Pos2 {
-            x: note.range.start.total_parts() as f32 / FIGURE_THIS_OUT ,
+            x: note.range.start.total_parts() as f32 / FIGURE_THIS_OUT,
             y: (note.key as f32) / notes_vert,
         };
         let br = Pos2 {
-            x: note.range.end.total_parts() as f32 / FIGURE_THIS_OUT ,
+            x: note.range.end.total_parts() as f32 / FIGURE_THIS_OUT,
             y: (1.0 + note.key as f32) / notes_vert,
         };
         Rect::from_two_pos(ul, br)
