@@ -106,13 +106,6 @@ struct MiniNote {
 struct MiniPattern {
     time_signature: TimeSignature,
     notes: Vec<MiniNote>,
-
-    #[serde(skip)]
-    dragged_note: Option<MiniNote>,
-    #[serde(skip)]
-    drag_from_start: bool,
-    #[serde(skip)]
-    drag_from_end: bool,
 }
 impl Shows for MiniPattern {
     fn show(&mut self, ui: &mut eframe::egui::Ui) {
@@ -177,7 +170,7 @@ impl MiniPattern {
 
         let desired_size = ui.available_size_before_wrap();
         let desired_size = Vec2::new(desired_size.x, 256.0);
-        let (mut response, painter) = ui.allocate_painter(desired_size, Sense::click_and_drag());
+        let (mut response, painter) = ui.allocate_painter(desired_size, Sense::click());
 
         let to_screen = emath::RectTransform::from_to(
             Rect::from_min_size(Pos2::ZERO, Vec2::splat(1.0)),
@@ -200,23 +193,11 @@ impl MiniPattern {
 
         // Are we over any existing note?
         let mut hovered_note = None;
-        // if yes, are we hovering at a duration adjustment point?
-        let mut hovering_at_start = false;
-        let mut hovering_at_end = false;
         if let Some(hover_pos) = response.hover_pos() {
             for note in &self.notes {
                 let note_rect = to_screen.transform_rect(self.rect_for_note(&note));
                 if note_rect.contains(hover_pos) {
-                    const SIDE_MARGIN: f32 = 6.0;
                     hovered_note = Some(note.clone());
-                    let smaller_rect = Rect::from_min_size(
-                        note_rect.left_top(),
-                        Vec2::new(SIDE_MARGIN, note_rect.height()),
-                    );
-                    hovering_at_start = smaller_rect.contains(hover_pos);
-                    let smaller_rect =
-                        smaller_rect.translate(Vec2::new(note_rect.width() - SIDE_MARGIN, 0.0));
-                    hovering_at_end = smaller_rect.contains(hover_pos);
                     break;
                 }
             }
@@ -227,97 +208,14 @@ impl MiniPattern {
             if let Some(pointer_pos) = response.interact_pointer_pos() {
                 let note =
                     self.note_for_position(&from_screen, steps_horiz, notes_vert, pointer_pos);
-
                 if let Some(hovered) = hovered_note {
-                    self.remove(&hovered);
+                    let _ = self.remove(&hovered);
                     hovered_note = None;
                 } else {
-                    self.add(note);
-                    eprintln!("there are now {} notes", self.notes.len());
+                    let _ = self.add(note);
                 }
                 response.mark_changed();
             }
-        } else if response.drag_started() {
-            // If a drag starts, then we grab the information we already calculated
-            // about what we were hovering over, and record it.
-            self.drag_from_start = false;
-            self.drag_from_end = false;
-            if hovered_note.is_some() {
-                if hovering_at_start {
-                    self.drag_from_start = true;
-                }
-                if hovering_at_end {
-                    self.drag_from_end = true;
-                }
-                self.dragged_note = hovered_note.take();
-                if let Some(n) = &self.dragged_note {
-                    self.remove(&n.clone());
-                }
-            } else {
-                self.dragged_note = None;
-            }
-        } else if response.dragged() {
-            if let Some(old_note) = &self.dragged_note {
-                if let Some(pointer_pos) = response.interact_pointer_pos() {
-                    let new_note = if self.drag_from_start || self.drag_from_end {
-                        let canvas_pos = from_screen * pointer_pos;
-                        MiniNote {
-                            key: old_note.key,
-                            range: if self.drag_from_start {
-                                Range {
-                                    start: MusicalTime::new_with_parts(
-                                        ((canvas_pos.x * steps_horiz * 8.0).floor() / 32.0) as u64,
-                                    ),
-                                    end: old_note.range.end,
-                                }
-                            } else {
-                                Range {
-                                    start: old_note.range.start,
-                                    end: MusicalTime::new_with_parts(
-                                        ((canvas_pos.x * steps_horiz * 8.0).floor() / 32.0) as u64,
-                                    ),
-                                }
-                            },
-                            ui_state: Default::default(),
-                        }
-                    } else {
-                        self.note_for_position(&from_screen, steps_horiz, notes_vert, pointer_pos)
-                    };
-                    eprintln!("dragged note {:#?}", new_note);
-                    painter.extend(self.make_note_shapes(&new_note, &to_screen, true));
-                }
-            }
-        } else if response.drag_released() {
-            if let Some(old_note) = &self.dragged_note {
-                if let Some(pointer_pos) = response.interact_pointer_pos() {
-                    let new_note = if self.drag_from_start || self.drag_from_end {
-                        let canvas_pos = from_screen * pointer_pos;
-                        MiniNote {
-                            key: old_note.key,
-                            range: if self.drag_from_start {
-                                Range {
-                                    start: MusicalTime::new_with_parts(
-                                        ((canvas_pos.x * steps_horiz * 8.0).floor() / 32.0) as u64,
-                                    ),
-                                    end: old_note.range.end,
-                                }
-                            } else {
-                                Range {
-                                    start: old_note.range.start,
-                                    end: MusicalTime::new_with_parts(
-                                        ((canvas_pos.x * steps_horiz * 8.0).floor() / 32.0) as u64,
-                                    ),
-                                }
-                            },
-                            ui_state: Default::default(),
-                        }
-                    } else {
-                        self.note_for_position(&from_screen, steps_horiz, notes_vert, pointer_pos)
-                    };
-                    self.add(new_note);
-                }
-            }
-            self.dragged_note = None;
         }
 
         let shapes = self.notes.iter().fold(Vec::default(), |mut v, note| {
@@ -401,6 +299,7 @@ impl Shows for MiniSequencer {
                 ui.label("Coming soon!");
             } else {
                 self.patterns.values_mut().for_each(|p| {
+                    ui.label(format!("notes: {}", p.notes.len()));
                     p.show(ui);
                 });
             }
@@ -1062,7 +961,7 @@ impl Track {
                 ui.add(egui::Separator::default().grow(8.0));
 
                 ui.horizontal_centered(|ui| {
-                    let desired_size = Vec2::new(256.0, ui.available_height());
+                    let desired_size = Vec2::new(512.0, ui.available_height());
 
                     let mut action = None;
 
