@@ -7,19 +7,22 @@ on:
     branches: ["main"]
 
 jobs:
-  fmt:
-    name: cargo-fmt
+  checks:
+    name: lint, format, etc.
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Update toolchain & add rustfmt
+      - name: Update toolchain & add tools
         run: |
           rustup update
           rustup component add rustfmt
-      - name: Run rustfmt
+          cargo install cargo-deny
+      - name: rustfmt
         run: cargo fmt --all --check
+      - name: cargo deny
+        run: cargo deny check
 
   test-x86_64:
     name: Test x86_64

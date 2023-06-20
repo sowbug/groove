@@ -1,4 +1,3 @@
----
 name: piano
 oscillator-1:
   waveform: sawtooth

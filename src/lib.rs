@@ -2,9 +2,9 @@
 
 #![allow(clippy::box_default)]
 #![warn(missing_docs)]
-#![warn(missing_doc_code_examples)]
+#![warn(rustdoc::missing_doc_code_examples)]
 
-//! An audio engine designed for making a DAW (digital audio workstation).
+//! An audio engine designed to support a DAW (digital audio workstation).
 //!
 //! ```
 //! # use groove::{Entity, Orchestrator};

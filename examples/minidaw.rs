@@ -1,5 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+#![deny(rustdoc::broken_intra_doc_links)]
+
 use anyhow::{anyhow, Result};
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use crossbeam_channel::{Receiver, Select, Sender};
@@ -88,7 +90,7 @@ enum MiniNoteUiState {
     Selected,
 }
 
-/// A [MiniNote] is a single played note. It knows which key it's playing (which
+/// A [MiniNote] is a single played [XNidj] note. It knows which key it's playing (which
 /// is more or less assumed to be a MIDI key value), and when (start/end) it's
 /// supposed to play, relative to time zero.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

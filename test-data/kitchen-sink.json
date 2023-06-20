@@ -3,10 +3,10 @@
     "clock": {
         "bpm": 1024,
         "midi-ticks-per-second": 960,
-        "time-signature": [
-            4,
-            4
-        ]
+        "time-signature": {
+            "top": 4,
+            "bottom": 4
+        }
     },
     "devices": [
         {
@@ -350,14 +350,14 @@
             "id": "i-have-no-beat-value-and-i-am-short",
             "steps": [
                 {
-                    "flat": [
-                        0
-                    ]
+                    "flat": {
+                        "value": 0
+                    }
                 },
                 {
-                    "flat": [
-                        1
-                    ]
+                    "flat": {
+                        "value": 1
+                    }
                 }
             ]
         },
@@ -366,24 +366,24 @@
             "note-value": "whole",
             "steps": [
                 {
-                    "flat": [
-                        0
-                    ]
+                    "flat": {
+                        "value": 0
+                    }
                 },
                 {
-                    "flat": [
-                        0.1
-                    ]
+                    "flat": {
+                        "value": 0.1
+                    }
                 },
                 {
-                    "flat": [
-                        0.5
-                    ]
+                    "flat": {
+                        "value": 0.5
+                    }
                 },
                 {
-                    "flat": [
-                        1
-                    ]
+                    "flat": {
+                        "value": 1.0
+                    }
                 }
             ]
         }

@@ -14,12 +14,7 @@ use groove_core::{
 use groove_proc_macros::{Control, Params, Uid};
 use groove_utils::Paths;
 use hound::WavReader;
-use std::{
-    fs::File,
-    io::{BufReader, Read, Seek, SeekFrom},
-    path::Path,
-    sync::Arc,
-};
+use std::{fs::File, io::BufReader, path::Path, sync::Arc};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -233,33 +228,34 @@ impl Sampler {
     // **                      //are we sure about the order?? usually its num/denom
     // ** 4 bytes (float)      tempo
     // **
-    fn read_riff_metadata(file: &mut File) -> Result<u8> {
-        let riff = riff_io::RiffFile::open_with_file_handle(file)?;
-        let entries = riff.read_entries()?;
-        for entry in entries {
-            match entry {
-                riff_io::Entry::Chunk(chunk) => {
-                    // looking for chunk_id 'acid'
-                    if chunk.chunk_id == [97, 99, 105, 100] {
-                        file.seek(SeekFrom::Start(chunk.data_offset as u64))?;
-                        let mut bytes = Vec::default();
-                        bytes.resize(chunk.data_size, 0);
-                        let _ = file.read(&mut bytes)?;
+    fn read_riff_metadata(_file: &mut File) -> Result<u8> {
+        Err(anyhow!("riff_io crate is excluded"))
+        // let riff = riff_io::RiffFile::open_with_file_handle(file)?;
+        // let entries = riff.read_entries()?;
+        // for entry in entries {
+        //     match entry {
+        //         riff_io::Entry::Chunk(chunk) => {
+        //             // looking for chunk_id 'acid'
+        //             if chunk.chunk_id == [97, 99, 105, 100] {
+        //                 file.seek(std::io::SeekFrom::Start(chunk.data_offset as u64))?;
+        //                 let mut bytes = Vec::default();
+        //                 bytes.resize(chunk.data_size, 0);
+        //                 let _ = file.read(&mut bytes)?;
 
-                        let root_note_set = bytes[0] & 0x02 != 0;
-                        let pitch_b = bytes[0] & 0x10 != 0;
+        //                 let root_note_set = bytes[0] & 0x02 != 0;
+        //                 let pitch_b = bytes[0] & 0x10 != 0;
 
-                        if root_note_set {
-                            // TODO: find a real WAV that has the pitch_b flag set
-                            let root_note = bytes[4] - if pitch_b { 12 } else { 0 };
-                            return Ok(root_note);
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
-        Err(anyhow!("Couldn't find root note in acid RIFF chunk"))
+        //                 if root_note_set {
+        //                     // TODO: find a real WAV that has the pitch_b flag set
+        //                     let root_note = bytes[4] - if pitch_b { 12 } else { 0 };
+        //                     return Ok(root_note);
+        //                 }
+        //             }
+        //         }
+        //         _ => {}
+        //     }
+        // }
+        // Err(anyhow!("Couldn't find root note in acid RIFF chunk"))
     }
 
     fn read_samples<T>(
@@ -410,6 +406,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "riff_io crate is disabled, so we can't read root frequencies from files"]
     fn loading_with_root_frequency() {
         let paths = paths_with_test_data_dir();
         let sampler = Sampler::new_with(

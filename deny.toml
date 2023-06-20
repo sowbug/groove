@@ -1,0 +1,63 @@
+targets = [
+    { triple = "aarch64-unknown-linux-gnu" },
+    { triple = "armv7-unknown-linux-gnueabihf" },
+    { triple = "x86_64-apple-darwin" },
+    { triple = "x86_64-pc-windows-msvc" },
+    { triple = "x86_64-unknown-linux-gnu" },
+]
+all-features = false
+no-default-features = false
+feature-depth = 1
+
+[advisories]
+unmaintained = "warn"
+vulnerability = "deny"
+yanked = "deny"
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+notice = "warn"
+
+[licenses]
+unlicensed = "deny"
+allow-osi-fsf-free = "neither"
+copyleft = "deny"
+default = "deny"
+confidence-threshold = 0.9
+allow = [
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "ISC",
+    "LicenseRef-UFL-1.0",
+    "MIT",
+    "OFL-1.1",
+    "Unicode-DFS-2016",
+    "Unlicense",
+    "Zlib",
+]
+deny = []
+exceptions = []
+
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "deny"
+wildcards = "allow"
+highlight = "all"
+workspace-default-features = "allow"
+external-default-features = "allow"
+skip = [{ name = "convert_case" }, { name = "memoffset" }, { name = "windows" }]
+skip-tree = [
+    { name = "cpal", version = "=0.15.2" },
+    { name = "winit", version = "=0.28" },
+]
+
+[sources]
+unknown-registry = "warn"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+
+[sources.allow-org]
+github = ["sowbug"]

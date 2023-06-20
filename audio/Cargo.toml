@@ -2,11 +2,12 @@
 name = "groove-audio"
 version = "0.1.0"
 edition = "2021"
+publish = false
 
 [dependencies]
-anyhow = "1.0.12"
-cpal = "0.15.0"
+anyhow = "1.0"
+cpal = "0.15"
 crossbeam = "0.8"
 crossbeam-channel = "0.5"
-crossbeam-utils = "0.8.15"
+crossbeam-utils = "0.8"
 groove-core = { path = "../core" }

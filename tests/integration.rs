@@ -12,11 +12,11 @@ fn project_loads_and_parses() {
     let mut paths = Paths::default();
     paths.push_hive(&Paths::hive(PathType::Test));
 
-    let path = Path::new("kitchen-sink.json5");
-    let yaml = paths
+    let path = Path::new("kitchen-sink.json");
+    let json = paths
         .search_and_read_to_string(path)
-        .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
-    let song_settings = SongSettings::new_from_yaml(yaml.as_str())
+        .unwrap_or_else(|err| panic!("loading JSON failed: {:?}", err));
+    let song_settings = SongSettings::new_from_json5(json.as_str())
         .unwrap_or_else(|err| panic!("parsing settings for {} failed: {:?}", path.display(), err));
     let mut orchestrator = song_settings
         .instantiate(&paths, false)

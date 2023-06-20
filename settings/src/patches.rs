@@ -76,7 +76,7 @@ impl WelshPatchSettings {
                     Err(err) => {
                         // TODO: this should return a failsafe patch, maybe a boring
                         // square wave
-                        panic!("couldn't parse patch file: {err:?}");
+                        panic!("couldn't parse patch file named {:?}: {err:?}", &path);
                     }
                 }
             }
