@@ -484,6 +484,13 @@ impl TimeSignature {
         }
     }
 
+    /// Returns the duration, in [MusicalTime], of a single bar of music having
+    /// this time signature. Note that [MusicalTime] requires a [Tempo] to
+    /// calculate wall-clock time.
+    pub fn duration(&self) -> MusicalTime {
+        MusicalTime::new_with_beats(self.top() as u64)
+    }
+
     pub fn beat_value(&self) -> BeatValue {
         // It's safe to unwrap because the constructor already blew up if the
         // bottom were out of range.

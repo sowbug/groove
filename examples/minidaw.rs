@@ -103,11 +103,23 @@ struct MiniNote {
 }
 
 /// A [MiniPattern] contains a musical sequence. It is a series of [MiniNote]s
-/// and a [TimeSignature].
-#[derive(Debug, Default, Serialize, Deserialize)]
+/// and a [TimeSignature]. All the notes should fit into the pattern's duration.
+#[derive(Debug, Serialize, Deserialize)]
 struct MiniPattern {
     time_signature: TimeSignature,
+    duration: MusicalTime,
     notes: Vec<MiniNote>,
+}
+impl Default for MiniPattern {
+    fn default() -> Self {
+        let time_signature = TimeSignature::default();
+        let duration = time_signature.duration();
+        Self {
+            time_signature,
+            duration,
+            notes: Default::default(),
+        }
+    }
 }
 impl Shows for MiniPattern {
     fn show(&mut self, ui: &mut eframe::egui::Ui) {
@@ -255,6 +267,10 @@ impl MiniPattern {
             ui_state: Default::default(),
         }
     }
+
+    pub fn duration(&self) -> MusicalTime {
+        self.duration
+    }
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -266,46 +282,103 @@ impl UidFactory {
         self.previous_uid.increment().clone()
     }
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ArrangedPattern {
+    pattern_uid: Uid,
+    start: MusicalTime,
+}
+impl Shows for ArrangedPattern {
+    fn show(&mut self, ui: &mut eframe::egui::Ui) {
+        Frame::canvas(ui.style()).show(ui, |ui| {
+            self.ui_content(ui);
+        });
+    }
+}
+impl ArrangedPattern {
+    fn ui_content(&mut self, ui: &mut Ui) {
+        Frame::default()
+            .stroke(Stroke::new(1.0, Color32::BLUE))
+            .show(ui, |ui| ui.label(format!("{}", self.pattern_uid)));
+    }
+}
+
+#[derive(Debug)]
+enum MiniSequencerAction {
+    CreatePattern,
+    ArrangePattern(Uid),
+}
+
 /// [MiniSequencer] converts a chain of [MiniPattern]s into MIDI notes according
 /// to a given [Tempo] and [TimeSignature].
-#[derive(Debug, Control, Params, Uid, Serialize, Deserialize)]
+#[derive(Debug, Default, Control, Params, Uid, Serialize, Deserialize)]
 struct MiniSequencer {
     uid: groove_core::Uid,
     midi_channel_out: MidiChannel,
 
     uid_factory: UidFactory,
 
+    // All the patterns the sequencer knows about. These are not arranged.
     patterns: HashMap<Uid, MiniPattern>,
+
+    arrangement_cursor: MusicalTime,
+    arranged_patterns: Vec<ArrangedPattern>,
+
+    // The sequencer should be performing work for this time slice.
+    #[serde(skip)]
     range: Range<MusicalTime>,
 }
 impl MiniSequencer {
     fn new_with(_params: &MiniSequencerParams, midi_channel_out: MidiChannel) -> Self {
         Self {
-            uid: Default::default(),
             midi_channel_out,
-            uid_factory: Default::default(),
-            patterns: Default::default(),
-            range: Default::default(),
+            ..Default::default()
         }
+    }
+
+    fn append_pattern(&mut self, uid: &Uid) {
+        self.arranged_patterns.push(ArrangedPattern {
+            pattern_uid: *uid,
+            start: self.arrangement_cursor,
+        });
+        if let Some(pattern) = self.patterns.get(uid) {
+            self.arrangement_cursor += pattern.duration();
+        }
+    }
+
+    fn ui_content(&mut self, ui: &mut Ui) -> Option<MiniSequencerAction> {
+        let mut action = None;
+        ui.allocate_ui(vec2(ui.available_width(), 128.0), |ui| {
+            let patterns = &mut self.patterns;
+            if ui.button("Add pattern").clicked() {
+                action = Some(MiniSequencerAction::CreatePattern)
+            }
+            if patterns.is_empty() {
+                ui.label("Add a pattern and start editing it");
+            } else {
+                patterns.iter_mut().for_each(|(uid, p)| {
+                    if ui.button("Add to track").clicked() {
+                        action = Some(MiniSequencerAction::ArrangePattern(*uid))
+                    }
+                    p.show(ui);
+                });
+            }
+        });
+        action
     }
 }
 impl IsController for MiniSequencer {}
 impl Shows for MiniSequencer {
     fn show(&mut self, ui: &mut Ui) {
-        ui.allocate_ui(vec2(ui.available_width(), 128.0), |ui| {
-            if ui.button("Add pattern").clicked() {
-                self.patterns
-                    .insert(self.uid_factory.next(), MiniPattern::default());
+        if let Some(action) = self.ui_content(ui) {
+            match action {
+                MiniSequencerAction::CreatePattern => {
+                    self.patterns
+                        .insert(self.uid_factory.next(), MiniPattern::default());
+                }
+                MiniSequencerAction::ArrangePattern(uid) => self.append_pattern(&uid),
             }
-            if self.patterns.is_empty() {
-                ui.label("Coming soon!");
-            } else {
-                self.patterns.values_mut().for_each(|p| {
-                    ui.label(format!("notes: {}", p.notes.len()));
-                    p.show(ui);
-                });
-            }
-        });
+        }
     }
 }
 impl Performs for MiniSequencer {
@@ -607,6 +680,14 @@ enum EntityType {
     Instrument,
 }
 
+#[derive(Debug, Default, Serialize, Deserialize)]
+enum TrackType {
+    #[default]
+    Midi,
+    Audio,
+    Send,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 struct TrackFactory {
     next_track: usize,
@@ -626,7 +707,7 @@ impl TrackFactory {
         self.next_track += 1;
         Track {
             name,
-            is_send: false,
+            ty: TrackType::Midi,
             ..Default::default()
         }
     }
@@ -636,7 +717,7 @@ impl TrackFactory {
         self.next_send += 1;
         Track {
             name,
-            is_send: true,
+            ty: TrackType::Send,
             ..Default::default()
         }
     }
@@ -645,7 +726,7 @@ impl TrackFactory {
 #[derive(Serialize, Deserialize, Debug)]
 struct Track {
     name: String,
-    is_send: bool,
+    ty: TrackType,
     controllers: Vec<Box<dyn NewIsController>>,
     instruments: Vec<Box<dyn NewIsInstrument>>,
     effects: Vec<Box<dyn NewIsEffect>>,
@@ -662,7 +743,7 @@ impl Default for Track {
     fn default() -> Self {
         Self {
             name: String::from("Untitled"),
-            is_send: false,
+            ty: Default::default(),
             controllers: Default::default(),
             instruments: Default::default(),
             effects: Default::default(),
@@ -838,9 +919,9 @@ impl Track {
         (left, right)
     }
 
-    fn show_arrangement(&mut self, ui: &mut Ui) -> Response {
-        ui.text_edit_singleline(&mut self.name);
+    fn draw_temp_squiggles(&self, ui: &mut Ui) -> Response {
         ui.ctx().request_repaint();
+
         let color = if ui.visuals().dark_mode {
             Color32::from_additive_luminance(196)
         } else {
@@ -893,6 +974,12 @@ impl Track {
         response
     }
 
+    fn show_midi(&mut self, ui: &mut Ui) -> Response {
+        ui.text_edit_singleline(&mut self.name);
+
+        self.draw_temp_squiggles(ui)
+    }
+
     fn show_send(&mut self, ui: &mut Ui) -> Response {
         Frame::default()
             .stroke(Stroke::new(
@@ -911,6 +998,10 @@ impl Track {
                 response
             })
             .inner
+    }
+
+    fn show_audio(&mut self, ui: &mut Ui) -> Response {
+        self.draw_temp_squiggles(ui)
     }
 
     // TODO: ordering should be controllers, instruments, then effects. Within
@@ -1162,6 +1253,14 @@ impl Track {
 
         for e in self.instruments.iter_mut() {
             e.batch_values(&mut self.buffer);
+        }
+    }
+
+    fn show(&mut self, ui: &mut Ui) -> Response {
+        match self.ty {
+            TrackType::Midi => self.show_midi(ui),
+            TrackType::Audio => self.show_audio(ui),
+            TrackType::Send => self.show_send(ui),
         }
     }
 }
@@ -1419,8 +1518,12 @@ impl MiniOrchestrator {
         let mut single_selection = false;
 
         // Non-send tracks are first
-        for track in self.tracks.iter_mut().filter(|t| !t.is_send) {
-            if track.show_arrangement(ui).clicked() {
+        for track in self
+            .tracks
+            .iter_mut()
+            .filter(|t| !matches!(t.ty, TrackType::Send))
+        {
+            if track.show(ui).clicked() {
                 if is_control_only_down {
                     track.toggle_selection();
                 } else {
@@ -1432,8 +1535,12 @@ impl MiniOrchestrator {
         }
 
         // Send tracks are last
-        for track in self.tracks.iter_mut().filter(|t| t.is_send) {
-            if track.show_send(ui).clicked() {
+        for track in self
+            .tracks
+            .iter_mut()
+            .filter(|t| matches!(t.ty, TrackType::Send))
+        {
+            if track.show(ui).clicked() {
                 if is_control_only_down {
                     track.toggle_selection();
                 } else {
