@@ -1183,6 +1183,14 @@ impl Ticks for Track {
 }
 impl Configurable for Track {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        // I was excited when I read about Iterator's .chain() to condense
+        // repetitive code like this, but it's trickier than I expected because
+        // they're all different types. I'm using a common trait (Configurable),
+        // but I'd need to either #![feature(trait_upcasting)] (and use
+        // nightly), or implement as_configurable() methods on each struct,
+        // which is totally doable (and I might in fact do it soon, see the
+        // "create the uber-trait" TODO elsewhere in this file), but I'm not
+        // going to do it right now. TODO
         for e in self.controllers.iter_mut() {
             e.update_sample_rate(sample_rate);
         }
