@@ -411,18 +411,41 @@ impl MiniSequencer {
 
     fn show_arrangement(&mut self, ui: &mut Ui) -> Response {
         let desired_size = vec2(ui.available_width(), 64.0);
-        ui.allocate_ui(desired_size, |ui| {
+        let (_id, rect) = ui.allocate_space(desired_size);
+        let painter = ui.painter_at(rect);
+
+        let to_screen =
+            emath::RectTransform::from_to(Rect::from_min_size(Pos2::ZERO, Vec2::splat(1.0)), rect);
+
+        painter.rect_filled(rect, Rounding::default(), Color32::GRAY);
+        for i in 0..16 {
+            let x = i as f32 / 16.0;
+            let lines = [to_screen * Pos2::new(x, 0.0), to_screen * Pos2::new(x, 1.0)];
+            painter.line_segment(
+                lines,
+                Stroke {
+                    width: 1.0,
+                    color: Color32::DARK_GRAY,
+                },
+            );
+        }
+
+        ui.allocate_ui_at_rect(rect, |ui| {
             ui.horizontal_top(|ui| {
-                for arranged_pattern in self.arranged_patterns.iter_mut() {
+                for (index, arranged_pattern) in self.arranged_patterns.iter_mut().enumerate() {
                     if let Some(pattern) = self.patterns.get(&arranged_pattern.pattern_uid) {
                         if arranged_pattern.show_in_arrangement(ui, pattern).clicked() {
-                            eprintln!("clicked");
+                            eprintln!(
+                                "clicked {} at index {}",
+                                arranged_pattern.pattern_uid, index
+                            );
                         }
                     }
                 }
             })
+            .response
         })
-        .response
+        .inner
     }
 }
 impl IsController for MiniSequencer {}
@@ -1129,9 +1152,26 @@ impl Track {
 
                     let mut action = None;
 
+                    if let Some(sequencer) = self.sequencer.as_mut() {
+                        if let Some(a) = Self::add_track_element(
+                            ui,
+                            0,
+                            EntityType::Controller,
+                            false,
+                            false,
+                            true,
+                            |ui| {
+                                sequencer.show(ui);
+                            },
+                        ) {
+                            action = Some(a);
+                        };
+                    }
+
                     // controller
                     let len = self.controllers.len();
                     for (index, e) in self.controllers.iter_mut().enumerate() {
+                        let index = index + 1;
                         ui.allocate_ui(desired_size, |ui| {
                             let (show_left, show_right) = Self::button_states(index, len);
                             if let Some(a) = Self::add_track_element(
