@@ -271,6 +271,40 @@ impl MiniPattern {
     pub fn duration(&self) -> MusicalTime {
         self.duration
     }
+
+    fn show_in_arrangement(&self, ui: &mut Ui) -> Response {
+        let steps_horiz = 16.0;
+
+        let desired_size = vec2((self.duration.total_beats() * 16) as f32, 64.0);
+        let (response, painter) = ui.allocate_painter(desired_size, Sense::click());
+
+        let to_screen = emath::RectTransform::from_to(
+            Rect::from_min_size(Pos2::ZERO, Vec2::splat(1.0)),
+            response.rect,
+        );
+
+        painter.rect_filled(response.rect, Rounding::default(), Color32::GRAY);
+        for i in 0..16 {
+            let x = i as f32 / steps_horiz;
+            let lines = [to_screen * Pos2::new(x, 0.0), to_screen * Pos2::new(x, 1.0)];
+            painter.line_segment(
+                lines,
+                Stroke {
+                    width: 1.0,
+                    color: Color32::DARK_GRAY,
+                },
+            );
+        }
+
+        let shapes = self.notes.iter().fold(Vec::default(), |mut v, note| {
+            v.extend(self.make_note_shapes(note, &to_screen, false));
+            v
+        });
+
+        painter.extend(shapes);
+
+        response
+    }
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -300,6 +334,14 @@ impl ArrangedPattern {
         Frame::default()
             .stroke(Stroke::new(1.0, Color32::BLUE))
             .show(ui, |ui| ui.label(format!("{}", self.pattern_uid)));
+    }
+
+    fn show_in_arrangement(
+        &mut self,
+        ui: &mut eframe::egui::Ui,
+        pattern: &MiniPattern,
+    ) -> Response {
+        pattern.show_in_arrangement(ui)
     }
 }
 
@@ -365,6 +407,22 @@ impl MiniSequencer {
             }
         });
         action
+    }
+
+    fn show_arrangement(&mut self, ui: &mut Ui) -> Response {
+        let desired_size = vec2(ui.available_width(), 64.0);
+        ui.allocate_ui(desired_size, |ui| {
+            ui.horizontal_top(|ui| {
+                for arranged_pattern in self.arranged_patterns.iter_mut() {
+                    if let Some(pattern) = self.patterns.get(&arranged_pattern.pattern_uid) {
+                        if arranged_pattern.show_in_arrangement(ui, pattern).clicked() {
+                            eprintln!("clicked");
+                        }
+                    }
+                }
+            })
+        })
+        .response
     }
 }
 impl IsController for MiniSequencer {}
@@ -690,24 +748,28 @@ enum TrackType {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct TrackFactory {
-    next_track: usize,
+    next_midi: usize,
     next_send: usize,
 }
 impl Default for TrackFactory {
     fn default() -> Self {
         Self {
+            next_midi: 1,
             next_send: 1,
-            next_track: 1,
         }
     }
 }
 impl TrackFactory {
     pub fn midi(&mut self) -> Track {
-        let name = format!("Track {}", self.next_track);
-        self.next_track += 1;
+        let name = format!("MIDI {}", self.next_midi);
+        self.next_midi += 1;
         Track {
             name,
             ty: TrackType::Midi,
+            sequencer: Some(MiniSequencer::new_with(
+                &MiniSequencerParams::default(),
+                MidiChannel::new(0),
+            )),
             ..Default::default()
         }
     }
@@ -727,6 +789,8 @@ impl TrackFactory {
 struct Track {
     name: String,
     ty: TrackType,
+
+    sequencer: Option<MiniSequencer>,
     controllers: Vec<Box<dyn NewIsController>>,
     instruments: Vec<Box<dyn NewIsInstrument>>,
     effects: Vec<Box<dyn NewIsEffect>>,
@@ -744,6 +808,7 @@ impl Default for Track {
         Self {
             name: String::from("Untitled"),
             ty: Default::default(),
+            sequencer: Default::default(),
             controllers: Default::default(),
             instruments: Default::default(),
             effects: Default::default(),
@@ -977,7 +1042,12 @@ impl Track {
     fn show_midi(&mut self, ui: &mut Ui) -> Response {
         ui.text_edit_singleline(&mut self.name);
 
-        self.draw_temp_squiggles(ui)
+        if let Some(sequencer) = self.sequencer.as_mut() {
+            sequencer.show_arrangement(ui)
+        } else {
+            eprintln!("Hmmm, no sequencer in a MIDI track?");
+            ui.allocate_ui(ui.available_size(), |_ui| {}).response
+        }
     }
 
     fn show_send(&mut self, ui: &mut Ui) -> Response {
@@ -993,9 +1063,10 @@ impl Track {
             .show(ui, |ui| {
                 ui.text_edit_singleline(&mut self.name);
                 let desired_size = Vec2::new(ui.available_width(), 64.0);
-                let response = ui.allocate_response(desired_size, Sense::click());
-                ui.vertical_centered(|ui| ui.label("I'm a send track"));
-                response
+                ui.allocate_ui(desired_size, |ui| {
+                    ui.centered_and_justified(|ui| ui.label("I'm a send track"))
+                })
+                .response
             })
             .inner
     }
@@ -1257,11 +1328,12 @@ impl Track {
     }
 
     fn show(&mut self, ui: &mut Ui) -> Response {
-        match self.ty {
+        ui.allocate_ui(vec2(ui.available_width(), 64.0), |ui| match self.ty {
             TrackType::Midi => self.show_midi(ui),
             TrackType::Audio => self.show_audio(ui),
             TrackType::Send => self.show_send(ui),
-        }
+        })
+        .response
     }
 }
 impl Generates<StereoSample> for Track {
