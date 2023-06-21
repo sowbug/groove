@@ -283,7 +283,12 @@ impl MiniPattern {
             response.rect,
         );
 
-        painter.rect_filled(response.rect, Rounding::default(), Color32::GRAY);
+        painter.rect_filled(response.rect, Rounding::default(), Color32::DARK_GRAY);
+        painter.rect_stroke(
+            response.rect,
+            Rounding::none(),
+            Stroke::new(1.0, Color32::WHITE),
+        );
         for i in 0..16 {
             let x = i as f32 / steps_horiz;
             let lines = [to_screen * Pos2::new(x, 0.0), to_screen * Pos2::new(x, 1.0)];
@@ -431,6 +436,7 @@ impl MiniSequencer {
         }
 
         ui.allocate_ui_at_rect(rect, |ui| {
+            ui.style_mut().spacing.item_spacing = Vec2::ZERO;
             ui.horizontal_top(|ui| {
                 for (index, arranged_pattern) in self.arranged_patterns.iter_mut().enumerate() {
                     if let Some(pattern) = self.patterns.get(&arranged_pattern.pattern_uid) {
@@ -1063,8 +1069,6 @@ impl Track {
     }
 
     fn show_midi(&mut self, ui: &mut Ui) -> Response {
-        ui.text_edit_singleline(&mut self.name);
-
         if let Some(sequencer) = self.sequencer.as_mut() {
             sequencer.show_arrangement(ui)
         } else {
@@ -1074,24 +1078,11 @@ impl Track {
     }
 
     fn show_send(&mut self, ui: &mut Ui) -> Response {
-        Frame::default()
-            .stroke(Stroke::new(
-                1.0,
-                if self.is_selected {
-                    Color32::LIGHT_GREEN
-                } else {
-                    Color32::GREEN
-                },
-            ))
-            .show(ui, |ui| {
-                ui.text_edit_singleline(&mut self.name);
-                let desired_size = Vec2::new(ui.available_width(), 64.0);
-                ui.allocate_ui(desired_size, |ui| {
-                    ui.centered_and_justified(|ui| ui.label("I'm a send track"))
-                })
-                .response
-            })
-            .inner
+        let desired_size = Vec2::new(ui.available_width(), 64.0);
+        ui.allocate_ui(desired_size, |ui| {
+            ui.centered_and_justified(|ui| ui.label("I'm a send track"))
+        })
+        .response
     }
 
     fn show_audio(&mut self, ui: &mut Ui) -> Response {
@@ -1368,12 +1359,42 @@ impl Track {
     }
 
     fn show(&mut self, ui: &mut Ui) -> Response {
-        ui.allocate_ui(vec2(ui.available_width(), 64.0), |ui| match self.ty {
-            TrackType::Midi => self.show_midi(ui),
-            TrackType::Audio => self.show_audio(ui),
-            TrackType::Send => self.show_send(ui),
+        ui.allocate_ui(vec2(ui.available_width(), 64.0), |ui| {
+            Frame::default()
+                .stroke(Stroke {
+                    width: if self.is_selected { 2.0 } else { 0.0 },
+                    color: Color32::YELLOW,
+                })
+                .show(ui, |ui| {
+                    let response = Frame::default()
+                        .fill(Color32::GRAY)
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.text_edit_singleline(&mut self.name);
+                                ui.allocate_response(
+                                    ui.available_size_before_wrap(),
+                                    Sense::click(),
+                                )
+                            })
+                            .inner
+                        })
+                        .inner;
+                    match self.ty {
+                        TrackType::Midi => {
+                            self.show_midi(ui);
+                        }
+                        TrackType::Audio => {
+                            self.show_audio(ui);
+                        }
+                        TrackType::Send => {
+                            self.show_send(ui);
+                        }
+                    }
+                    response
+                })
+                .inner
         })
-        .response
+        .inner
     }
 }
 impl Generates<StereoSample> for Track {
