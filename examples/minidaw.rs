@@ -513,7 +513,8 @@ enum MiniOrchestratorInput {
     ProjectStop,
     TrackDelete,
     TrackDuplicate,
-    TrackNew,
+    TrackNewMidi,
+    TrackNewAudio,
     TrackNewSend,
 
     /// Request that the orchestrator service quit.
@@ -627,9 +628,14 @@ impl OrchestratorPanel {
                         let _ = sender.send(MiniOrchestratorEvent::Quit);
                         break;
                     }
-                    MiniOrchestratorInput::TrackNew => {
+                    MiniOrchestratorInput::TrackNewMidi => {
                         if let Ok(mut o) = orchestrator.lock() {
-                            o.new_track();
+                            o.new_midi_track();
+                        }
+                    }
+                    MiniOrchestratorInput::TrackNewAudio => {
+                        if let Ok(mut o) = orchestrator.lock() {
+                            o.new_audio_track();
                         }
                     }
                     MiniOrchestratorInput::TrackDelete => {
@@ -778,12 +784,14 @@ enum TrackType {
 #[derive(Serialize, Deserialize, Debug)]
 struct TrackFactory {
     next_midi: usize,
+    next_audio: usize,
     next_send: usize,
 }
 impl Default for TrackFactory {
     fn default() -> Self {
         Self {
             next_midi: 1,
+            next_audio: 1,
             next_send: 1,
         }
     }
@@ -799,6 +807,16 @@ impl TrackFactory {
                 &MiniSequencerParams::default(),
                 MidiChannel::new(0),
             )),
+            ..Default::default()
+        }
+    }
+
+    pub fn audio(&mut self) -> Track {
+        let name = format!("Audio {}", self.next_audio);
+        self.next_audio += 1;
+        Track {
+            name,
+            ty: TrackType::Audio,
             ..Default::default()
         }
     }
@@ -1732,8 +1750,12 @@ impl MiniOrchestrator {
         }
     }
 
-    fn new_track(&mut self) {
+    fn new_midi_track(&mut self) {
         self.tracks.push(self.track_factory.midi());
+    }
+
+    fn new_audio_track(&mut self) {
+        self.tracks.push(self.track_factory.audio());
     }
 
     fn new_send_track(&mut self) {
@@ -1941,7 +1963,8 @@ enum MenuBarAction {
     ProjectNew,
     ProjectOpen,
     ProjectSave,
-    TrackNew,
+    TrackNewMidi,
+    TrackNewAudio,
     TrackNewSend,
     TrackDuplicate,
     TrackDelete,
@@ -2018,7 +2041,8 @@ impl MenuBar {
                 MenuBarItem::node(
                     "Track",
                     vec![
-                        MenuBarItem::leaf("New", MenuBarAction::TrackNew, true),
+                        MenuBarItem::leaf("New MIDI", MenuBarAction::TrackNewMidi, true),
+                        MenuBarItem::leaf("New Audio", MenuBarAction::TrackNewAudio, true),
                         MenuBarItem::leaf("New Send", MenuBarAction::TrackNewSend, true),
                         MenuBarItem::leaf(
                             "Duplicate",
@@ -2533,7 +2557,8 @@ impl MiniDaw {
         let mut input = None;
         match action {
             MenuBarAction::Quit => self.exit_requested = true,
-            MenuBarAction::TrackNew => input = Some(MiniOrchestratorInput::TrackNew),
+            MenuBarAction::TrackNewMidi => input = Some(MiniOrchestratorInput::TrackNewMidi),
+            MenuBarAction::TrackNewAudio => input = Some(MiniOrchestratorInput::TrackNewAudio),
             MenuBarAction::TrackNewSend => input = Some(MiniOrchestratorInput::TrackNewSend),
             MenuBarAction::TrackDelete => input = Some(MiniOrchestratorInput::TrackDelete),
             MenuBarAction::TrackDuplicate => input = Some(MiniOrchestratorInput::TrackDuplicate),
