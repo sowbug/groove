@@ -272,7 +272,7 @@ impl MiniPattern {
         self.duration
     }
 
-    fn show_in_arrangement(&self, ui: &mut Ui) -> Response {
+    fn show_in_arrangement(&self, ui: &mut Ui, is_selected: bool) -> Response {
         let steps_horiz = 16.0;
 
         let desired_size = vec2((self.duration.total_beats() * 16) as f32, 64.0);
@@ -287,7 +287,7 @@ impl MiniPattern {
         painter.rect_stroke(
             response.rect,
             Rounding::none(),
-            Stroke::new(1.0, Color32::WHITE),
+            Stroke::new(if is_selected { 2.0 } else { 0.0 }, Color32::WHITE),
         );
         for i in 0..16 {
             let x = i as f32 / steps_horiz;
@@ -326,6 +326,7 @@ impl UidFactory {
 struct ArrangedPattern {
     pattern_uid: Uid,
     start: MusicalTime,
+    is_selected: bool,
 }
 impl Shows for ArrangedPattern {
     fn show(&mut self, ui: &mut eframe::egui::Ui) {
@@ -337,7 +338,14 @@ impl Shows for ArrangedPattern {
 impl ArrangedPattern {
     fn ui_content(&mut self, ui: &mut Ui) {
         Frame::default()
-            .stroke(Stroke::new(1.0, Color32::BLUE))
+            .stroke(Stroke::new(
+                1.0,
+                if self.is_selected {
+                    Color32::YELLOW
+                } else {
+                    Color32::BLUE
+                },
+            ))
             .show(ui, |ui| ui.label(format!("{}", self.pattern_uid)));
     }
 
@@ -346,7 +354,7 @@ impl ArrangedPattern {
         ui: &mut eframe::egui::Ui,
         pattern: &MiniPattern,
     ) -> Response {
-        pattern.show_in_arrangement(ui)
+        pattern.show_in_arrangement(ui, self.is_selected)
     }
 }
 
@@ -387,6 +395,7 @@ impl MiniSequencer {
         self.arranged_patterns.push(ArrangedPattern {
             pattern_uid: *uid,
             start: self.arrangement_cursor,
+            is_selected: false,
         });
         if let Some(pattern) = self.patterns.get(uid) {
             self.arrangement_cursor += pattern.duration();
@@ -438,13 +447,11 @@ impl MiniSequencer {
         ui.allocate_ui_at_rect(rect, |ui| {
             ui.style_mut().spacing.item_spacing = Vec2::ZERO;
             ui.horizontal_top(|ui| {
-                for (index, arranged_pattern) in self.arranged_patterns.iter_mut().enumerate() {
+                for arranged_pattern in self.arranged_patterns.iter_mut() {
                     if let Some(pattern) = self.patterns.get(&arranged_pattern.pattern_uid) {
                         if arranged_pattern.show_in_arrangement(ui, pattern).clicked() {
-                            eprintln!(
-                                "clicked {} at index {}",
-                                arranged_pattern.pattern_uid, index
-                            );
+                            // TODO: handle shift/control
+                            arranged_pattern.is_selected = !arranged_pattern.is_selected;
                         }
                     }
                 }
@@ -452,6 +459,10 @@ impl MiniSequencer {
             .response
         })
         .inner
+    }
+
+    fn remove_selected_patterns(&mut self) {
+        self.arranged_patterns.retain(|p| !p.is_selected);
     }
 }
 impl IsController for MiniSequencer {}
@@ -516,6 +527,7 @@ enum MiniOrchestratorInput {
     TrackNewMidi,
     TrackNewAudio,
     TrackNewSend,
+    TrackRemoveSelectedPatterns,
 
     /// Request that the orchestrator service quit.
     Quit,
@@ -649,6 +661,11 @@ impl OrchestratorPanel {
                     MiniOrchestratorInput::TrackNewSend => {
                         if let Ok(mut o) = orchestrator.lock() {
                             o.new_send_track();
+                        }
+                    }
+                    MiniOrchestratorInput::TrackRemoveSelectedPatterns => {
+                        if let Ok(mut o) = orchestrator.lock() {
+                            o.remove_selected_patterns();
                         }
                     }
                 },
@@ -1414,6 +1431,12 @@ impl Track {
         })
         .inner
     }
+
+    fn remove_selected_patterns(&mut self) {
+        if let Some(sequencer) = self.sequencer.as_mut() {
+            sequencer.remove_selected_patterns();
+        }
+    }
 }
 impl Generates<StereoSample> for Track {
     fn value(&self) -> StereoSample {
@@ -1771,6 +1794,14 @@ impl MiniOrchestrator {
         self.tracks.retain(|t| !t.is_selected);
     }
 
+    fn remove_selected_patterns(&mut self) {
+        self.tracks.iter_mut().for_each(|t| {
+            if t.is_selected {
+                t.remove_selected_patterns();
+            }
+        });
+    }
+
     fn title(&self) -> Option<&String> {
         self.title.as_ref()
     }
@@ -1968,6 +1999,7 @@ enum MenuBarAction {
     TrackNewSend,
     TrackDuplicate,
     TrackDelete,
+    TrackRemoveSelectedPatterns,
     ComingSoon,
 }
 
@@ -2050,6 +2082,11 @@ impl MenuBar {
                             is_track_selected,
                         ),
                         MenuBarItem::leaf("Delete", MenuBarAction::TrackDelete, is_track_selected),
+                        MenuBarItem::leaf(
+                            "Remove Selected Patterns",
+                            MenuBarAction::TrackRemoveSelectedPatterns,
+                            true,
+                        ), // TODO: enable only if some patterns selected
                     ],
                 ),
                 MenuBarItem::node(
@@ -2562,6 +2599,9 @@ impl MiniDaw {
             MenuBarAction::TrackNewSend => input = Some(MiniOrchestratorInput::TrackNewSend),
             MenuBarAction::TrackDelete => input = Some(MiniOrchestratorInput::TrackDelete),
             MenuBarAction::TrackDuplicate => input = Some(MiniOrchestratorInput::TrackDuplicate),
+            MenuBarAction::TrackRemoveSelectedPatterns => {
+                input = Some(MiniOrchestratorInput::TrackRemoveSelectedPatterns)
+            }
             MenuBarAction::ComingSoon => {
                 self.toasts.add(Toast {
                     kind: egui_toast::ToastKind::Info,
