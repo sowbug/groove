@@ -52,7 +52,7 @@ use std::{
     hash::Hash,
     ops::Range,
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard},
 };
 use strum_macros::EnumIter;
 
@@ -603,7 +603,7 @@ impl OrchestratorPanel {
                 match recv {
                     Ok(input) => match input {
                         MiniOrchestratorInput::Midi(channel, message) => {
-                            Self::handle_input_midi(&orchestrator, channel, message);
+                            Self::handle_input_midi(&mut o, channel, message);
                         }
                         MiniOrchestratorInput::ProjectPlay => eprintln!("Play"),
                         MiniOrchestratorInput::ProjectStop => eprintln!("Stop"),
@@ -631,7 +631,7 @@ impl OrchestratorPanel {
                             {}
                         }
                         MiniOrchestratorInput::ProjectSave(path) => {
-                            match Self::handle_input_save(&orchestrator, &path) {
+                            match Self::handle_input_save(&o, &path) {
                                 Ok(_) => {
                                     let _ = sender.send(MiniOrchestratorEvent::Saved(path));
                                 }
@@ -708,13 +708,11 @@ impl OrchestratorPanel {
     }
 
     fn handle_input_midi(
-        orchestrator: &Arc<Mutex<MiniOrchestrator>>,
+        o: &mut MutexGuard<MiniOrchestrator>,
         channel: MidiChannel,
         message: MidiMessage,
     ) {
-        if let Ok(mut o) = orchestrator.lock() {
-            o.handle_midi(channel, message);
-        }
+        o.handle_midi(channel, message);
     }
 
     fn handle_input_load(path: &PathBuf) -> Result<MiniOrchestrator> {
@@ -733,23 +731,16 @@ impl OrchestratorPanel {
         }
     }
 
-    fn handle_input_save(
-        orchestrator: &Arc<Mutex<MiniOrchestrator>>,
-        path: &PathBuf,
-    ) -> Result<()> {
-        if let Ok(o) = orchestrator.lock() {
-            let o: &MiniOrchestrator = &o;
-            match serde_json::to_string_pretty(o)
-                .map_err(|_| anyhow::format_err!("Unable to serialize prefs JSON"))
-            {
-                Ok(json) => match std::fs::write(path, json) {
-                    Ok(_) => Ok(()),
-                    Err(err) => Err(anyhow!("While writing project: {}", err)),
-                },
-                Err(err) => Err(anyhow!("While serializing project: {}", err)),
-            }
-        } else {
-            Err(anyhow!("Couldn't get lock"))
+    fn handle_input_save(o: &MutexGuard<MiniOrchestrator>, path: &PathBuf) -> Result<()> {
+        let o: &MiniOrchestrator = &o;
+        match serde_json::to_string_pretty(o)
+            .map_err(|_| anyhow::format_err!("Unable to serialize prefs JSON"))
+        {
+            Ok(json) => match std::fs::write(path, json) {
+                Ok(_) => Ok(()),
+                Err(err) => Err(anyhow!("While writing project: {}", err)),
+            },
+            Err(err) => Err(anyhow!("While serializing project: {}", err)),
         }
     }
 
