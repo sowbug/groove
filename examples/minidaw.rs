@@ -522,14 +522,19 @@ enum MiniOrchestratorInput {
     ProjectPlay,
     ProjectSave(PathBuf),
     ProjectStop,
-    TrackDelete,
-    TrackDuplicate,
-    TrackNewMidi,
+    TrackDeleteSelected,
+    TrackDuplicateSelected,
     TrackNewAudio,
+    TrackNewMidi,
     TrackNewSend,
-    TrackRemoveSelectedPatterns,
+    TrackPatternRemoveSelected,
 
-    /// Request that the orchestrator service quit.
+    // TODO: these are waiting for the big refactor (which might never happen)
+    #[allow(dead_code)]
+    TrackSelect(usize, bool), // (index, add to selection set)
+    #[allow(dead_code)]
+    TrackSelectReset,
+
     Quit,
 }
 
@@ -593,25 +598,24 @@ impl OrchestratorPanel {
         self.introduce();
         let orchestrator = Arc::clone(&self.orchestrator);
         std::thread::spawn(move || loop {
-            match receiver.recv() {
-                Ok(input) => match input {
-                    MiniOrchestratorInput::Midi(channel, message) => {
-                        Self::handle_input_midi(&orchestrator, channel, message);
-                    }
-                    MiniOrchestratorInput::ProjectPlay => eprintln!("Play"),
-                    MiniOrchestratorInput::ProjectStop => eprintln!("Stop"),
-                    MiniOrchestratorInput::ProjectNew => {
-                        let mut mo = MiniOrchestrator::default();
-                        if let Ok(mut o) = orchestrator.lock() {
+            let recv = receiver.recv();
+            if let Ok(mut o) = orchestrator.lock() {
+                match recv {
+                    Ok(input) => match input {
+                        MiniOrchestratorInput::Midi(channel, message) => {
+                            Self::handle_input_midi(&orchestrator, channel, message);
+                        }
+                        MiniOrchestratorInput::ProjectPlay => eprintln!("Play"),
+                        MiniOrchestratorInput::ProjectStop => eprintln!("Stop"),
+                        MiniOrchestratorInput::ProjectNew => {
+                            let mut mo = MiniOrchestrator::default();
                             o.prepare_successor(&mut mo);
                             *o = mo;
                             let _ = sender.send(MiniOrchestratorEvent::New);
                         }
-                    }
-                    MiniOrchestratorInput::ProjectOpen(path) => {
-                        match Self::handle_input_load(&path) {
-                            Ok(mut mo) => {
-                                if let Ok(mut o) = orchestrator.lock() {
+                        MiniOrchestratorInput::ProjectOpen(path) => {
+                            match Self::handle_input_load(&path) {
+                                Ok(mut mo) => {
                                     o.prepare_successor(&mut mo);
                                     *o = mo;
                                     let _ = sender.send(MiniOrchestratorEvent::Loaded(
@@ -619,62 +623,58 @@ impl OrchestratorPanel {
                                         o.title().cloned(),
                                     ));
                                 }
+                                Err(err) => {
+                                    let _ =
+                                        sender.send(MiniOrchestratorEvent::LoadError(path, err));
+                                }
                             }
-                            Err(err) => {
-                                let _ = sender.send(MiniOrchestratorEvent::LoadError(path, err));
+                            {}
+                        }
+                        MiniOrchestratorInput::ProjectSave(path) => {
+                            match Self::handle_input_save(&orchestrator, &path) {
+                                Ok(_) => {
+                                    let _ = sender.send(MiniOrchestratorEvent::Saved(path));
+                                }
+                                Err(err) => {
+                                    let _ =
+                                        sender.send(MiniOrchestratorEvent::SaveError(path, err));
+                                }
                             }
                         }
-                        {}
-                    }
-                    MiniOrchestratorInput::ProjectSave(path) => {
-                        match Self::handle_input_save(&orchestrator, &path) {
-                            Ok(_) => {
-                                let _ = sender.send(MiniOrchestratorEvent::Saved(path));
-                            }
-                            Err(err) => {
-                                let _ = sender.send(MiniOrchestratorEvent::SaveError(path, err));
-                            }
+                        MiniOrchestratorInput::Quit => {
+                            let _ = sender.send(MiniOrchestratorEvent::Quit);
+                            break;
                         }
-                    }
-                    MiniOrchestratorInput::Quit => {
-                        let _ = sender.send(MiniOrchestratorEvent::Quit);
-                        break;
-                    }
-                    MiniOrchestratorInput::TrackNewMidi => {
-                        if let Ok(mut o) = orchestrator.lock() {
+                        MiniOrchestratorInput::TrackNewMidi => {
                             o.new_midi_track();
                         }
-                    }
-                    MiniOrchestratorInput::TrackNewAudio => {
-                        if let Ok(mut o) = orchestrator.lock() {
+                        MiniOrchestratorInput::TrackNewAudio => {
                             o.new_audio_track();
                         }
-                    }
-                    MiniOrchestratorInput::TrackDelete => {
-                        if let Ok(mut o) = orchestrator.lock() {
+                        MiniOrchestratorInput::TrackDeleteSelected => {
                             o.delete_selected_tracks();
                         }
-                    }
-                    MiniOrchestratorInput::TrackDuplicate => {
-                        todo!("duplicate selected tracks");
-                    }
-                    MiniOrchestratorInput::TrackNewSend => {
-                        if let Ok(mut o) = orchestrator.lock() {
+                        MiniOrchestratorInput::TrackDuplicateSelected => {
+                            todo!("duplicate selected tracks");
+                        }
+                        MiniOrchestratorInput::TrackNewSend => {
                             o.new_send_track();
                         }
-                    }
-                    MiniOrchestratorInput::TrackRemoveSelectedPatterns => {
-                        if let Ok(mut o) = orchestrator.lock() {
+                        MiniOrchestratorInput::TrackPatternRemoveSelected => {
                             o.remove_selected_patterns();
                         }
+                        MiniOrchestratorInput::TrackSelect(index, add_to_selection_set) => {
+                            o.select_track(index, add_to_selection_set);
+                        }
+                        MiniOrchestratorInput::TrackSelectReset => todo!(),
+                    },
+                    Err(err) => {
+                        eprintln!(
+                            "unexpected failure of MiniOrchestratorInput channel: {:?}",
+                            err
+                        );
+                        break;
                     }
-                },
-                Err(err) => {
-                    eprintln!(
-                        "unexpected failure of MiniOrchestratorInput channel: {:?}",
-                        err
-                    );
-                    break;
                 }
             }
         });
@@ -861,8 +861,6 @@ struct Track {
 
     // Whether the track is selected in the UI.
     is_selected: bool,
-    // Thank you borrow checker: selection changes are two-pass.
-    will_be_selected: bool,
 
     #[serde(skip, default = "Track::init_buffer")]
     buffer: [StereoSample; 64],
@@ -877,7 +875,6 @@ impl Default for Track {
             instruments: Default::default(),
             effects: Default::default(),
             is_selected: Default::default(),
-            will_be_selected: Default::default(),
             buffer: [StereoSample::default(); 64],
         }
     }
@@ -1372,19 +1369,6 @@ impl Track {
         action
     }
 
-    fn toggle_selection(&mut self) {
-        self.is_selected = !self.is_selected;
-    }
-
-    #[allow(dead_code)]
-    fn set_selected(&mut self, is_selected: bool) {
-        self.is_selected = is_selected;
-    }
-
-    fn set_will_be_selected(&mut self) {
-        self.will_be_selected = true;
-    }
-
     fn batch_it_up(&mut self, len: usize) {
         debug_assert_eq!(len, self.buffer.len());
 
@@ -1687,49 +1671,24 @@ impl MiniOrchestrator {
         _factory: &EntityFactory,
         is_control_only_down: bool,
     ) -> Option<TrackAction> {
-        let action = None;
-        let mut update = false;
-        let mut single_selection = false;
+        let mut action = None;
 
         // Non-send tracks are first
-        for track in self
-            .tracks
-            .iter_mut()
-            .filter(|t| !matches!(t.ty, TrackType::Send))
-        {
-            if track.show(ui).clicked() {
-                if is_control_only_down {
-                    track.toggle_selection();
-                } else {
-                    single_selection = true;
-                    track.set_will_be_selected();
+        for (index, track) in self.tracks.iter_mut().enumerate() {
+            if !matches!(track.ty, TrackType::Send) {
+                if track.show(ui).clicked() {
+                    action = Some(TrackAction::Select(index, is_control_only_down));
                 }
-                update = true;
             }
         }
 
         // Send tracks are last
-        for track in self
-            .tracks
-            .iter_mut()
-            .filter(|t| matches!(t.ty, TrackType::Send))
-        {
-            if track.show(ui).clicked() {
-                if is_control_only_down {
-                    track.toggle_selection();
-                } else {
-                    single_selection = true;
-                    track.set_will_be_selected();
+        for (index, track) in self.tracks.iter_mut().enumerate() {
+            if matches!(track.ty, TrackType::Send) {
+                if track.show(ui).clicked() {
+                    action = Some(TrackAction::Select(index, is_control_only_down));
                 }
-                update = true;
             }
-        }
-        if single_selection {
-            self.clear_track_selections();
-            self.promote_and_clear_will_selections();
-        }
-        if update {
-            self.update_selection_tracking();
         }
         action
     }
@@ -1770,6 +1729,12 @@ impl MiniOrchestrator {
                     self.tracks[track].append_instrument(e);
                 }
             }
+            TrackAction::Select(index, add_to_selections) => {
+                self.select_track(index, add_to_selections);
+            }
+            TrackAction::SelectClear => {
+                self.clear_track_selections();
+            }
         }
     }
 
@@ -1794,6 +1759,14 @@ impl MiniOrchestrator {
         self.tracks.retain(|t| !t.is_selected);
     }
 
+    fn select_track(&mut self, index: usize, add_to_selections: bool) {
+        let existing = self.tracks[index].is_selected;
+        if !add_to_selections {
+            self.clear_track_selections();
+        }
+        self.tracks[index].is_selected = !existing;
+    }
+
     fn remove_selected_patterns(&mut self) {
         self.tracks.iter_mut().for_each(|t| {
             if t.is_selected {
@@ -1811,8 +1784,14 @@ impl MiniOrchestrator {
         self.title = title;
     }
 
-    // It's important for this to run at either the start or the end of the update
-    // block. It tells the UI whether exactly one track is selected.
+    // It's important for this to run at either the start or the end of the
+    // update block. It tells the UI whether exactly one track is selected.
+    //
+    // TODO: this should actually be tied to selection changes. I originally
+    // tied it to GUI updates when I was trying to figure out the design. I
+    // think I was concerned about calculating it too often. But that was never
+    // going to be an issue if it were driven by the GUI, because there are no
+    // batch changes there.
     fn update_selection_tracking(&mut self) {
         let count = self.tracks.iter().filter(|t| t.is_selected).count();
         self.single_track_selection_position = if count == 1 {
@@ -1825,20 +1804,6 @@ impl MiniOrchestrator {
     fn clear_track_selections(&mut self) {
         self.tracks.iter_mut().for_each(|t| {
             t.is_selected = false;
-        });
-    }
-
-    // Because of the borrow checker, we can't clear all track selections in the
-    // middle of another mut tracks loop. So we need to mark which one(s) we
-    // want selected, and then at the end of the loop, clear everyone, and set
-    // the ones that will be selected. Then we have to clean up the will-select
-    // flags.
-    fn promote_and_clear_will_selections(&mut self) {
-        self.tracks.iter_mut().for_each(|t| {
-            if t.will_be_selected {
-                t.will_be_selected = false;
-                t.is_selected = true;
-            }
         });
     }
 }
@@ -1986,6 +1951,8 @@ enum TrackAction {
     NewController(usize, Key),
     NewEffect(usize, Key),
     NewInstrument(usize, Key),
+    Select(usize, bool),
+    SelectClear,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -2597,10 +2564,12 @@ impl MiniDaw {
             MenuBarAction::TrackNewMidi => input = Some(MiniOrchestratorInput::TrackNewMidi),
             MenuBarAction::TrackNewAudio => input = Some(MiniOrchestratorInput::TrackNewAudio),
             MenuBarAction::TrackNewSend => input = Some(MiniOrchestratorInput::TrackNewSend),
-            MenuBarAction::TrackDelete => input = Some(MiniOrchestratorInput::TrackDelete),
-            MenuBarAction::TrackDuplicate => input = Some(MiniOrchestratorInput::TrackDuplicate),
+            MenuBarAction::TrackDelete => input = Some(MiniOrchestratorInput::TrackDeleteSelected),
+            MenuBarAction::TrackDuplicate => {
+                input = Some(MiniOrchestratorInput::TrackDuplicateSelected)
+            }
             MenuBarAction::TrackRemoveSelectedPatterns => {
-                input = Some(MiniOrchestratorInput::TrackRemoveSelectedPatterns)
+                input = Some(MiniOrchestratorInput::TrackPatternRemoveSelected)
             }
             MenuBarAction::ComingSoon => {
                 self.toasts.add(Toast {
