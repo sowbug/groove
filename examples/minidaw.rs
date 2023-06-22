@@ -1100,14 +1100,6 @@ impl Track {
         }
     }
 
-    fn show_send(&mut self, ui: &mut Ui) -> Response {
-        let desired_size = Vec2::new(ui.available_width(), 64.0);
-        ui.allocate_ui(desired_size, |ui| {
-            ui.centered_and_justified(|ui| ui.label("I'm a send track"))
-        })
-        .response
-    }
-
     fn show_audio(&mut self, ui: &mut Ui) -> Response {
         self.draw_temp_squiggles(ui)
     }
@@ -1397,7 +1389,7 @@ impl Track {
                             self.show_audio(ui);
                         }
                         TrackType::Send => {
-                            self.show_send(ui);
+                            // For now, the title bar is enough for a send track, which holds only effects.
                         }
                     }
                     response
