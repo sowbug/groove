@@ -13,9 +13,9 @@ use egui_toast::{Toast, ToastOptions, Toasts};
 use groove::{
     app_version,
     egui_widgets::{
-        AudioPanel2, AudioPanelEvent, ControlPanel, ControlPanelAction, MidiPanel, MidiPanelEvent,
-        MiniOrchestratorEvent, MiniOrchestratorInput, NeedsAudioFn, OrchestratorPanel,
-        PaletteAction, PalettePanel,
+        AudioPanelEvent, ControlPanel, ControlPanelAction, MidiPanel, MidiPanelEvent,
+        MiniAudioPanel, MiniOrchestratorEvent, MiniOrchestratorInput, NeedsAudioFn,
+        OrchestratorPanel, PaletteAction, PalettePanel,
     },
     mini::{register_mini_factory_entities, DragDropManager, EntityFactory, MiniOrchestrator},
 };
@@ -177,7 +177,7 @@ struct MiniDaw {
     menu_bar: MenuBar,
     control_panel: ControlPanel,
     orchestrator_panel: OrchestratorPanel,
-    audio_panel: AudioPanel2,
+    audio_panel: MiniAudioPanel,
     midi_panel: MidiPanel,
     palette_panel: PalettePanel,
 
@@ -206,9 +206,9 @@ impl MiniDaw {
         Self::initialize_fonts(cc);
         Self::initialize_style(&cc.egui_ctx);
 
-        let mut factory = EntityFactory::default();
-        register_mini_factory_entities(&mut factory);
-        let factory = Arc::new(factory);
+        let mut entity_factory = EntityFactory::default();
+        register_mini_factory_entities(&mut entity_factory);
+        let factory = Arc::new(entity_factory);
 
         let drag_drop_manager = Arc::new(Mutex::new(DragDropManager::default()));
         let orchestrator_panel =
@@ -227,7 +227,7 @@ impl MiniDaw {
             menu_bar: Default::default(),
             control_panel: Default::default(),
             orchestrator_panel,
-            audio_panel: AudioPanel2::new_with(Box::new(needs_audio)),
+            audio_panel: MiniAudioPanel::new_with(Box::new(needs_audio)),
             midi_panel: Default::default(),
             palette_panel: PalettePanel::new_with(factory, Arc::clone(&drag_drop_manager)),
 
@@ -511,28 +511,25 @@ impl MiniDaw {
         }
     }
 
-    fn handle_palette_action(&mut self, _action: PaletteAction) {
-        if let Ok(_o) = self.mini_orchestrator.lock() {
-            // match action {
-            //     PaletteAction::NewController(key) => {
-            //         if let Some(controller) = self.factory.new_controller(&key) {
-            //             let id = o.add_controller(controller);
-            //             o.push_to_last_track(id);
-            //         }
-            //     }
-            //     PaletteAction::NewEffect(key) => {
-            //         if let Some(effect) = self.factory.new_effect(&key) {
-            //             let id = o.add_effect(effect);
-            //             o.push_to_last_track(id);
-            //         }
-            //     }
-            //     PaletteAction::NewInstrument(key) => {
-            //         if let Some(instrument) = self.factory.new_instrument(&key) {
-            //             let id = o.add_instrument(instrument);
-            //             o.push_to_last_track(id);
-            //         }
-            //     }
-            // }
+    fn handle_palette_action(&mut self, action: PaletteAction) {
+        if let Ok(mut o) = self.mini_orchestrator.lock() {
+            match action {
+                PaletteAction::NewController(key) => {
+                    if let Some(track) = o.single_track_selection() {
+                        let _ = o.add_controller_by_key(&key, track);
+                    }
+                }
+                PaletteAction::NewEffect(key) => {
+                    if let Some(track) = o.single_track_selection() {
+                        let _ = o.add_effect_by_key(&key, track);
+                    }
+                }
+                PaletteAction::NewInstrument(key) => {
+                    if let Some(track) = o.single_track_selection() {
+                        let _ = o.add_instrument_by_key(&key, track);
+                    }
+                }
+            }
         }
     }
 

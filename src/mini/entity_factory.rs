@@ -40,6 +40,11 @@ type EffectEntityFactoryFn = fn() -> Box<dyn NewIsEffect>;
 
 /// [EntityFactory] creates instruments, controllers, and effects when given a
 /// [Key]. It makes sure every entity has a proper [Uid].
+//
+// TODO: I'm not sure how Serde will handle EntityFactory's Uids. When it
+// deserializes a saved thing, EntityFactory won't know about it, so it seems
+// that the next time it creates an entity, the Uid will overwrite it. Do we
+// need a special step to refresh the unique Uid trackers?
 #[derive(Debug, Default)]
 pub struct EntityFactory {
     next_id: RelaxedCounter,

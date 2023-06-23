@@ -1,8 +1,10 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::{
+    entities::{NewIsController, NewIsEffect, NewIsInstrument},
     entity_factory::EntityFactory,
-    track::{Track, TrackAction, TrackFactory},
+    track::{Track, TrackAction, TrackFactory, TrackIndex},
+    Key,
 };
 use anyhow::{anyhow, Result};
 use eframe::egui::{self, Ui};
@@ -11,10 +13,11 @@ use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
     traits::{gui::Shows, Configurable, Generates, HandlesMidi, Ticks},
-    StereoSample,
+    StereoSample, Uid,
 };
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 /// Owns all entities (instruments, controllers, and effects), and manages the
 /// relationships among them to create an audio performance.
@@ -28,7 +31,7 @@ pub struct MiniOrchestrator {
     track_factory: TrackFactory,
 
     // If one track is selected, then this is set.
-    single_track_selection_position: Option<usize>,
+    single_track_selection: Option<TrackIndex>,
 
     //////////////////////////////////////////////////////
     // Nothing below this comment should be serialized. //
@@ -44,6 +47,9 @@ pub struct MiniOrchestrator {
     #[serde(skip)]
     #[allow(dead_code)]
     musical_time: MusicalTime,
+
+    #[serde(skip)]
+    entity_factory: Option<Arc<EntityFactory>>,
 }
 impl Default for MiniOrchestrator {
     fn default() -> Self {
@@ -59,15 +65,25 @@ impl Default for MiniOrchestrator {
                 track_factory.send(),
             ],
             track_factory,
-            single_track_selection_position: None,
+            single_track_selection: None,
 
             sample_rate: Default::default(),
             frames: Default::default(),
             musical_time: Default::default(),
+            entity_factory: None,
         }
     }
 }
 impl MiniOrchestrator {
+    /// Creates a new [MiniOrchestrator] with a (hopefully) initialized
+    /// [EntityFactory].
+    pub fn new_with(entity_factory: Arc<EntityFactory>) -> Self {
+        Self {
+            entity_factory: Some(entity_factory),
+            ..Default::default()
+        }
+    }
+
     #[allow(dead_code)]
     fn sample_rate(&self) -> SampleRate {
         self.sample_rate
@@ -130,6 +146,9 @@ impl MiniOrchestrator {
     /// ephemeral state from this one to the next one.
     pub fn prepare_successor(&self, new: &mut MiniOrchestrator) {
         new.set_sample_rate(self.sample_rate());
+
+        // TODO: refresh EntityFactory's relaxed counter(s) to account for
+        // existing items
     }
 
     #[allow(dead_code)]
@@ -177,19 +196,14 @@ impl MiniOrchestrator {
         }
     }
 
-    fn show_tracks(
-        &mut self,
-        ui: &mut Ui,
-        _factory: &EntityFactory,
-        is_control_only_down: bool,
-    ) -> Option<TrackAction> {
+    fn show_tracks(&mut self, ui: &mut Ui, is_control_only_down: bool) -> Option<TrackAction> {
         let mut action = None;
 
         // Non-send tracks are first
         for (index, track) in self.tracks.iter_mut().enumerate() {
             if !track.is_send() {
                 if track.show(ui).clicked() {
-                    action = Some(TrackAction::Select(index, is_control_only_down));
+                    action = Some(TrackAction::Select(TrackIndex(index), is_control_only_down));
                 }
             }
         }
@@ -198,7 +212,7 @@ impl MiniOrchestrator {
         for (index, track) in self.tracks.iter_mut().enumerate() {
             if track.is_send() {
                 if track.show(ui).clicked() {
-                    action = Some(TrackAction::Select(index, is_control_only_down));
+                    action = Some(TrackAction::Select(TrackIndex(index), is_control_only_down));
                 }
             }
         }
@@ -206,41 +220,32 @@ impl MiniOrchestrator {
     }
 
     /// Renders the project's GUI.
-    pub fn show_with(
-        &mut self,
-        ui: &mut egui::Ui,
-        factory: &EntityFactory,
-        is_control_only_down: bool,
-    ) {
-        if let Some(action) = self.show_tracks(ui, factory, is_control_only_down) {
-            self.handle_track_action(factory, action);
+    pub fn show_with(&mut self, ui: &mut egui::Ui, is_control_only_down: bool) {
+        if let Some(action) = self.show_tracks(ui, is_control_only_down) {
+            self.handle_track_action(action);
         }
-        if let Some(selected) = self.single_track_selection_position {
+        if let Some(selected) = self.single_track_selection {
             let bottom = egui::TopBottomPanel::bottom("orchestrator-bottom-panel").resizable(true);
             bottom.show_inside(ui, |ui| {
-                self.tracks[selected].show_detail(ui, factory, selected);
+                if let Some(action) =
+                    self.tracks[selected.0].show_detail(ui, self.entity_factory.clone(), selected)
+                {
+                    self.handle_track_action(action);
+                }
             });
         }
     }
 
-    fn handle_track_action(&mut self, factory: &EntityFactory, action: TrackAction) {
+    fn handle_track_action(&mut self, action: TrackAction) {
         match action {
             TrackAction::NewController(track, key) => {
-                // TODO: will instruments ever exist outside of tracks? If not,
-                // then why go through the new/add/push sequence?
-                if let Some(e) = factory.new_controller(&key) {
-                    self.tracks[track].append_controller(e);
-                }
+                let _ = self.add_controller_by_key(&key, track);
             }
             TrackAction::NewEffect(track, key) => {
-                if let Some(e) = factory.new_effect(&key) {
-                    self.tracks[track].append_effect(e);
-                }
+                let _ = self.add_effect_by_key(&key, track);
             }
             TrackAction::NewInstrument(track, key) => {
-                if let Some(e) = factory.new_instrument(&key) {
-                    self.tracks[track].append_instrument(e);
-                }
+                let _ = self.add_instrument_by_key(&key, track);
             }
             TrackAction::Select(index, add_to_selections) => {
                 self.select_track(index, add_to_selections);
@@ -284,12 +289,12 @@ impl MiniOrchestrator {
 
     /// Adds the given track to the selection set, or else replaces the set with
     /// this single item.
-    pub fn select_track(&mut self, index: usize, add_to_selections: bool) {
-        let existing = self.tracks[index].selected();
+    pub fn select_track(&mut self, track: TrackIndex, add_to_selections: bool) {
+        let existing = self.tracks[track.0].selected();
         if !add_to_selections {
             self.clear_track_selections();
         }
-        self.tracks[index].set_selected(!existing);
+        self.tracks[track.0].set_selected(!existing);
     }
 
     #[allow(missing_docs)]
@@ -324,11 +329,18 @@ impl MiniOrchestrator {
     // batch changes there.
     pub fn update_track_selection_tracking(&mut self) {
         let count = self.tracks.iter().filter(|t| t.selected()).count();
-        self.single_track_selection_position = if count == 1 {
-            self.tracks.iter().position(|t| t.selected())
+        self.single_track_selection = if count == 1 {
+            Some(TrackIndex(
+                self.tracks.iter().position(|t| t.selected()).unwrap(),
+            ))
         } else {
             None
         };
+    }
+
+    /// If a single track is selected, returns its [TrackIndex]. Otherwise returns `None`.
+    pub fn single_track_selection(&self) -> Option<TrackIndex> {
+        self.single_track_selection
     }
 
     fn clear_track_selections(&mut self) {
@@ -340,6 +352,74 @@ impl MiniOrchestrator {
     #[allow(missing_docs)]
     pub fn is_any_track_selected(&self) -> bool {
         self.tracks.iter().any(|t| t.selected())
+    }
+
+    /// Adds a new controller with the specified [Key] to the track with the specified [TrackIndex].
+    pub fn add_controller_by_key(&mut self, key: &Key, track: TrackIndex) -> Result<Uid> {
+        if let Some(factory) = &self.entity_factory {
+            if let Some(e) = factory.new_controller(key) {
+                self.add_controller(e, track)
+            } else {
+                Err(anyhow!("controller key {key} not found"))
+            }
+        } else {
+            Err(anyhow!("there is no entity factory"))
+        }
+    }
+
+    fn add_controller(
+        &mut self,
+        mut e: Box<dyn NewIsController>,
+        track: TrackIndex,
+    ) -> Result<Uid> {
+        e.update_sample_rate(self.sample_rate);
+        let uid = e.uid();
+        self.tracks[track.0].append_controller(e);
+        Ok(uid)
+    }
+
+    /// Adds a new effect with the specified [Key] to the track with the specified [TrackIndex].
+    pub fn add_effect_by_key(&mut self, key: &Key, track: TrackIndex) -> Result<Uid> {
+        if let Some(factory) = &self.entity_factory {
+            if let Some(e) = factory.new_effect(key) {
+                self.add_effect(e, track)
+            } else {
+                Err(anyhow!("effect key {key} not found"))
+            }
+        } else {
+            Err(anyhow!("there is no entity factory"))
+        }
+    }
+
+    fn add_effect(&mut self, mut e: Box<dyn NewIsEffect>, track: TrackIndex) -> Result<Uid> {
+        e.update_sample_rate(self.sample_rate);
+        let uid = e.uid();
+        self.tracks[track.0].append_effect(e);
+        Ok(uid)
+    }
+
+    /// Adds a new instrument with the specified [Key] to the track with the specified [TrackIndex].
+    pub fn add_instrument_by_key(&mut self, key: &Key, track: TrackIndex) -> Result<Uid> {
+        if let Some(factory) = &self.entity_factory {
+            if let Some(e) = factory.new_instrument(key) {
+                self.add_instrument(e, track)
+            } else {
+                Err(anyhow!("instrument key {key} not found"))
+            }
+        } else {
+            Err(anyhow!("there is no entity factory"))
+        }
+    }
+
+    fn add_instrument(
+        &mut self,
+        mut e: Box<dyn NewIsInstrument>,
+        track: TrackIndex,
+    ) -> Result<Uid> {
+        e.update_sample_rate(self.sample_rate);
+        let uid = e.uid();
+        self.tracks[track.0].append_instrument(e);
+        Ok(uid)
     }
 }
 impl Generates<StereoSample> for MiniOrchestrator {
@@ -373,43 +453,8 @@ impl Shows for MiniOrchestrator {
 
 #[cfg(test)]
 mod tests {
-    use crate::mini::{
-        entities::{NewIsController, NewIsEffect, NewIsInstrument},
-        orchestrator::MiniOrchestrator,
-    };
-    use anyhow::Result;
-    use groove_core::Uid;
+    use crate::mini::{orchestrator::MiniOrchestrator, TrackIndex};
     use groove_toys::{ToyInstrument, ToyInstrumentParams};
-
-    // TODO: it's fine to move these into the main module, but for now we don't need them outside of test.
-    impl MiniOrchestrator {
-        #[allow(dead_code)]
-        fn add_controller(&mut self, track_index: usize, mut e: Box<dyn NewIsController>) -> Uid {
-            e.update_sample_rate(self.sample_rate);
-            let uid = e.uid();
-            self.tracks[track_index].append_controller(e);
-            uid
-        }
-
-        #[allow(dead_code)]
-        fn add_effect(&mut self, track_index: usize, mut e: Box<dyn NewIsEffect>) -> Uid {
-            e.update_sample_rate(self.sample_rate);
-            let uid = e.uid();
-            self.tracks[track_index].append_effect(e);
-            uid
-        }
-
-        fn add_instrument(
-            &mut self,
-            track_index: usize,
-            mut e: Box<dyn NewIsInstrument>,
-        ) -> Result<Uid> {
-            e.update_sample_rate(self.sample_rate);
-            let uid = e.uid();
-            self.tracks[track_index].append_instrument(e);
-            Ok(uid)
-        }
-    }
 
     #[test]
     fn mini_orchestrator_basic_operations() {
@@ -420,14 +465,14 @@ mod tests {
 
         let id1 = o
             .add_instrument(
-                0,
                 Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default())),
+                TrackIndex(0),
             )
             .unwrap();
         let id2 = o
             .add_instrument(
-                0,
                 Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default())),
+                TrackIndex(0),
             )
             .unwrap();
         assert_eq!(o.tracks()[0].instruments()[0].uid(), id1);
@@ -436,8 +481,8 @@ mod tests {
         assert!(o.tracks.len() > 1);
         let id3 = o
             .add_instrument(
-                1,
                 Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default())),
+                TrackIndex(1),
             )
             .unwrap();
 

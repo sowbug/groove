@@ -7,6 +7,7 @@ pub use entities::register_test_factory_entities;
 pub use entity_factory::{EntityFactory, Key};
 pub use orchestrator::MiniOrchestrator;
 pub use sequencer::{MiniSequencer, MiniSequencerParams};
+pub use track::TrackIndex; // TODO: this is weird to have to export without Track
 
 use crossbeam_channel::{Receiver, Sender};
 use groove_core::Uid;

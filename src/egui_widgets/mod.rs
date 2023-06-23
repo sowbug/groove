@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-pub use audio_panel::{AudioPanel, AudioPanel2, AudioPanelEvent, NeedsAudioFn};
+pub use audio_panel::{AudioPanel, AudioPanelEvent, MiniAudioPanel, NeedsAudioFn};
 pub use control_panel::{ControlBar, ControlPanel, ControlPanelAction};
 pub use midi_panel::{MidiPanel, MidiPanelEvent};
 pub use orchestrator_panel::{MiniOrchestratorEvent, MiniOrchestratorInput, OrchestratorPanel};

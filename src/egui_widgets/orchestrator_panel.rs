@@ -1,4 +1,4 @@
-use crate::mini::{ChannelPair, DragDropManager, EntityFactory, MiniOrchestrator};
+use crate::mini::{ChannelPair, DragDropManager, EntityFactory, MiniOrchestrator, TrackIndex};
 use anyhow::{anyhow, Result};
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::Ui;
@@ -43,7 +43,7 @@ pub enum MiniOrchestratorInput {
     // TODO: these are waiting for the big refactor (which might never happen)
     /// Select the given track.
     #[allow(dead_code)]
-    TrackSelect(usize, bool), // (index, add to selection set)
+    TrackSelect(TrackIndex, bool), // (index, add to selection set)
     /// Reset the selection set.
     #[allow(dead_code)]
     TrackSelectReset,
@@ -93,9 +93,9 @@ impl OrchestratorPanel {
         drag_drop_manager: Arc<Mutex<DragDropManager>>,
     ) -> Self {
         let mut r = Self {
-            factory,
+            factory: Arc::clone(&factory),
             drag_drop_manager,
-            orchestrator: Default::default(),
+            orchestrator: Arc::new(Mutex::new(MiniOrchestrator::new_with(factory))),
             input_channel_pair: Default::default(),
             event_channel_pair: Default::default(),
         };
@@ -108,6 +108,7 @@ impl OrchestratorPanel {
         let sender = self.event_channel_pair.sender.clone();
         self.introduce();
         let orchestrator = Arc::clone(&self.orchestrator);
+        let entity_factory = Arc::clone(&self.factory);
         std::thread::spawn(move || loop {
             let recv = receiver.recv();
             if let Ok(mut o) = orchestrator.lock() {
@@ -119,7 +120,7 @@ impl OrchestratorPanel {
                         MiniOrchestratorInput::ProjectPlay => eprintln!("Play"),
                         MiniOrchestratorInput::ProjectStop => eprintln!("Stop"),
                         MiniOrchestratorInput::ProjectNew => {
-                            let mut mo = MiniOrchestrator::default();
+                            let mut mo = MiniOrchestrator::new_with(Arc::clone(&entity_factory));
                             o.prepare_successor(&mut mo);
                             *o = mo;
                             let _ = sender.send(MiniOrchestratorEvent::New);
@@ -285,7 +286,7 @@ impl OrchestratorPanel {
     pub fn show(&mut self, ui: &mut Ui, is_control_only_down: bool) {
         if let Ok(mut o) = self.orchestrator.lock() {
             o.update_track_selection_tracking();
-            o.show_with(ui, &self.factory, is_control_only_down);
+            o.show_with(ui, is_control_only_down);
         }
     }
 }

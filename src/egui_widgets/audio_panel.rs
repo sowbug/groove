@@ -183,7 +183,7 @@ pub type NeedsAudioFn = Box<dyn NeedsAudioFnT>;
 
 /// [AudioPanel2] manages the audio interface.
 #[derive(Debug)]
-pub struct AudioPanel2 {
+pub struct MiniAudioPanel {
     #[allow(dead_code)]
     sender: Sender<AudioInterfaceInput>,
     app_receiver: Receiver<AudioPanelEvent>, // to give to the app to receive what we sent
@@ -191,7 +191,7 @@ pub struct AudioPanel2 {
 
     config: Arc<Mutex<Option<AudioInterfaceConfig>>>,
 }
-impl AudioPanel2 {
+impl MiniAudioPanel {
     /// Construct a new [AudioPanel2].
     pub fn new_with(needs_audio_fn: NeedsAudioFn) -> Self {
         let audio_stream_service = AudioStreamService::default();
@@ -279,7 +279,7 @@ impl AudioPanel2 {
         eprintln!("Audio Panel acks the quit... TODO");
     }
 }
-impl Shows for AudioPanel2 {
+impl Shows for MiniAudioPanel {
     fn show(&mut self, ui: &mut egui::Ui) {
         CollapsingHeader::new("Audio")
             .default_open(true)
