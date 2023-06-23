@@ -56,13 +56,13 @@ pub fn register_mini_factory_entities(factory: &mut EntityFactory) {
     factory.register_controller(Key::from("arpeggiator"), || {
         Box::new(Arpeggiator::new_with(
             &ArpeggiatorParams::default(),
-            MidiChannel::new(0),
+            MidiChannel(0),
         ))
     });
     factory.register_controller(Key::from("sequencer"), || {
         Box::new(MiniSequencer::new_with(
             &MiniSequencerParams::default(),
-            MidiChannel::new(0),
+            MidiChannel(0),
         ))
     });
     factory.register_effect(Key::from("reverb"), || {

@@ -18,7 +18,7 @@ use strum_macros::Display;
     feature = "serialization",
     derive(serde::Serialize, serde::Deserialize)
 )]
-pub struct MidiChannel(u8);
+pub struct MidiChannel(pub u8);
 impl MidiChannel {
     pub const MAX: u8 = 16;
 

@@ -1906,7 +1906,7 @@ pub mod tests {
 
     #[test]
     fn random_access() {
-        const INSTRUMENT_MIDI_CHANNEL: MidiChannel = MidiChannel::new(7);
+        const INSTRUMENT_MIDI_CHANNEL: MidiChannel = MidiChannel(7);
         let mut o = Orchestrator::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
@@ -2063,7 +2063,7 @@ pub mod tests {
         assert_eq!(pattern.notes.len(), 1); // one track of notes
         assert_eq!(pattern.notes[0].len(), 1); // one note in track
 
-        programmer.insert_pattern_at_cursor(&mut sequencer, &MidiChannel::new(0), &pattern);
+        programmer.insert_pattern_at_cursor(&mut sequencer, &MidiChannel(0), &pattern);
         assert_eq!(programmer.cursor(), MusicalTime::new(&ts, 1, 0, 0, 0));
         assert_eq!(sequencer.debug_events().len(), 0);
 
@@ -2106,8 +2106,8 @@ pub mod tests {
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         let mut sequencer = Box::new(Sequencer::new_with(&SequencerParams { bpm: clock.bpm() }));
-        const MIDI_CHANNEL_SEQUENCER_TO_ARP: MidiChannel = MidiChannel::new(7);
-        const MIDI_CHANNEL_ARP_TO_INSTRUMENT: MidiChannel = MidiChannel::new(8);
+        const MIDI_CHANNEL_SEQUENCER_TO_ARP: MidiChannel = MidiChannel(7);
+        const MIDI_CHANNEL_ARP_TO_INSTRUMENT: MidiChannel = MidiChannel(8);
         let mut arpeggiator = Box::new(Arpeggiator::new_with(
             &ArpeggiatorParams { bpm: clock.bpm() },
             MIDI_CHANNEL_ARP_TO_INSTRUMENT,

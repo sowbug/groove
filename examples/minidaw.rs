@@ -661,7 +661,7 @@ impl eframe::App for MiniDaw {
 fn main() -> anyhow::Result<(), eframe::Error> {
     env_logger::init();
     let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(1024.0, 768.0)),
+        initial_window_size: Some(egui::vec2(1366.0, 768.0)),
         ..Default::default()
     };
 

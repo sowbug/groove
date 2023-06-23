@@ -79,7 +79,7 @@ impl TrackFactory {
             ty: TrackType::Midi,
             sequencer: Some(MiniSequencer::new_with(
                 &MiniSequencerParams::default(),
-                MidiChannel::new(0),
+                MidiChannel(0),
             )),
             ..Default::default()
         }
@@ -147,6 +147,14 @@ impl Track {
 
     pub fn instruments(&self) -> &[Box<dyn NewIsInstrument>] {
         &self.instruments
+    }
+
+    pub fn controllers(&self) -> &[Box<dyn NewIsController>] {
+        &self.controllers
+    }
+
+    pub fn effects(&self) -> &[Box<dyn NewIsEffect>] {
+        &self.effects
     }
 
     // TODO: this is getting cumbersome! Think about that uber-trait!

@@ -454,7 +454,9 @@ impl Shows for MiniOrchestrator {
 #[cfg(test)]
 mod tests {
     use crate::mini::{orchestrator::MiniOrchestrator, TrackIndex};
-    use groove_toys::{ToyInstrument, ToyInstrumentParams};
+    use groove_core::midi::MidiChannel;
+    use groove_entities::controllers::{ToyController, ToyControllerParams};
+    use groove_toys::{ToyEffect, ToyEffectParams, ToyInstrument, ToyInstrumentParams};
 
     #[test]
     fn mini_orchestrator_basic_operations() {
@@ -477,6 +479,25 @@ mod tests {
             .unwrap();
         assert_eq!(o.tracks()[0].instruments()[0].uid(), id1);
         assert_eq!(o.tracks()[0].instruments()[1].uid(), id2);
+
+        let id1 = o
+            .add_controller(
+                Box::new(ToyController::new_with(
+                    &ToyControllerParams::default(),
+                    MidiChannel(0),
+                )),
+                TrackIndex(0),
+            )
+            .unwrap();
+        assert_eq!(o.tracks()[0].controllers()[0].uid(), id1);
+
+        let id1 = o
+            .add_effect(
+                Box::new(ToyEffect::new_with(&ToyEffectParams::default())),
+                TrackIndex(0),
+            )
+            .unwrap();
+        assert_eq!(o.tracks()[0].effects()[0].uid(), id1);
 
         assert!(o.tracks.len() > 1);
         let id3 = o

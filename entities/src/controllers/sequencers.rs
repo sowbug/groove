@@ -625,7 +625,7 @@ mod tests {
     #[allow(unused_variables)]
     #[test]
     fn sequencer_mainline() {
-        const DEVICE_MIDI_CHANNEL: MidiChannel = MidiChannel::new(7);
+        const DEVICE_MIDI_CHANNEL: MidiChannel = MidiChannel(7);
         let clock = Clock::new_with(&ClockParams {
             bpm: DEFAULT_BPM,
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
