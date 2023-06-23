@@ -114,6 +114,7 @@ pub(crate) fn impl_params_derive(input: TokenStream, primitives: &HashSet<Ident>
                 derive(Serialize, Deserialize),
                 serde(rename = #struct_snake_case_name, rename_all = "kebab-case")
             )]
+            #[allow(missing_docs)]
             pub struct #params_name {
                 #( pub #field_names: #field_types ),*
             }
@@ -133,6 +134,7 @@ pub(crate) fn impl_params_derive(input: TokenStream, primitives: &HashSet<Ident>
 
         let to_params_block = quote! {
             impl #generics #struct_name #ty_generics {
+                #[allow(missing_docs)]
                 pub fn to_params(&self) -> #params_name {
                     #params_name {
                         #( #field_names: #to_params_exprs, )*

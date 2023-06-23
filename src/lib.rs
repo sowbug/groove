@@ -98,6 +98,9 @@ pub use groove_orchestration::{Entity, Orchestrator};
 /// Widgets for egui
 pub mod egui_widgets;
 
+/// Temp home for minidaw research results
+pub mod mini;
+
 use groove_core::ParameterType;
 
 // TODO: these should be #[cfg(test)] because nobody should be assuming these

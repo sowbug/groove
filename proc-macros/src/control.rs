@@ -129,18 +129,23 @@ pub(crate) fn impl_control_derive(input: TokenStream, primitives: &HashSet<Ident
         });
 
         let main_const_body = quote! {
+            #[allow(missing_docs)]
             #( pub const #index_const_ids: usize = #index_const_values; )*
+            #[allow(missing_docs)]
             #( pub const #name_const_ids: &str = #name_const_values; )*
         };
         let range_const_body = quote! {
+            #[allow(missing_docs)]
             #( pub const #index_const_range_end_ids: usize = #index_const_values + #size_const_values - 1; )*
         };
         let struct_size_const_body = if size_const_ids.is_empty() {
             quote! {
+                #[allow(missing_docs)]
                 pub const STRUCT_SIZE: usize = 0;
             }
         } else {
             quote! {
+                #[allow(missing_docs)]
                 pub const STRUCT_SIZE: usize = 0 + #( Self::#size_const_ids )+* ;
             }
         };
