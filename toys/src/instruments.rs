@@ -101,6 +101,7 @@ impl Ticks for ToyInstrument {
 impl HandlesMidi for ToyInstrument {
     fn handle_midi_message(
         &mut self,
+        _channel: MidiChannel,
         message: &MidiMessage,
         _messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
     ) {
@@ -268,6 +269,7 @@ impl Ticks for DebugSynth {
 impl HandlesMidi for DebugSynth {
     fn handle_midi_message(
         &mut self,
+        _channel: MidiChannel,
         message: &MidiMessage,
         _messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
     ) {
@@ -366,10 +368,12 @@ impl Generates<StereoSample> for ToySynth {
 impl HandlesMidi for ToySynth {
     fn handle_midi_message(
         &mut self,
+        channel: MidiChannel,
         message: &MidiMessage,
         messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
     ) {
-        self.inner.handle_midi_message(message, messages_fn)
+        self.inner
+            .handle_midi_message(channel, message, messages_fn)
     }
 }
 impl Ticks for ToySynth {

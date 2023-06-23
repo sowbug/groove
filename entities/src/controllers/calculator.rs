@@ -499,10 +499,12 @@ impl Performs for Calculator {
 impl HandlesMidi for Calculator {
     fn handle_midi_message(
         &mut self,
+        channel: MidiChannel,
         message: &MidiMessage,
         messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
     ) {
-        self.inner_synth.handle_midi_message(message, messages_fn)
+        self.inner_synth
+            .handle_midi_message(channel, message, messages_fn)
     }
 }
 impl Ticks for Calculator {
@@ -756,10 +758,16 @@ impl Calculator {
     fn trigger_note(&mut self, key: u8) {
         let key = key.into();
         let vel = 127.into();
-        self.inner_synth
-            .handle_midi_message(&midly::MidiMessage::NoteOff { key, vel }, &mut |_, _| {});
-        self.inner_synth
-            .handle_midi_message(&midly::MidiMessage::NoteOn { key, vel }, &mut |_, _| {});
+        self.inner_synth.handle_midi_message(
+            MidiChannel(2),
+            &midly::MidiMessage::NoteOff { key, vel },
+            &mut |_, _| {},
+        );
+        self.inner_synth.handle_midi_message(
+            MidiChannel(4),
+            &midly::MidiMessage::NoteOn { key, vel },
+            &mut |_, _| {},
+        );
     }
 
     fn load_sampler_voices() -> Synthesizer<SamplerVoice> {

@@ -750,14 +750,15 @@ impl Configurable for Track {
 impl HandlesMidi for Track {
     fn handle_midi_message(
         &mut self,
+        channel: MidiChannel,
         message: &MidiMessage,
         messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
     ) {
         for e in self.controllers.iter_mut() {
-            e.handle_midi_message(&message, messages_fn);
+            e.handle_midi_message(channel, &message, messages_fn);
         }
         for e in self.instruments.iter_mut() {
-            e.handle_midi_message(&message, messages_fn);
+            e.handle_midi_message(channel, &message, messages_fn);
         }
     }
 }

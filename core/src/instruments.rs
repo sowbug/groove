@@ -135,6 +135,7 @@ impl<V: IsStereoSampleVoice> Synthesizer<V> {
 impl<V: IsStereoSampleVoice> HandlesMidi for Synthesizer<V> {
     fn handle_midi_message(
         &mut self,
+        _: MidiChannel,
         message: &MidiMessage,
         _messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
     ) {
@@ -188,10 +189,12 @@ mod tests {
     impl HandlesMidi for TestSynthesizer {
         fn handle_midi_message(
             &mut self,
+            channel: MidiChannel,
             message: &MidiMessage,
             messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
         ) {
-            self.inner_synth.handle_midi_message(message, messages_fn)
+            self.inner_synth
+                .handle_midi_message(channel, message, messages_fn)
         }
     }
     impl Generates<StereoSample> for TestSynthesizer {
@@ -228,7 +231,7 @@ mod tests {
     #[test]
     fn mainline_test_synthesizer() {
         let mut s = TestSynthesizer::default();
-        s.handle_midi_message(&new_note_on(100, 99), &mut |_, _| {});
+        s.handle_midi_message(MidiChannel(12), &new_note_on(100, 99), &mut |_, _| {});
 
         // Get a few samples because the oscillator correctly starts at zero.
         let mut samples = [StereoSample::default(); 5];

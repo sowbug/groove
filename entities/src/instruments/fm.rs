@@ -259,10 +259,12 @@ impl Ticks for FmSynth {
 impl HandlesMidi for FmSynth {
     fn handle_midi_message(
         &mut self,
+        channel: MidiChannel,
         message: &MidiMessage,
         messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
     ) {
-        self.inner_synth.handle_midi_message(message, messages_fn)
+        self.inner_synth
+            .handle_midi_message(channel, message, messages_fn)
     }
 }
 impl FmSynth {

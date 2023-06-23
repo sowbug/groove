@@ -5,6 +5,7 @@ use eframe::egui::Ui;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::Tempo,
+    traits::HandlesMidi,
 };
 use std::{
     path::PathBuf,
@@ -115,7 +116,7 @@ impl OrchestratorPanel {
                 match recv {
                     Ok(input) => match input {
                         MiniOrchestratorInput::Midi(channel, message) => {
-                            Self::handle_input_midi(&mut o, channel, message);
+                            Self::handle_input_midi(&mut o, channel, &message);
                         }
                         MiniOrchestratorInput::ProjectPlay => eprintln!("Play"),
                         MiniOrchestratorInput::ProjectStop => eprintln!("Stop"),
@@ -225,9 +226,10 @@ impl OrchestratorPanel {
     fn handle_input_midi(
         o: &mut MutexGuard<MiniOrchestrator>,
         channel: MidiChannel,
-        message: MidiMessage,
+        message: &MidiMessage,
     ) {
-        o.handle_midi(channel, message);
+        // TODO: we're just swallowing the replies
+        o.handle_midi_message(channel, message, &mut |_, _| {});
     }
 
     fn handle_input_load(path: &PathBuf) -> Result<MiniOrchestrator> {

@@ -53,6 +53,7 @@ pub trait HandlesMidi {
     #[allow(unused_variables)]
     fn handle_midi_message(
         &mut self,
+        channel: MidiChannel,
         message: &MidiMessage,
         messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
     ) {

@@ -132,16 +132,6 @@ impl MiniOrchestrator {
         }
     }
 
-    /// Accepts a [MidiMessage] and handles it, usually by forwarding it to
-    /// controllers and instruments on the given [MidiChannel].
-    pub fn handle_midi(&mut self, _channel: MidiChannel, message: MidiMessage) {
-        for track in self.tracks.iter_mut() {
-            track.handle_midi_message(&message, &mut |channel, message| {
-                eprintln!("TODO discarding {}/{:?}", channel, message)
-            });
-        }
-    }
-
     /// After loading a new Self from disk, we want to copy all the appropriate
     /// ephemeral state from this one to the next one.
     pub fn prepare_successor(&self, new: &mut MiniOrchestrator) {
@@ -448,6 +438,25 @@ impl Configurable for MiniOrchestrator {}
 impl Shows for MiniOrchestrator {
     fn show(&mut self, ui: &mut egui::Ui) {
         ui.label("not used");
+    }
+}
+impl HandlesMidi for MiniOrchestrator {
+    /// Accepts a [MidiMessage] and handles it, usually by forwarding it to
+    /// controllers and instruments on the given [MidiChannel].
+    fn handle_midi_message(
+        &mut self,
+        channel: MidiChannel,
+        message: &MidiMessage,
+        messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+    ) {
+        for track in self.tracks.iter_mut() {
+            track.handle_midi_message(channel, &message, &mut |channel, message| {
+                // TODO: this isn't enough -- we need to dispatch these messages
+                // to other devices on the channel/bus, detect loops, etc. I'm
+                // not even sure it's right to bubble these back to the caller.
+                messages_fn(channel, message);
+            });
+        }
     }
 }
 

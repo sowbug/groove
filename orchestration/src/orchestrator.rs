@@ -722,7 +722,7 @@ impl Orchestrator {
     fn broadcast_midi_messages(&mut self, channel_message_tuples: &[(MidiChannel, MidiMessage)]) {
         let mut v = Vec::from(channel_message_tuples);
         while let Some((channel, message)) = v.pop() {
-            if let Some(responses) = self.broadcast_midi_message(&channel, &message) {
+            if let Some(responses) = self.broadcast_midi_message(channel, &message) {
                 v.extend(responses);
             }
         }
@@ -730,10 +730,10 @@ impl Orchestrator {
 
     fn broadcast_midi_message(
         &mut self,
-        channel: &MidiChannel,
+        channel: MidiChannel,
         message: &MidiMessage,
     ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
-        let receiver_uids = self.store.midi_receivers(channel).clone();
+        let receiver_uids = self.store.midi_receivers(&channel).clone();
         if receiver_uids.is_empty() {
             return None;
         }
@@ -743,7 +743,7 @@ impl Orchestrator {
                 let uid = *uid;
                 if let Some(e) = self.store.get_mut(uid) {
                     if let Some(e) = e.as_handles_midi_mut() {
-                        e.handle_midi_message(message, &mut |channel, message| {
+                        e.handle_midi_message(channel, message, &mut |channel, message| {
                             v.push((channel, message));
                         });
                     } else {
@@ -1563,7 +1563,7 @@ pub mod tests {
                     vel: 127.into(),
                 }
             };
-            let reply = self.broadcast_midi_message(&channel, &message);
+            let reply = self.broadcast_midi_message(channel, &message);
 
             assert!(
                 reply.is_none(),
