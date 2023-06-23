@@ -1,8 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::entity_factory::{
-    EntityFactory, EntityType, Key, NewIsController, NewIsEffect, NewIsInstrument,
-};
+use super::entities::{NewIsController, NewIsEffect, NewIsInstrument};
+use super::entity_factory::{EntityFactory, EntityType, Key};
 use super::sequencer::MiniSequencer;
 use crate::mini::sequencer::MiniSequencerParams;
 use anyhow::{anyhow, Result};
@@ -743,5 +742,44 @@ impl HandlesMidi for Track {
         for e in self.instruments.iter_mut() {
             e.handle_midi_message(&message, messages_fn);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use groove_core::traits::HasUid;
+    use groove_toys::{ToyInstrument, ToyInstrumentParams};
+
+    #[test]
+    fn basic_track_operations() {
+        let mut t = Track::default();
+        assert!(t.controllers.is_empty());
+        assert!(t.effects.is_empty());
+        assert!(t.instruments.is_empty());
+
+        // Create an instrument and add it to a track.
+        let instrument = ToyInstrument::new_with(&ToyInstrumentParams::default());
+        let id1 = instrument.uid();
+        t.append_instrument(Box::new(instrument));
+
+        // Add a second instrument to the track.
+        let instrument = ToyInstrument::new_with(&ToyInstrumentParams::default());
+        let id2 = instrument.uid();
+        t.append_instrument(Box::new(instrument));
+
+        // Ordering within track is correct, and we can move items around
+        // depending on where they are.
+        assert_eq!(t.instruments[0].uid(), id1);
+        assert_eq!(t.instruments[1].uid(), id2);
+        assert!(t.shift_instrument_left(0).is_err()); // Already leftmost.
+        assert!(t.shift_instrument_right(1).is_err()); // Already rightmost.
+        assert!(t.shift_instrument_left(1).is_ok());
+        assert_eq!(t.instruments[0].uid(), id2);
+        assert_eq!(t.instruments[1].uid(), id1);
+
+        let instrument = t.remove_instrument(0).unwrap();
+        assert_eq!(instrument.uid(), id2);
+        assert_eq!(t.instruments.len(), 1);
     }
 }

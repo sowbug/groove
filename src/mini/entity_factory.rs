@@ -2,17 +2,14 @@
 
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use derive_more::Display;
-use groove_core::{
-    traits::{IsController, IsEffect, IsInstrument},
-    Uid,
-};
-use groove_entities::EntityMessage;
-
+use groove_core::Uid;
 use std::{
     collections::{HashMap, HashSet},
     hash::Hash,
 };
 use strum_macros::EnumIter;
+
+use super::entities::{NewIsController, NewIsEffect, NewIsInstrument};
 
 #[derive(Debug, EnumIter)]
 pub enum EntityType {
@@ -36,15 +33,6 @@ impl From<&str> for Key {
         Key(value.to_string())
     }
 }
-
-#[typetag::serde(tag = "type")]
-pub trait NewIsController: IsController<Message = EntityMessage> {}
-
-#[typetag::serde(tag = "type")]
-pub trait NewIsInstrument: IsInstrument {}
-
-#[typetag::serde(tag = "type")]
-pub trait NewIsEffect: IsEffect {}
 
 type ControllerEntityFactoryFn = fn() -> Box<dyn NewIsController>;
 type InstrumentEntityFactoryFn = fn() -> Box<dyn NewIsInstrument>;
@@ -156,5 +144,66 @@ impl EntityFactory {
     /// Returns the [HashMap] for all [Key] and effect pairs.
     pub fn effects(&self) -> &HashMap<Key, EffectEntityFactoryFn> {
         &self.effects
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::mini::{EntityFactory, Key};
+    use groove_core::{midi::MidiChannel, Uid};
+    use groove_entities::controllers::{ToyController, ToyControllerParams};
+    use groove_toys::{ToyEffect, ToyEffectParams, ToyInstrument, ToyInstrumentParams};
+    use std::collections::HashSet;
+
+    #[test]
+    fn entity_creation() {
+        let mut factory = EntityFactory::default();
+        assert!(factory.controllers().is_empty());
+        assert!(factory.instruments().is_empty());
+        assert!(factory.effects().is_empty());
+
+        factory.register_instrument(Key::from("instrument"), || {
+            Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default()))
+        });
+        assert!(
+            !factory.instruments().is_empty(),
+            "after registering an instrument, factory should contain at least one"
+        );
+        factory.register_controller(Key::from("controller"), || {
+            Box::new(ToyController::new_with(
+                &ToyControllerParams::default(),
+                MidiChannel::from(0),
+            ))
+        });
+        assert!(
+            !factory.controllers().is_empty(),
+            "after registering a controller, factory should contain at least one"
+        );
+        factory.register_effect(Key::from("effect"), || {
+            Box::new(ToyEffect::new_with(&ToyEffectParams::default()))
+        });
+        assert!(
+            !factory.effects().is_empty(),
+            "after registering an effect, factory should contain at least one"
+        );
+
+        // After registration, rebind as immutable
+        let factory = factory;
+
+        assert!(factory.new_instrument(&Key::from(".9-#$%)@#)")).is_none());
+
+        let mut ids: HashSet<Uid> = HashSet::default();
+        for key in factory.instrument_keys() {
+            let e = factory.new_instrument(key);
+            assert!(e.is_some());
+            if let Some(e) = e {
+                assert!(!e.name().is_empty());
+                assert!(!ids.contains(&e.uid()));
+                ids.insert(e.uid());
+            }
+        }
+
+        // TODO: expand with other entity types, and create the uber-trait that
+        // lets us create an entity and then grab the specific IsWhatever trait.
     }
 }

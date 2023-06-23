@@ -451,7 +451,7 @@ impl Performs for ToyController {
     }
 }
 impl ToyController {
-    pub fn new_with(params: ToyControllerParams, midi_channel_out: MidiChannel) -> Self {
+    pub fn new_with(params: &ToyControllerParams, midi_channel_out: MidiChannel) -> Self {
         Self::new_with_test_values(
             params,
             midi_channel_out,
@@ -463,7 +463,7 @@ impl ToyController {
     }
 
     pub fn new_with_test_values(
-        _params: ToyControllerParams,
+        _params: &ToyControllerParams,
         midi_channel_out: MidiChannel,
         values: &[f32],
         checkpoint: f32,

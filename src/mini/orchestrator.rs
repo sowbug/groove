@@ -1,9 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::mini::MiniSequencer;
-
 use super::{
-    entity_factory::{EntityFactory, NewIsController, NewIsEffect, NewIsInstrument},
+    entity_factory::EntityFactory,
     track::{Track, TrackAction, TrackFactory},
 };
 use anyhow::{anyhow, Result};
@@ -13,14 +11,8 @@ use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
     traits::{gui::Shows, Configurable, Generates, HandlesMidi, Ticks},
-    StereoSample, Uid,
+    StereoSample,
 };
-use groove_entities::{
-    controllers::Arpeggiator,
-    effects::{BiQuadFilterLowPass24db, Reverb},
-    instruments::{Drumkit, WelshSynth},
-};
-use groove_toys::{ToyInstrument, ToySynth};
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 
@@ -126,9 +118,7 @@ impl MiniOrchestrator {
 
     /// Accepts a [MidiMessage] and handles it, usually by forwarding it to
     /// controllers and instruments on the given [MidiChannel].
-    // TODO: we're ignoring channels at the moment.
-    #[allow(unused_variables)]
-    pub fn handle_midi(&mut self, channel: MidiChannel, message: MidiMessage) {
+    pub fn handle_midi(&mut self, _channel: MidiChannel, message: MidiMessage) {
         for track in self.tracks.iter_mut() {
             track.handle_midi_message(&message, &mut |channel, message| {
                 eprintln!("TODO discarding {}/{:?}", channel, message)
@@ -140,34 +130,6 @@ impl MiniOrchestrator {
     /// ephemeral state from this one to the next one.
     pub fn prepare_successor(&self, new: &mut MiniOrchestrator) {
         new.set_sample_rate(self.sample_rate());
-    }
-
-    #[allow(dead_code)]
-    fn add_controller(&mut self, track_index: usize, mut e: Box<dyn NewIsController>) -> Uid {
-        e.update_sample_rate(self.sample_rate);
-        let uid = e.uid();
-        self.tracks[track_index].append_controller(e);
-        uid
-    }
-
-    #[allow(dead_code)]
-    fn add_effect(&mut self, track_index: usize, mut e: Box<dyn NewIsEffect>) -> Uid {
-        e.update_sample_rate(self.sample_rate);
-        let uid = e.uid();
-        self.tracks[track_index].append_effect(e);
-        uid
-    }
-
-    #[allow(dead_code)]
-    fn add_instrument(
-        &mut self,
-        track_index: usize,
-        mut e: Box<dyn NewIsInstrument>,
-    ) -> Result<Uid> {
-        e.update_sample_rate(self.sample_rate);
-        let uid = e.uid();
-        self.tracks[track_index].append_instrument(e);
-        Ok(uid)
     }
 
     #[allow(dead_code)]
@@ -409,27 +371,45 @@ impl Shows for MiniOrchestrator {
     }
 }
 
-#[typetag::serde]
-impl NewIsController for Arpeggiator {}
-#[typetag::serde]
-impl NewIsController for MiniSequencer {}
-#[typetag::serde]
-impl NewIsInstrument for Drumkit {}
-#[typetag::serde]
-impl NewIsInstrument for WelshSynth {}
-#[typetag::serde]
-impl NewIsInstrument for ToySynth {}
-#[typetag::serde]
-impl NewIsInstrument for ToyInstrument {}
-#[typetag::serde]
-impl NewIsEffect for BiQuadFilterLowPass24db {}
-#[typetag::serde]
-impl NewIsEffect for Reverb {}
-
 #[cfg(test)]
 mod tests {
-    use crate::mini::orchestrator::MiniOrchestrator;
+    use crate::mini::{
+        entities::{NewIsController, NewIsEffect, NewIsInstrument},
+        orchestrator::MiniOrchestrator,
+    };
+    use anyhow::Result;
+    use groove_core::Uid;
     use groove_toys::{ToyInstrument, ToyInstrumentParams};
+
+    // TODO: it's fine to move these into the main module, but for now we don't need them outside of test.
+    impl MiniOrchestrator {
+        #[allow(dead_code)]
+        fn add_controller(&mut self, track_index: usize, mut e: Box<dyn NewIsController>) -> Uid {
+            e.update_sample_rate(self.sample_rate);
+            let uid = e.uid();
+            self.tracks[track_index].append_controller(e);
+            uid
+        }
+
+        #[allow(dead_code)]
+        fn add_effect(&mut self, track_index: usize, mut e: Box<dyn NewIsEffect>) -> Uid {
+            e.update_sample_rate(self.sample_rate);
+            let uid = e.uid();
+            self.tracks[track_index].append_effect(e);
+            uid
+        }
+
+        fn add_instrument(
+            &mut self,
+            track_index: usize,
+            mut e: Box<dyn NewIsInstrument>,
+        ) -> Result<Uid> {
+            e.update_sample_rate(self.sample_rate);
+            let uid = e.uid();
+            self.tracks[track_index].append_instrument(e);
+            Ok(uid)
+        }
+    }
 
     #[test]
     fn mini_orchestrator_basic_operations() {

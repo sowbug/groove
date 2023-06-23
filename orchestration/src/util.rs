@@ -167,7 +167,7 @@ pub mod tests {
             },
         ))));
         let arpeggiator_uid = o.add(Entity::ToyController(Box::new(ToyController::new_with(
-            ToyControllerParams {},
+            &ToyControllerParams {},
             TEST_MIDI_CHANNEL,
         ))));
 

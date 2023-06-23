@@ -167,7 +167,7 @@ impl ControllerSettings {
                 *midi_input_channel,
                 *midi_output_channel,
                 Entity::ToyController(Box::new(ToyController::new_with(
-                    ToyControllerParams {},
+                    &ToyControllerParams {},
                     *midi_output_channel,
                 ))),
             );
@@ -177,7 +177,7 @@ impl ControllerSettings {
                 midi.midi_in,
                 midi.midi_out,
                 Entity::ToyController(Box::new(ToyController::new_with(
-                    ToyControllerParams {},
+                    &ToyControllerParams {},
                     midi.midi_out,
                 ))),
             ),

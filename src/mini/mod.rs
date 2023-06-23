@@ -10,6 +10,7 @@ use groove_core::Uid;
 use serde::{Deserialize, Serialize};
 
 mod drag_drop;
+mod entities;
 mod entity_factory;
 mod orchestrator;
 mod sequencer;
