@@ -1,6 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 pub use drag_drop::{DragDropManager, DragDropSource};
+pub use entities::register_mini_factory_entities;
+#[cfg(test)]
+pub use entities::register_test_factory_entities;
 pub use entity_factory::{EntityFactory, Key};
 pub use orchestrator::MiniOrchestrator;
 pub use sequencer::{MiniSequencer, MiniSequencerParams};

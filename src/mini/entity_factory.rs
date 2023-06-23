@@ -149,10 +149,8 @@ impl EntityFactory {
 
 #[cfg(test)]
 mod tests {
-    use crate::mini::{EntityFactory, Key};
-    use groove_core::{midi::MidiChannel, Uid};
-    use groove_entities::controllers::{ToyController, ToyControllerParams};
-    use groove_toys::{ToyEffect, ToyEffectParams, ToyInstrument, ToyInstrumentParams};
+    use crate::mini::{register_test_factory_entities, EntityFactory, Key};
+    use groove_core::Uid;
     use std::collections::HashSet;
 
     #[test]
@@ -162,26 +160,15 @@ mod tests {
         assert!(factory.instruments().is_empty());
         assert!(factory.effects().is_empty());
 
-        factory.register_instrument(Key::from("instrument"), || {
-            Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default()))
-        });
+        register_test_factory_entities(&mut factory);
         assert!(
             !factory.instruments().is_empty(),
             "after registering an instrument, factory should contain at least one"
         );
-        factory.register_controller(Key::from("controller"), || {
-            Box::new(ToyController::new_with(
-                &ToyControllerParams::default(),
-                MidiChannel::from(0),
-            ))
-        });
         assert!(
             !factory.controllers().is_empty(),
             "after registering a controller, factory should contain at least one"
         );
-        factory.register_effect(Key::from("effect"), || {
-            Box::new(ToyEffect::new_with(&ToyEffectParams::default()))
-        });
         assert!(
             !factory.effects().is_empty(),
             "after registering an effect, factory should contain at least one"

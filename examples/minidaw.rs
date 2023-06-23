@@ -17,18 +17,9 @@ use groove::{
         MiniOrchestratorEvent, MiniOrchestratorInput, NeedsAudioFn, OrchestratorPanel,
         PaletteAction, PalettePanel,
     },
-    mini::{
-        DragDropManager, EntityFactory, Key, MiniOrchestrator, MiniSequencer, MiniSequencerParams,
-    },
+    mini::{register_mini_factory_entities, DragDropManager, EntityFactory, MiniOrchestrator},
 };
-use groove_core::{midi::MidiChannel, time::SampleRate, traits::gui::Shows};
-use groove_entities::{
-    controllers::{Arpeggiator, ArpeggiatorParams},
-    effects::{BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbParams, Reverb, ReverbParams},
-    instruments::{Drumkit, DrumkitParams, WelshSynth, WelshSynthParams},
-};
-use groove_toys::{ToyInstrument, ToyInstrumentParams, ToySynth, ToySynthParams};
-use groove_utils::Paths;
+use groove_core::{time::SampleRate, traits::gui::Shows};
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -216,7 +207,7 @@ impl MiniDaw {
         Self::initialize_style(&cc.egui_ctx);
 
         let mut factory = EntityFactory::default();
-        Self::register_entities(&mut factory);
+        register_mini_factory_entities(&mut factory);
         let factory = Arc::new(factory);
 
         let drag_drop_manager = Arc::new(Mutex::new(DragDropManager::default()));
@@ -518,48 +509,6 @@ impl MiniDaw {
         if let Some(input) = input {
             self.orchestrator_panel.send_to_service(input);
         }
-    }
-
-    pub fn register_entities(factory: &mut EntityFactory) {
-        // TODO: might be nice to move HasUid::name() to be a function... and
-        // while we're at it, I guess make the mondo IsEntity trait that allows
-        // discovery of IsInstrument/Effect/Controller.
-
-        factory.register_controller(Key::from("arpeggiator"), || {
-            Box::new(Arpeggiator::new_with(
-                &ArpeggiatorParams::default(),
-                MidiChannel::new(0),
-            ))
-        });
-        factory.register_controller(Key::from("sequencer"), || {
-            Box::new(MiniSequencer::new_with(
-                &MiniSequencerParams::default(),
-                MidiChannel::new(0),
-            ))
-        });
-        factory.register_effect(Key::from("reverb"), || {
-            Box::new(Reverb::new_with(&ReverbParams::default()))
-        });
-        factory.register_effect(Key::from("filter-low-pass-24db"), || {
-            Box::new(BiQuadFilterLowPass24db::new_with(
-                &BiQuadFilterLowPass24dbParams::default(),
-            ))
-        });
-        factory.register_instrument(Key::from("toy-synth"), || {
-            Box::new(ToySynth::new_with(&ToySynthParams::default()))
-        });
-        factory.register_instrument(Key::from("toy-instrument"), || {
-            Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default()))
-        });
-        factory.register_instrument(Key::from("welsh-synth"), || {
-            Box::new(WelshSynth::new_with(&WelshSynthParams::default()))
-        });
-        factory.register_instrument(Key::from("drumkit"), || {
-            Box::new(Drumkit::new_with(
-                &DrumkitParams::default(),
-                &Paths::default(),
-            ))
-        });
     }
 
     fn handle_palette_action(&mut self, _action: PaletteAction) {
