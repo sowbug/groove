@@ -37,6 +37,7 @@ pub enum AudioInterfaceEvent {
 /// The producer-consumer queue of stereo samples that the audio stream consumes.
 pub type AudioQueue = Arc<ArrayQueue<StereoSample>>;
 
+#[derive(Debug)]
 pub struct AudioStreamService {
     input_sender: Sender<AudioInterfaceInput>,
     event_receiver: Receiver<AudioInterfaceEvent>,
@@ -273,7 +274,7 @@ impl AudioStream {
             let left = sample.0 .0 as f32;
             let right = sample.1 .0 as f32;
             frame[0] = T::from_sample(left);
-            if channel_count > 0 {
+            if channel_count > 1 {
                 frame[1] = T::from_sample(right);
             }
         }
