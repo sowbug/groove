@@ -4,7 +4,8 @@ use super::{EntityFactory, Key, MiniSequencerParams};
 use crate::mini::MiniSequencer;
 use groove_core::{
     midi::MidiChannel,
-    traits::{IsController, IsEffect, IsInstrument}, Normal,
+    traits::{IsController, IsEffect, IsInstrument},
+    Normal,
 };
 use groove_entities::{
     controllers::{Arpeggiator, ArpeggiatorParams, ToyController},

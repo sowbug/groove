@@ -7,7 +7,7 @@ use std::{
 
 use eframe::egui::{self, DragValue};
 use groove_core::{
-    time::{PerfectTimeUnit, Tempo, MusicalTime},
+    time::{MusicalTime, PerfectTimeUnit, Tempo},
     traits::{gui::Shows, Performs},
 };
 use groove_orchestration::Orchestrator;
