@@ -1,7 +1,5 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use std::sync::Arc;
-
 use super::entities::{NewIsController, NewIsEffect, NewIsInstrument};
 use super::entity_factory::{EntityType, Key};
 use super::sequencer::MiniSequencer;
@@ -13,13 +11,16 @@ use eframe::{
     emath::{self, Align},
     epaint::{pos2, vec2, Color32, Pos2, Rect, RectShape, Rounding, Shape, Stroke, Vec2},
 };
+use groove_core::traits::{Controls, GeneratesToInternalBuffer};
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::{SampleRate, Tempo, TimeSignature},
-    traits::{gui::Shows, Configurable, Generates, HandlesMidi, Ticks},
+    traits::{gui::Shows, Configurable, HandlesMidi, Ticks},
     StereoSample,
 };
+use groove_entities::EntityMessage;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 /// An ephemeral identifier for a [Track] in the current project.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -637,14 +638,6 @@ impl Track {
         action
     }
 
-    pub fn batch_it_up(&mut self, len: usize) {
-        debug_assert_eq!(len, self.buffer.len());
-
-        for e in self.instruments.iter_mut() {
-            e.batch_values(&mut self.buffer);
-        }
-    }
-
     pub fn show(&mut self, ui: &mut Ui) -> Response {
         ui.allocate_ui(vec2(ui.available_width(), 64.0), |ui| {
             Frame::default()
@@ -702,15 +695,20 @@ impl Track {
         self.buffer
     }
 }
-impl Generates<StereoSample> for Track {
-    fn value(&self) -> StereoSample {
-        StereoSample::SILENCE
+impl GeneratesToInternalBuffer<StereoSample> for Track {
+    fn generate_batch_values(&mut self, len: usize) -> usize {
+        debug_assert!(len <= self.buffer.len());
+        self.buffer.fill(StereoSample::SILENCE);
+        for e in self.instruments.iter_mut() {
+            // Note that we're expecting everyone to ADD to the buffer, not to overwrite!
+            e.generate_batch_values(&mut self.buffer);
+        }
+
+        self.buffer.len()
     }
 
-    fn batch_values(&mut self, values: &mut [StereoSample]) {
-        for e in self.instruments.iter_mut() {
-            e.batch_values(values);
-        }
+    fn values(&self) -> &[StereoSample] {
+        &self.buffer
     }
 }
 impl Ticks for Track {
@@ -760,6 +758,25 @@ impl HandlesMidi for Track {
         for e in self.instruments.iter_mut() {
             e.handle_midi_message(channel, &message, messages_fn);
         }
+    }
+}
+impl Controls for Track {
+    type Message = EntityMessage;
+
+    fn update_time(&mut self, range: &std::ops::Range<groove_core::time::MusicalTime>) {
+        for e in self.controllers.iter_mut() {
+            e.update_time(range);
+        }
+    }
+
+    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
+        for e in self.controllers.iter_mut() {
+            e.work(messages_fn);
+        }
+    }
+
+    fn is_finished(&self) -> bool {
+        self.controllers.iter().all(|e| e.is_finished())
     }
 }
 

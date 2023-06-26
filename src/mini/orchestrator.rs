@@ -12,26 +12,35 @@ use groove_audio::AudioQueue;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
-    traits::{gui::Shows, Configurable, Generates, HandlesMidi, Ticks},
+    traits::{
+        gui::Shows, Configurable, Controls, Generates, GeneratesToInternalBuffer, HandlesMidi,
+        Ticks,
+    },
     StereoSample, Uid,
 };
+use groove_entities::EntityMessage;
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
 /// Owns all entities (instruments, controllers, and effects), and manages the
 /// relationships among them to create an audio performance.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MiniOrchestrator {
+    /// The user-supplied name of this project.
     title: Option<String>,
+    /// The current global time signature.
     time_signature: TimeSignature,
+    /// The current beats per minute.
     tempo: Tempo,
 
-    tracks: Vec<Track>,
     track_factory: TrackFactory,
-
+    tracks: Vec<Track>,
     // If one track is selected, then this is set.
     single_track_selection: Option<TrackIndex>,
+
+    /// MIDI connections
+    midi_channel_to_receiver_uid: HashMap<MidiChannel, Vec<Uid>>,
 
     //////////////////////////////////////////////////////
     // Nothing below this comment should be serialized. //
@@ -46,10 +55,13 @@ pub struct MiniOrchestrator {
 
     #[serde(skip)]
     #[allow(dead_code)]
-    musical_time: MusicalTime,
+    current_time: MusicalTime,
 
     #[serde(skip)]
     entity_factory: Option<Arc<EntityFactory>>,
+
+    #[serde(skip)]
+    messages: Vec<EntityMessage>,
 }
 impl Default for MiniOrchestrator {
     fn default() -> Self {
@@ -67,10 +79,13 @@ impl Default for MiniOrchestrator {
             track_factory,
             single_track_selection: None,
 
+            midi_channel_to_receiver_uid: Default::default(),
+
             sample_rate: Default::default(),
             frames: Default::default(),
-            musical_time: Default::default(),
+            current_time: Default::default(),
             entity_factory: None,
+            messages: Default::default(),
         }
     }
 }
@@ -125,11 +140,30 @@ impl MiniOrchestrator {
         // Round up
         let buffers_requested = (samples_requested + SAMPLE_BUFFER_SIZE - 1) / SAMPLE_BUFFER_SIZE;
         for _ in 0..buffers_requested {
-            self.batch_values(&mut samples);
+            self.do_main_loop(&mut samples);
             for sample in samples {
                 let _ = queue.push(sample);
             }
         }
+    }
+
+    fn do_main_loop(&mut self, samples: &mut [StereoSample]) {
+        let start = self.current_time;
+        let end = start
+            + MusicalTime::new_with_units(MusicalTime::frames_to_units(
+                self.tempo,
+                self.sample_rate,
+                samples.len(),
+            ));
+        let range = start..end;
+
+        for track in self.tracks.iter_mut() {
+            track.update_time(&range);
+        }
+        for track in self.tracks.iter_mut() {
+            track.work(&mut |m| self.messages.push(m));
+        }
+        self.generate_batch_values(samples);
     }
 
     /// After loading a new Self from disk, we want to copy all the appropriate
@@ -411,21 +445,58 @@ impl MiniOrchestrator {
         self.tracks[track.0].append_instrument(e);
         Ok(uid)
     }
+
+    /// The entities receiving on the given MIDI channel.
+    pub fn midi_receivers(&mut self, channel: &MidiChannel) -> &Vec<Uid> {
+        self.midi_channel_to_receiver_uid
+            .entry(*channel)
+            .or_default()
+    }
+
+    /// Connect an entity to the given MIDI channel.
+    pub fn connect_midi_receiver(&mut self, receiver_uid: Uid, channel: MidiChannel) {
+        self.midi_channel_to_receiver_uid
+            .entry(channel)
+            .or_default()
+            .push(receiver_uid);
+    }
+
+    /// Disconnect an entity from the given MIDI channel.
+    pub fn disconnect_midi_receiver(&mut self, receiver_uid: Uid, channel: MidiChannel) {
+        self.midi_channel_to_receiver_uid
+            .entry(channel)
+            .or_default()
+            .retain(|&uid| uid != receiver_uid);
+    }
 }
 impl Generates<StereoSample> for MiniOrchestrator {
     fn value(&self) -> StereoSample {
         StereoSample::SILENCE
     }
 
-    fn batch_values(&mut self, values: &mut [StereoSample]) {
+    fn generate_batch_values(&mut self, values: &mut [StereoSample]) {
         let len = values.len();
         self.tracks.par_iter_mut().for_each(|track| {
-            track.batch_it_up(len);
+            track.generate_batch_values(len);
         });
-        self.tracks.iter().for_each(|t| {
-            for i in 0..len {
-                values[i] += t.buffer()[i];
-            }
+
+        values.fill(StereoSample::SILENCE);
+
+        // TODO: there must be a way to quickly sum same-sized arrays into a
+        // final array. https://stackoverflow.com/questions/41207666/ seems to
+        // address at least some of it, but I don't think it's any faster, if
+        // more idiomatic.
+        //
+        // TODO even more: hmmmmmm, maybe I can use
+        // https://doc.rust-lang.org/std/cell/struct.Cell.html so that we can
+        // get back to the original Generates model of the caller providing the
+        // buffer. And then hmmmm, once we know how things are laid out in
+        // memory, maybe we can even sic some fast matrix code on it.
+        self.tracks.iter().for_each(|track| {
+            let generator_values = track.values();
+            generator_values.iter().enumerate().for_each(|(i, v)| {
+                values[i] += *v;
+            });
         });
     }
 }

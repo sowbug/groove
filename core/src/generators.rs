@@ -196,7 +196,7 @@ impl Generates<BipolarNormal> for Oscillator {
         self.signal
     }
 
-    fn batch_values(&mut self, values: &mut [BipolarNormal]) {
+    fn generate_batch_values(&mut self, values: &mut [BipolarNormal]) {
         for v in values {
             self.tick(1);
             *v = self.value();
@@ -552,7 +552,7 @@ impl Generates<Normal> for Envelope {
         Normal::new(self.corrected_amplitude)
     }
 
-    fn batch_values(&mut self, values: &mut [Normal]) {
+    fn generate_batch_values(&mut self, values: &mut [Normal]) {
         // TODO: this is probably no more efficient than calling amplitude()
         // individually, but for now we're just getting the interface right.
         // Later we'll take advantage of it.
@@ -1268,7 +1268,7 @@ pub mod tests {
         // we'll get a few samples in case the oscillator happens to start at
         // zero
         let mut values = [BipolarNormal::default(); 3];
-        oscillator.batch_values(&mut values);
+        oscillator.generate_batch_values(&mut values);
         assert_ne!(
             0.0,
             values[1].value(),
@@ -2132,7 +2132,7 @@ pub mod tests {
 
         // The envelope starts out in the idle state, and we haven't triggered
         // it.
-        e.batch_values(&mut amplitudes);
+        e.generate_batch_values(&mut amplitudes);
         amplitudes.iter().for_each(|i| {
             assert_eq!(
                 i.value(),
@@ -2143,7 +2143,7 @@ pub mod tests {
 
         // Now trigger the envelope and see what happened.
         e.trigger_attack();
-        e.batch_values(&mut amplitudes);
+        e.generate_batch_values(&mut amplitudes);
         assert!(
             amplitudes.iter().any(|i| { i.value() != Normal::MIN }),
             "Once triggered, the EG should generate non-silent values"
@@ -2159,14 +2159,14 @@ pub mod tests {
         let mut amplitudes: [Normal; 10] = [Normal::default(); 10];
 
         e.trigger_attack();
-        e.batch_values(&mut amplitudes);
+        e.generate_batch_values(&mut amplitudes);
         assert!(
             amplitudes.iter().all(|s| { s.value() == Normal::MAX }),
             "After enqueueing attack, amplitude should be max"
         );
 
         e.trigger_shutdown();
-        e.batch_values(&mut amplitudes);
+        e.generate_batch_values(&mut amplitudes);
         assert_lt!(
             amplitudes[0].value(),
             (Normal::MAX - Normal::MIN) / 2.0,

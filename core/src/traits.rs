@@ -46,18 +46,35 @@ pub trait IsInstrument:
 {
 }
 
-/// Something that [Generates] creates the given type as its work product over
-/// time. Examples are envelopes, which produce a [Normal] signal, and
-/// oscillators, which produce a [BipolarNormal] signal.
+/// Something that [Generates] creates the given type `<V>` as its work product
+/// over time. Examples are envelopes, which produce a [Normal] signal, and
+/// oscillators, which produce a [crate::BipolarNormal] signal.
 pub trait Generates<V>: Send + std::fmt::Debug + Ticks {
     /// The value for the current frame. Advance the frame by calling
-    /// Ticks::tick().
+    /// [Ticks::tick()].
     fn value(&self) -> V;
 
     /// The batch version of value(). To deliver each value, this method will
     /// typically call tick() internally. If you don't want this, then call
     /// value() on your own.
-    fn batch_values(&mut self, values: &mut [V]);
+    fn generate_batch_values(&mut self, values: &mut [V]);
+}
+
+/// [GeneratesToInternalBuffer] is like [Generates], except that the implementer
+/// has its own internal buffer where it stores its values. This is useful when
+/// we're parallelizing calls and don't want the caller to have to manage a
+/// buffer for each parallel operation.
+pub trait GeneratesToInternalBuffer<V>: Send + std::fmt::Debug + Ticks {
+    /// Do whatever work is necessary to fill the internal buffer with the
+    /// specified number of values. Returns the actual number of values
+    /// generated.
+    fn generate_batch_values(&mut self, len: usize) -> usize;
+
+    /// Returns a reference to the internal buffer. The buffer size is typically
+    /// static, so it's important to pay attention to the result of
+    /// [GeneratesToInternalBuffer::generate_batch_values()] to know how many
+    /// values in the buffer are valid.
+    fn values(&self) -> &[V];
 }
 
 /// Something that is [Controllable] exposes a set of attributes, each with a text

@@ -65,7 +65,7 @@ impl Generates<StereoSample> for ToyInstrument {
         self.sample
     }
 
-    fn batch_values(&mut self, values: &mut [StereoSample]) {
+    fn generate_batch_values(&mut self, values: &mut [StereoSample]) {
         for value in values {
             self.tick(1);
             *value = self.value();
@@ -248,7 +248,7 @@ impl Generates<StereoSample> for DebugSynth {
     }
 
     #[allow(unused_variables)]
-    fn batch_values(&mut self, values: &mut [StereoSample]) {
+    fn generate_batch_values(&mut self, values: &mut [StereoSample]) {
         todo!()
     }
 }
@@ -361,8 +361,8 @@ impl Generates<StereoSample> for ToySynth {
         self.inner.value()
     }
 
-    fn batch_values(&mut self, values: &mut [StereoSample]) {
-        self.inner.batch_values(values)
+    fn generate_batch_values(&mut self, values: &mut [StereoSample]) {
+        self.inner.generate_batch_values(values)
     }
 }
 impl HandlesMidi for ToySynth {
@@ -465,7 +465,7 @@ impl Generates<StereoSample> for ToyVoice {
     }
 
     #[allow(unused_variables)]
-    fn batch_values(&mut self, values: &mut [StereoSample]) {
+    fn generate_batch_values(&mut self, values: &mut [StereoSample]) {
         todo!()
     }
 }
@@ -513,7 +513,7 @@ impl Generates<StereoSample> for ToyAudioSource {
     }
 
     #[allow(unused_variables)]
-    fn batch_values(&mut self, values: &mut [StereoSample]) {
+    fn generate_batch_values(&mut self, values: &mut [StereoSample]) {
         todo!()
     }
 }

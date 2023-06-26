@@ -40,7 +40,7 @@ impl Generates<StereoSample> for Metronome {
         }
     }
 
-    fn batch_values(&mut self, _values: &mut [StereoSample]) {
+    fn generate_batch_values(&mut self, _values: &mut [StereoSample]) {
         todo!("write a way to batch BipolarNormal to StereoSample")
     }
 }
