@@ -7,7 +7,7 @@ use std::{
 
 use eframe::egui::{self, DragValue};
 use groove_core::{
-    time::{PerfectTimeUnit, Tempo},
+    time::{PerfectTimeUnit, Tempo, MusicalTime},
     traits::{gui::Shows, Performs},
 };
 use groove_orchestration::Orchestrator;
@@ -35,6 +35,7 @@ pub enum ControlPanelAction {
 #[derive(Debug, Default)]
 pub struct ControlPanel {
     tempo: Tempo,
+    current_time: MusicalTime,
 }
 impl ControlPanel {
     /// Sets a cached copy of the current piece's tempo.
@@ -42,11 +43,17 @@ impl ControlPanel {
         self.tempo = tempo;
     }
 
+    /// Updates cached copy of global clock.
+    pub fn set_current_time(&mut self, current_time: MusicalTime) {
+        self.current_time = current_time;
+    }
+
     /// Renders the control bar and maybe returns a UI action.
     pub fn show_with_action(&mut self, ui: &mut egui::Ui) -> Option<ControlPanelAction> {
         let mut action = None;
         ui.horizontal_centered(|ui| {
             ui.label(format!("{}", self.tempo));
+            ui.label(format!("{}", self.current_time));
             if ui.button("play").clicked() {
                 action = Some(ControlPanelAction::Play);
             }

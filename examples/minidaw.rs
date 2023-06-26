@@ -611,6 +611,12 @@ impl eframe::App for MiniDaw {
             }
         });
 
+        // TODO: this is unlikely to be the long-term home for Orchestrator
+        // updates. Decide how the UI loop should look.
+        if let Ok(o) = self.mini_orchestrator.lock() {
+            self.control_panel.set_current_time(o.current_time());
+        }
+
         let top = egui::TopBottomPanel::top("top-panel")
             .resizable(false)
             .exact_height(64.0);

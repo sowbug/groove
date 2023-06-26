@@ -697,11 +697,27 @@ impl Track {
 }
 impl GeneratesToInternalBuffer<StereoSample> for Track {
     fn generate_batch_values(&mut self, len: usize) -> usize {
-        debug_assert!(len <= self.buffer.len());
+        if len > self.buffer.len() {
+            eprintln!(
+                "requested {} samples but buffer is only len {}",
+                len,
+                self.buffer.len()
+            );
+            return 0;
+        }
+
         self.buffer.fill(StereoSample::SILENCE);
         for e in self.instruments.iter_mut() {
             // Note that we're expecting everyone to ADD to the buffer, not to overwrite!
+            // TODO: convert all instruments to have internal buffers
             e.generate_batch_values(&mut self.buffer);
+        }
+
+        // TODO: change this trait to operate on batches.
+        for e in self.effects.iter_mut() {
+            for sample in self.buffer.iter_mut() {
+                *sample = e.transform_audio(*sample);
+            }
         }
 
         self.buffer.len()

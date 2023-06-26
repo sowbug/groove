@@ -4,7 +4,7 @@ use super::{EntityFactory, Key, MiniSequencerParams};
 use crate::mini::MiniSequencer;
 use groove_core::{
     midi::MidiChannel,
-    traits::{IsController, IsEffect, IsInstrument},
+    traits::{IsController, IsEffect, IsInstrument}, Normal,
 };
 use groove_entities::{
     controllers::{Arpeggiator, ArpeggiatorParams, ToyController},
@@ -66,7 +66,11 @@ pub fn register_mini_factory_entities(factory: &mut EntityFactory) {
         ))
     });
     factory.register_effect(Key::from("reverb"), || {
-        Box::new(Reverb::new_with(&ReverbParams::default()))
+        Box::new(Reverb::new_with(&ReverbParams {
+            attenuation: Normal::from(0.8),
+            seconds: 1.0,
+            wet_dry_mix: 0.8,
+        }))
     });
     factory.register_effect(Key::from("filter-low-pass-24db"), || {
         Box::new(BiQuadFilterLowPass24db::new_with(

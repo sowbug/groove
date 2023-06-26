@@ -21,7 +21,7 @@ use groove_core::{
 use groove_entities::EntityMessage;
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use std::{collections::HashMap, fmt::Debug, ops::Range, sync::Arc};
 
 /// Owns all entities (instruments, controllers, and effects), and manages the
 /// relationships among them to create an audio performance.
@@ -152,20 +152,27 @@ impl MiniOrchestrator {
 
     fn do_main_loop(&mut self, samples: &mut [StereoSample]) {
         let start = self.current_time;
-        let end = start
-            + MusicalTime::new_with_units(MusicalTime::frames_to_units(
-                self.tempo,
-                self.sample_rate,
-                samples.len(),
-            ));
-        let range = start..end;
+        let length = MusicalTime::new_with_units(MusicalTime::frames_to_units(
+            self.tempo,
+            self.sample_rate,
+            samples.len(),
+        ));
+        let range = start..start + length;
+        self.let_controllers_work(range);
+        self.let_audio_devices_work(samples);
+        self.current_time += length;
+    }
 
+    fn let_controllers_work(&mut self, range: Range<MusicalTime>) {
         for track in self.tracks.iter_mut() {
             track.update_time(&range);
         }
         for track in self.tracks.iter_mut() {
             track.work(&mut |m| self.messages.push(m));
         }
+    }
+
+    fn let_audio_devices_work(&mut self, samples: &mut [StereoSample]) {
         self.generate_batch_values(samples);
     }
 
@@ -470,6 +477,11 @@ impl MiniOrchestrator {
             .entry(channel)
             .or_default()
             .retain(|&uid| uid != receiver_uid);
+    }
+
+    /// Returns the global music clock.
+    pub fn current_time(&self) -> MusicalTime {
+        self.current_time
     }
 }
 impl Generates<StereoSample> for MiniOrchestrator {
