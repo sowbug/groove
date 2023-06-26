@@ -1,6 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-//! TODO
+//! Wraps the [cpal] audio interface and makes it easy to address with a
+//! crossbeam channel.
 
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -171,14 +172,14 @@ impl AudioStream {
         config.channels
     }
 
-    /// Tells the audio stream to stop playing audio (which means it will also
-    /// stop consuming samples from the queue).
+    /// Tells the audio stream to resume playing audio (and consuming samples
+    /// from the queue).
     pub fn play(&self) {
         let _ = self.stream.play();
     }
 
-    /// Tells the audio stream to resume playing audio (and consuming samples
-    /// from the queue).
+    /// Tells the audio stream to stop playing audio (which means it will also
+    /// stop consuming samples from the queue).
     pub fn pause(&self) {
         let _ = self.stream.pause();
     }

@@ -140,9 +140,12 @@ impl MiniOrchestrator {
         // Round up
         let buffers_requested = (samples_requested + SAMPLE_BUFFER_SIZE - 1) / SAMPLE_BUFFER_SIZE;
         for _ in 0..buffers_requested {
-            self.do_main_loop(&mut samples);
-            for sample in samples {
-                let _ = queue.push(sample);
+            // Generate a buffer only if there's enough room in the queue for it.
+            if queue.capacity() - queue.len() >= SAMPLE_BUFFER_SIZE {
+                self.do_main_loop(&mut samples);
+                for sample in samples {
+                    let _ = queue.push(sample);
+                }
             }
         }
     }

@@ -90,7 +90,7 @@ impl OscillatorParams {
     }
 }
 
-#[derive(Clone, Debug, Control, Params)]
+#[derive(Debug, Control, Params)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Oscillator {
     #[control]
