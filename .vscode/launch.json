@@ -47,6 +47,24 @@
     {
       "type": "lldb",
       "request": "launch",
+      "name": "MiniCLI example",
+      "cargo": {
+        "args": [
+            "build",
+            "--example=minicli",
+            "--package=groove",
+        ],
+        "filter": {
+            "name": "minicli",
+            "kind": "example"
+        }
+    },
+    "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
       "name": "Unit tests",
       "cargo": {
         "args": [

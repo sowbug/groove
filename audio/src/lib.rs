@@ -36,6 +36,8 @@ pub enum AudioInterfaceEvent {
 }
 
 /// The producer-consumer queue of stereo samples that the audio stream consumes.
+//
+// TODO: why isn't this a ring buffer?
 pub type AudioQueue = Arc<ArrayQueue<StereoSample>>;
 
 #[derive(Debug)]

@@ -65,6 +65,21 @@ impl Sample {
     pub const MAX: Sample = Sample(Self::MAX_VALUE);
     pub const MIN_VALUE: SampleType = -1.0;
     pub const MIN: Sample = Sample(Self::MIN_VALUE);
+
+    /// Converts [Sample] into an i16 scaled to i16::MIN..i16::MAX, which is
+    /// slightly harder than it seems because the negative range of
+    /// two's-complement numbers is larger than the positive one.
+    pub fn into_i16(&self) -> i16 {
+        const MAX_AMPLITUDE: SampleType = i16::MAX as SampleType;
+        const MIN_AMPLITUDE: SampleType = i16::MIN as SampleType;
+        let v = self.0;
+
+        if v < 0.0 {
+            (v.abs() * MIN_AMPLITUDE) as i16
+        } else {
+            (v * MAX_AMPLITUDE) as i16
+        }
+    }
 }
 impl AddAssign for Sample {
     fn add_assign(&mut self, rhs: Self) {
@@ -187,6 +202,11 @@ impl StereoSample {
     pub fn almost_equals(&self, rhs: Self) -> bool {
         let epsilon = 0.0000001;
         (self.0 .0 - rhs.0 .0).abs() < epsilon && (self.1 .0 - rhs.1 .0).abs() < epsilon
+    }
+
+    /// Converts [StereoSample] into a pair of i16 scaled to i16::MIN..i16::MAX
+    pub fn into_i16(&self) -> (i16, i16) {
+        (self.0.into_i16(), self.1.into_i16())
     }
 }
 impl Add for StereoSample {
@@ -931,5 +951,20 @@ mod tests {
         assert_eq!(BipolarNormal::from(Ratio::from(0.125)).value(), -1.0);
         assert_eq!(BipolarNormal::from(Ratio::from(1.0)).value(), 0.0);
         assert_eq!(BipolarNormal::from(Ratio::from(8.0)).value(), 1.0);
+    }
+
+    #[test]
+    fn convert_sample_to_i16() {
+        assert_eq!(Sample::MAX.into_i16(), i16::MAX);
+        assert_eq!(Sample::MIN.into_i16(), i16::MIN);
+        assert_eq!(Sample::SILENCE.into_i16(), 0);
+    }
+
+    #[test]
+    fn convert_stereo_sample_to_i16() {
+        let s = StereoSample(Sample::MIN, Sample::MAX);
+        let (l, r) = s.into_i16();
+        assert_eq!(l, i16::MIN);
+        assert_eq!(r, i16::MAX);
     }
 }

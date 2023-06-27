@@ -218,7 +218,7 @@ impl MiniDaw {
         let mini_orchestrator_for_fn = Arc::clone(&mini_orchestrator);
         let needs_audio: NeedsAudioFn = Box::new(move |audio_queue, samples_requested| {
             if let Ok(mut o) = mini_orchestrator_for_fn.lock() {
-                o.provide_audio(audio_queue, samples_requested);
+                o.enqueue_next_samples(audio_queue, samples_requested);
             }
         });
 

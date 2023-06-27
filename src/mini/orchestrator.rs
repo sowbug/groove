@@ -90,6 +90,12 @@ impl Default for MiniOrchestrator {
     }
 }
 impl MiniOrchestrator {
+    /// The expected size of any buffer provided for samples.
+    //
+    // TODO: how hard would it be to make this dynamic? Does adjustability
+    // matter?
+    pub const SAMPLE_BUFFER_SIZE: usize = 64;
+
     /// Creates a new [MiniOrchestrator] with a (hopefully) initialized
     /// [EntityFactory].
     pub fn new_with(entity_factory: Arc<EntityFactory>) -> Self {
@@ -99,8 +105,9 @@ impl MiniOrchestrator {
         }
     }
 
-    #[allow(dead_code)]
-    fn sample_rate(&self) -> SampleRate {
+    /// The current [SampleRate] used to render the current project. Typically
+    /// something like 44.1KHz.
+    pub fn sample_rate(&self) -> SampleRate {
         self.sample_rate
     }
 
@@ -131,18 +138,32 @@ impl MiniOrchestrator {
         }
     }
 
-    /// Renders part of the project to audio, creating the requested number of
-    /// [StereoSample]s and inserting them in the given [AudioQueue].
-    pub fn provide_audio(&mut self, queue: &AudioQueue, samples_requested: usize) {
-        const SAMPLE_BUFFER_SIZE: usize = 64;
-        let mut samples = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
+    /// Whether we're currently playing a performance.
+    pub fn is_performing(&self) -> bool {
+        self.current_time.total_beats() < 16
+    }
 
+    /// Renders part of the project to audio, creating at least the requested
+    /// number of [StereoSample]s and inserting them in the given [AudioQueue].
+    /// Exceptions: the method operates only in [Self::SAMPLE_BUFFER_SIZE]
+    /// chunks, and it won't generate a chunk unless there is enough room in the
+    /// queue for it.
+    ///
+    /// This method expects to be called continuously, even when the project
+    /// isn't actively playing. In such cases, it will provide a stream of
+    /// silent samples.
+    //
+    // TODO: I don't think there's any reason why this must be limited to an
+    // `AudioQueue` rather than a more general `Vec`-like interface.
+    pub fn enqueue_next_samples(&mut self, queue: &AudioQueue, samples_requested: usize) {
         // Round up
-        let buffers_requested = (samples_requested + SAMPLE_BUFFER_SIZE - 1) / SAMPLE_BUFFER_SIZE;
+        let buffers_requested =
+            (samples_requested + Self::SAMPLE_BUFFER_SIZE - 1) / Self::SAMPLE_BUFFER_SIZE;
         for _ in 0..buffers_requested {
             // Generate a buffer only if there's enough room in the queue for it.
-            if queue.capacity() - queue.len() >= SAMPLE_BUFFER_SIZE {
-                self.do_main_loop(&mut samples);
+            if queue.capacity() - queue.len() >= Self::SAMPLE_BUFFER_SIZE {
+                let mut samples = [StereoSample::SILENCE; Self::SAMPLE_BUFFER_SIZE];
+                self.generate_next_samples(&mut samples);
                 for sample in samples {
                     let _ = queue.push(sample);
                 }
@@ -150,7 +171,8 @@ impl MiniOrchestrator {
         }
     }
 
-    fn do_main_loop(&mut self, samples: &mut [StereoSample]) {
+    /// Renders the next set of samples into the provided buffer.
+    pub fn generate_next_samples(&mut self, samples: &mut [StereoSample]) {
         let start = self.current_time;
         let length = MusicalTime::new_with_units(MusicalTime::frames_to_units(
             self.tempo,
@@ -489,13 +511,13 @@ impl Generates<StereoSample> for MiniOrchestrator {
         StereoSample::SILENCE
     }
 
+    // Note! It's the caller's job to prepare the buffer. This method will *add*
+    // its results, rather than overwriting.
     fn generate_batch_values(&mut self, values: &mut [StereoSample]) {
         let len = values.len();
         self.tracks.par_iter_mut().for_each(|track| {
             track.generate_batch_values(len);
         });
-
-        values.fill(StereoSample::SILENCE);
 
         // TODO: there must be a way to quickly sum same-sized arrays into a
         // final array. https://stackoverflow.com/questions/41207666/ seems to

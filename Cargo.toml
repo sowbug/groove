@@ -36,6 +36,7 @@ groove-proc-macros = { path = "proc-macros" }
 groove-settings = { path = "settings" }
 groove-toys = { path = "toys", features = ["serialization", "egui-framework"] }
 groove-utils = { path = "utils" }
+hound = "3.5"
 oorandom = "11.1"
 plotters = { version = "0.3", optional = true, default-features = false }
 rayon = "1.7"
