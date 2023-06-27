@@ -16,7 +16,7 @@ use groove_core::{
         gui::Shows, Configurable, Controls, Generates, GeneratesToInternalBuffer, HandlesMidi,
         Ticks,
     },
-    StereoSample, Uid,
+    Sample, StereoSample, Uid,
 };
 use groove_entities::EntityMessage;
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
@@ -129,12 +129,12 @@ impl MiniOrchestrator {
         self.tempo = tempo;
     }
 
-    // Fills in the given sample buffer with something simple and audible.
-    #[allow(dead_code)]
-    fn debug_sample_buffer(&mut self, samples: &mut [StereoSample]) {
+    /// Fills in the given sample buffer with something simple and audible.
+    pub fn debug_sample_buffer(&mut self, samples: &mut [StereoSample]) {
         let len = samples.len() as f64;
         for (i, s) in samples.iter_mut().enumerate() {
-            *s = StereoSample::from(i as f64 / len);
+            s.0 = Sample::from(i as f64 / len);
+            s.1 = Sample::from(i as f64 / -len);
         }
     }
 

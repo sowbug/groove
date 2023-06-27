@@ -1,7 +1,8 @@
-use std::path::PathBuf;
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove::mini::MiniOrchestrator;
-use groove_core::{Sample, StereoSample};
+use groove_core::StereoSample;
+use std::path::PathBuf;
 
 fn main() -> anyhow::Result<()> {
     let mut o = MiniOrchestrator::default();
@@ -16,10 +17,7 @@ fn main() -> anyhow::Result<()> {
     let mut writer = hound::WavWriter::create(path, spec).unwrap();
 
     let mut buffer = [StereoSample::SILENCE; 64];
-    for i in 0..64 {
-        buffer[i].0 = Sample::from(i as f64 / 64.0);
-        buffer[i].1 = Sample::from(i as f64 / -64.0);
-    }
+    o.debug_sample_buffer(&mut buffer);
     loop {
         if o.is_performing() {
             o.generate_next_samples(&mut buffer);
