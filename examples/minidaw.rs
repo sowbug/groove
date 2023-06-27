@@ -17,7 +17,7 @@ use groove::{
         MiniAudioPanel, MiniOrchestratorEvent, MiniOrchestratorInput, NeedsAudioFn,
         OrchestratorPanel, PaletteAction, PalettePanel,
     },
-    mini::{register_mini_factory_entities, DragDropManager, EntityFactory, MiniOrchestrator},
+    mini::{register_mini_factory_entities, DragDropManager, EntityFactory, Key, MiniOrchestrator},
 };
 use groove_core::{time::SampleRate, traits::gui::Shows};
 use std::{
@@ -42,7 +42,7 @@ use std::{
 //   analysis. These should be APIs directly on the struct, and we'll leave it
 //   up to the app to lock the struct and get what it needs.
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 enum MenuBarAction {
     Quit,
     ProjectNew,
@@ -54,6 +54,9 @@ enum MenuBarAction {
     TrackDuplicate,
     TrackDelete,
     TrackRemoveSelectedPatterns,
+    TrackAddController(Key),
+    TrackAddEffect(Key),
+    TrackAddInstrument(Key),
     ComingSoon,
 }
 
@@ -97,16 +100,22 @@ impl MenuBarItem {
                 .clicked()
             {
                 ui.close_menu();
-                action = Some(*action_to_perform);
+                action = Some(action_to_perform.clone());
             }
         }
         action
     }
 }
 
-#[derive(Debug, Default)]
-struct MenuBar {}
+#[derive(Debug)]
+struct MenuBar {
+    factory: Arc<EntityFactory>,
+}
 impl MenuBar {
+    pub fn new_with(factory: Arc<EntityFactory>) -> Self {
+        Self { factory }
+    }
+
     fn show_with_action(&mut self, ui: &mut Ui, is_track_selected: bool) -> Option<MenuBarAction> {
         let mut action = None;
 
@@ -114,6 +123,16 @@ impl MenuBar {
         ui.style_mut().visuals.button_frame = false;
 
         ui.horizontal(|ui| {
+            let mut device_submenus = Vec::default();
+            if is_track_selected {
+                device_submenus.push(MenuBarItem::node("New", self.new_entity_menu()));
+            }
+            device_submenus.extend(vec![
+                MenuBarItem::leaf("Shift Left", MenuBarAction::ComingSoon, true),
+                MenuBarItem::leaf("Shift Right", MenuBarAction::ComingSoon, true),
+                MenuBarItem::leaf("Move Up", MenuBarAction::ComingSoon, true),
+                MenuBarItem::leaf("Move Down", MenuBarAction::ComingSoon, true),
+            ]);
             let menus = vec![
                 MenuBarItem::node(
                     "Project",
@@ -143,16 +162,7 @@ impl MenuBar {
                         ), // TODO: enable only if some patterns selected
                     ],
                 ),
-                MenuBarItem::node(
-                    "Device",
-                    vec![
-                        MenuBarItem::leaf("New", MenuBarAction::ComingSoon, true),
-                        MenuBarItem::leaf("Shift Left", MenuBarAction::ComingSoon, true),
-                        MenuBarItem::leaf("Shift Right", MenuBarAction::ComingSoon, true),
-                        MenuBarItem::leaf("Move Up", MenuBarAction::ComingSoon, true),
-                        MenuBarItem::leaf("Move Down", MenuBarAction::ComingSoon, true),
-                    ],
-                ),
+                MenuBarItem::node("Device", device_submenus),
                 MenuBarItem::node(
                     "Control",
                     vec![
@@ -168,6 +178,50 @@ impl MenuBar {
             }
         });
         action
+    }
+
+    fn new_entity_menu(&self) -> Vec<MenuBarItem> {
+        vec![
+            MenuBarItem::node(
+                "Controllers",
+                self.factory
+                    .controller_keys()
+                    .map(|k| {
+                        MenuBarItem::leaf(
+                            &k.to_string(),
+                            MenuBarAction::TrackAddController(k.clone()),
+                            true,
+                        )
+                    })
+                    .collect(),
+            ),
+            MenuBarItem::node(
+                "Instruments",
+                self.factory
+                    .instrument_keys()
+                    .map(|k| {
+                        MenuBarItem::leaf(
+                            &k.to_string(),
+                            MenuBarAction::TrackAddInstrument(k.clone()),
+                            true,
+                        )
+                    })
+                    .collect(),
+            ),
+            MenuBarItem::node(
+                "Effects",
+                self.factory
+                    .effect_keys()
+                    .map(|k| {
+                        MenuBarItem::leaf(
+                            &k.to_string(),
+                            MenuBarAction::TrackAddEffect(k.clone()),
+                            true,
+                        )
+                    })
+                    .collect(),
+            ),
+        ]
     }
 }
 
@@ -224,7 +278,7 @@ impl MiniDaw {
 
         let mut r = Self {
             mini_orchestrator,
-            menu_bar: Default::default(),
+            menu_bar: MenuBar::new_with(Arc::clone(&factory)),
             control_panel: Default::default(),
             orchestrator_panel,
             audio_panel: MiniAudioPanel::new_with(Box::new(needs_audio)),
@@ -505,28 +559,40 @@ impl MiniDaw {
                     "minidaw.json",
                 )))
             }
+            MenuBarAction::TrackAddController(key) => {
+                input = Some(MiniOrchestratorInput::TrackAddController(key))
+            }
+            MenuBarAction::TrackAddEffect(key) => {
+                input = Some(MiniOrchestratorInput::TrackAddEffect(key))
+            }
+            MenuBarAction::TrackAddInstrument(key) => {
+                input = Some(MiniOrchestratorInput::TrackAddInstrument(key))
+            }
         }
         if let Some(input) = input {
             self.orchestrator_panel.send_to_service(input);
         }
     }
 
+    #[allow(dead_code)]
+    #[allow(unused_mut)]
+    #[allow(unused_variables)]
     fn handle_palette_action(&mut self, action: PaletteAction) {
         if let Ok(mut o) = self.mini_orchestrator.lock() {
             match action {
                 PaletteAction::NewController(key) => {
                     if let Some(track) = o.single_track_selection() {
-                        let _ = o.add_controller_by_key(&key, track);
+                        //                        let _ = o.add_controller_by_key(&key, track);
                     }
                 }
                 PaletteAction::NewEffect(key) => {
                     if let Some(track) = o.single_track_selection() {
-                        let _ = o.add_effect_by_key(&key, track);
+                        //                  let _ = o.add_effect_by_key(&key, track);
                     }
                 }
                 PaletteAction::NewInstrument(key) => {
                     if let Some(track) = o.single_track_selection() {
-                        let _ = o.add_instrument_by_key(&key, track);
+                        //               let _ = o.add_instrument_by_key(&key, track);
                     }
                 }
             }
@@ -556,9 +622,9 @@ impl MiniDaw {
     }
 
     fn show_left(&mut self, ui: &mut egui::Ui) {
-        if let Some(action) = self.palette_panel.show_with_action(ui) {
+        if let Some(_action) = self.palette_panel.show_with_action(ui) {
             // these are inactive for now because we're skipping the drag/drop stuff.
-            self.handle_palette_action(action);
+            //self.handle_palette_action(action);
         }
     }
 

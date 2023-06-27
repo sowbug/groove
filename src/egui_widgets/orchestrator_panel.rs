@@ -1,4 +1,4 @@
-use crate::mini::{ChannelPair, DragDropManager, EntityFactory, MiniOrchestrator, TrackIndex};
+use crate::mini::{ChannelPair, DragDropManager, EntityFactory, Key, MiniOrchestrator, TrackIndex};
 use anyhow::{anyhow, Result};
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::Ui;
@@ -40,6 +40,12 @@ pub enum MiniOrchestratorInput {
     TrackNewSend,
     /// Delete the selected arranged patterns.
     TrackPatternRemoveSelected,
+    /// Add a new controller to the selected track.
+    TrackAddController(Key),
+    /// Add a new effect to the selected track.
+    TrackAddEffect(Key),
+    /// Add a new instrument to the selected track.
+    TrackAddInstrument(Key),
 
     // TODO: these are waiting for the big refactor (which might never happen)
     /// Select the given track.
@@ -80,8 +86,6 @@ pub enum MiniOrchestratorEvent {
 /// An egui panel that renders a [MiniOrchestrator].
 pub struct OrchestratorPanel {
     #[allow(dead_code)]
-    factory: Arc<EntityFactory>,
-    #[allow(dead_code)]
     drag_drop_manager: Arc<Mutex<DragDropManager>>,
     orchestrator: Arc<Mutex<MiniOrchestrator>>,
     input_channel_pair: ChannelPair<MiniOrchestratorInput>,
@@ -94,7 +98,6 @@ impl OrchestratorPanel {
         drag_drop_manager: Arc<Mutex<DragDropManager>>,
     ) -> Self {
         let mut r = Self {
-            factory: Arc::clone(&factory),
             drag_drop_manager,
             orchestrator: Arc::new(Mutex::new(MiniOrchestrator::new_with(factory))),
             input_channel_pair: Default::default(),
@@ -109,7 +112,6 @@ impl OrchestratorPanel {
         let sender = self.event_channel_pair.sender.clone();
         self.introduce();
         let orchestrator = Arc::clone(&self.orchestrator);
-        let entity_factory = Arc::clone(&self.factory);
         std::thread::spawn(move || loop {
             let recv = receiver.recv();
             if let Ok(mut o) = orchestrator.lock() {
@@ -121,7 +123,7 @@ impl OrchestratorPanel {
                         MiniOrchestratorInput::ProjectPlay => eprintln!("Play"),
                         MiniOrchestratorInput::ProjectStop => eprintln!("Stop"),
                         MiniOrchestratorInput::ProjectNew => {
-                            let mut mo = MiniOrchestrator::new_with(Arc::clone(&entity_factory));
+                            let mut mo = MiniOrchestrator::default();
                             o.prepare_successor(&mut mo);
                             *o = mo;
                             let _ = sender.send(MiniOrchestratorEvent::New);
@@ -180,6 +182,15 @@ impl OrchestratorPanel {
                             o.select_track(index, add_to_selection_set);
                         }
                         MiniOrchestratorInput::TrackSelectReset => todo!(),
+                        MiniOrchestratorInput::TrackAddController(key) => {
+                            let _ = o.add_controller_by_key_to_selected_track(&key);
+                        }
+                        MiniOrchestratorInput::TrackAddEffect(key) => {
+                            let _ = o.add_effect_by_key_to_selected_track(&key);
+                        }
+                        MiniOrchestratorInput::TrackAddInstrument(key) => {
+                            let _ = o.add_instrument_by_key_to_selected_track(&key);
+                        }
                     },
                     Err(err) => {
                         eprintln!(

@@ -794,6 +794,11 @@ impl From<usize> for SampleRate {
         Self::new(value)
     }
 }
+impl From<SampleRate> for u32 {
+    fn from(value: SampleRate) -> Self {
+        value.0 as u32
+    }
+}
 
 #[cfg(feature = "egui-framework")]
 mod gui {

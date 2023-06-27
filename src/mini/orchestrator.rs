@@ -129,6 +129,12 @@ impl MiniOrchestrator {
         self.tempo = tempo;
     }
 
+    /// Returns the number of channels in the audio stream. For now, this is
+    /// always 2 (stereo audio stream).
+    pub fn channels(&self) -> u16 {
+        2
+    }
+
     /// Fills in the given sample buffer with something simple and audible.
     pub fn debug_sample_buffer(&mut self, samples: &mut [StereoSample]) {
         let len = samples.len() as f64;
@@ -283,9 +289,7 @@ impl MiniOrchestrator {
         if let Some(selected) = self.single_track_selection {
             let bottom = egui::TopBottomPanel::bottom("orchestrator-bottom-panel").resizable(true);
             bottom.show_inside(ui, |ui| {
-                if let Some(action) =
-                    self.tracks[selected.0].show_detail(ui, self.entity_factory.clone(), selected)
-                {
+                if let Some(action) = self.tracks[selected.0].show_detail(ui) {
                     self.handle_track_action(action);
                 }
             });
@@ -294,15 +298,15 @@ impl MiniOrchestrator {
 
     fn handle_track_action(&mut self, action: TrackAction) {
         match action {
-            TrackAction::NewController(track, key) => {
-                let _ = self.add_controller_by_key(&key, track);
-            }
-            TrackAction::NewEffect(track, key) => {
-                let _ = self.add_effect_by_key(&key, track);
-            }
-            TrackAction::NewInstrument(track, key) => {
-                let _ = self.add_instrument_by_key(&key, track);
-            }
+            // TrackAction::NewController(track, key) => {
+            //     let _ = self.add_controller_by_key(&key, track);
+            // }
+            // TrackAction::NewEffect(track, key) => {
+            //     let _ = self.add_effect_by_key(&key, track);
+            // }
+            // TrackAction::NewInstrument(track, key) => {
+            //     let _ = self.add_instrument_by_key(&key, track);
+            // }
             TrackAction::Select(index, add_to_selections) => {
                 self.select_track(index, add_to_selections);
             }
@@ -410,8 +414,18 @@ impl MiniOrchestrator {
         self.tracks.iter().any(|t| t.selected())
     }
 
+    /// Adds a new controller with the specified [Key] to the currently selected
+    /// single track. Fails if anything but exactly one track is selected.
+    pub fn add_controller_by_key_to_selected_track(&mut self, key: &Key) -> Result<Uid> {
+        if let Some(track) = self.single_track_selection() {
+            self.add_controller_by_key_to_track(key, track)
+        } else {
+            Err(anyhow!("A single track was not selected"))
+        }
+    }
+
     /// Adds a new controller with the specified [Key] to the track with the specified [TrackIndex].
-    pub fn add_controller_by_key(&mut self, key: &Key, track: TrackIndex) -> Result<Uid> {
+    pub fn add_controller_by_key_to_track(&mut self, key: &Key, track: TrackIndex) -> Result<Uid> {
         if let Some(factory) = &self.entity_factory {
             if let Some(e) = factory.new_controller(key) {
                 self.add_controller(e, track)
@@ -434,8 +448,18 @@ impl MiniOrchestrator {
         Ok(uid)
     }
 
+    /// Adds a new effect with the specified [Key] to the currently selected
+    /// single track. Fails if anything but exactly one track is selected.
+    pub fn add_effect_by_key_to_selected_track(&mut self, key: &Key) -> Result<Uid> {
+        if let Some(track) = self.single_track_selection() {
+            self.add_effect_by_key_to_track(key, track)
+        } else {
+            Err(anyhow!("A single track was not selected"))
+        }
+    }
+
     /// Adds a new effect with the specified [Key] to the track with the specified [TrackIndex].
-    pub fn add_effect_by_key(&mut self, key: &Key, track: TrackIndex) -> Result<Uid> {
+    pub fn add_effect_by_key_to_track(&mut self, key: &Key, track: TrackIndex) -> Result<Uid> {
         if let Some(factory) = &self.entity_factory {
             if let Some(e) = factory.new_effect(key) {
                 self.add_effect(e, track)
@@ -454,8 +478,18 @@ impl MiniOrchestrator {
         Ok(uid)
     }
 
+    /// Adds a new instrument with the specified [Key] to the currently selected
+    /// single track. Fails if anything but exactly one track is selected.
+    pub fn add_instrument_by_key_to_selected_track(&mut self, key: &Key) -> Result<Uid> {
+        if let Some(track) = self.single_track_selection() {
+            self.add_instrument_by_key_to_track(key, track)
+        } else {
+            Err(anyhow!("A single track was not selected"))
+        }
+    }
+
     /// Adds a new instrument with the specified [Key] to the track with the specified [TrackIndex].
-    pub fn add_instrument_by_key(&mut self, key: &Key, track: TrackIndex) -> Result<Uid> {
+    pub fn add_instrument_by_key_to_track(&mut self, key: &Key, track: TrackIndex) -> Result<Uid> {
         if let Some(factory) = &self.entity_factory {
             if let Some(e) = factory.new_instrument(key) {
                 self.add_instrument(e, track)

@@ -1,9 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::entities::{NewIsController, NewIsEffect, NewIsInstrument};
-use super::entity_factory::{EntityType, Key};
+use super::entity_factory::EntityType;
 use super::sequencer::MiniSequencer;
-use super::EntityFactory;
 use crate::mini::sequencer::MiniSequencerParams;
 use anyhow::{anyhow, Result};
 use eframe::{
@@ -20,7 +19,6 @@ use groove_core::{
 };
 use groove_entities::EntityMessage;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 /// An ephemeral identifier for a [Track] in the current project.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -41,9 +39,9 @@ pub enum TrackElementAction {
 
 #[derive(Debug)]
 pub enum TrackAction {
-    NewController(TrackIndex, Key),
-    NewEffect(TrackIndex, Key),
-    NewInstrument(TrackIndex, Key),
+    // NewController(TrackIndex, Key),
+    // NewEffect(TrackIndex, Key),
+    // NewInstrument(TrackIndex, Key),
     Select(TrackIndex, bool),
     SelectClear,
 }
@@ -391,14 +389,9 @@ impl Track {
     // those groups, the user can reorder as desired (but instrument order
     // doesn't matter because they're all simultaneous)
     #[must_use]
-    pub fn show_detail(
-        &mut self,
-        ui: &mut Ui,
-        factory: Option<Arc<EntityFactory>>,
-        track: TrackIndex,
-    ) -> Option<TrackAction> {
+    pub fn show_detail(&mut self, ui: &mut Ui) -> Option<TrackAction> {
         let style = ui.visuals().widgets.inactive;
-        let mut action = None;
+        let action = None;
 
         ui.with_layout(
             egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
@@ -407,37 +400,6 @@ impl Track {
                 ui.set_min_size(desired_size);
                 ui.set_max_size(desired_size);
 
-                if let Some(factory) = factory {
-                    ui.horizontal(|ui| {
-                        ui.menu_button("+", |ui| {
-                            ui.menu_button("Controllers", |ui| {
-                                factory.controller_keys().for_each(|k| {
-                                    if ui.button(k.to_string()).clicked() {
-                                        action = Some(TrackAction::NewController(track, k.clone()));
-                                        ui.close_menu();
-                                    }
-                                });
-                            });
-                            ui.menu_button("Instruments", |ui| {
-                                factory.instrument_keys().for_each(|k| {
-                                    if ui.button(k.to_string()).clicked() {
-                                        action = Some(TrackAction::NewInstrument(track, k.clone()));
-                                        ui.close_menu();
-                                    }
-                                });
-                            });
-                            ui.menu_button("Effects", |ui| {
-                                factory.effect_keys().for_each(|k| {
-                                    if ui.button(k.to_string()).clicked() {
-                                        action = Some(TrackAction::NewEffect(track, k.clone()));
-                                        ui.close_menu();
-                                    }
-                                });
-                            });
-                        });
-                    });
-                    ui.add(egui::Separator::default().grow(8.0));
-                }
                 ui.horizontal_centered(|ui| {
                     let desired_size = Vec2::new(512.0, ui.available_height());
 
