@@ -4,12 +4,10 @@ use groove::mini::MiniOrchestrator;
 use groove_core::StereoSample;
 use std::path::PathBuf;
 
-fn main() -> anyhow::Result<()> {
-    let mut o = MiniOrchestrator::default();
-
+fn write_performance_to_file(orchestrator: &mut MiniOrchestrator) -> anyhow::Result<()> {
     let spec = hound::WavSpec {
-        channels: 2,
-        sample_rate: o.sample_rate().value() as u32,
+        channels: orchestrator.channels(),
+        sample_rate: orchestrator.sample_rate().into(),
         bits_per_sample: 16,
         sample_format: hound::SampleFormat::Int,
     };
@@ -17,10 +15,10 @@ fn main() -> anyhow::Result<()> {
     let mut writer = hound::WavWriter::create(path, spec).unwrap();
 
     let mut buffer = [StereoSample::SILENCE; 64];
-    o.debug_sample_buffer(&mut buffer);
+    orchestrator.debug_sample_buffer(&mut buffer);
     loop {
-        if o.is_performing() {
-            o.generate_next_samples(&mut buffer);
+        if orchestrator.is_performing() {
+            orchestrator.generate_next_samples(&mut buffer);
             for sample in buffer {
                 let (left, right) = sample.into_i16();
                 let _ = writer.write_sample(left);
@@ -32,4 +30,9 @@ fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+fn main() -> anyhow::Result<()> {
+    let mut o = MiniOrchestrator::default();
+
+    write_performance_to_file(&mut o)
 }
