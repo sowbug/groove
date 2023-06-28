@@ -1,13 +1,14 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 pub use drag_drop::{DragDropManager, DragDropSource};
-pub use entities::register_mini_factory_entities;
-#[cfg(test)]
-pub use entities::register_test_factory_entities;
+pub use entities::{register_mini_factory_entities, NewIsController, NewIsEffect, NewIsInstrument};
 pub use entity_factory::{EntityFactory, Key};
 pub use orchestrator::MiniOrchestrator;
 pub use sequencer::{MiniSequencer, MiniSequencerParams};
 pub use track::TrackIndex; // TODO: this is weird to have to export without Track
+
+#[cfg(test)]
+pub use entities::register_test_factory_entities;
 
 use crossbeam_channel::{Receiver, Sender};
 use groove_core::Uid;

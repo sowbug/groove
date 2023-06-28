@@ -14,7 +14,7 @@ use groove_core::{
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
     traits::{
         gui::Shows, Configurable, Controls, Generates, GeneratesToInternalBuffer, HandlesMidi,
-        Ticks,
+        Performs, Ticks,
     },
     Sample, StereoSample, Uid,
 };
@@ -57,11 +57,21 @@ pub struct MiniOrchestrator {
     #[allow(dead_code)]
     current_time: MusicalTime,
 
+    // The current time range for Controls::work().
+    #[serde(skip)]
+    range: Range<MusicalTime>,
+
     #[serde(skip)]
     entity_factory: Option<Arc<EntityFactory>>,
 
     #[serde(skip)]
     messages: Vec<EntityMessage>,
+
+    #[serde(skip)]
+    is_finished: bool,
+
+    #[serde(skip)]
+    is_performing: bool,
 }
 impl Default for MiniOrchestrator {
     fn default() -> Self {
@@ -84,8 +94,11 @@ impl Default for MiniOrchestrator {
             sample_rate: Default::default(),
             frames: Default::default(),
             current_time: Default::default(),
+            range: Default::default(),
             entity_factory: None,
             messages: Default::default(),
+            is_finished: Default::default(),
+            is_performing: Default::default(),
         }
     }
 }
@@ -144,11 +157,6 @@ impl MiniOrchestrator {
         }
     }
 
-    /// Whether we're currently playing a performance.
-    pub fn is_performing(&self) -> bool {
-        self.current_time.total_beats() < 16
-    }
-
     /// Renders part of the project to audio, creating at least the requested
     /// number of [StereoSample]s and inserting them in the given [AudioQueue].
     /// Exceptions: the method operates only in [Self::SAMPLE_BUFFER_SIZE]
@@ -177,31 +185,21 @@ impl MiniOrchestrator {
         }
     }
 
-    /// Renders the next set of samples into the provided buffer.
+    /// Renders the next set of samples into the provided buffer. This is the
+    /// main event loop.
     pub fn generate_next_samples(&mut self, samples: &mut [StereoSample]) {
         let start = self.current_time;
-        let length = MusicalTime::new_with_units(MusicalTime::frames_to_units(
+        let units = 1.max(MusicalTime::frames_to_units(
             self.tempo,
             self.sample_rate,
             samples.len(),
         ));
+        let length = MusicalTime::new_with_units(units);
         let range = start..start + length;
-        self.let_controllers_work(range);
-        self.let_audio_devices_work(samples);
-        self.current_time += length;
-    }
-
-    fn let_controllers_work(&mut self, range: Range<MusicalTime>) {
-        for track in self.tracks.iter_mut() {
-            track.update_time(&range);
-        }
-        for track in self.tracks.iter_mut() {
-            track.work(&mut |m| self.messages.push(m));
-        }
-    }
-
-    fn let_audio_devices_work(&mut self, samples: &mut [StereoSample]) {
+        self.update_time(&range);
+        self.work(&mut |_| {});
         self.generate_batch_values(samples);
+        self.current_time += length;
     }
 
     /// After loading a new Self from disk, we want to copy all the appropriate
@@ -437,7 +435,9 @@ impl MiniOrchestrator {
         }
     }
 
-    fn add_controller(
+    /// Adds the given controller, returning an assigned [Uid] if successful.
+    /// [MiniOrchestrator] takes ownership.
+    pub fn add_controller(
         &mut self,
         mut e: Box<dyn NewIsController>,
         track: TrackIndex,
@@ -471,7 +471,9 @@ impl MiniOrchestrator {
         }
     }
 
-    fn add_effect(&mut self, mut e: Box<dyn NewIsEffect>, track: TrackIndex) -> Result<Uid> {
+    /// Adds the given effect, returning an assigned [Uid] if successful.
+    /// [MiniOrchestrator] takes ownership.
+    pub fn add_effect(&mut self, mut e: Box<dyn NewIsEffect>, track: TrackIndex) -> Result<Uid> {
         e.update_sample_rate(self.sample_rate);
         let uid = e.uid();
         self.tracks[track.0].append_effect(e);
@@ -501,7 +503,9 @@ impl MiniOrchestrator {
         }
     }
 
-    fn add_instrument(
+    /// Adds the given instrument, returning an assigned [Uid] if successful.
+    /// [MiniOrchestrator] takes ownership.
+    pub fn add_instrument(
         &mut self,
         mut e: Box<dyn NewIsInstrument>,
         track: TrackIndex,
@@ -539,6 +543,10 @@ impl MiniOrchestrator {
     pub fn current_time(&self) -> MusicalTime {
         self.current_time
     }
+
+    fn calculate_is_finished(&self) -> bool {
+        self.tracks.iter().all(|t| t.is_finished())
+    }
 }
 impl Generates<StereoSample> for MiniOrchestrator {
     fn value(&self) -> StereoSample {
@@ -565,9 +573,10 @@ impl Generates<StereoSample> for MiniOrchestrator {
         // memory, maybe we can even sic some fast matrix code on it.
         self.tracks.iter().for_each(|track| {
             let generator_values = track.values();
-            generator_values.iter().enumerate().for_each(|(i, v)| {
-                values[i] += *v;
-            });
+            let copy_len = len.min(generator_values.len());
+            for i in 0..copy_len {
+                values[i] = generator_values[i];
+            }
         });
     }
 }
@@ -601,37 +610,144 @@ impl HandlesMidi for MiniOrchestrator {
         }
     }
 }
+impl Performs for MiniOrchestrator {
+    fn play(&mut self) {
+        self.is_performing = true;
+        self.tracks.iter_mut().for_each(|t| t.play());
+    }
+
+    fn stop(&mut self) {
+        // If we were performing, stop. Otherwise, it's a stop-while-stopped
+        // action, which means the user wants to rewind to the beginning.
+        if self.is_performing {
+            self.is_performing = false;
+        } else {
+            self.skip_to_start();
+        }
+        self.tracks.iter_mut().for_each(|t| t.stop());
+    }
+
+    fn skip_to_start(&mut self) {
+        self.current_time = MusicalTime::START;
+        self.tracks.iter_mut().for_each(|t| t.skip_to_start());
+    }
+
+    fn is_performing(&self) -> bool {
+        self.is_performing
+    }
+}
+impl Controls for MiniOrchestrator {
+    type Message = EntityMessage;
+
+    fn update_time(&mut self, range: &Range<MusicalTime>) {
+        self.range = range.clone();
+
+        for track in self.tracks.iter_mut() {
+            track.update_time(&self.range);
+        }
+    }
+
+    fn work(&mut self, _: &mut dyn FnMut(Self::Message)) {
+        for track in self.tracks.iter_mut() {
+            track.work(&mut |m| self.messages.push(m));
+        }
+        self.is_finished = self.calculate_is_finished();
+    }
+
+    fn is_finished(&self) -> bool {
+        self.is_finished
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use crate::mini::{orchestrator::MiniOrchestrator, TrackIndex};
-    use groove_core::midi::MidiChannel;
-    use groove_entities::controllers::{ToyController, ToyControllerParams};
+    use groove_core::{
+        midi::MidiChannel,
+        time::{MusicalTime, SampleRate, Tempo},
+        traits::{Controls, Performs},
+        StereoSample,
+    };
+    use groove_entities::controllers::{Timer, TimerParams, ToyController, ToyControllerParams};
     use groove_toys::{ToyEffect, ToyEffectParams, ToyInstrument, ToyInstrumentParams};
 
     #[test]
-    fn mini_orchestrator_basic_operations() {
+    fn basic_operations() {
+        let mut o = MiniOrchestrator::default();
+
+        assert!(
+            o.sample_rate().value() != 0,
+            "Default sample rate should be reasonable"
+        );
+        let new_sample_rate = SampleRate(3);
+        o.set_sample_rate(new_sample_rate);
+        assert_eq!(
+            o.sample_rate(),
+            new_sample_rate,
+            "Sample rate should be settable"
+        );
+
+        assert!(
+            o.tempo().value() > 0.0,
+            "Default tempo should be reasonable"
+        );
+        let new_tempo = Tempo(64.0);
+        o.set_tempo(new_tempo);
+        assert_eq!(o.tempo(), new_tempo, "Tempo should be settable");
+    }
+
+    #[test]
+    fn exposes_traits_ergonomically() {
+        let mut o = MiniOrchestrator::default();
+
+        // TODO: worst ergonomics ever.
+        const TIMER_DURATION: MusicalTime = MusicalTime::new_with_beats(1);
+        let _ = o.add_controller(
+            Box::new(Timer::new_with(&TimerParams {
+                duration: groove_core::time::MusicalTimeParams {
+                    units: TIMER_DURATION.total_units(),
+                },
+            })),
+            TrackIndex(0),
+        );
+
+        o.play();
+        let mut prior_start_time = MusicalTime::start_of_time();
+        loop {
+            if o.is_finished() {
+                break;
+            }
+            prior_start_time = o.current_time;
+            let mut samples = [StereoSample::SILENCE; 1];
+            o.generate_next_samples(&mut samples);
+        }
+        let prior_range = prior_start_time..o.current_time();
+        assert!(prior_range.contains(&TIMER_DURATION));
+    }
+
+    #[test]
+    fn track_operations() {
         let mut o = MiniOrchestrator::default();
 
         // A new orchestrator should have at least one track.
         assert!(!o.tracks.is_empty());
 
-        let id1 = o
+        let t0_i1_id = o
             .add_instrument(
                 Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default())),
                 TrackIndex(0),
             )
             .unwrap();
-        let id2 = o
+        let t0_i2_id = o
             .add_instrument(
                 Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default())),
                 TrackIndex(0),
             )
             .unwrap();
-        assert_eq!(o.tracks()[0].instruments()[0].uid(), id1);
-        assert_eq!(o.tracks()[0].instruments()[1].uid(), id2);
+        assert_eq!(o.tracks()[0].instruments()[0].uid(), t0_i1_id);
+        assert_eq!(o.tracks()[0].instruments()[1].uid(), t0_i2_id);
 
-        let id1 = o
+        let t0_c1_id = o
             .add_controller(
                 Box::new(ToyController::new_with(
                     &ToyControllerParams::default(),
@@ -640,18 +756,18 @@ mod tests {
                 TrackIndex(0),
             )
             .unwrap();
-        assert_eq!(o.tracks()[0].controllers()[0].uid(), id1);
+        assert_eq!(o.tracks()[0].controllers()[0].uid(), t0_c1_id);
 
-        let id1 = o
+        let t0_e1_id = o
             .add_effect(
                 Box::new(ToyEffect::new_with(&ToyEffectParams::default())),
                 TrackIndex(0),
             )
             .unwrap();
-        assert_eq!(o.tracks()[0].effects()[0].uid(), id1);
+        assert_eq!(o.tracks()[0].effects()[0].uid(), t0_e1_id);
 
         assert!(o.tracks.len() > 1);
-        let id3 = o
+        let t1_i1_id = o
             .add_instrument(
                 Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default())),
                 TrackIndex(1),
@@ -664,6 +780,6 @@ mod tests {
         assert!(o.move_instrument(1, 0, 0, 0).is_ok());
         assert_eq!(o.tracks[0].instruments().len(), 3);
         assert_eq!(o.tracks[1].instruments().len(), 0);
-        assert_eq!(o.tracks[0].instruments()[0].uid(), id3);
+        assert_eq!(o.tracks[0].instruments()[0].uid(), t1_i1_id);
     }
 }

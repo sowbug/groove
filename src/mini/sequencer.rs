@@ -309,7 +309,8 @@ pub struct MiniSequencer {
 }
 impl MiniSequencer {
     /// Creates a new [MiniSequencer]
-    pub fn new_with(_params: &MiniSequencerParams, midi_channel_out: MidiChannel) -> Self {
+    #[allow(unused_variables)]
+    pub fn new_with(params: &MiniSequencerParams, midi_channel_out: MidiChannel) -> Self {
         Self {
             midi_channel_out,
             ..Default::default()

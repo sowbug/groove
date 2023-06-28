@@ -8,7 +8,7 @@ use groove_core::{
     Normal,
 };
 use groove_entities::{
-    controllers::{Arpeggiator, ArpeggiatorParams, ToyController},
+    controllers::{Arpeggiator, ArpeggiatorParams, Timer, ToyController},
     effects::{BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbParams, Reverb, ReverbParams},
     instruments::{Drumkit, DrumkitParams, WelshSynth, WelshSynthParams},
     EntityMessage,
@@ -16,12 +16,15 @@ use groove_entities::{
 use groove_toys::{ToyEffect, ToyInstrument, ToyInstrumentParams, ToySynth, ToySynthParams};
 use groove_utils::Paths;
 
+/// Temporary wrapper to satisfy Serde
 #[typetag::serde(tag = "type")]
 pub trait NewIsController: IsController<Message = EntityMessage> {}
 
+/// Temporary wrapper to satisfy Serde
 #[typetag::serde(tag = "type")]
 pub trait NewIsInstrument: IsInstrument {}
 
+/// Temporary wrapper to satisfy Serde
 #[typetag::serde(tag = "type")]
 pub trait NewIsEffect: IsEffect {}
 
@@ -38,7 +41,7 @@ impl NewIsController for MiniSequencer {}
 #[typetag::serde]
 impl NewIsEffect for Reverb {}
 #[typetag::serde]
-impl NewIsInstrument for WelshSynth {}
+impl NewIsController for Timer {}
 #[typetag::serde]
 impl NewIsController for ToyController {}
 #[typetag::serde]
@@ -47,6 +50,8 @@ impl NewIsEffect for ToyEffect {}
 impl NewIsInstrument for ToyInstrument {}
 #[typetag::serde]
 impl NewIsInstrument for ToySynth {}
+#[typetag::serde]
+impl NewIsInstrument for WelshSynth {}
 
 /// Registers all the entities we want for the minidaw example's EntityFactory.
 pub fn register_mini_factory_entities(factory: &mut EntityFactory) {
