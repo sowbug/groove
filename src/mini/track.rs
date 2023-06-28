@@ -10,7 +10,7 @@ use eframe::{
     emath::{self, Align},
     epaint::{pos2, vec2, Color32, Pos2, Rect, RectShape, Rounding, Shape, Stroke, Vec2},
 };
-use groove_core::traits::{Controls, GeneratesToInternalBuffer};
+use groove_core::traits::{Controls, GeneratesToInternalBuffer, Performs};
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::{SampleRate, Tempo, TimeSignature},
@@ -755,6 +755,23 @@ impl Controls for Track {
 
     fn is_finished(&self) -> bool {
         self.controllers.iter().all(|e| e.is_finished())
+    }
+}
+impl Performs for Track {
+    fn play(&mut self) {
+        self.controllers.iter_mut().for_each(|e| e.play());
+    }
+
+    fn stop(&mut self) {
+        self.controllers.iter_mut().for_each(|e| e.stop());
+    }
+
+    fn skip_to_start(&mut self) {
+        self.controllers.iter_mut().for_each(|e| e.skip_to_start());
+    }
+
+    fn is_performing(&self) -> bool {
+        self.controllers.iter().any(|e| e.is_performing())
     }
 }
 
