@@ -538,6 +538,8 @@ impl MusicalTime {
     pub const UNITS_IN_PART: u64 = 4096;
     pub const UNITS_IN_BEAT: u64 = Self::PARTS_IN_BEAT * Self::UNITS_IN_PART;
 
+    pub const START: MusicalTime = MusicalTime { units: 0 };
+
     pub fn new(
         time_signature: &TimeSignature,
         bars: u64,
@@ -615,15 +617,15 @@ impl MusicalTime {
         self.units = Default::default();
     }
 
-    pub fn bars_to_units(time_signature: &TimeSignature, bars: u64) -> u64 {
+    pub const fn bars_to_units(time_signature: &TimeSignature, bars: u64) -> u64 {
         Self::beats_to_units(time_signature.top as u64 * bars)
     }
 
-    pub fn beats_to_units(beats: u64) -> u64 {
+    pub const fn beats_to_units(beats: u64) -> u64 {
         beats * Self::UNITS_IN_BEAT
     }
 
-    pub fn parts_to_units(parts: u64) -> u64 {
+    pub const fn parts_to_units(parts: u64) -> u64 {
         parts * (Self::UNITS_IN_PART)
     }
 
@@ -634,19 +636,19 @@ impl MusicalTime {
         }
     }
 
-    pub fn new_with_bars(time_signature: &TimeSignature, bars: u64) -> Self {
+    pub const fn new_with_bars(time_signature: &TimeSignature, bars: u64) -> Self {
         Self::new_with_beats(time_signature.top as u64 * bars)
     }
 
-    pub fn new_with_beats(beats: u64) -> Self {
+    pub const fn new_with_beats(beats: u64) -> Self {
         Self::new_with_units(beats * Self::UNITS_IN_BEAT)
     }
 
-    pub fn new_with_parts(parts: u64) -> Self {
+    pub const fn new_with_parts(parts: u64) -> Self {
         Self::new_with_units(parts * Self::UNITS_IN_PART)
     }
 
-    pub fn new_with_units(units: u64) -> Self {
+    pub const fn new_with_units(units: u64) -> Self {
         Self { units }
     }
 
@@ -665,7 +667,11 @@ impl MusicalTime {
         (frames_per_beat * (units as f64 / Self::UNITS_IN_BEAT as f64) + 0.5) as usize
     }
 
-    pub fn end_of_time() -> Self {
+    pub const fn start_of_time() -> Self {
+        Self { units: u64::MIN }
+    }
+
+    pub const fn end_of_time() -> Self {
         Self { units: u64::MAX }
     }
 
@@ -718,9 +724,9 @@ impl From<PerfectTimeUnit> for MusicalTime {
 }
 
 /// Beats per minute.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct Tempo(f64);
+pub struct Tempo(pub f64);
 impl Default for Tempo {
     fn default() -> Self {
         Self(128.0)
@@ -751,8 +757,8 @@ impl Tempo {
 }
 
 /// Samples per second. Always a positive integer; cannot be zero.
-#[derive(Clone, Copy, Debug, Display)]
-pub struct SampleRate(usize);
+#[derive(Clone, Copy, Debug, Display, PartialEq, Eq)]
+pub struct SampleRate(pub usize);
 impl SampleRate {
     pub const DEFAULT_SAMPLE_RATE: usize = 44100;
     pub const DEFAULT: SampleRate = SampleRate::new(Self::DEFAULT_SAMPLE_RATE);
