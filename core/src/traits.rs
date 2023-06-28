@@ -277,6 +277,11 @@ pub trait Performs {
     /// Resets cursors to the beginning. This is set_cursor Lite (TODO).
     fn skip_to_start(&mut self);
 
+    /// Whether the device is currently playing. This is part of the trait so
+    /// that implementers don't have to leak their internal state to unit test
+    /// code.
+    fn is_performing(&self) -> bool;
+
     /// Sets the loop range. Parents should propagate to children. We provide a
     /// default implementation for this set of methods because looping doesn't
     /// apply to many devices.
@@ -291,11 +296,6 @@ pub trait Performs {
     /// itself to the start point.
     #[allow(unused_variables)]
     fn set_loop_enabled(&mut self, is_enabled: bool) {}
-
-    /// Whether the device is currently playing. This is part of the trait so
-    /// that implementers don't have to leak their internal state to unit test
-    /// code.
-    fn is_performing(&self) -> bool;
 }
 
 /// A synthesizer is composed of Voices. Ideally, a synth will know how to
