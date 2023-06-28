@@ -123,7 +123,7 @@ impl Controls for Timer {
                 self.is_finished = true;
             } else {
                 if let Some(end_time) = self.end_time {
-                    if range.end > end_time {
+                    if range.contains(&end_time) {
                         self.is_finished = true;
                     }
                 } else {
