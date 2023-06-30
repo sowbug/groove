@@ -352,6 +352,10 @@ pub struct ToySynth {
     #[params]
     envelope: Envelope,
 
+    // TODO: this skip is a can of worms. I don't know whether we want to
+    // serialize everything, or manually reconstitute everything. Maybe the
+    // right answer is to expect that every struct gets serialized, but everyone
+    // should be #[serde(skip)]ing at the leaf-field level.
     #[cfg_attr(feature = "serialization", serde(skip))]
     inner: Synthesizer<ToyVoice>,
 }
