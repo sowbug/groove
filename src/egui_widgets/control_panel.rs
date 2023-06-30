@@ -5,7 +5,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use eframe::egui::{self, DragValue};
+use eframe::{
+    egui::{self, DragValue},
+    epaint::vec2,
+};
 use groove_core::{
     time::{MusicalTime, PerfectTimeUnit, Tempo},
     traits::{gui::Shows, Performs},
@@ -52,8 +55,14 @@ impl ControlPanel {
     pub fn show_with_action(&mut self, ui: &mut egui::Ui) -> Option<ControlPanelAction> {
         let mut action = None;
         ui.horizontal_centered(|ui| {
-            ui.label(format!("{}", self.tempo));
-            ui.label(format!("{}", self.current_time));
+            ui.allocate_ui(vec2(72.0, 20.0), |ui| {
+                ui.set_min_width(128.0);
+                ui.label(format!("{}", self.tempo));
+            });
+            ui.allocate_ui(vec2(72.0, 20.0), |ui| {
+                ui.set_min_width(128.0);
+                ui.label(format!("{}", self.current_time));
+            });
             if ui.button("play").clicked() {
                 action = Some(ControlPanelAction::Play);
             }
