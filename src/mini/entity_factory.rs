@@ -42,12 +42,21 @@ type ThingFactoryFn = fn() -> Box<dyn Thing>;
 // deserializes a saved thing, EntityFactory won't know about it, so it seems
 // that the next time it creates an entity, the Uid will overwrite it. Do we
 // need a special step to refresh the unique Uid trackers?
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct EntityFactory {
     next_id: RelaxedCounter,
 
     things: HashMap<Key, ThingFactoryFn>,
     keys: HashSet<Key>,
+}
+impl Default for EntityFactory {
+    fn default() -> Self {
+        Self {
+            next_id: RelaxedCounter::new(1),
+            things: Default::default(),
+            keys: Default::default(),
+        }
+    }
 }
 impl EntityFactory {
     /// Registers a new type for the given [Key] using the given closure.
