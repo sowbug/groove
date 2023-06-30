@@ -424,7 +424,7 @@ impl BeatValue {
     }
 }
 
-#[derive(Clone, Control, Params, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Control, Params, Debug, Eq, PartialEq)]
 #[cfg_attr(
     feature = "serialization",
     derive(Serialize, Deserialize),
