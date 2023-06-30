@@ -161,28 +161,25 @@ impl Track {
             }
         }
         self.thing_store.add(thing);
+
+        // TODO: for now, everyone's on channel 0
+        self.midi_router.connect(uid, MidiChannel(0));
+
         uid
     }
 
-    pub fn remove_controller(&mut self, index: usize) -> Option<Uid> {
-        let uid = self.controllers[index];
-        self.thing_store.remove(&uid);
-        self.controllers.retain(|e| e != &uid);
-        Some(uid)
-    }
-
-    pub fn remove_effect(&mut self, index: usize) -> Option<Uid> {
-        let uid = self.effects[index];
-        self.thing_store.remove(&uid);
-        self.effects.retain(|e| e != &uid);
-        Some(uid)
-    }
-
-    pub fn remove_instrument(&mut self, index: usize) -> Option<Uid> {
-        let uid = self.instruments[index];
-        self.thing_store.remove(&uid);
-        self.instruments.retain(|e| e != &uid);
-        Some(uid)
+    pub fn remove_thing(&mut self, uid: &Uid) -> Option<Box<dyn Thing>> {
+        if let Some(thing) = self.thing_store.remove(uid) {
+            match thing.thing_type() {
+                ThingType::Unknown => eprintln!("Warning: removed thing id {uid} of unknown type"),
+                ThingType::Controller => self.controllers.retain(|e| e != uid),
+                ThingType::Effect => self.effects.retain(|e| e != uid),
+                ThingType::Instrument => self.instruments.retain(|e| e != uid),
+            }
+            Some(thing)
+        } else {
+            None
+        }
     }
 
     // pub fn insert_thing(&mut self, index: usize, uid: Uid) -> Result<()> {
@@ -203,7 +200,8 @@ impl Track {
     //         return Err(anyhow!(
     //             "can't insert at {} in {}-length vec",
     //             index,
-    //             self.controllers.len()
+    //             self.controllers.len()        self.midi_router.connect(uid, MidiChannel(0));
+
     //         ));
     //     }
     //     self.controllers.insert(index, e);
@@ -767,12 +765,16 @@ mod tests {
             "there should be exactly as many entities as added"
         );
 
-        let instrument = t.remove_instrument(0).unwrap();
-        assert_eq!(instrument, id1, "removed the right instrument");
+        let instrument = t.remove_thing(&id1).unwrap();
+        assert_eq!(instrument.uid(), id1, "removed the right instrument");
         assert_eq!(t.instruments.len(), 1, "removed exactly one instrument");
         assert_eq!(
             t.instruments[0], id2,
             "the remaining instrument should be the one we left"
+        );
+        assert!(
+            t.thing_store.get(&id1).is_none(),
+            "it should be gone from the store"
         );
     }
 }
