@@ -19,7 +19,7 @@ fn write_performance_to_file(orchestrator: &mut MiniOrchestrator) -> anyhow::Res
     let mut writer = hound::WavWriter::create(path, spec).unwrap();
 
     let mut buffer = [StereoSample::SILENCE; 64];
-    orchestrator.debug_sample_buffer(&mut buffer);
+    orchestrator.generate_next_debug_samples(&mut buffer);
 
     orchestrator.play();
     loop {
