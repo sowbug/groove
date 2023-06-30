@@ -142,15 +142,6 @@ impl MiniOrchestrator {
         2
     }
 
-    /// Fills in the given sample buffer with something simple and audible.
-    pub fn debug_sample_buffer(&mut self, samples: &mut [StereoSample]) {
-        let len = samples.len() as f64;
-        for (i, s) in samples.iter_mut().enumerate() {
-            s.0 = Sample::from(i as f64 / len);
-            s.1 = Sample::from(i as f64 / -len);
-        }
-    }
-
     /// Renders part of the project to audio, creating at least the requested
     /// number of [StereoSample]s and inserting them in the given [AudioQueue].
     /// Exceptions: the method operates only in [Self::SAMPLE_BUFFER_SIZE]
@@ -171,11 +162,24 @@ impl MiniOrchestrator {
             // Generate a buffer only if there's enough room in the queue for it.
             if queue.capacity() - queue.len() >= Self::SAMPLE_BUFFER_SIZE {
                 let mut samples = [StereoSample::SILENCE; Self::SAMPLE_BUFFER_SIZE];
-                self.generate_next_samples(&mut samples);
+                if false {
+                    self.generate_next_debug_samples(&mut samples);
+                } else {
+                    self.generate_next_samples(&mut samples);
+                }
                 for sample in samples {
                     let _ = queue.push(sample);
                 }
             }
+        }
+    }
+
+    /// Fills in the given sample buffer with something simple and audible.
+    pub fn generate_next_debug_samples(&mut self, samples: &mut [StereoSample]) {
+        let len = samples.len() as f64;
+        for (i, s) in samples.iter_mut().enumerate() {
+            s.0 = Sample::from(i as f64 / len);
+            s.1 = Sample::from(i as f64 / -len);
         }
     }
 
@@ -480,7 +484,7 @@ impl MiniOrchestrator {
     fn dispatch_message(&mut self, message: EntityMessage) {
         match message {
             EntityMessage::Midi(channel, message) => {
-                self.handle_midi_message(channel, message, &mut |_, _| {})
+                self.route_midi_message(channel, message);
             }
             EntityMessage::ControlF32(_) => todo!(),
             EntityMessage::HandleControlF32(_, _) => todo!(),
@@ -523,7 +527,7 @@ impl Generates<StereoSample> for MiniOrchestrator {
             let generator_values = track.values();
             let copy_len = len.min(generator_values.len());
             for i in 0..copy_len {
-                values[i] = generator_values[i];
+                values[i] += generator_values[i];
             }
         });
     }
