@@ -67,11 +67,15 @@ impl MidiRouter {
                             } else {
                                 if !loop_detected {
                                     loop_detected = true;
-                                    eprintln!("Warning: loop detected; while sending to channel {channel}, received request to broadcast {:#?} to same channel", &response_message);
+                                    eprintln!("Warning: loop detected; while sending to channel {channel}, received request to send {:#?} to same channel", &response_message);
                                 }
                             }
                         });
+                    } else {
+                        eprintln!("Warning: somehow device id {uid} that doesn't handle MIDI got on a receiver list");
                     }
+                } else {
+                    eprintln!("Warning: a receiver list refers to nonexistent entity id {uid}");
                 }
             });
         }
