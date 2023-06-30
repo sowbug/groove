@@ -63,7 +63,7 @@ impl HandlesMidi for Arpeggiator {
     fn handle_midi_message(
         &mut self,
         _channel: MidiChannel,
-        message: &MidiMessage,
+        message: MidiMessage,
         messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
     ) {
         match message {

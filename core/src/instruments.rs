@@ -136,23 +136,23 @@ impl<V: IsStereoSampleVoice> HandlesMidi for Synthesizer<V> {
     fn handle_midi_message(
         &mut self,
         _: MidiChannel,
-        message: &MidiMessage,
+        message: MidiMessage,
         _messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
     ) {
         if let Some(vs) = self.voice_store.as_mut() {
             match message {
                 MidiMessage::NoteOff { key, vel } => {
-                    if let Ok(voice) = vs.get_voice(key) {
+                    if let Ok(voice) = vs.get_voice(&key) {
                         voice.note_off(vel.as_int());
                     }
                 }
                 MidiMessage::NoteOn { key, vel } => {
-                    if let Ok(voice) = vs.get_voice(key) {
+                    if let Ok(voice) = vs.get_voice(&key) {
                         voice.note_on(key.as_int(), vel.as_int());
                     }
                 }
                 MidiMessage::Aftertouch { key, vel } => {
-                    if let Ok(voice) = vs.get_voice(key) {
+                    if let Ok(voice) = vs.get_voice(&key) {
                         voice.aftertouch(vel.as_int());
                     }
                 }
@@ -190,7 +190,7 @@ mod tests {
         fn handle_midi_message(
             &mut self,
             channel: MidiChannel,
-            message: &MidiMessage,
+            message: MidiMessage,
             messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
         ) {
             self.inner_synth
@@ -231,7 +231,7 @@ mod tests {
     #[test]
     fn mainline_test_synthesizer() {
         let mut s = TestSynthesizer::default();
-        s.handle_midi_message(MidiChannel(12), &new_note_on(100, 99), &mut |_, _| {});
+        s.handle_midi_message(MidiChannel(12), new_note_on(100, 99), &mut |_, _| {});
 
         // Get a few samples because the oscillator correctly starts at zero.
         let mut samples = [StereoSample::default(); 5];

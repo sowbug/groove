@@ -425,7 +425,7 @@ impl HandlesMidi for ToyController {
     fn handle_midi_message(
         &mut self,
         _channel: MidiChannel,
-        message: &MidiMessage,
+        message: MidiMessage,
         _messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
     ) {
         #[allow(unused_variables)]

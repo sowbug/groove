@@ -1,13 +1,13 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 pub use crate::midi::HandlesMidi;
-
 use crate::{
     control::F32ControlValue,
     midi::u7,
     time::{MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
     Normal, Sample, StereoSample, Uid,
 };
+use serde::{Deserialize, Serialize};
 use std::ops::Range;
 
 #[cfg(feature = "egui-framework")]
@@ -76,6 +76,13 @@ pub trait GeneratesToInternalBuffer<V>: Send + std::fmt::Debug + Ticks {
     /// values in the buffer are valid.
     fn values(&self) -> &[V];
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ControlName(pub String);
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ControlIndex(pub usize);
+#[derive(Debug, PartialEq)]
+pub struct ControlValue(pub f64);
 
 /// Something that is [Controllable] exposes a set of attributes, each with a text
 /// name, that an [IsController] can change. If you're familiar with DAWs, this is

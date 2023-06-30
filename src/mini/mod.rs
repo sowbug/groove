@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 pub use drag_drop::{DragDropManager, DragDropSource};
-pub use entities::{register_mini_factory_entities, NewIsController, NewIsEffect, NewIsInstrument};
+pub use entities::register_mini_factory_entities;
 pub use entity_factory::{EntityFactory, Key};
 pub use orchestrator::MiniOrchestrator;
 pub use sequencer::{MiniSequencer, MiniSequencerParams};
@@ -14,9 +14,11 @@ use crossbeam_channel::{Receiver, Sender};
 use groove_core::Uid;
 use serde::{Deserialize, Serialize};
 
+mod control_router;
 mod drag_drop;
 mod entities;
 mod entity_factory;
+mod midi_router;
 mod orchestrator;
 mod sequencer;
 mod track;

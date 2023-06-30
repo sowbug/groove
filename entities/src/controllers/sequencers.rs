@@ -442,7 +442,7 @@ mod tired {
     impl Controls for MidiTickSequencer {
         type Message = EntityMessage;
 
-        fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
+        fn work(&mut self, messages_fn: &mut dyn FnMut(Uid, Self::Message)) {
             if self.is_finished() || !self.is_performing {
                 return (None, 0);
             }

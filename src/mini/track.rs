@@ -1,21 +1,22 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::entities::{NewIsController, NewIsEffect, NewIsInstrument};
-use super::entity_factory::EntityType;
-use super::sequencer::MiniSequencer;
+use super::{
+    control_router::ControlRouter,
+    entity_factory::{Thing, ThingStore, ThingType},
+    midi_router::MidiRouter,
+    sequencer::MiniSequencer,
+};
 use crate::mini::sequencer::MiniSequencerParams;
-use anyhow::{anyhow, Result};
 use eframe::{
     egui::{self, Frame, Layout, Margin, Response, Sense, Ui},
     emath::{self, Align},
     epaint::{pos2, vec2, Color32, Pos2, Rect, RectShape, Rounding, Shape, Stroke, Vec2},
 };
-use groove_core::traits::{Controls, GeneratesToInternalBuffer, Performs};
 use groove_core::{
-    midi::{MidiChannel, MidiMessage},
+    midi::MidiChannel,
     time::{SampleRate, Tempo, TimeSignature},
-    traits::{gui::Shows, Configurable, HandlesMidi, Ticks},
-    StereoSample,
+    traits::{gui::Shows, Configurable, Controls, GeneratesToInternalBuffer, Performs, Ticks},
+    StereoSample, Uid,
 };
 use groove_entities::EntityMessage;
 use serde::{Deserialize, Serialize};
@@ -26,22 +27,13 @@ pub struct TrackIndex(pub usize);
 
 #[derive(Debug)]
 pub enum TrackElementAction {
-    MoveControllerLeft(usize),
-    MoveControllerRight(usize),
-    RemoveController(usize),
-    MoveEffectLeft(usize),
-    MoveEffectRight(usize),
-    RemoveEffect(usize),
-    MoveInstrumentLeft(usize),
-    MoveInstrumentRight(usize),
-    RemoveInstrument(usize),
+    MoveDeviceLeft(usize),
+    MoveDeviceRight(usize),
+    RemoveDevice(usize),
 }
 
 #[derive(Debug)]
 pub enum TrackAction {
-    // NewController(TrackIndex, Key),
-    // NewEffect(TrackIndex, Key),
-    // NewInstrument(TrackIndex, Key),
     Select(TrackIndex, bool),
     SelectClear,
 }
@@ -111,9 +103,13 @@ pub struct Track {
     ty: TrackType,
 
     sequencer: Option<MiniSequencer>,
-    controllers: Vec<Box<dyn NewIsController>>,
-    instruments: Vec<Box<dyn NewIsInstrument>>,
-    effects: Vec<Box<dyn NewIsEffect>>,
+    thing_store: ThingStore,
+    controllers: Vec<Uid>,
+    instruments: Vec<Uid>,
+    effects: Vec<Uid>,
+
+    midi_router: MidiRouter,
+    control_router: ControlRouter,
 
     // Whether the track is selected in the UI.
     is_selected: bool,
@@ -127,9 +123,12 @@ impl Default for Track {
             name: String::from("Untitled"),
             ty: Default::default(),
             sequencer: Default::default(),
+            thing_store: Default::default(),
             controllers: Default::default(),
             instruments: Default::default(),
             effects: Default::default(),
+            midi_router: Default::default(),
+            control_router: Default::default(),
             is_selected: Default::default(),
             buffer: [StereoSample::default(); 64],
         }
@@ -144,172 +143,180 @@ impl Track {
         matches!(self.ty, TrackType::Send)
     }
 
-    pub fn instruments(&self) -> &[Box<dyn NewIsInstrument>] {
-        &self.instruments
-    }
-
-    pub fn controllers(&self) -> &[Box<dyn NewIsController>] {
-        &self.controllers
-    }
-
-    pub fn effects(&self) -> &[Box<dyn NewIsEffect>] {
-        &self.effects
-    }
-
-    // TODO: this is getting cumbersome! Think about that uber-trait!
-
-    #[allow(dead_code)]
-    fn controller(&self, index: usize) -> Option<&Box<dyn NewIsController>> {
-        self.controllers.get(index)
-    }
-
-    #[allow(dead_code)]
-    fn controller_mut(&mut self, index: usize) -> Option<&mut Box<dyn NewIsController>> {
-        self.controllers.get_mut(index)
-    }
-
-    #[allow(dead_code)]
-    fn effect(&self, index: usize) -> Option<&Box<dyn NewIsEffect>> {
-        self.effects.get(index)
-    }
-
-    #[allow(dead_code)]
-    fn effect_mut(&mut self, index: usize) -> Option<&mut Box<dyn NewIsEffect>> {
-        self.effects.get_mut(index)
-    }
-
-    #[allow(dead_code)]
-    fn instrument(&self, index: usize) -> Option<&Box<dyn NewIsInstrument>> {
-        self.instruments.get(index)
-    }
-
-    #[allow(dead_code)]
-    fn instrument_mut(&mut self, index: usize) -> Option<&mut Box<dyn NewIsInstrument>> {
-        self.instruments.get_mut(index)
-    }
-
-    pub fn append_controller(&mut self, e: Box<dyn NewIsController>) {
-        self.controllers.push(e);
-    }
-
-    pub fn append_effect(&mut self, e: Box<dyn NewIsEffect>) {
-        self.effects.push(e);
-    }
-
-    pub fn append_instrument(&mut self, e: Box<dyn NewIsInstrument>) {
-        self.instruments.push(e);
-    }
-
-    pub fn remove_controller(&mut self, index: usize) -> Option<Box<dyn NewIsController>> {
-        Some(self.controllers.remove(index))
-    }
-
-    pub fn remove_effect(&mut self, index: usize) -> Option<Box<dyn NewIsEffect>> {
-        Some(self.effects.remove(index))
-    }
-
-    pub fn remove_instrument(&mut self, index: usize) -> Option<Box<dyn NewIsInstrument>> {
-        Some(self.instruments.remove(index))
-    }
-
-    pub fn insert_controller(&mut self, index: usize, e: Box<dyn NewIsController>) -> Result<()> {
-        if index > self.controllers.len() {
-            return Err(anyhow!(
-                "can't insert at {} in {}-length vec",
-                index,
-                self.controllers.len()
-            ));
+    // TODO: for now the only way to add something new to a Track is to append it.
+    pub fn append_thing(&mut self, thing: Box<dyn Thing>) -> Uid {
+        let uid = thing.uid();
+        match thing.thing_type() {
+            ThingType::Unknown => {
+                panic!("append_thing({:#?}) -> unknown type", thing)
+            }
+            ThingType::Controller => {
+                self.controllers.push(uid);
+            }
+            ThingType::Effect => {
+                self.effects.push(uid);
+            }
+            ThingType::Instrument => {
+                self.instruments.push(uid);
+            }
         }
-        self.controllers.insert(index, e);
-        Ok(())
+        self.thing_store.add(thing);
+        uid
     }
 
-    pub fn insert_effect(&mut self, index: usize, e: Box<dyn NewIsEffect>) -> Result<()> {
-        if index > self.effects.len() {
-            return Err(anyhow!(
-                "can't insert at {} in {}-length vec",
-                index,
-                self.effects.len()
-            ));
-        }
-        self.effects.insert(index, e);
-        Ok(())
+    pub fn remove_controller(&mut self, index: usize) -> Option<Uid> {
+        let uid = self.controllers[index];
+        self.thing_store.remove(&uid);
+        self.controllers.retain(|e| e != &uid);
+        Some(uid)
     }
 
-    pub fn insert_instrument(&mut self, index: usize, e: Box<dyn NewIsInstrument>) -> Result<()> {
-        if index > self.instruments.len() {
-            return Err(anyhow!(
-                "can't insert at {} in {}-length vec",
-                index,
-                self.instruments.len()
-            ));
-        }
-        self.instruments.insert(index, e);
-        Ok(())
+    pub fn remove_effect(&mut self, index: usize) -> Option<Uid> {
+        let uid = self.effects[index];
+        self.thing_store.remove(&uid);
+        self.effects.retain(|e| e != &uid);
+        Some(uid)
     }
 
-    fn shift_controller_left(&mut self, index: usize) -> Result<()> {
-        if index >= self.controllers.len() {
-            return Err(anyhow!("Index {index} out of bounds."));
-        }
-        if index == 0 {
-            return Err(anyhow!("Can't move leftmost item farther left."));
-        }
-        let element = self.controllers.remove(index);
-        self.insert_controller(index - 1, element)
-    }
-    fn shift_controller_right(&mut self, index: usize) -> Result<()> {
-        if index >= self.controllers.len() {
-            return Err(anyhow!("Index {index} out of bounds."));
-        }
-        if index == self.controllers.len() - 1 {
-            return Err(anyhow!("Can't move rightmost item farther right."));
-        }
-        let element = self.controllers.remove(index);
-        self.insert_controller(index + 1, element)
+    pub fn remove_instrument(&mut self, index: usize) -> Option<Uid> {
+        let uid = self.instruments[index];
+        self.thing_store.remove(&uid);
+        self.instruments.retain(|e| e != &uid);
+        Some(uid)
     }
 
-    fn shift_effect_left(&mut self, index: usize) -> Result<()> {
-        if index >= self.effects.len() {
-            return Err(anyhow!("Index {index} out of bounds."));
-        }
-        if index == 0 {
-            return Err(anyhow!("Can't move leftmost item farther left."));
-        }
-        let element = self.effects.remove(index);
-        self.insert_effect(index - 1, element)
-    }
-    fn shift_effect_right(&mut self, index: usize) -> Result<()> {
-        if index >= self.effects.len() {
-            return Err(anyhow!("Index {index} out of bounds."));
-        }
-        if index == self.effects.len() - 1 {
-            return Err(anyhow!("Can't move rightmost item farther right."));
-        }
-        let element = self.effects.remove(index);
-        self.insert_effect(index + 1, element)
-    }
+    // pub fn insert_thing(&mut self, index: usize, uid: Uid) -> Result<()> {
+    //     match
+    //     if index > self.things.len() {
+    //         return Err(anyhow!(
+    //             "can't insert at {} in {}-length vec",
+    //             index,
+    //             self.things.len()
+    //         ));
+    //     }
+    //     self.things.insert(index, uid);
+    //     Ok(())
+    // }
 
-    fn shift_instrument_left(&mut self, index: usize) -> Result<()> {
-        if index >= self.instruments.len() {
-            return Err(anyhow!("Index {index} out of bounds."));
-        }
-        if index == 0 {
-            return Err(anyhow!("Can't move leftmost item farther left."));
-        }
-        let element = self.instruments.remove(index);
-        self.insert_instrument(index - 1, element)
-    }
-    fn shift_instrument_right(&mut self, index: usize) -> Result<()> {
-        if index >= self.instruments.len() {
-            return Err(anyhow!("Index {index} out of bounds."));
-        }
-        if index == self.instruments.len() - 1 {
-            return Err(anyhow!("Can't move rightmost item farther right."));
-        }
-        let element = self.instruments.remove(index);
-        self.insert_instrument(index + 1, element)
-    }
+    // pub fn insert_controller(&mut self, index: usize, e: Box<dyn NewIsController>) -> Result<()> {
+    //     if index > self.controllers.len() {
+    //         return Err(anyhow!(
+    //             "can't insert at {} in {}-length vec",
+    //             index,
+    //             self.controllers.len()
+    //         ));
+    //     }
+    //     self.controllers.insert(index, e);
+    //     Ok(())
+    // }
+
+    // pub fn insert_effect(&mut self, index: usize, e: Box<dyn NewIsEffect>) -> Result<()> {
+    //     if index > self.effects.len() {
+    //         return Err(anyhow!(
+    //             "can't insert at {} in {}-length vec",
+    //             index,
+    //             self.effects.len()
+    //         ));
+    //     }
+    //     self.effects.insert(index, e);
+    //     Ok(())
+    // }
+
+    // pub fn insert_instrument(&mut self, index: usize, e: Box<dyn NewIsInstrument>) -> Result<()> {
+    //     if index > self.instruments.len() {
+    //         return Err(anyhow!(
+    //             "can't insert at {} in {}-length vec",
+    //             index,
+    //             self.instruments.len()
+    //         ));
+    //     }
+    //     self.instruments.insert(index, e);
+    //     Ok(())
+    // }
+
+    // fn shift_device_left(&mut self, index: usize) -> Result<()> {
+    //     if index >= self.things.len() {
+    //         return Err(anyhow!("Index {index} out of bounds."));
+    //     }
+    //     if index == 0 {
+    //         return Err(anyhow!("Can't move leftmost item farther left."));
+    //     }
+    //     let element = self.things.remove(index);
+    //     self.insert_thing(index - 1, element)
+    // }
+    // fn shift_device_right(&mut self, index: usize) -> Result<()> {
+    //     if index >= self.things.len() {
+    //         return Err(anyhow!("Index {index} out of bounds."));
+    //     }
+    //     if index == self.things.len() - 1 {
+    //         return Err(anyhow!("Can't move rightmost item farther right."));
+    //     }
+    //     let element = self.things.remove(index);
+    //     self.insert_thing(index + 1, element)
+    // }
+
+    // fn shift_controller_left(&mut self, index: usize) -> Result<()> {
+    //     if index >= self.controllers.len() {
+    //         return Err(anyhow!("Index {index} out of bounds."));
+    //     }
+    //     if index == 0 {
+    //         return Err(anyhow!("Can't move leftmost item farther left."));
+    //     }
+    //     let element = self.controllers.remove(index);
+    //     self.insert_controller(index - 1, element)
+    // }
+    // fn shift_controller_right(&mut self, index: usize) -> Result<()> {
+    //     if index >= self.controllers.len() {
+    //         return Err(anyhow!("Index {index} out of bounds."));
+    //     }
+    //     if index == self.controllers.len() - 1 {
+    //         return Err(anyhow!("Can't move rightmost item farther right."));
+    //     }
+    //     let element = self.controllers.remove(index);
+    //     self.insert_controller(index + 1, element)
+    // }
+
+    // fn shift_effect_left(&mut self, index: usize) -> Result<()> {
+    //     if index >= self.effects.len() {
+    //         return Err(anyhow!("Index {index} out of bounds."));
+    //     }
+    //     if index == 0 {
+    //         return Err(anyhow!("Can't move leftmost item farther left."));
+    //     }
+    //     let element = self.effects.remove(index);
+    //     self.insert_effect(index - 1, element)
+    // }
+    // fn shift_effect_right(&mut self, index: usize) -> Result<()> {
+    //     if index >= self.effects.len() {
+    //         return Err(anyhow!("Index {index} out of bounds."));
+    //     }
+    //     if index == self.effects.len() - 1 {
+    //         return Err(anyhow!("Can't move rightmost item farther right."));
+    //     }
+    //     let element = self.effects.remove(index);
+    //     self.insert_effect(index + 1, element)
+    // }
+
+    // fn shift_instrument_left(&mut self, index: usize) -> Result<()> {
+    //     if index >= self.instruments.len() {
+    //         return Err(anyhow!("Index {index} out of bounds."));
+    //     }
+    //     if index == 0 {
+    //         return Err(anyhow!("Can't move leftmost item farther left."));
+    //     }
+    //     let element = self.instruments.remove(index);
+    //     self.insert_instrument(index - 1, element)
+    // }
+    // fn shift_instrument_right(&mut self, index: usize) -> Result<()> {
+    //     if index >= self.instruments.len() {
+    //         return Err(anyhow!("Index {index} out of bounds."));
+    //     }
+    //     if index == self.instruments.len() - 1 {
+    //         return Err(anyhow!("Can't move rightmost item farther right."));
+    //     }
+    //     let element = self.instruments.remove(index);
+    //     self.insert_instrument(index + 1, element)
+    // }
 
     fn button_states(index: usize, len: usize) -> (bool, bool) {
         let left = index != 0;
@@ -406,81 +413,70 @@ impl Track {
                     let mut action = None;
 
                     if let Some(sequencer) = self.sequencer.as_mut() {
-                        if let Some(a) = Self::add_track_element(
-                            ui,
-                            0,
-                            EntityType::Controller,
-                            false,
-                            false,
-                            true,
-                            |ui| {
-                                sequencer.show(ui);
-                            },
-                        ) {
+                        if let Some(a) = Self::add_track_element(ui, 0, false, false, true, |ui| {
+                            sequencer.show(ui);
+                        }) {
                             action = Some(a);
                         };
                     }
 
-                    // controller
                     let len = self.controllers.len();
-                    for (index, e) in self.controllers.iter_mut().enumerate() {
+                    for (index, uid) in self.controllers.iter().enumerate() {
                         let index = index + 1;
                         ui.allocate_ui(desired_size, |ui| {
                             let (show_left, show_right) = Self::button_states(index, len);
                             if let Some(a) = Self::add_track_element(
                                 ui,
                                 index,
-                                EntityType::Controller,
                                 show_left,
                                 show_right,
                                 true,
                                 |ui| {
-                                    e.show(ui);
+                                    if let Some(e) = self.thing_store.get_mut(uid) {
+                                        e.show(ui);
+                                    }
                                 },
                             ) {
                                 action = Some(a);
                             };
                         });
                     }
-
-                    // instrument
-                    for (index, e) in self.instruments.iter_mut().enumerate() {
-                        ui.allocate_ui(desired_size, |ui| {
-                            // Instrument order in a track doesn't matter, so left/right are always off.
-                            if let Some(a) = Self::add_track_element(
-                                ui,
-                                index,
-                                EntityType::Instrument,
-                                false,
-                                false,
-                                true,
-                                |ui| {
-                                    ui.set_min_size(desired_size);
-                                    ui.set_max_size(desired_size);
-                                    e.show(ui);
-                                },
-                            ) {
-                                action = Some(a);
-                            };
-                        });
-                    }
-
-                    // effect
-                    let len = self.effects.len();
-                    for (index, e) in self.effects.iter_mut().enumerate() {
+                    let len = self.instruments.len();
+                    for (index, uid) in self.instruments.iter().enumerate() {
+                        let index = index + 1;
                         ui.allocate_ui(desired_size, |ui| {
                             let (show_left, show_right) = Self::button_states(index, len);
                             if let Some(a) = Self::add_track_element(
                                 ui,
                                 index,
-                                EntityType::Effect,
                                 show_left,
                                 show_right,
                                 true,
                                 |ui| {
-                                    ui.set_min_size(desired_size);
-                                    ui.set_max_size(desired_size);
-                                    e.show(ui);
+                                    if let Some(e) = self.thing_store.get_mut(uid) {
+                                        e.show(ui);
+                                    }
+                                },
+                            ) {
+                                action = Some(a);
+                            };
+                        });
+                    }
+                    let len = self.effects.len();
+                    for (index, uid) in self.effects.iter().enumerate() {
+                        let index = index + 1;
+                        ui.allocate_ui(desired_size, |ui| {
+                            let (show_left, show_right) = Self::button_states(index, len);
+                            if let Some(a) = Self::add_track_element(
+                                ui,
+                                index,
+                                show_left,
+                                show_right,
+                                true,
+                                |ui| {
+                                    if let Some(e) = self.thing_store.get_mut(uid) {
+                                        e.show(ui);
+                                    }
                                 },
                             ) {
                                 action = Some(a);
@@ -489,37 +485,19 @@ impl Track {
                     }
 
                     // check action
-                    if let Some(action) = action {
-                        match action {
-                            TrackElementAction::MoveControllerLeft(index) => {
-                                let _ = self.shift_controller_left(index);
-                            }
-                            TrackElementAction::MoveControllerRight(index) => {
-                                let _ = self.shift_controller_right(index);
-                            }
-                            TrackElementAction::RemoveController(index) => {
-                                let _ = self.remove_controller(index);
-                            }
-                            TrackElementAction::MoveEffectLeft(index) => {
-                                let _ = self.shift_effect_left(index);
-                            }
-                            TrackElementAction::MoveEffectRight(index) => {
-                                let _ = self.shift_effect_right(index);
-                            }
-                            TrackElementAction::RemoveEffect(index) => {
-                                let _ = self.remove_effect(index);
-                            }
-                            TrackElementAction::MoveInstrumentLeft(index) => {
-                                let _ = self.shift_instrument_left(index);
-                            }
-                            TrackElementAction::MoveInstrumentRight(index) => {
-                                let _ = self.shift_instrument_right(index);
-                            }
-                            TrackElementAction::RemoveInstrument(index) => {
-                                let _ = self.remove_instrument(index);
-                            }
-                        }
-                    }
+                    // if let Some(action) = action {
+                    // match action {
+                    //     TrackElementAction::MoveDeviceLeft(index) => {
+                    //         let _ = self.shift_device_left(index);
+                    //     }
+                    //     TrackElementAction::MoveDeviceRight(index) => {
+                    //         let _ = self.shift_device_right(index);
+                    //     }
+                    //     TrackElementAction::RemoveDevice(index) => {
+                    //         let _ = self.remove_thing(index);
+                    //     }
+                    // }
+                    // }
                 });
             },
         );
@@ -529,7 +507,6 @@ impl Track {
     fn add_track_element(
         ui: &mut Ui,
         index: usize,
-        entity_type: EntityType,
         show_left_button: bool,
         show_right_button: bool,
         show_delete_button: bool,
@@ -545,50 +522,17 @@ impl Track {
                     ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                         if show_left_button {
                             if ui.button("<").clicked() {
-                                action = match entity_type {
-                                    EntityType::Controller => {
-                                        Some(TrackElementAction::MoveControllerLeft(index))
-                                    }
-                                    EntityType::Effect => {
-                                        Some(TrackElementAction::MoveEffectLeft(index))
-                                    }
-                                    EntityType::Instrument => {
-                                        Some(TrackElementAction::MoveInstrumentLeft(index))
-                                    }
-                                    EntityType::None => None,
-                                };
+                                action = Some(TrackElementAction::MoveDeviceLeft(index));
                             }
                         }
                         if show_right_button {
                             if ui.button(">").clicked() {
-                                action = match entity_type {
-                                    EntityType::Controller => {
-                                        Some(TrackElementAction::MoveControllerRight(index))
-                                    }
-                                    EntityType::Effect => {
-                                        Some(TrackElementAction::MoveEffectRight(index))
-                                    }
-                                    EntityType::Instrument => {
-                                        Some(TrackElementAction::MoveInstrumentRight(index))
-                                    }
-                                    EntityType::None => None,
-                                };
+                                action = Some(TrackElementAction::MoveDeviceRight(index));
                             }
                         }
                         if show_delete_button {
                             if ui.button("x").clicked() {
-                                action = match entity_type {
-                                    EntityType::Controller => {
-                                        Some(TrackElementAction::RemoveController(index))
-                                    }
-                                    EntityType::Effect => {
-                                        Some(TrackElementAction::RemoveEffect(index))
-                                    }
-                                    EntityType::Instrument => {
-                                        Some(TrackElementAction::RemoveInstrument(index))
-                                    }
-                                    EntityType::None => None,
-                                };
+                                action = Some(TrackElementAction::RemoveDevice(index));
                             }
                         }
                     });
@@ -656,6 +600,19 @@ impl Track {
     pub fn buffer(&self) -> [StereoSample; 64] {
         self.buffer
     }
+
+    pub fn route_midi_message(
+        &mut self,
+        channel: MidiChannel,
+        message: groove_core::midi::MidiMessage,
+    ) {
+        if let Err(e) = self
+            .midi_router
+            .route(&mut self.thing_store, channel, message)
+        {
+            eprintln!("While routing: {e}");
+        }
+    }
 }
 impl GeneratesToInternalBuffer<StereoSample> for Track {
     fn generate_batch_values(&mut self, len: usize) -> usize {
@@ -669,16 +626,24 @@ impl GeneratesToInternalBuffer<StereoSample> for Track {
         }
 
         self.buffer.fill(StereoSample::SILENCE);
-        for e in self.instruments.iter_mut() {
-            // Note that we're expecting everyone to ADD to the buffer, not to overwrite!
-            // TODO: convert all instruments to have internal buffers
-            e.generate_batch_values(&mut self.buffer);
+        for uid in self.instruments.iter() {
+            if let Some(e) = self.thing_store.get_mut(uid) {
+                if let Some(e) = e.as_instrument_mut() {
+                    // Note that we're expecting everyone to ADD to the buffer, not to overwrite!
+                    // TODO: convert all instruments to have internal buffers
+                    e.generate_batch_values(&mut self.buffer);
+                }
+            }
         }
 
         // TODO: change this trait to operate on batches.
-        for e in self.effects.iter_mut() {
-            for sample in self.buffer.iter_mut() {
-                *sample = e.transform_audio(*sample);
+        for uid in self.effects.iter() {
+            if let Some(e) = self.thing_store.get_mut(uid) {
+                if let Some(e) = e.as_effect_mut() {
+                    for sample in self.buffer.iter_mut() {
+                        *sample = e.transform_audio(*sample);
+                    }
+                }
             }
         }
 
@@ -690,45 +655,37 @@ impl GeneratesToInternalBuffer<StereoSample> for Track {
     }
 }
 impl Ticks for Track {
-    fn tick(&mut self, _tick_count: usize) {
-        todo!()
+    fn tick(&mut self, tick_count: usize) {
+        self.thing_store.tick(tick_count);
     }
 }
 impl Configurable for Track {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
-        // I was excited when I read about Iterator's .chain() to condense
-        // repetitive code like this, but it's trickier than I expected because
-        // they're all different types. I'm using a common trait (Configurable),
-        // but I'd need to either #![feature(trait_upcasting)] (and use
-        // nightly), or implement as_configurable() methods on each struct,
-        // which is totally doable (and I might in fact do it soon, see the
-        // "create the uber-trait" TODO elsewhere in this file), but I'm not
-        // going to do it right now. TODO
-        for e in self.controllers.iter_mut() {
-            e.update_sample_rate(sample_rate);
-        }
-        for e in self.effects.iter_mut() {
-            e.update_sample_rate(sample_rate);
-        }
-        for e in self.instruments.iter_mut() {
-            e.update_sample_rate(sample_rate);
-        }
+        self.thing_store.update_sample_rate(sample_rate);
     }
 
-    fn update_tempo(&mut self, _tempo: Tempo) {
-        todo!()
+    fn update_tempo(&mut self, tempo: Tempo) {
+        self.thing_store.update_tempo(tempo);
     }
 
-    fn update_time_signature(&mut self, _time_signature: TimeSignature) {
-        todo!()
+    fn update_time_signature(&mut self, time_signature: TimeSignature) {
+        self.thing_store.update_time_signature(time_signature);
     }
 }
+
+// TODO: I think this is wrong and misguided. If MIDI messages are handled by
+// Track, then each Track needs to record who's receiving on which channel, and
+// messages can't be sent from a device on one track to one on a different
+// track. While that could make parallelism easier, it doesn't seem intuitively
+// correct, because in a real studio you'd be able to hook up MIDI cables
+// independently of audio cables.
+#[cfg(never)]
 impl HandlesMidi for Track {
     fn handle_midi_message(
         &mut self,
         channel: MidiChannel,
-        message: &MidiMessage,
-        messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+        message: MidiMessage,
+        messages_fn: &mut dyn FnMut(Uid, MidiChannel, MidiMessage),
     ) {
         for e in self.controllers.iter_mut() {
             e.handle_midi_message(channel, &message, messages_fn);
@@ -742,36 +699,32 @@ impl Controls for Track {
     type Message = EntityMessage;
 
     fn update_time(&mut self, range: &std::ops::Range<groove_core::time::MusicalTime>) {
-        for e in self.controllers.iter_mut() {
-            e.update_time(range);
-        }
+        self.thing_store.update_time(range);
     }
 
     fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
-        for e in self.controllers.iter_mut() {
-            e.work(messages_fn);
-        }
+        self.thing_store.work(messages_fn);
     }
 
     fn is_finished(&self) -> bool {
-        self.controllers.iter().all(|e| e.is_finished())
+        self.thing_store.is_finished()
     }
 }
 impl Performs for Track {
     fn play(&mut self) {
-        self.controllers.iter_mut().for_each(|e| e.play());
+        self.thing_store.play();
     }
 
     fn stop(&mut self) {
-        self.controllers.iter_mut().for_each(|e| e.stop());
+        self.thing_store.stop();
     }
 
     fn skip_to_start(&mut self) {
-        self.controllers.iter_mut().for_each(|e| e.skip_to_start());
+        self.thing_store.skip_to_start();
     }
 
     fn is_performing(&self) -> bool {
-        self.controllers.iter().any(|e| e.is_performing())
+        self.thing_store.is_performing()
     }
 }
 
@@ -789,27 +742,37 @@ mod tests {
         assert!(t.instruments.is_empty());
 
         // Create an instrument and add it to a track.
-        let instrument = ToyInstrument::new_with(&ToyInstrumentParams::default());
-        let id1 = instrument.uid();
-        t.append_instrument(Box::new(instrument));
+        let mut instrument = ToyInstrument::new_with(&ToyInstrumentParams::default());
+        instrument.set_uid(Uid(1));
+        let id1 = t.append_thing(Box::new(instrument));
 
         // Add a second instrument to the track.
-        let instrument = ToyInstrument::new_with(&ToyInstrumentParams::default());
-        let id2 = instrument.uid();
-        t.append_instrument(Box::new(instrument));
+        let mut instrument = ToyInstrument::new_with(&ToyInstrumentParams::default());
+        instrument.set_uid(Uid(2));
+        let id2 = t.append_thing(Box::new(instrument));
 
-        // Ordering within track is correct, and we can move items around
-        // depending on where they are.
-        assert_eq!(t.instruments[0].uid(), id1);
-        assert_eq!(t.instruments[1].uid(), id2);
-        assert!(t.shift_instrument_left(0).is_err()); // Already leftmost.
-        assert!(t.shift_instrument_right(1).is_err()); // Already rightmost.
-        assert!(t.shift_instrument_left(1).is_ok());
-        assert_eq!(t.instruments[0].uid(), id2);
-        assert_eq!(t.instruments[1].uid(), id1);
+        assert_ne!(id1, id2, "Don't forget to assign UIDs!");
+
+        assert_eq!(
+            t.instruments[0], id1,
+            "first appended entity should be at index 0"
+        );
+        assert_eq!(
+            t.instruments[1], id2,
+            "second appended entity should be at index 1"
+        );
+        assert_eq!(
+            t.instruments.len(),
+            2,
+            "there should be exactly as many entities as added"
+        );
 
         let instrument = t.remove_instrument(0).unwrap();
-        assert_eq!(instrument.uid(), id2);
-        assert_eq!(t.instruments.len(), 1);
+        assert_eq!(instrument, id1, "removed the right instrument");
+        assert_eq!(t.instruments.len(), 1, "removed exactly one instrument");
+        assert_eq!(
+            t.instruments[0], id2,
+            "the remaining instrument should be the one we left"
+        );
     }
 }

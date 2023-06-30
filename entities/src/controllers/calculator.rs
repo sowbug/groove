@@ -500,7 +500,7 @@ impl HandlesMidi for Calculator {
     fn handle_midi_message(
         &mut self,
         channel: MidiChannel,
-        message: &MidiMessage,
+        message: MidiMessage,
         messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
     ) {
         self.inner_synth
@@ -760,12 +760,12 @@ impl Calculator {
         let vel = 127.into();
         self.inner_synth.handle_midi_message(
             MidiChannel(2),
-            &midly::MidiMessage::NoteOff { key, vel },
+            midly::MidiMessage::NoteOff { key, vel },
             &mut |_, _| {},
         );
         self.inner_synth.handle_midi_message(
             MidiChannel(4),
-            &midly::MidiMessage::NoteOn { key, vel },
+            midly::MidiMessage::NoteOn { key, vel },
             &mut |_, _| {},
         );
     }

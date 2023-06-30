@@ -58,7 +58,7 @@ impl HandlesMidi for Drumkit {
     fn handle_midi_message(
         &mut self,
         channel: MidiChannel,
-        message: &MidiMessage,
+        message: MidiMessage,
         messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
     ) {
         self.inner_synth

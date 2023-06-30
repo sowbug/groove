@@ -102,10 +102,10 @@ impl HandlesMidi for ToyInstrument {
     fn handle_midi_message(
         &mut self,
         _channel: MidiChannel,
-        message: &MidiMessage,
+        message: MidiMessage,
         _messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
     ) {
-        self.debug_messages.push(*message);
+        self.debug_messages.push(message);
         self.received_count += 1;
 
         match message {
@@ -270,7 +270,7 @@ impl HandlesMidi for DebugSynth {
     fn handle_midi_message(
         &mut self,
         _channel: MidiChannel,
-        message: &MidiMessage,
+        message: MidiMessage,
         _messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
     ) {
         #[allow(unused_variables)]
@@ -281,7 +281,7 @@ impl HandlesMidi for DebugSynth {
             MidiMessage::NoteOn { key, vel } => {
                 self.envelope.trigger_attack();
                 self.oscillator
-                    .set_frequency(note_to_frequency((*key).as_int()));
+                    .set_frequency(note_to_frequency(key.as_int()));
             }
             _ => todo!(),
         }
@@ -369,7 +369,7 @@ impl HandlesMidi for ToySynth {
     fn handle_midi_message(
         &mut self,
         channel: MidiChannel,
-        message: &MidiMessage,
+        message: MidiMessage,
         messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
     ) {
         self.inner

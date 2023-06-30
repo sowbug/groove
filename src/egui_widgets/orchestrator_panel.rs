@@ -40,12 +40,8 @@ pub enum MiniOrchestratorInput {
     TrackNewSend,
     /// Delete the selected arranged patterns.
     TrackPatternRemoveSelected,
-    /// Add a new controller to the selected track.
-    TrackAddController(Key),
-    /// Add a new effect to the selected track.
-    TrackAddEffect(Key),
-    /// Add a new instrument to the selected track.
-    TrackAddInstrument(Key),
+    /// Add a new entity to the selected track.
+    TrackAddThing(Key),
 
     // TODO: these are waiting for the big refactor (which might never happen)
     /// Select the given track.
@@ -118,7 +114,7 @@ impl OrchestratorPanel {
                 match recv {
                     Ok(input) => match input {
                         MiniOrchestratorInput::Midi(channel, message) => {
-                            Self::handle_input_midi(&mut o, channel, &message);
+                            Self::handle_input_midi(&mut o, channel, message);
                         }
                         MiniOrchestratorInput::ProjectPlay => eprintln!("Play"),
                         MiniOrchestratorInput::ProjectStop => eprintln!("Stop"),
@@ -182,14 +178,8 @@ impl OrchestratorPanel {
                             o.select_track(index, add_to_selection_set);
                         }
                         MiniOrchestratorInput::TrackSelectReset => todo!(),
-                        MiniOrchestratorInput::TrackAddController(key) => {
-                            let _ = o.add_controller_by_key_to_selected_track(&key);
-                        }
-                        MiniOrchestratorInput::TrackAddEffect(key) => {
-                            let _ = o.add_effect_by_key_to_selected_track(&key);
-                        }
-                        MiniOrchestratorInput::TrackAddInstrument(key) => {
-                            let _ = o.add_instrument_by_key_to_selected_track(&key);
+                        MiniOrchestratorInput::TrackAddThing(key) => {
+                            let _ = o.add_thing_by_key_to_selected_track(&key);
                         }
                     },
                     Err(err) => {
@@ -237,9 +227,8 @@ impl OrchestratorPanel {
     fn handle_input_midi(
         o: &mut MutexGuard<MiniOrchestrator>,
         channel: MidiChannel,
-        message: &MidiMessage,
+        message: MidiMessage,
     ) {
-        // TODO: we're just swallowing the replies
         o.handle_midi_message(channel, message, &mut |_, _| {});
     }
 

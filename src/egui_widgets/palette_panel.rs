@@ -9,16 +9,11 @@ use crate::mini::{
 /// Actions that [PalettePanel] can generate.
 #[derive(Debug)]
 pub enum PaletteAction {
-    /// Requests a new controller of type [Key].
-    NewController(Key),
-    /// Requests a new effect of type [Key].
-    NewEffect(Key),
-    /// Requests a new instrument of type [Key].
-    NewInstrument(Key),
+    /// Requests a new entity of type [Key].
+    NewThing(Key),
 }
 
-/// A tree view of instruments, effects, and controllers that can be placed in
-/// tracks.
+/// A tree view of devices that can be placed in tracks.
 #[derive(Debug)]
 pub struct PalettePanel {
     factory: Arc<EntityFactory>,
@@ -47,38 +42,14 @@ impl PalettePanel {
     pub fn show_with_action(&mut self, ui: &mut egui::Ui) -> Option<PaletteAction> {
         let mut action = None;
         if let Ok(mut dnd) = self.drag_drop_manager.lock() {
-            for key in self.factory.controller_keys() {
+            for key in self.factory.keys().iter() {
                 dnd.drag_source(
                     ui,
                     EguiId::new(key),
                     DragDropSource::NewController(key.clone()),
                     |ui| {
                         if ui.button(key.to_string()).clicked() {
-                            action = Some(PaletteAction::NewController(key.clone()));
-                        }
-                    },
-                );
-            }
-            for key in self.factory.effect_keys() {
-                dnd.drag_source(
-                    ui,
-                    EguiId::new(key),
-                    DragDropSource::NewEffect(key.clone()),
-                    |ui| {
-                        if ui.button(key.to_string()).clicked() {
-                            action = Some(PaletteAction::NewEffect(key.clone()));
-                        }
-                    },
-                );
-            }
-            for key in self.factory.instrument_keys() {
-                dnd.drag_source(
-                    ui,
-                    EguiId::new(key),
-                    DragDropSource::NewInstrument(key.clone()),
-                    |ui| {
-                        if ui.button(key.to_string()).clicked() {
-                            action = Some(PaletteAction::NewInstrument(key.clone()));
+                            action = Some(PaletteAction::NewThing(key.clone()));
                         }
                     },
                 );

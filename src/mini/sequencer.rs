@@ -1,3 +1,5 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use eframe::{
     egui::{Frame, Response, Sense, Ui},
     emath::{self, RectTransform},

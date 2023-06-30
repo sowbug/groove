@@ -54,9 +54,7 @@ enum MenuBarAction {
     TrackDuplicate,
     TrackDelete,
     TrackRemoveSelectedPatterns,
-    TrackAddController(Key),
-    TrackAddEffect(Key),
-    TrackAddInstrument(Key),
+    TrackAddThing(Key),
     ComingSoon,
 }
 
@@ -181,47 +179,20 @@ impl MenuBar {
     }
 
     fn new_entity_menu(&self) -> Vec<MenuBarItem> {
-        vec![
-            MenuBarItem::node(
-                "Controllers",
-                self.factory
-                    .controller_keys()
-                    .map(|k| {
-                        MenuBarItem::leaf(
-                            &k.to_string(),
-                            MenuBarAction::TrackAddController(k.clone()),
-                            true,
-                        )
-                    })
-                    .collect(),
-            ),
-            MenuBarItem::node(
-                "Instruments",
-                self.factory
-                    .instrument_keys()
-                    .map(|k| {
-                        MenuBarItem::leaf(
-                            &k.to_string(),
-                            MenuBarAction::TrackAddInstrument(k.clone()),
-                            true,
-                        )
-                    })
-                    .collect(),
-            ),
-            MenuBarItem::node(
-                "Effects",
-                self.factory
-                    .effect_keys()
-                    .map(|k| {
-                        MenuBarItem::leaf(
-                            &k.to_string(),
-                            MenuBarAction::TrackAddEffect(k.clone()),
-                            true,
-                        )
-                    })
-                    .collect(),
-            ),
-        ]
+        vec![MenuBarItem::node(
+            "Things",
+            self.factory
+                .keys()
+                .iter()
+                .map(|k| {
+                    MenuBarItem::leaf(
+                        &k.to_string(),
+                        MenuBarAction::TrackAddThing(k.clone()),
+                        true,
+                    )
+                })
+                .collect(),
+        )]
     }
 }
 
@@ -559,14 +530,8 @@ impl MiniDaw {
                     "minidaw.json",
                 )))
             }
-            MenuBarAction::TrackAddController(key) => {
-                input = Some(MiniOrchestratorInput::TrackAddController(key))
-            }
-            MenuBarAction::TrackAddEffect(key) => {
-                input = Some(MiniOrchestratorInput::TrackAddEffect(key))
-            }
-            MenuBarAction::TrackAddInstrument(key) => {
-                input = Some(MiniOrchestratorInput::TrackAddInstrument(key))
+            MenuBarAction::TrackAddThing(key) => {
+                input = Some(MiniOrchestratorInput::TrackAddThing(key))
             }
         }
         if let Some(input) = input {
@@ -580,19 +545,9 @@ impl MiniDaw {
     fn handle_palette_action(&mut self, action: PaletteAction) {
         if let Ok(mut o) = self.mini_orchestrator.lock() {
             match action {
-                PaletteAction::NewController(key) => {
+                PaletteAction::NewThing(key) => {
                     if let Some(track) = o.single_track_selection() {
-                        //                        let _ = o.add_controller_by_key(&key, track);
-                    }
-                }
-                PaletteAction::NewEffect(key) => {
-                    if let Some(track) = o.single_track_selection() {
-                        //                  let _ = o.add_effect_by_key(&key, track);
-                    }
-                }
-                PaletteAction::NewInstrument(key) => {
-                    if let Some(track) = o.single_track_selection() {
-                        //               let _ = o.add_instrument_by_key(&key, track);
+                        //                        let _ = o.add_thing_by_key(&key, track);
                     }
                 }
             }

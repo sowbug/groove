@@ -1,8 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::{
-    entities::{NewIsController, NewIsEffect, NewIsInstrument},
-    entity_factory::EntityFactory,
+    entity_factory::{EntityFactory, Thing},
     track::{Track, TrackAction, TrackFactory, TrackIndex},
     Key,
 };
@@ -21,7 +20,7 @@ use groove_core::{
 use groove_entities::EntityMessage;
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Debug, ops::Range, sync::Arc};
+use std::{fmt::Debug, ops::Range, sync::Arc};
 
 /// Owns all entities (instruments, controllers, and effects), and manages the
 /// relationships among them to create an audio performance.
@@ -38,9 +37,6 @@ pub struct MiniOrchestrator {
     tracks: Vec<Track>,
     // If one track is selected, then this is set.
     single_track_selection: Option<TrackIndex>,
-
-    /// MIDI connections
-    midi_channel_to_receiver_uid: HashMap<MidiChannel, Vec<Uid>>,
 
     //////////////////////////////////////////////////////
     // Nothing below this comment should be serialized. //
@@ -88,8 +84,6 @@ impl Default for MiniOrchestrator {
             ],
             track_factory,
             single_track_selection: None,
-
-            midi_channel_to_receiver_uid: Default::default(),
 
             sample_rate: Default::default(),
             frames: Default::default(),
@@ -188,6 +182,12 @@ impl MiniOrchestrator {
     /// Renders the next set of samples into the provided buffer. This is the
     /// main event loop.
     pub fn generate_next_samples(&mut self, samples: &mut [StereoSample]) {
+        // Calculate the work time range. Note that we make sure the range is
+        // length > 0, which can mean that we will call update_time() twice with
+        // the same range if the sample rate is extremely high. TODO: we should
+        // decide whose responsibility it is to handle that -- either we skip
+        // calling work() if the time range is the same as prior, or everyone
+        // who gets called needs to detect the case or be idempotent.
         let start = self.current_time;
         let units = 1.max(MusicalTime::frames_to_units(
             self.tempo,
@@ -211,50 +211,50 @@ impl MiniOrchestrator {
         // existing items
     }
 
-    #[allow(dead_code)]
-    fn move_controller(
-        &mut self,
-        old_track_index: usize,
-        old_item_index: usize,
-        new_track_index: usize,
-        new_item_index: usize,
-    ) -> Result<()> {
-        if let Some(e) = self.tracks[old_track_index].remove_controller(old_item_index) {
-            self.tracks[new_track_index].insert_controller(new_item_index, e)
-        } else {
-            Err(anyhow!("controller not found"))
-        }
-    }
+    // #[allow(dead_code)]
+    // fn move_controller(
+    //     &mut self,
+    //     old_track_index: usize,
+    //     old_item_index: usize,
+    //     new_track_index: usize,
+    //     new_item_index: usize,
+    // ) -> Result<()> {
+    //     if let Some(e) = self.tracks[old_track_index].remove_controller(old_item_index) {
+    //         self.tracks[new_track_index].insert_controller(new_item_index, e)
+    //     } else {
+    //         Err(anyhow!("controller not found"))
+    //     }
+    // }
 
-    #[allow(dead_code)]
-    fn move_effect(
-        &mut self,
-        old_track_index: usize,
-        old_item_index: usize,
-        new_track_index: usize,
-        new_item_index: usize,
-    ) -> Result<()> {
-        if let Some(e) = self.tracks[old_track_index].remove_effect(old_item_index) {
-            self.tracks[new_track_index].insert_effect(new_item_index, e)
-        } else {
-            Err(anyhow!("effect not found"))
-        }
-    }
+    // #[allow(dead_code)]
+    // fn move_effect(
+    //     &mut self,
+    //     old_track_index: usize,
+    //     old_item_index: usize,
+    //     new_track_index: usize,
+    //     new_item_index: usize,
+    // ) -> Result<()> {
+    //     if let Some(e) = self.tracks[old_track_index].remove_effect(old_item_index) {
+    //         self.tracks[new_track_index].insert_effect(new_item_index, e)
+    //     } else {
+    //         Err(anyhow!("effect not found"))
+    //     }
+    // }
 
-    #[allow(dead_code)]
-    fn move_instrument(
-        &mut self,
-        old_track_index: usize,
-        old_item_index: usize,
-        new_track_index: usize,
-        new_item_index: usize,
-    ) -> Result<()> {
-        if let Some(e) = self.tracks[old_track_index].remove_instrument(old_item_index) {
-            self.tracks[new_track_index].insert_instrument(new_item_index, e)
-        } else {
-            Err(anyhow!("instrument not found"))
-        }
-    }
+    // #[allow(dead_code)]
+    // fn move_instrument(
+    //     &mut self,
+    //     old_track_index: usize,
+    //     old_item_index: usize,
+    //     new_track_index: usize,
+    //     new_item_index: usize,
+    // ) -> Result<()> {
+    //     if let Some(e) = self.tracks[old_track_index].remove_instrument(old_item_index) {
+    //         self.tracks[new_track_index].insert_instrument(new_item_index, e)
+    //     } else {
+    //         Err(anyhow!("instrument not found"))
+    //     }
+    // }
 
     fn show_tracks(&mut self, ui: &mut Ui, is_control_only_down: bool) -> Option<TrackAction> {
         let mut action = None;
@@ -412,132 +412,61 @@ impl MiniOrchestrator {
         self.tracks.iter().any(|t| t.selected())
     }
 
-    /// Adds a new controller with the specified [Key] to the currently selected
+    /// Adds a new thing with the specified [Key] to the currently selected
     /// single track. Fails if anything but exactly one track is selected.
-    pub fn add_controller_by_key_to_selected_track(&mut self, key: &Key) -> Result<Uid> {
+    pub fn add_thing_by_key_to_selected_track(&mut self, key: &Key) -> Result<Uid> {
         if let Some(track) = self.single_track_selection() {
-            self.add_controller_by_key_to_track(key, track)
+            self.add_thing_by_key_to_track(key, track)
         } else {
             Err(anyhow!("A single track was not selected"))
         }
     }
 
-    /// Adds a new controller with the specified [Key] to the track with the specified [TrackIndex].
-    pub fn add_controller_by_key_to_track(&mut self, key: &Key, track: TrackIndex) -> Result<Uid> {
+    /// Adds a new thing with the specified [Key] to the track with the specified [TrackIndex].
+    pub fn add_thing_by_key_to_track(&mut self, key: &Key, track: TrackIndex) -> Result<Uid> {
         if let Some(factory) = &self.entity_factory {
-            if let Some(e) = factory.new_controller(key) {
-                self.add_controller(e, track)
+            if let Some(e) = factory.new_thing(key) {
+                self.add_thing(e, track)
             } else {
-                Err(anyhow!("controller key {key} not found"))
+                Err(anyhow!("key {key} not found"))
             }
         } else {
             Err(anyhow!("there is no entity factory"))
         }
     }
 
-    /// Adds the given controller, returning an assigned [Uid] if successful.
+    /// Adds the given thing, returning an assigned [Uid] if successful.
     /// [MiniOrchestrator] takes ownership.
-    pub fn add_controller(
-        &mut self,
-        mut e: Box<dyn NewIsController>,
-        track: TrackIndex,
-    ) -> Result<Uid> {
-        e.update_sample_rate(self.sample_rate);
-        let uid = e.uid();
-        self.tracks[track.0].append_controller(e);
+    pub fn add_thing(&mut self, mut thing: Box<dyn Thing>, track: TrackIndex) -> Result<Uid> {
+        thing.update_sample_rate(self.sample_rate);
+        let uid = thing.uid();
+        self.tracks[track.0].append_thing(thing);
         Ok(uid)
     }
 
-    /// Adds a new effect with the specified [Key] to the currently selected
-    /// single track. Fails if anything but exactly one track is selected.
-    pub fn add_effect_by_key_to_selected_track(&mut self, key: &Key) -> Result<Uid> {
-        if let Some(track) = self.single_track_selection() {
-            self.add_effect_by_key_to_track(key, track)
-        } else {
-            Err(anyhow!("A single track was not selected"))
-        }
-    }
+    // /// The entities receiving on the given MIDI channel.
+    // pub fn midi_receivers(&mut self, channel: &MidiChannel) -> &Vec<Uid> {
+    //     self.mi
+    //     self.midi_channel_to_receiver_uid
+    //         .entry(*channel)
+    //         .or_default()
+    // }
 
-    /// Adds a new effect with the specified [Key] to the track with the specified [TrackIndex].
-    pub fn add_effect_by_key_to_track(&mut self, key: &Key, track: TrackIndex) -> Result<Uid> {
-        if let Some(factory) = &self.entity_factory {
-            if let Some(e) = factory.new_effect(key) {
-                self.add_effect(e, track)
-            } else {
-                Err(anyhow!("effect key {key} not found"))
-            }
-        } else {
-            Err(anyhow!("there is no entity factory"))
-        }
-    }
+    // /// Connect an entity to the given MIDI channel.
+    // pub fn connect_midi_receiver(&mut self, receiver_uid: Uid, channel: MidiChannel) {
+    //     self.midi_channel_to_receiver_uid
+    //         .entry(channel)
+    //         .or_default()
+    //         .push(receiver_uid);
+    // }
 
-    /// Adds the given effect, returning an assigned [Uid] if successful.
-    /// [MiniOrchestrator] takes ownership.
-    pub fn add_effect(&mut self, mut e: Box<dyn NewIsEffect>, track: TrackIndex) -> Result<Uid> {
-        e.update_sample_rate(self.sample_rate);
-        let uid = e.uid();
-        self.tracks[track.0].append_effect(e);
-        Ok(uid)
-    }
-
-    /// Adds a new instrument with the specified [Key] to the currently selected
-    /// single track. Fails if anything but exactly one track is selected.
-    pub fn add_instrument_by_key_to_selected_track(&mut self, key: &Key) -> Result<Uid> {
-        if let Some(track) = self.single_track_selection() {
-            self.add_instrument_by_key_to_track(key, track)
-        } else {
-            Err(anyhow!("A single track was not selected"))
-        }
-    }
-
-    /// Adds a new instrument with the specified [Key] to the track with the specified [TrackIndex].
-    pub fn add_instrument_by_key_to_track(&mut self, key: &Key, track: TrackIndex) -> Result<Uid> {
-        if let Some(factory) = &self.entity_factory {
-            if let Some(e) = factory.new_instrument(key) {
-                self.add_instrument(e, track)
-            } else {
-                Err(anyhow!("instrument key {key} not found"))
-            }
-        } else {
-            Err(anyhow!("there is no entity factory"))
-        }
-    }
-
-    /// Adds the given instrument, returning an assigned [Uid] if successful.
-    /// [MiniOrchestrator] takes ownership.
-    pub fn add_instrument(
-        &mut self,
-        mut e: Box<dyn NewIsInstrument>,
-        track: TrackIndex,
-    ) -> Result<Uid> {
-        e.update_sample_rate(self.sample_rate);
-        let uid = e.uid();
-        self.tracks[track.0].append_instrument(e);
-        Ok(uid)
-    }
-
-    /// The entities receiving on the given MIDI channel.
-    pub fn midi_receivers(&mut self, channel: &MidiChannel) -> &Vec<Uid> {
-        self.midi_channel_to_receiver_uid
-            .entry(*channel)
-            .or_default()
-    }
-
-    /// Connect an entity to the given MIDI channel.
-    pub fn connect_midi_receiver(&mut self, receiver_uid: Uid, channel: MidiChannel) {
-        self.midi_channel_to_receiver_uid
-            .entry(channel)
-            .or_default()
-            .push(receiver_uid);
-    }
-
-    /// Disconnect an entity from the given MIDI channel.
-    pub fn disconnect_midi_receiver(&mut self, receiver_uid: Uid, channel: MidiChannel) {
-        self.midi_channel_to_receiver_uid
-            .entry(channel)
-            .or_default()
-            .retain(|&uid| uid != receiver_uid);
-    }
+    // /// Disconnect an entity from the given MIDI channel.
+    // pub fn disconnect_midi_receiver(&mut self, receiver_uid: Uid, channel: MidiChannel) {
+    //     self.midi_channel_to_receiver_uid
+    //         .entry(channel)
+    //         .or_default()
+    //         .retain(|&uid| uid != receiver_uid);
+    // }
 
     /// Returns the global music clock.
     pub fn current_time(&self) -> MusicalTime {
@@ -546,6 +475,25 @@ impl MiniOrchestrator {
 
     fn calculate_is_finished(&self) -> bool {
         self.tracks.iter().all(|t| t.is_finished())
+    }
+
+    fn dispatch_message(&mut self, message: EntityMessage) {
+        match message {
+            EntityMessage::Midi(channel, message) => {
+                self.handle_midi_message(channel, message, &mut |_, _| {})
+            }
+            EntityMessage::ControlF32(_) => todo!(),
+            EntityMessage::HandleControlF32(_, _) => todo!(),
+        }
+    }
+
+    fn route_midi_message(&mut self, channel: MidiChannel, message: MidiMessage) {
+        // TODO: I'm starting to want messages_fn to be an Option<> and to be
+        // able to panic when someone unexpectedly sets it. Or maybe there is a
+        // different trait, like one routes and one handles...
+        for t in self.tracks.iter_mut() {
+            t.route_midi_message(channel, message);
+        }
     }
 }
 impl Generates<StereoSample> for MiniOrchestrator {
@@ -593,21 +541,16 @@ impl Shows for MiniOrchestrator {
 }
 impl HandlesMidi for MiniOrchestrator {
     /// Accepts a [MidiMessage] and handles it, usually by forwarding it to
-    /// controllers and instruments on the given [MidiChannel].
+    /// controllers and instruments on the given [MidiChannel]. We implement
+    /// this trait only for external messages; for ones generated internally, we
+    /// use [MidiRouter].
     fn handle_midi_message(
         &mut self,
         channel: MidiChannel,
-        message: &MidiMessage,
-        messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+        message: MidiMessage,
+        _: &mut dyn FnMut(MidiChannel, MidiMessage),
     ) {
-        for track in self.tracks.iter_mut() {
-            track.handle_midi_message(channel, &message, &mut |channel, message| {
-                // TODO: this isn't enough -- we need to dispatch these messages
-                // to other devices on the channel/bus, detect loops, etc. I'm
-                // not even sure it's right to bubble these back to the caller.
-                messages_fn(channel, message);
-            });
-        }
+        self.route_midi_message(channel, message);
     }
 }
 impl Performs for MiniOrchestrator {
@@ -651,6 +594,9 @@ impl Controls for MiniOrchestrator {
         for track in self.tracks.iter_mut() {
             track.work(&mut |m| self.messages.push(m));
         }
+        while let Some(message) = self.messages.pop() {
+            self.dispatch_message(message);
+        }
         self.is_finished = self.calculate_is_finished();
     }
 
@@ -663,13 +609,11 @@ impl Controls for MiniOrchestrator {
 mod tests {
     use crate::mini::{orchestrator::MiniOrchestrator, TrackIndex};
     use groove_core::{
-        midi::MidiChannel,
         time::{MusicalTime, SampleRate, Tempo},
         traits::{Controls, Performs},
         StereoSample,
     };
-    use groove_entities::controllers::{Timer, TimerParams, ToyController, ToyControllerParams};
-    use groove_toys::{ToyEffect, ToyEffectParams, ToyInstrument, ToyInstrumentParams};
+    use groove_entities::controllers::{Timer, TimerParams};
 
     #[test]
     fn basic_operations() {
@@ -702,7 +646,7 @@ mod tests {
 
         // TODO: worst ergonomics ever.
         const TIMER_DURATION: MusicalTime = MusicalTime::new_with_beats(1);
-        let _ = o.add_controller(
+        let _ = o.add_thing(
             Box::new(Timer::new_with(&TimerParams {
                 duration: groove_core::time::MusicalTimeParams {
                     units: TIMER_DURATION.total_units(),
@@ -723,63 +667,5 @@ mod tests {
         }
         let prior_range = prior_start_time..o.current_time();
         assert!(prior_range.contains(&TIMER_DURATION));
-    }
-
-    #[test]
-    fn track_operations() {
-        let mut o = MiniOrchestrator::default();
-
-        // A new orchestrator should have at least one track.
-        assert!(!o.tracks.is_empty());
-
-        let t0_i1_id = o
-            .add_instrument(
-                Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default())),
-                TrackIndex(0),
-            )
-            .unwrap();
-        let t0_i2_id = o
-            .add_instrument(
-                Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default())),
-                TrackIndex(0),
-            )
-            .unwrap();
-        assert_eq!(o.tracks()[0].instruments()[0].uid(), t0_i1_id);
-        assert_eq!(o.tracks()[0].instruments()[1].uid(), t0_i2_id);
-
-        let t0_c1_id = o
-            .add_controller(
-                Box::new(ToyController::new_with(
-                    &ToyControllerParams::default(),
-                    MidiChannel(0),
-                )),
-                TrackIndex(0),
-            )
-            .unwrap();
-        assert_eq!(o.tracks()[0].controllers()[0].uid(), t0_c1_id);
-
-        let t0_e1_id = o
-            .add_effect(
-                Box::new(ToyEffect::new_with(&ToyEffectParams::default())),
-                TrackIndex(0),
-            )
-            .unwrap();
-        assert_eq!(o.tracks()[0].effects()[0].uid(), t0_e1_id);
-
-        assert!(o.tracks.len() > 1);
-        let t1_i1_id = o
-            .add_instrument(
-                Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default())),
-                TrackIndex(1),
-            )
-            .unwrap();
-
-        // Moving something to another track works.
-        assert_eq!(o.tracks()[0].instruments().len(), 2);
-        assert_eq!(o.tracks()[1].instruments().len(), 1);
-        assert!(o.move_instrument(1, 0, 0, 0).is_ok());
-        assert_eq!(o.tracks[0].instruments().len(), 3);
-        assert_eq!(o.tracks[1].instruments().len(), 0);
-        assert_eq!(o.tracks[0].instruments()[0].uid(), t1_i1_id);
     }
 }

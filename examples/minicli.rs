@@ -41,7 +41,7 @@ fn main() -> anyhow::Result<()> {
     let mut o = MiniOrchestrator::default();
 
     let _uid = o
-        .add_controller(
+        .add_thing(
             Box::new(MiniSequencer::new_with(
                 &MiniSequencerParams::default(),
                 MidiChannel(0),
