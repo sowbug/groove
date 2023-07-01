@@ -6,7 +6,7 @@ use crate::messages::EntityMessage;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage},
     time::{BeatValue, MusicalTime, PerfectTimeUnit, TimeSignature, TimeSignatureParams},
-    traits::{Configurable, Controls, IsController, Performs},
+    traits::{Configurable, ControlMessagesFn, Controls, IsController, Performs},
 };
 use groove_proc_macros::{Control, Params, Uid};
 use std::{cmp, fmt::Debug, ops::Range};
@@ -69,7 +69,7 @@ impl Controls for PatternManager {
 
     fn update_time(&mut self, _range: &Range<MusicalTime>) {}
 
-    fn work(&mut self, _messages_fn: &mut dyn FnMut(Self::Message)) {}
+    fn work(&mut self, _: &mut ControlMessagesFn<Self::Message>) {}
 
     fn is_finished(&self) -> bool {
         true

@@ -3,7 +3,7 @@
 use groove_core::{
     generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams, Waveform},
     instruments::Synthesizer,
-    midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
+    midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
     time::{ClockTimeUnit, SampleRate},
     traits::{
         Configurable, Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice,
@@ -103,7 +103,7 @@ impl HandlesMidi for ToyInstrument {
         &mut self,
         _channel: MidiChannel,
         message: MidiMessage,
-        _messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+        _: &mut MidiMessagesFn,
     ) {
         self.debug_messages.push(message);
         self.received_count += 1;
@@ -271,7 +271,7 @@ impl HandlesMidi for DebugSynth {
         &mut self,
         _channel: MidiChannel,
         message: MidiMessage,
-        _messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+        _: &mut MidiMessagesFn,
     ) {
         #[allow(unused_variables)]
         match message {
@@ -374,10 +374,10 @@ impl HandlesMidi for ToySynth {
         &mut self,
         channel: MidiChannel,
         message: MidiMessage,
-        messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+        midi_messages_fn: &mut MidiMessagesFn,
     ) {
         self.inner
-            .handle_midi_message(channel, message, messages_fn)
+            .handle_midi_message(channel, message, midi_messages_fn)
     }
 }
 impl Ticks for ToySynth {

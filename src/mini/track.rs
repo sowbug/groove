@@ -15,7 +15,10 @@ use eframe::{
 use groove_core::{
     midi::MidiChannel,
     time::{SampleRate, Tempo, TimeSignature},
-    traits::{gui::Shows, Configurable, Controls, GeneratesToInternalBuffer, Performs, Ticks},
+    traits::{
+        gui::Shows, Configurable, ControlMessagesFn, ControlValue, Controls,
+        GeneratesToInternalBuffer, Performs, Ticks,
+    },
     StereoSample, Uid,
 };
 use groove_entities::EntityMessage;
@@ -611,6 +614,12 @@ impl Track {
             eprintln!("While routing: {e}");
         }
     }
+
+    pub fn route_control_change(&mut self, uid: Uid, value: ControlValue) {
+        if let Err(e) = self.control_router.route(&mut self.thing_store, uid, value) {
+            eprintln!("While routing control change: {e}")
+        }
+    }
 }
 impl GeneratesToInternalBuffer<StereoSample> for Track {
     fn generate_batch_values(&mut self, len: usize) -> usize {
@@ -627,8 +636,9 @@ impl GeneratesToInternalBuffer<StereoSample> for Track {
         for uid in self.instruments.iter() {
             if let Some(e) = self.thing_store.get_mut(uid) {
                 if let Some(e) = e.as_instrument_mut() {
-                    // Note that we're expecting everyone to ADD to the buffer, not to overwrite!
-                    // TODO: convert all instruments to have internal buffers
+                    // Note that we're expecting everyone to ADD to the buffer,
+                    // not to overwrite! TODO: convert all instruments to have
+                    // internal buffers
                     e.generate_batch_values(&mut self.buffer);
                 }
             }
@@ -700,8 +710,8 @@ impl Controls for Track {
         self.thing_store.update_time(range);
     }
 
-    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
-        self.thing_store.work(messages_fn);
+    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn<Self::Message>) {
+        self.thing_store.work(control_messages_fn);
     }
 
     fn is_finished(&self) -> bool {

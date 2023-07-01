@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use crate::{
-    midi::{HandlesMidi, MidiChannel, MidiMessage},
+    midi::{HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
     time::SampleRate,
     traits::{Configurable, Generates, IsStereoSampleVoice, StoresVoices, Ticks},
     BipolarNormal, Normal, StereoSample,
@@ -137,7 +137,7 @@ impl<V: IsStereoSampleVoice> HandlesMidi for Synthesizer<V> {
         &mut self,
         _: MidiChannel,
         message: MidiMessage,
-        _messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+        _: &mut MidiMessagesFn,
     ) {
         if let Some(vs) = self.voice_store.as_mut() {
             match message {
@@ -175,7 +175,7 @@ impl<V: IsStereoSampleVoice> HandlesMidi for Synthesizer<V> {
 mod tests {
     use crate::{
         instruments::Synthesizer,
-        midi::{new_note_on, HandlesMidi, MidiChannel, MidiMessage},
+        midi::{new_note_on, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
         time::SampleRate,
         traits::{Configurable, Generates, Ticks},
         voices::{tests::TestVoice, VoiceCount, VoiceStore},
@@ -191,10 +191,10 @@ mod tests {
             &mut self,
             channel: MidiChannel,
             message: MidiMessage,
-            messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+            midi_messages_fn: &mut MidiMessagesFn,
         ) {
             self.inner_synth
-                .handle_midi_message(channel, message, messages_fn)
+                .handle_midi_message(channel, message, midi_messages_fn)
         }
     }
     impl Generates<StereoSample> for TestSynthesizer {

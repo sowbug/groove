@@ -17,10 +17,11 @@ use crate::{
 };
 use groove_core::{
     instruments::Synthesizer,
-    midi::{note_to_frequency, MidiChannel, MidiMessage},
+    midi::{note_to_frequency, MidiChannel, MidiMessage, MidiMessagesFn},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, TimeSignatureParams},
     traits::{
-        Configurable, Controls, Generates, HandlesMidi, IsController, IsInstrument, Performs, Ticks,
+        Configurable, ControlMessagesFn, Controls, Generates, HandlesMidi, IsController,
+        IsInstrument, Performs, Ticks,
     },
     voices::VoicePerNoteStore,
     ParameterType, StereoSample,
@@ -501,10 +502,10 @@ impl HandlesMidi for Calculator {
         &mut self,
         channel: MidiChannel,
         message: MidiMessage,
-        messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+        midi_messages_fn: &mut MidiMessagesFn,
     ) {
         self.inner_synth
-            .handle_midi_message(channel, message, messages_fn)
+            .handle_midi_message(channel, message, midi_messages_fn)
     }
 }
 impl Ticks for Calculator {
@@ -519,7 +520,7 @@ impl Controls for Calculator {
         todo!()
     }
 
-    fn work(&mut self, _messages_fn: &mut dyn FnMut(Self::Message)) {
+    fn work(&mut self, _: &mut ControlMessagesFn<Self::Message>) {
         self.handle_tick();
     }
 

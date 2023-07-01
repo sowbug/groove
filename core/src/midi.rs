@@ -46,6 +46,8 @@ impl From<MidiChannel> for u8 {
     }
 }
 
+pub type MidiMessagesFn<'a> = dyn FnMut(MidiChannel, MidiMessage) + 'a;
+
 /// Takes standard MIDI messages. Implementers can ignore MidiChannel if it's
 /// not important, as the virtual cabling model tries to route only relevant
 /// traffic to individual devices.
@@ -55,7 +57,7 @@ pub trait HandlesMidi {
         &mut self,
         channel: MidiChannel,
         message: MidiMessage,
-        messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+        midi_messages_fn: &mut MidiMessagesFn,
     ) {
     }
 }

@@ -9,11 +9,11 @@ use anyhow::{anyhow, Result};
 use eframe::egui::{self, Ui};
 use groove_audio::AudioQueue;
 use groove_core::{
-    midi::{MidiChannel, MidiMessage},
+    midi::{MidiChannel, MidiMessage, MidiMessagesFn},
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
     traits::{
-        gui::Shows, Configurable, Controls, Generates, GeneratesToInternalBuffer, HandlesMidi,
-        Performs, Ticks,
+        gui::Shows, Configurable, ControlMessagesFn, ControlValue, Controls, Generates,
+        GeneratesToInternalBuffer, HandlesMidi, Performs, Ticks,
     },
     Sample, StereoSample, Uid,
 };
@@ -61,7 +61,7 @@ pub struct MiniOrchestrator {
     entity_factory: Option<Arc<EntityFactory>>,
 
     #[serde(skip)]
-    messages: Vec<EntityMessage>,
+    messages: Vec<(Uid, EntityMessage)>,
 
     #[serde(skip)]
     is_finished: bool,
@@ -201,7 +201,7 @@ impl MiniOrchestrator {
         let length = MusicalTime::new_with_units(units);
         let range = start..start + length;
         self.update_time(&range);
-        self.work(&mut |_| {});
+        self.work(&mut |_, _| panic!("work() was supposed to handle all messages"));
         self.generate_batch_values(samples);
         self.current_time += length;
     }
@@ -481,22 +481,27 @@ impl MiniOrchestrator {
         self.tracks.iter().all(|t| t.is_finished())
     }
 
-    fn dispatch_message(&mut self, message: EntityMessage) {
+    fn dispatch_message(&mut self, uid: Uid, message: EntityMessage) {
         match message {
             EntityMessage::Midi(channel, message) => {
                 self.route_midi_message(channel, message);
             }
-            EntityMessage::ControlF32(_) => todo!(),
+            EntityMessage::ControlF32(value) => {
+                self.route_control_change(uid, ControlValue(value as f64))
+            }
             EntityMessage::HandleControlF32(_, _) => todo!(),
         }
     }
 
     fn route_midi_message(&mut self, channel: MidiChannel, message: MidiMessage) {
-        // TODO: I'm starting to want messages_fn to be an Option<> and to be
-        // able to panic when someone unexpectedly sets it. Or maybe there is a
-        // different trait, like one routes and one handles...
         for t in self.tracks.iter_mut() {
             t.route_midi_message(channel, message);
+        }
+    }
+
+    fn route_control_change(&mut self, uid: Uid, value: ControlValue) {
+        for t in self.tracks.iter_mut() {
+            t.route_control_change(uid, value);
         }
     }
 }
@@ -552,7 +557,7 @@ impl HandlesMidi for MiniOrchestrator {
         &mut self,
         channel: MidiChannel,
         message: MidiMessage,
-        _: &mut dyn FnMut(MidiChannel, MidiMessage),
+        _: &mut MidiMessagesFn,
     ) {
         self.route_midi_message(channel, message);
     }
@@ -594,12 +599,12 @@ impl Controls for MiniOrchestrator {
         }
     }
 
-    fn work(&mut self, _: &mut dyn FnMut(Self::Message)) {
+    fn work(&mut self, _: &mut ControlMessagesFn<Self::Message>) {
         for track in self.tracks.iter_mut() {
-            track.work(&mut |m| self.messages.push(m));
+            track.work(&mut |u, m| self.messages.push((u, m)));
         }
-        while let Some(message) = self.messages.pop() {
-            self.dispatch_message(message);
+        while let Some((uid, message)) = self.messages.pop() {
+            self.dispatch_message(uid, message);
         }
         self.is_finished = self.calculate_is_finished();
     }

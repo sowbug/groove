@@ -678,7 +678,7 @@ impl Orchestrator {
                 if let Some(e) = self.store.get_mut(*uid) {
                     if let Some(e) = e.as_is_controller_mut() {
                         let mut messages = Vec::default();
-                        e.work(&mut |message| {
+                        e.work(&mut |_, message| {
                             messages.push(message);
                         });
 

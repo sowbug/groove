@@ -28,9 +28,12 @@ mod sequencers;
 
 use crate::EntityMessage;
 use groove_core::{
-    midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel},
+    midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessagesFn},
     time::{ClockTimeUnit, MusicalTime, MusicalTimeParams, SampleRate},
-    traits::{Configurable, Controls, IsController, IsEffect, Performs, TransformsAudio},
+    traits::{
+        Configurable, ControlMessagesFn, Controls, IsController, IsEffect, Performs,
+        TransformsAudio,
+    },
     BipolarNormal, Normal, Sample, StereoSample,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -135,7 +138,7 @@ impl Controls for Timer {
         }
     }
 
-    fn work(&mut self, _messages_fn: &mut dyn FnMut(Self::Message)) {
+    fn work(&mut self, _messages_fn: &mut ControlMessagesFn<Self::Message>) {
         // All the state was computable during update_time(), so there's nothing to do here.
     }
 
@@ -185,10 +188,10 @@ impl Controls for Trigger {
         self.timer.update_time(range)
     }
 
-    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
+    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn<Self::Message>) {
         if self.timer.is_finished() && self.is_performing && !self.has_triggered {
             self.has_triggered = true;
-            messages_fn(EntityMessage::ControlF32(self.value()));
+            control_messages_fn(self.uid, EntityMessage::ControlF32(self.value()));
         }
     }
 
@@ -263,14 +266,14 @@ impl Controls for SignalPassthroughController {
         // We can ignore because we already have our own de-duplicating logic.
     }
 
-    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
+    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn<Self::Message>) {
         if !self.is_performing {
             return;
         }
         if self.has_signal_changed {
             self.has_signal_changed = false;
             let normal: Normal = self.signal.into();
-            messages_fn(EntityMessage::ControlF32(normal.value_as_f32()))
+            control_messages_fn(self.uid, EntityMessage::ControlF32(normal.value_as_f32()))
         }
     }
 
@@ -388,7 +391,7 @@ impl Controls for ToyController {
         self.time_range = range.clone();
     }
 
-    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
+    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn<Self::Message>) {
         match self.what_to_do() {
             TestControllerAction::Nothing => {}
             TestControllerAction::NoteOn => {
@@ -397,18 +400,18 @@ impl Controls for ToyController {
                 // then we still send the off note,
                 if self.is_enabled && self.is_performing {
                     self.is_playing = true;
-                    messages_fn(EntityMessage::Midi(
-                        self.midi_channel_out,
-                        new_note_on(60, 127),
-                    ));
+                    control_messages_fn(
+                        self.uid,
+                        EntityMessage::Midi(self.midi_channel_out, new_note_on(60, 127)),
+                    );
                 }
             }
             TestControllerAction::NoteOff => {
                 if self.is_playing {
-                    messages_fn(EntityMessage::Midi(
-                        self.midi_channel_out,
-                        new_note_off(60, 0),
-                    ));
+                    control_messages_fn(
+                        self.uid,
+                        EntityMessage::Midi(self.midi_channel_out, new_note_off(60, 0)),
+                    );
                 }
             }
         }
@@ -426,7 +429,7 @@ impl HandlesMidi for ToyController {
         &mut self,
         _channel: MidiChannel,
         message: MidiMessage,
-        _messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+        _: &mut MidiMessagesFn,
     ) {
         #[allow(unused_variables)]
         match message {
@@ -596,7 +599,7 @@ mod tests {
             end: MusicalTime::new_with_parts(1),
         });
         let mut count = 0;
-        trigger.work(&mut |_| {
+        trigger.work(&mut |_, _| {
             count += 1;
         });
         assert_eq!(count, 0);
@@ -606,7 +609,8 @@ mod tests {
             start: MusicalTime::new_with_bars(&ts, 1),
             end: MusicalTime::new(&ts, 1, 0, 0, 1),
         });
-        trigger.work(&mut |_| {
+        let mut count = 0;
+        trigger.work(&mut |_, _| {
             count += 1;
         });
         assert!(count != 0);

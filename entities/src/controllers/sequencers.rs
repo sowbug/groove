@@ -3,9 +3,9 @@
 use crate::EntityMessage;
 use btreemultimap::BTreeMultiMap;
 use groove_core::{
-    midi::{HandlesMidi, MidiChannel, MidiMessage, MidiNoteMinder},
+    midi::{HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn, MidiNoteMinder},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, TimeSignatureParams},
-    traits::{Configurable, Controls, IsController, Performs},
+    traits::{Configurable, ControlMessagesFn, Controls, IsController, Performs},
     ParameterType,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -160,11 +160,11 @@ impl Sequencer {
         self.next_instant
     }
 
-    fn stop_pending_notes(&mut self, messages_fn: &mut dyn FnMut(EntityMessage)) {
+    fn stop_pending_notes(&mut self, control_messages_fn: &mut ControlMessagesFn<EntityMessage>) {
         for channel in 0..MidiChannel::MAX {
             let channel_msgs = self.active_notes[channel as usize].generate_off_messages();
             for msg in channel_msgs.into_iter() {
-                messages_fn(EntityMessage::Midi(channel.into(), msg));
+                control_messages_fn(self.uid, EntityMessage::Midi(channel.into(), msg));
             }
         }
     }
@@ -172,21 +172,21 @@ impl Sequencer {
     fn generate_midi_messages_for_interval(
         &mut self,
         range: &Range<MusicalTime>,
-        messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+        midi_messages_fn: &mut MidiMessagesFn,
     ) {
         let range = (Included(range.start), Excluded(range.end));
         self.events.range(range).for_each(|(_when, event)| {
             self.active_notes[event.0.value() as usize].watch_message(&event.1);
-            messages_fn(event.0, event.1);
+            midi_messages_fn(event.0, event.1);
         });
     }
 
     pub fn generate_midi_messages_for_current_frame(
         &mut self,
-        messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+        midi_messages_fn: &mut MidiMessagesFn,
     ) {
         let time_range = self.time_range.clone();
-        self.generate_midi_messages_for_interval(&time_range, messages_fn)
+        self.generate_midi_messages_for_interval(&time_range, midi_messages_fn)
     }
 
     pub fn debug_events(&self) -> &BeatEventsMap {
@@ -233,43 +233,25 @@ impl Controls for Sequencer {
         }
     }
 
-    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
+    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn<Self::Message>) {
         if !self.is_performing || self.is_finished() {
             return;
         }
         if self.should_stop_pending_notes {
             self.should_stop_pending_notes = false;
-            self.stop_pending_notes(messages_fn);
+            self.stop_pending_notes(control_messages_fn);
         }
 
         if self.is_enabled() {
             if !self.time_range_handled {
                 self.time_range_handled = true;
                 let time_range = self.time_range.clone();
+                let uid = self.uid;
                 self.generate_midi_messages_for_interval(&time_range, &mut |channel, message| {
-                    messages_fn(EntityMessage::Midi(channel, message))
+                    control_messages_fn(uid, EntityMessage::Midi(channel, message))
                 });
             }
         };
-
-        // if self.is_loop_enabled {
-        //     // This code block is a little weird because we needed to avoid the
-        //     // mutable self method call while we are borrowing loop_range.
-        //     let should_loop_now = if let Some(lr) = &self.loop_range {
-        //         if lr.contains(&this_instant) && !lr.contains(&self.next_instant) {
-        //             self.next_instant = lr.start;
-        //             self.temp_hack_clock.seek_beats(lr.start.0);
-        //             true
-        //         } else {
-        //             false
-        //         }
-        //     } else {
-        //         false
-        //     };
-        //     if should_loop_now {
-        //         v.extend(self.stop_pending_notes());
-        //     }
-        // }
     }
 
     fn is_finished(&self) -> bool {

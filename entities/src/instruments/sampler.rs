@@ -3,7 +3,7 @@
 use anyhow::{anyhow, Result};
 use groove_core::{
     instruments::Synthesizer,
-    midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
+    midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
     time::SampleRate,
     traits::{
         Configurable, Generates, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes, Ticks,
@@ -133,10 +133,10 @@ impl HandlesMidi for Sampler {
         &mut self,
         channel: MidiChannel,
         message: MidiMessage,
-        messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+        midi_messages_fn: &mut MidiMessagesFn,
     ) {
         self.inner_synth
-            .handle_midi_message(channel, message, messages_fn)
+            .handle_midi_message(channel, message, midi_messages_fn)
     }
 }
 impl Generates<StereoSample> for Sampler {

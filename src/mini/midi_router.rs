@@ -93,7 +93,7 @@ mod tests {
     use crate::mini::entity_factory::{Thing, ThingStore, ThingType};
     use groove_core::{
         midi,
-        midi::{MidiChannel, MidiMessage},
+        midi::{MidiChannel, MidiMessage, MidiMessagesFn},
         traits::{gui::Shows, Configurable, HandlesMidi},
         Uid,
     };
@@ -128,13 +128,13 @@ mod tests {
             &mut self,
             channel: MidiChannel,
             message: MidiMessage,
-            messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+            midi_messages_fn: &mut MidiMessagesFn,
         ) {
             if let Ok(mut tracker) = self.tracker.write() {
                 tracker.push((self.uid, channel, message))
             };
             if let Some(rebroadcast_channel) = self.rebroadcast_to {
-                messages_fn(rebroadcast_channel, message);
+                midi_messages_fn(rebroadcast_channel, message);
             }
         }
     }

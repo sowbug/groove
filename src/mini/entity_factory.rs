@@ -5,8 +5,8 @@ use derive_more::Display;
 use groove_core::{
     time::{SampleRate, Tempo, TimeSignature},
     traits::{
-        gui::Shows, Configurable, Controls, HandlesMidi, HasUid, IsController, IsEffect,
-        IsInstrument, Performs, Ticks,
+        gui::Shows, Configurable, ControlMessagesFn, Controls, HandlesMidi, HasUid, IsController,
+        IsEffect, IsInstrument, Performs, Ticks,
     },
     Uid,
 };
@@ -197,10 +197,16 @@ impl Controls for ThingStore {
         });
     }
 
-    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
+    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn<Self::Message>) {
         self.iter_mut().for_each(|t| {
             if let Some(t) = t.as_controller_mut() {
-                t.work(messages_fn);
+                let tuid = t.uid();
+                t.work(&mut |claimed_uid, message| {
+                    control_messages_fn(tuid, message);
+                    if tuid != claimed_uid {
+                        eprintln!("Warning: entity {tuid} is sending control messages with incorrect uid {claimed_uid}");
+                    }
+                });
             }
         });
     }

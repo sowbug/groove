@@ -9,7 +9,7 @@ use groove_core::{
         BeatValue, Clock, ClockParams, ClockTimeUnit, MusicalTime, PerfectTimeUnit, SampleRate,
         TimeSignature, TimeSignatureParams,
     },
-    traits::{Configurable, Controls, IsController, Performs},
+    traits::{Configurable, ControlMessagesFn, Controls, IsController, Performs},
     ParameterType, SignalType,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -231,7 +231,7 @@ impl Controls for ControlTrip {
 
     fn update_time(&mut self, _range: &Range<MusicalTime>) {}
 
-    fn work(&mut self, _messages_fn: &mut dyn FnMut(Self::Message)) {
+    fn work(&mut self, _messages_fn: &mut ControlMessagesFn<Self::Message>) {
         if self.is_performing {
             // #[cfg(tired)] TODO not sure if this should survive
             // for i in 0..tick_count {

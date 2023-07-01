@@ -81,7 +81,7 @@ pub trait GeneratesToInternalBuffer<V>: Send + std::fmt::Debug + Ticks {
 pub struct ControlName(pub String);
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ControlIndex(pub usize);
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ControlValue(pub f64);
 
 /// Something that is [Controllable] exposes a set of attributes, each with a text
@@ -162,6 +162,7 @@ pub trait Ticks: Configurable + Send + std::fmt::Debug {
     fn tick(&mut self, tick_count: usize);
 }
 
+pub type ControlMessagesFn<'a, M> = dyn FnMut(Uid, M) + 'a;
 pub trait Controls: Configurable + Send + std::fmt::Debug {
     type Message;
 
@@ -169,13 +170,24 @@ pub trait Controls: Configurable + Send + std::fmt::Debug {
     fn update_time(&mut self, range: &Range<MusicalTime>);
 
     /// The entity should perform work for the time range specified in the
-    /// previous update_time().
+    /// previous [update_time()]. If the work produces any messages, use
+    /// [control_messages_fn] to ask the system to queue them. They might be
+    /// handled right away, or later.
     ///
-    /// If the work produces any messages, use messages_fn to ask the system to
-    /// queue them. They might be handled right away, or later.
+    /// TODO: The [Uid] argument is a little weird. The ones actually producing
+    /// the messages should *not* be allowed to specify their uid, because we
+    /// don't want entities to be able to impersonate other entities. Rather,
+    /// the ones who are routing messages specify uid, because they know the
+    /// identity of the entities that they called. So a message-producing entity
+    /// can specify uid if it wants, but the facility that called it will ignore
+    /// it and report the correct one. This might end up like MIDI routing:
+    /// there are some things that ask others to do work, and there are some
+    /// things that do work, and a transparent proxy API like we have now isn't
+    /// appropriate.
     ///
-    /// Returns the number of requested ticks handled before terminating.
-    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message));
+    /// Returns the number of requested ticks handled before terminating (TODO:
+    /// no it doesn't).
+    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn<Self::Message>);
 
     /// Returns true if the entity is done with all its scheduled work. An
     /// entity that performs work only on command should always return true, as

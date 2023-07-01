@@ -3,9 +3,9 @@
 use super::{sequencers::Sequencer, SequencerParams};
 use crate::EntityMessage;
 use groove_core::{
-    midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage},
+    midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
     time::{MusicalTime, PerfectTimeUnit, SampleRate},
-    traits::{Configurable, Controls, IsController, Performs},
+    traits::{Configurable, ControlMessagesFn, Controls, IsController, Performs},
     ParameterType,
 };
 use groove_proc_macros::{Control, Params, Uid};
@@ -51,8 +51,8 @@ impl Controls for Arpeggiator {
         self.sequencer.update_time(range);
     }
 
-    fn work(&mut self, messages_fn: &mut dyn FnMut(Self::Message)) {
-        self.sequencer.work(messages_fn)
+    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn<Self::Message>) {
+        self.sequencer.work(control_messages_fn)
     }
 
     fn is_finished(&self) -> bool {
@@ -64,7 +64,7 @@ impl HandlesMidi for Arpeggiator {
         &mut self,
         _channel: MidiChannel,
         message: MidiMessage,
-        messages_fn: &mut dyn FnMut(MidiChannel, MidiMessage),
+        midi_messages_fn: &mut MidiMessagesFn,
     ) {
         match message {
             MidiMessage::NoteOff { key: _, vel: _ } => {
@@ -90,7 +90,7 @@ impl HandlesMidi for Arpeggiator {
                 // internal memory of which notes we've asked the
                 // downstream to play. TODO TODO TODO
                 self.sequencer
-                    .generate_midi_messages_for_current_frame(messages_fn);
+                    .generate_midi_messages_for_current_frame(midi_messages_fn);
             }
             MidiMessage::Aftertouch { key: _, vel: _ } => todo!(),
             MidiMessage::Controller {

@@ -39,7 +39,12 @@ impl ControlRouter {
         self.uid_to_control.get(&source_uid)
     }
 
-    pub fn route(&mut self, entity_store: &mut ThingStore, source_uid: Uid, value: ControlValue) {
+    pub fn route(
+        &mut self,
+        entity_store: &mut ThingStore,
+        source_uid: Uid,
+        value: ControlValue,
+    ) -> anyhow::Result<()> {
         if let Some(control_links) = self.control_links(source_uid) {
             control_links.iter().for_each(|(target_uid, index)| {
                 if let Some(e) = entity_store.get_mut(target_uid) {
@@ -51,9 +56,12 @@ impl ControlRouter {
                     } else if let Some(e) = e.as_effect_mut() {
                         e.control_set_param_by_index(index.0, F32ControlValue(value.0 as f32));
                     }
+                } else {
+                    eprintln!("Warning: Couldn't find uid {target_uid} during control routing from {source_uid}");
                 }
             });
         }
+        Ok(())
     }
 }
 
@@ -170,7 +178,7 @@ mod tests {
         let controllable = TestControllable::new_with(target_2_uid, Arc::clone(&tracker));
         es.add(Box::new(controllable));
 
-        cr.route(&mut es, source_uid, ControlValue(0.5));
+        let _ = cr.route(&mut es, source_uid, ControlValue(0.5));
         if let Ok(t) = tracker.read() {
             assert_eq!(
                 t.len(),
@@ -187,7 +195,7 @@ mod tests {
             t.clear();
         }
         cr.unlink_control(source_uid, target_uid, ControlIndex(99));
-        cr.route(&mut es, source_uid, ControlValue(0.5));
+        let _ = cr.route(&mut es, source_uid, ControlValue(0.5));
         if let Ok(t) = tracker.read() {
             assert_eq!(
                 t.len(),
@@ -201,7 +209,7 @@ mod tests {
             t.clear();
         }
         cr.unlink_control(source_uid, target_uid, ControlIndex(0));
-        cr.route(&mut es, source_uid, ControlValue(0.5));
+        let _ = cr.route(&mut es, source_uid, ControlValue(0.5));
         if let Ok(t) = tracker.read() {
             assert_eq!(
                 t.len(),
