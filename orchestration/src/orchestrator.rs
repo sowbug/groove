@@ -4,12 +4,11 @@ use crate::{
     entities::Entity,
     messages::{ControlLink, GrooveEvent, GrooveInput, Internal, Response},
 };
-
 use anyhow::anyhow;
 use core::fmt::Debug;
 use crossbeam::deque::Worker;
 use groove_core::{
-    control::F32ControlValue,
+    control::ControlValue,
     midi::{MidiChannel, MidiMessage},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
     traits::{Configurable, Performs},
@@ -601,11 +600,11 @@ impl Orchestrator {
                             )));
                             self.broadcast_midi_messages(&[(channel, message)]);
                         }
-                        EntityMessage::ControlF32(value) => {
+                        EntityMessage::Control(value) => {
                             messages.extend(self.generate_control_update_messages(uid, value));
                         }
-                        EntityMessage::HandleControlF32(param_id, value) => {
-                            self.handle_control_f32(uid, param_id, value)
+                        EntityMessage::HandleControl(param_id, value) => {
+                            self.handle_control(uid, param_id, value)
                         }
                     },
                     GrooveInput::MidiFromExternal(channel, message) => {
@@ -763,14 +762,18 @@ impl Orchestrator {
     }
 
     #[cfg(not(feature = "iced-framework"))]
-    fn generate_control_update_messages(&mut self, uid: Uid, value: f32) -> Vec<GrooveInput> {
+    fn generate_control_update_messages(
+        &mut self,
+        uid: Uid,
+        value: ControlValue,
+    ) -> Vec<GrooveInput> {
         if let Some(control_links) = self.store.control_links(uid) {
             return control_links
                 .iter()
                 .fold(Vec::default(), |mut v, (target_uid, param_id)| {
                     v.push(GrooveInput::EntityMessage(
                         *target_uid,
-                        EntityMessage::HandleControlF32(*param_id, value),
+                        EntityMessage::HandleControl(*param_id, value),
                     ));
                     v
                 });
@@ -934,10 +937,10 @@ impl Orchestrator {
         &self.clock
     }
 
-    fn handle_control_f32(&mut self, uid: Uid, param_id: usize, value: f32) {
+    fn handle_control(&mut self, uid: Uid, param_id: usize, value: ControlValue) {
         if let Some(entity) = self.store.get_mut(uid) {
             if let Some(controllable) = entity.as_controllable_mut() {
-                controllable.control_set_param_by_index(param_id, F32ControlValue(value));
+                controllable.control_set_param_by_index(param_id, value);
             }
         }
     }

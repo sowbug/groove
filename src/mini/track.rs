@@ -13,11 +13,12 @@ use eframe::{
     epaint::{pos2, vec2, Color32, Pos2, Rect, RectShape, Rounding, Shape, Stroke, Vec2},
 };
 use groove_core::{
+    control::ControlValue,
     midi::MidiChannel,
     time::{SampleRate, Tempo, TimeSignature},
     traits::{
-        gui::Shows, Configurable, ControlMessagesFn, ControlValue, Controls,
-        GeneratesToInternalBuffer, Performs, Ticks,
+        gui::Shows, Configurable, ControlMessagesFn, Controls, GeneratesToInternalBuffer, Performs,
+        Ticks,
     },
     StereoSample, Uid,
 };

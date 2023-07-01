@@ -30,7 +30,7 @@ mod tests {
 
     mod params {
         use groove_core::{
-            control::F32ControlValue,
+            control::ControlValue,
             traits::{Configurable, Controllable},
         };
         use groove_proc_macros::{Control, Params, Uid};
@@ -52,9 +52,9 @@ mod tests {
                 Abnormal::from_repr((*self as usize + 1) % Abnormal::COUNT).unwrap()
             }
         }
-        impl From<F32ControlValue> for Abnormal {
-            fn from(value: F32ControlValue) -> Self {
-                Abnormal::from_repr((value.0 * Abnormal::COUNT as f32) as usize).unwrap_or_default()
+        impl From<ControlValue> for Abnormal {
+            fn from(value: ControlValue) -> Self {
+                Abnormal::from_repr((value.0 * Abnormal::COUNT as f64) as usize).unwrap_or_default()
             }
         }
 
@@ -83,14 +83,14 @@ mod tests {
                 Cherry::from_repr((*self as usize + 1) % Cherry::COUNT).unwrap()
             }
         }
-        impl From<F32ControlValue> for Cherry {
-            fn from(value: F32ControlValue) -> Self {
-                Cherry::from_repr((value.0 * Cherry::COUNT as f32) as usize).unwrap_or_default()
+        impl From<ControlValue> for Cherry {
+            fn from(value: ControlValue) -> Self {
+                Cherry::from_repr((value.0 * Cherry::COUNT as f64) as usize).unwrap_or_default()
             }
         }
-        impl Into<F32ControlValue> for Cherry {
-            fn into(self) -> F32ControlValue {
-                F32ControlValue((self as usize as f32) / Cherry::COUNT as f32)
+        impl Into<ControlValue> for Cherry {
+            fn into(self) -> ControlValue {
+                ControlValue((self as usize as f64) / Cherry::COUNT as f64)
             }
         }
 

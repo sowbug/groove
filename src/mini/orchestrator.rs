@@ -9,10 +9,11 @@ use anyhow::{anyhow, Result};
 use eframe::egui::{self, Ui};
 use groove_audio::AudioQueue;
 use groove_core::{
+    control::ControlValue,
     midi::{MidiChannel, MidiMessage, MidiMessagesFn},
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
     traits::{
-        gui::Shows, Configurable, ControlMessagesFn, ControlValue, Controls, Generates,
+        gui::Shows, Configurable, ControlMessagesFn, Controls, Generates,
         GeneratesToInternalBuffer, HandlesMidi, Performs, Ticks,
     },
     Sample, StereoSample, Uid,
@@ -486,10 +487,12 @@ impl MiniOrchestrator {
             EntityMessage::Midi(channel, message) => {
                 self.route_midi_message(channel, message);
             }
-            EntityMessage::ControlF32(value) => {
-                self.route_control_change(uid, ControlValue(value as f64))
+            EntityMessage::Control(value) => {
+                self.route_control_change(uid, value);
             }
-            EntityMessage::HandleControlF32(_, _) => todo!(),
+            EntityMessage::HandleControl(_, _) => {
+                panic!("New system doesn't use this message. Consider deleting it!")
+            }
         }
     }
 

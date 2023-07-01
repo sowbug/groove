@@ -1,14 +1,12 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use super::entity_factory::ThingStore;
 use groove_core::{
-    control::F32ControlValue,
-    traits::{ControlIndex, ControlValue},
+    control::{ControlIndex, ControlValue},
     Uid,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
-use super::entity_factory::ThingStore;
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct ControlRouter {
@@ -52,12 +50,12 @@ impl ControlRouter {
                     // as_controllable_mut() yet. If/when we set up the macro to
                     // generate these easily, then extend to add that.
                     if let Some(e) = e.as_instrument_mut() {
-                        e.control_set_param_by_index(index.0, F32ControlValue(value.0 as f32));
+                        e.control_set_param_by_index(index.0, value);
                     } else if let Some(e) = e.as_effect_mut() {
-                        e.control_set_param_by_index(index.0, F32ControlValue(value.0 as f32));
+                        e.control_set_param_by_index(index.0, value);
                     }
                 } else {
-                    eprintln!("Warning: Couldn't find uid {target_uid} during control routing from {source_uid}");
+                    eprintln!("Warning: Couldn't find uid {target_uid} during control routing from {source_uid}. This might be OK because an entity lives in just one Track.");
                 }
             });
         }
@@ -95,9 +93,9 @@ mod tests {
     }
     impl IsInstrument for TestControllable {}
     impl Controllable for TestControllable {
-        fn control_set_param_by_index(&mut self, index: usize, value: F32ControlValue) {
+        fn control_set_param_by_index(&mut self, index: usize, value: ControlValue) {
             if let Ok(mut tracker) = self.tracker.write() {
-                tracker.push((self.uid, ControlIndex(index), ControlValue(value.0 as f64)));
+                tracker.push((self.uid, ControlIndex(index), value));
             }
         }
     }

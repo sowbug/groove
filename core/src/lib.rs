@@ -2,7 +2,6 @@
 
 //! Fundamental structs and traits.
 
-use control::F32ControlValue;
 use derive_more::Display;
 use groove_proc_macros::{Control, Params};
 use std::{
@@ -709,16 +708,6 @@ impl From<f32> for Ratio {
         Self(value as ParameterType)
     }
 }
-impl From<F32ControlValue> for Ratio {
-    fn from(value: F32ControlValue) -> Self {
-        Self::from(Normal::from(value))
-    }
-}
-impl From<Ratio> for F32ControlValue {
-    fn from(value: Ratio) -> Self {
-        F32ControlValue(Normal::from(value).value_as_f32())
-    }
-}
 impl Mul<ParameterType> for Ratio {
     type Output = Self;
 
@@ -940,17 +929,6 @@ mod tests {
             StereoSample::new(0.0.into(), VALUE),
             "Pan right should give 100% to right channel"
         );
-    }
-
-    #[test]
-    fn ratio_ok() {
-        assert_eq!(Ratio::from(BipolarNormal::from(-1.0)).value(), 0.125);
-        assert_eq!(Ratio::from(BipolarNormal::from(0.0)).value(), 1.0);
-        assert_eq!(Ratio::from(BipolarNormal::from(1.0)).value(), 8.0);
-
-        assert_eq!(BipolarNormal::from(Ratio::from(0.125)).value(), -1.0);
-        assert_eq!(BipolarNormal::from(Ratio::from(1.0)).value(), 0.0);
-        assert_eq!(BipolarNormal::from(Ratio::from(8.0)).value(), 1.0);
     }
 
     #[test]

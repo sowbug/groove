@@ -2,12 +2,11 @@
 
 pub use crate::midi::HandlesMidi;
 use crate::{
-    control::F32ControlValue,
+    control::ControlValue,
     midi::u7,
     time::{MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
     Normal, Sample, StereoSample, Uid,
 };
-use serde::{Deserialize, Serialize};
 use std::ops::Range;
 
 #[cfg(feature = "egui-framework")]
@@ -77,13 +76,6 @@ pub trait GeneratesToInternalBuffer<V>: Send + std::fmt::Debug + Ticks {
     fn values(&self) -> &[V];
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ControlName(pub String);
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ControlIndex(pub usize);
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct ControlValue(pub f64);
-
 /// Something that is [Controllable] exposes a set of attributes, each with a text
 /// name, that an [IsController] can change. If you're familiar with DAWs, this is
 /// typically called automation.
@@ -105,10 +97,10 @@ pub trait Controllable {
     fn control_name_for_index(&self, index: usize) -> Option<String> {
         unimplemented!()
     }
-    fn control_set_param_by_name(&mut self, name: &str, value: F32ControlValue) {
+    fn control_set_param_by_name(&mut self, name: &str, value: ControlValue) {
         unimplemented!()
     }
-    fn control_set_param_by_index(&mut self, index: usize, value: F32ControlValue) {
+    fn control_set_param_by_index(&mut self, index: usize, value: ControlValue) {
         unimplemented!()
     }
 }

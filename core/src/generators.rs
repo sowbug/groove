@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use crate::{
-    control::F32ControlValue,
+    control::ControlValue,
     time::{Clock, ClockTimeUnit, SampleRate, TimeUnit},
     traits::{Configurable, Generates, GeneratesEnvelope, Ticks},
     BipolarNormal, FrequencyHz, Normal, ParameterType, Ratio, SignalType,
@@ -52,12 +52,13 @@ pub enum Waveform {
 
 // TODO: the existence of this conversion is bad. PWM is just different. Come up
 // with some other way to automate waveform changes.
-impl From<F32ControlValue> for Waveform {
-    fn from(value: F32ControlValue) -> Self {
-        Waveform::from_repr((value.0 * Waveform::COUNT as f32) as usize).unwrap_or_default()
+impl From<ControlValue> for Waveform {
+    fn from(value: ControlValue) -> Self {
+        Waveform::from_repr((value.0 * Waveform::COUNT as ParameterType) as usize)
+            .unwrap_or_default()
     }
 }
-impl From<Waveform> for F32ControlValue {
+impl From<Waveform> for ControlValue {
     fn from(value: Waveform) -> Self {
         // TODO: is there a way to get the discriminant cheaply when the
         // enum is not
@@ -74,8 +75,8 @@ impl From<Waveform> for F32ControlValue {
             Waveform::DebugMax => 8,
             Waveform::DebugMin => 9,
             Waveform::TriangleSine => 10,
-        } as f32)
-            / Waveform::COUNT as f32)
+        } as f64)
+            / Waveform::COUNT as f64)
             .into()
     }
 }

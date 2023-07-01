@@ -175,7 +175,7 @@ pub struct Trigger {
     timer: Timer,
 
     #[params]
-    value: f32,
+    value: Normal,
 
     has_triggered: bool,
     is_performing: bool,
@@ -191,7 +191,7 @@ impl Controls for Trigger {
     fn work(&mut self, control_messages_fn: &mut ControlMessagesFn<Self::Message>) {
         if self.timer.is_finished() && self.is_performing && !self.has_triggered {
             self.has_triggered = true;
-            control_messages_fn(self.uid, EntityMessage::ControlF32(self.value()));
+            control_messages_fn(self.uid, EntityMessage::Control(self.value().into()));
         }
     }
 
@@ -236,11 +236,11 @@ impl Trigger {
         }
     }
 
-    pub fn value(&self) -> f32 {
+    pub fn value(&self) -> Normal {
         self.value
     }
 
-    pub fn set_value(&mut self, value: f32) {
+    pub fn set_value(&mut self, value: Normal) {
         self.value = value;
     }
 }
@@ -272,8 +272,7 @@ impl Controls for SignalPassthroughController {
         }
         if self.has_signal_changed {
             self.has_signal_changed = false;
-            let normal: Normal = self.signal.into();
-            control_messages_fn(self.uid, EntityMessage::ControlF32(normal.value_as_f32()))
+            control_messages_fn(self.uid, EntityMessage::Control(self.signal.into()))
         }
     }
 
@@ -575,6 +574,7 @@ mod tests {
     use groove_core::{
         time::{MusicalTime, MusicalTimeParams, SampleRate, TimeSignature},
         traits::{Configurable, Controls, Performs},
+        Normal,
     };
     use std::ops::Range;
 
@@ -589,7 +589,7 @@ mod tests {
                     }
                 },
             },
-            value: 0.5,
+            value: Normal::from(0.5),
         });
         trigger.update_sample_rate(SampleRate::DEFAULT);
         trigger.play();

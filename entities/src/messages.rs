@@ -1,6 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
+    control::ControlValue,
     midi::{MidiChannel, MidiMessage},
     traits::MessageBounds,
 };
@@ -23,9 +24,10 @@ pub enum EntityMessage {
     /// to \[value\], and I'd like subscribers to know about that." The
     /// recipient will typically fan this out to multiple targets controlled by
     /// the controller.
-    ControlF32(f32),
+    Control(ControlValue),
 
     /// Sent by system to every entity that subscribes to a control.
-    HandleControlF32(usize, f32),
+    #[deprecated]
+    HandleControl(usize, ControlValue),
 }
 impl MessageBounds for EntityMessage {}

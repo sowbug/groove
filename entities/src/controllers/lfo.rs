@@ -7,7 +7,7 @@ use groove_core::{
     midi::HandlesMidi,
     time::{MusicalTime, SampleRate, Tempo},
     traits::{Configurable, ControlMessagesFn, Controls, Generates, IsController, Performs, Ticks},
-    FrequencyHz, Normal, ParameterType,
+    FrequencyHz, ParameterType,
 };
 use groove_proc_macros::{Control, Params, Uid};
 use std::{
@@ -87,7 +87,7 @@ impl Controls for LfoController {
         }
         control_messages_fn(
             self.uid,
-            EntityMessage::ControlF32(Normal::from(self.oscillator.value()).into()),
+            EntityMessage::Control(self.oscillator.value().into()),
         );
     }
 

@@ -175,7 +175,7 @@ pub(crate) fn impl_control_derive(input: TokenStream, primitives: &HashSet<Ident
             }
         };
         let control_set_param_by_index_bodies = quote! {
-            fn control_set_param_by_index(&mut self, index: usize, value: #core_crate::control::F32ControlValue) {
+            fn control_set_param_by_index(&mut self, index: usize, value: #core_crate::control::ControlValue) {
                 match index {
                     #( Self::#index_const_ids..=Self::#index_const_range_end_ids => {#setter_bodies}, )*
                     _ => {},
@@ -235,7 +235,7 @@ pub(crate) fn impl_control_derive(input: TokenStream, primitives: &HashSet<Ident
             #[automatically_derived]
             impl #generics #core_crate::traits::Controllable for #struct_name #ty_generics {
                 fn control_index_count(&self) -> usize { Self::STRUCT_SIZE }
-                fn control_set_param_by_name(&mut self, name: &str, value: #core_crate::control::F32ControlValue) {
+                fn control_set_param_by_name(&mut self, name: &str, value: #core_crate::control::ControlValue) {
                     if let Some(index) = self.control_index_for_name(name) {
                         self.control_set_param_by_index(index, value);
                     } else {
