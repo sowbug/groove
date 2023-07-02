@@ -1,21 +1,24 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use groove::mini::{MiniOrchestrator, MiniSequencer, MiniSequencerParams, TrackIndex};
+use clap::Parser;
+use groove::mini::MiniOrchestrator;
 use groove_core::{
-    midi::MidiChannel,
     traits::{Controls, Performs},
     StereoSample,
 };
-use std::path::PathBuf;
+use regex::Regex;
+use std::{fs::File, io::BufReader, path::PathBuf};
 
-fn write_performance_to_file(orchestrator: &mut MiniOrchestrator) -> anyhow::Result<()> {
+fn write_performance_to_file(
+    orchestrator: &mut MiniOrchestrator,
+    path: &PathBuf,
+) -> anyhow::Result<()> {
     let spec = hound::WavSpec {
         channels: orchestrator.channels(),
         sample_rate: orchestrator.sample_rate().into(),
         bits_per_sample: 16,
         sample_format: hound::SampleFormat::Int,
     };
-    let path = PathBuf::from("minicli.wav");
     let mut writer = hound::WavWriter::create(path, spec).unwrap();
 
     let mut buffer = [StereoSample::SILENCE; 64];
@@ -37,18 +40,52 @@ fn write_performance_to_file(orchestrator: &mut MiniOrchestrator) -> anyhow::Res
     Ok(())
 }
 
+#[derive(Parser, Debug, Default)]
+#[clap(author, about, long_about = None)]
+struct Args {
+    /// Names of files to process. Currently accepts JSON-format projects.
+    input: Vec<String>,
+
+    /// Render as WAVE file(s) (file will appear next to source file)
+    #[clap(short = 'w', long, value_parser)]
+    wav: bool,
+
+    /// Enable debug mode
+    #[clap(short = 'd', long, value_parser)]
+    debug: bool,
+
+    /// Print version and exit
+    #[clap(short = 'v', long, value_parser)]
+    version: bool,
+}
+
 fn main() -> anyhow::Result<()> {
-    let mut o = MiniOrchestrator::default();
+    let args = Args::parse();
 
-    let _uid = o
-        .add_thing(
-            Box::new(MiniSequencer::new_with(
-                &MiniSequencerParams::default(),
-                MidiChannel(0),
-            )),
-            TrackIndex(0),
-        )
-        .unwrap();
-
-    write_performance_to_file(&mut o)
+    for input_filename in args.input {
+        match File::open(input_filename.clone()) {
+            Ok(f) => match serde_json::from_reader::<_, MiniOrchestrator>(BufReader::new(f)) {
+                Ok(mut o) => {
+                    if args.wav {
+                        let re = Regex::new(r"\.json$").unwrap();
+                        let output_filename = re.replace(&input_filename, ".wav");
+                        if input_filename == output_filename {
+                            panic!("would overwrite input file; couldn't generate output filename");
+                        }
+                        let output_path = PathBuf::from(output_filename.to_string());
+                        if let Err(e) = write_performance_to_file(&mut o, &output_path) {
+                            eprintln!(
+                                "error while writing {input_filename} render to {}: {e:?}",
+                                output_path.display()
+                            );
+                            return Err(e);
+                        }
+                    }
+                }
+                Err(e) => eprintln!("error while parsing {input_filename}: {e:?}"),
+            },
+            Err(e) => eprintln!("error while opening {input_filename}: {e:?}"),
+        }
+    }
+    Ok(())
 }
