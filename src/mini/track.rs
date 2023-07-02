@@ -624,6 +624,10 @@ impl Track {
             eprintln!("While routing control change: {e}")
         }
     }
+
+    pub(crate) fn max_uid(&self) -> Uid {
+        self.thing_store.max_uid()
+    }
 }
 impl GeneratesToInternalBuffer<StereoSample> for Track {
     fn generate_batch_values(&mut self, len: usize) -> usize {

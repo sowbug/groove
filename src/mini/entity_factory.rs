@@ -87,6 +87,15 @@ impl EntityFactory {
     pub fn entities(&self) -> &HashMap<Key, ThingFactoryFn> {
         &self.things
     }
+
+    /// Naively increments the RelaxedCounter until it is higher than or equal to
+    /// the provided [Uid].
+    pub fn set_next_uid_expensively(&self, uid: &Uid) {
+        self.next_id.reset();
+        if self.next_id.get() < uid.0 {
+            while self.next_id.inc() <= uid.0 {}
+        }
+    }
 }
 
 pub enum ThingType {
@@ -156,6 +165,14 @@ impl ThingStore {
     }
     pub fn iter_mut(&mut self) -> hash_map::ValuesMut<'_, Uid, Box<dyn Thing>> {
         self.things.values_mut()
+    }
+
+    pub(crate) fn max_uid(&self) -> Uid {
+        if let Some(max) = self.things.keys().map(|uid| *uid).max() {
+            max
+        } else {
+            Uid(0)
+        }
     }
 }
 impl Ticks for ThingStore {

@@ -476,7 +476,7 @@ impl Into<f32> for Normal {
 }
 
 /// A [Uid] is an identifier that's unique within the current project.
-#[derive(Copy, Clone, Debug, Default, Display, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Default, Display, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Uid(pub usize);
 impl Uid {

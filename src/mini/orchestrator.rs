@@ -23,6 +23,19 @@ use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, ops::Range, sync::Arc};
 
+/// A grouping mechanism to declare parts of [MiniOrchestrator] that Serde
+/// shouldn't be serializing. Exists so we don't have to spray #[serde(skip)]
+/// all over the place.
+#[derive(Debug, Default)]
+pub struct OrchestratorEphemerals {
+    sample_rate: SampleRate,
+    current_time: MusicalTime,
+    range: Range<MusicalTime>,
+    messages: Vec<(Uid, EntityMessage)>,
+    is_finished: bool,
+    is_performing: bool,
+}
+
 /// Owns all entities (instruments, controllers, and effects), and manages the
 /// relationships among them to create an audio performance.
 #[derive(Serialize, Deserialize, Debug)]
@@ -44,31 +57,9 @@ pub struct MiniOrchestrator {
     //////////////////////////////////////////////////////
     //
     #[serde(skip)]
-    sample_rate: SampleRate,
-
-    #[serde(skip)]
-    #[allow(dead_code)]
-    frames: usize,
-
-    #[serde(skip)]
-    #[allow(dead_code)]
-    current_time: MusicalTime,
-
-    // The current time range for Controls::work().
-    #[serde(skip)]
-    range: Range<MusicalTime>,
-
+    e: OrchestratorEphemerals,
     #[serde(skip)]
     entity_factory: Option<Arc<EntityFactory>>,
-
-    #[serde(skip)]
-    messages: Vec<(Uid, EntityMessage)>,
-
-    #[serde(skip)]
-    is_finished: bool,
-
-    #[serde(skip)]
-    is_performing: bool,
 }
 impl Default for MiniOrchestrator {
     fn default() -> Self {
@@ -86,14 +77,8 @@ impl Default for MiniOrchestrator {
             track_factory,
             single_track_selection: None,
 
-            sample_rate: Default::default(),
-            frames: Default::default(),
-            current_time: Default::default(),
-            range: Default::default(),
+            e: Default::default(),
             entity_factory: None,
-            messages: Default::default(),
-            is_finished: Default::default(),
-            is_performing: Default::default(),
         }
     }
 }
@@ -117,12 +102,12 @@ impl MiniOrchestrator {
     /// The current [SampleRate] used to render the current project. Typically
     /// something like 44.1KHz.
     pub fn sample_rate(&self) -> SampleRate {
-        self.sample_rate
+        self.e.sample_rate
     }
 
     /// Sets a new global [SampleRate] for the project.
     pub fn set_sample_rate(&mut self, sample_rate: SampleRate) {
-        self.sample_rate = sample_rate;
+        self.e.sample_rate = sample_rate;
         for track in self.tracks.iter_mut() {
             track.update_sample_rate(sample_rate);
         }
@@ -194,10 +179,10 @@ impl MiniOrchestrator {
         // decide whose responsibility it is to handle that -- either we skip
         // calling work() if the time range is the same as prior, or everyone
         // who gets called needs to detect the case or be idempotent.
-        let start = self.current_time;
+        let start = self.e.current_time;
         let units = 1.max(MusicalTime::frames_to_units(
             self.tempo,
-            self.sample_rate,
+            self.e.sample_rate,
             samples.len(),
         ));
         let length = MusicalTime::new_with_units(units);
@@ -205,16 +190,32 @@ impl MiniOrchestrator {
         self.update_time(&range);
         self.work(&mut |_, _| panic!("work() was supposed to handle all messages"));
         self.generate_batch_values(samples);
-        self.current_time += length;
+        self.e.current_time += length;
     }
 
     /// After loading a new Self from disk, we want to copy all the appropriate
     /// ephemeral state from this one to the next one.
     pub fn prepare_successor(&self, new: &mut MiniOrchestrator) {
+        // Copy over the current sample rate, whose validity shouldn't change
+        // because we loaded a new project.
         new.set_sample_rate(self.sample_rate());
 
-        // TODO: refresh EntityFactory's relaxed counter(s) to account for
-        // existing items
+        // [EntityFactory] needs its internal new-uid counter to be higher than
+        // any existing [Uid] in the project, so that it doesn't mint duplicate
+        // [Uid]s. This is a bit cumbersome.
+        if let Some(factory) = &self.entity_factory {
+            factory.set_next_uid_expensively(&new.max_uid());
+            new.entity_factory = Some(Arc::clone(factory));
+        }
+    }
+
+    /// Returns the maximum known Uid in use among all tracks.
+    fn max_uid(&self) -> Uid {
+        if let Some(max_uid) = self.tracks.iter().map(|t| t.max_uid()).max() {
+            max_uid
+        } else {
+            Uid(0)
+        }
     }
 
     // #[allow(dead_code)]
@@ -444,7 +445,7 @@ impl MiniOrchestrator {
     /// Adds the given thing, returning an assigned [Uid] if successful.
     /// [MiniOrchestrator] takes ownership.
     pub fn add_thing(&mut self, mut thing: Box<dyn Thing>, track: TrackIndex) -> Result<Uid> {
-        thing.update_sample_rate(self.sample_rate);
+        thing.update_sample_rate(self.e.sample_rate);
         let uid = thing.uid();
         self.tracks[track.0].append_thing(thing);
         Ok(uid)
@@ -476,7 +477,7 @@ impl MiniOrchestrator {
 
     /// Returns the global music clock.
     pub fn current_time(&self) -> MusicalTime {
-        self.current_time
+        self.e.current_time
     }
 
     fn calculate_is_finished(&self) -> bool {
@@ -568,15 +569,15 @@ impl HandlesMidi for MiniOrchestrator {
 }
 impl Performs for MiniOrchestrator {
     fn play(&mut self) {
-        self.is_performing = true;
+        self.e.is_performing = true;
         self.tracks.iter_mut().for_each(|t| t.play());
     }
 
     fn stop(&mut self) {
         // If we were performing, stop. Otherwise, it's a stop-while-stopped
         // action, which means the user wants to rewind to the beginning.
-        if self.is_performing {
-            self.is_performing = false;
+        if self.e.is_performing {
+            self.e.is_performing = false;
         } else {
             self.skip_to_start();
         }
@@ -584,37 +585,37 @@ impl Performs for MiniOrchestrator {
     }
 
     fn skip_to_start(&mut self) {
-        self.current_time = MusicalTime::START;
+        self.e.current_time = MusicalTime::START;
         self.tracks.iter_mut().for_each(|t| t.skip_to_start());
     }
 
     fn is_performing(&self) -> bool {
-        self.is_performing
+        self.e.is_performing
     }
 }
 impl Controls for MiniOrchestrator {
     type Message = EntityMessage;
 
     fn update_time(&mut self, range: &Range<MusicalTime>) {
-        self.range = range.clone();
+        self.e.range = range.clone();
 
         for track in self.tracks.iter_mut() {
-            track.update_time(&self.range);
+            track.update_time(&self.e.range);
         }
     }
 
     fn work(&mut self, _: &mut ControlMessagesFn<Self::Message>) {
         for track in self.tracks.iter_mut() {
-            track.work(&mut |u, m| self.messages.push((u, m)));
+            track.work(&mut |u, m| self.e.messages.push((u, m)));
         }
-        while let Some((uid, message)) = self.messages.pop() {
+        while let Some((uid, message)) = self.e.messages.pop() {
             self.dispatch_message(uid, message);
         }
-        self.is_finished = self.calculate_is_finished();
+        self.e.is_finished = self.calculate_is_finished();
     }
 
     fn is_finished(&self) -> bool {
-        self.is_finished
+        self.e.is_finished
     }
 }
 
@@ -674,7 +675,7 @@ mod tests {
             if o.is_finished() {
                 break;
             }
-            prior_start_time = o.current_time;
+            prior_start_time = o.e.current_time;
             let mut samples = [StereoSample::SILENCE; 1];
             o.generate_next_samples(&mut samples);
         }
