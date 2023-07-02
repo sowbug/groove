@@ -14,7 +14,6 @@ devices:
   - effect:
       - effect-1
       - chorus:
-          wet-dry-mix: 1.0     # what percentage of input is sent to the effect
           voices: 8            # how many versions of the input contribute to the output
           delay-factor: 30     # Should be at least as big as 2x the number of voices
 patch-cables:

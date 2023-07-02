@@ -5,6 +5,7 @@ use super::{
     entity_factory::{Thing, ThingStore, ThingType},
     midi_router::MidiRouter,
     sequencer::MiniSequencer,
+    wet_dry_manager::WetDryManager,
 };
 use crate::mini::sequencer::MiniSequencerParams;
 use eframe::{
@@ -20,7 +21,7 @@ use groove_core::{
         gui::Shows, Configurable, ControlMessagesFn, Controls, GeneratesToInternalBuffer, Performs,
         Ticks,
     },
-    StereoSample, Uid,
+    Normal, StereoSample, Uid,
 };
 use groove_entities::EntityMessage;
 use serde::{Deserialize, Serialize};
@@ -114,6 +115,7 @@ pub struct Track {
 
     midi_router: MidiRouter,
     control_router: ControlRouter,
+    wet_dry_manager: WetDryManager,
 
     // Whether the track is selected in the UI.
     is_selected: bool,
@@ -133,6 +135,7 @@ impl Default for Track {
             effects: Default::default(),
             midi_router: Default::default(),
             control_router: Default::default(),
+            wet_dry_manager: Default::default(),
             is_selected: Default::default(),
             buffer: [StereoSample::default(); 64],
         }
@@ -649,8 +652,16 @@ impl GeneratesToInternalBuffer<StereoSample> for Track {
         for uid in self.effects.iter() {
             if let Some(e) = self.thing_store.get_mut(uid) {
                 if let Some(e) = e.as_effect_mut() {
+                    let wetness = self.wet_dry_manager.get(uid);
+                    if wetness == Normal::zero() {
+                        continue;
+                    }
                     for sample in self.buffer.iter_mut() {
-                        *sample = e.transform_audio(*sample);
+                        *sample = self.wet_dry_manager.transform_audio(
+                            wetness,
+                            *sample,
+                            e.transform_audio(*sample),
+                        );
                     }
                 }
             }

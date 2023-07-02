@@ -4,7 +4,7 @@ use super::delay::{DelayLine, Delays};
 use groove_core::{
     time::SampleRate,
     traits::{Configurable, IsEffect, TransformsAudio},
-    ParameterType, Sample, SampleType,
+    ParameterType, Sample,
 };
 use groove_proc_macros::{Control, Params, Uid};
 
@@ -26,15 +26,6 @@ pub struct Chorus {
     #[params]
     delay_seconds: ParameterType,
 
-    // what percentage of the output should be processed. 0.0 = all dry (no
-    // effect). 1.0 = all wet (100% effect).
-    //
-    // TODO: maybe handle the wet/dry more centrally. It seems like it'll be
-    // repeated a lot.
-    #[control]
-    #[params]
-    wet_dry_mix: f32,
-
     #[cfg_attr(feature = "serialization", serde(skip))]
     delay: DelayLine,
 }
@@ -46,8 +37,7 @@ impl TransformsAudio for Chorus {
         for i in 1..self.voices as isize {
             sum += self.delay.peek_indexed_output(i * index_offset as isize);
         }
-        sum * self.wet_dry_mix as SampleType / self.voices as SampleType
-            + input_sample * (1.0 - self.wet_dry_mix)
+        sum
     }
 }
 impl Configurable for Chorus {
@@ -67,13 +57,8 @@ impl Chorus {
             uid: Default::default(),
             voices: params.voices(),
             delay_seconds: params.delay_seconds(),
-            wet_dry_mix: params.wet_dry_mix(),
             delay: DelayLine::new_with(params.delay_seconds(), 1.0),
         }
-    }
-
-    pub fn set_wet_dry_mix(&mut self, wet_pct: f32) {
-        self.wet_dry_mix = wet_pct;
     }
 
     #[cfg(feature = "iced-framework")]
@@ -82,10 +67,6 @@ impl Chorus {
             ChorusMessage::Chorus(s) => *self = Self::new_with(s),
             _ => self.derived_update(message),
         }
-    }
-
-    pub fn wet_dry_mix(&self) -> f32 {
-        self.wet_dry_mix
     }
 
     pub fn voices(&self) -> usize {

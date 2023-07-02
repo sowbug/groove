@@ -22,7 +22,6 @@ devices:
   - effect:
       - effect-1
       - reverb:
-          wet-dry-mix: 0.5
           attenuation: 1.0
           seconds: 2.0
 patch-cables:

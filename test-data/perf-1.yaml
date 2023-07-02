@@ -10,18 +10,18 @@ devices:
   - instrument:
       - piano-1
       - welsh:
-        - midi-in: 0
-        - name: piano
+          - midi-in: 0
+          - name: piano
   - instrument:
       - bassline
       - welsh:
-        - midi-in: 1
-        - name: digital-bass
+          - midi-in: 1
+          - name: digital-bass
   - instrument:
       - drum-1
       - drumkit:
-        - midi-in: 10
-        - name: "707"
+          - midi-in: 10
+          - name: "707"
   - controller:
       - arp-1
       - arpeggiator:
@@ -44,7 +44,6 @@ devices:
   - effect:
       - reverb-1
       - reverb:
-          wet-dry-mix: 0.6
           attenuation: 0.8
           seconds: 0.4
   - effect:

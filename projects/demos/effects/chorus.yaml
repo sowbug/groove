@@ -8,16 +8,15 @@ clock:
     - 4
 devices:
   - instrument:
-    - instrument-1
-    - welsh:
-      - midi-in: 0
-      - name: cowbell
+      - instrument-1
+      - welsh:
+          - midi-in: 0
+          - name: cowbell
   - effect:
-    - effect-1
-    - chorus:
-        wet-dry-mix: 1.0      # what percentage of input is sent to the effect
-        voices: 4             # how many versions of the input contribute to the output
-        delay-seconds: 0.25   # TODO: calibrate
+      - effect-1
+      - chorus:
+          voices: 4 # how many versions of the input contribute to the output
+          delay-seconds: 0.25 # TODO: calibrate
 patch-cables:
   - [instrument-1, effect-1, main-mixer]
 patterns:
@@ -41,5 +40,5 @@ trips:
   - id: control-effect
     target:
       id: effect-1
-      param: wet-dry-mix
+      param: wet-dry-mix # TODO: this needs to move elsewhere
     paths: [dry-then-wet]

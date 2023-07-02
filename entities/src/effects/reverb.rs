@@ -30,15 +30,6 @@ pub struct Reverb {
     #[params]
     seconds: ParameterType,
 
-    // TODO: maybe handle the wet/dry more centrally. It seems like it'll be
-    // repeated a lot.
-    //
-    /// what percentage should be unprocessed. 0.0 = all effect. 0.0 = all
-    /// unchanged.
-    #[control]
-    #[params]
-    wet_dry_mix: f32,
-
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [ReverbChannel; 2],
 }
@@ -65,19 +56,11 @@ impl Reverb {
             sample_rate: Default::default(),
             attenuation: params.attenuation(),
             seconds: params.seconds(),
-            wet_dry_mix: params.wet_dry_mix(),
             channels: [
                 ReverbChannel::new_with(params),
                 ReverbChannel::new_with(params),
             ],
         }
-    }
-
-    pub fn set_wet_dry_mix(&mut self, mix: f32) {
-        self.wet_dry_mix = mix;
-        self.channels
-            .iter_mut()
-            .for_each(|c| c.set_wet_dry_mix(mix));
     }
 
     #[cfg(feature = "iced-framework")]
@@ -113,22 +96,11 @@ impl Reverb {
             .iter_mut()
             .for_each(|c| c.set_seconds(seconds));
     }
-
-    pub fn wet_dry_mix(&self) -> f32 {
-        self.wet_dry_mix
-    }
 }
 
 #[derive(Debug, Default)]
 struct ReverbChannel {
     attenuation: Normal,
-
-    // what percentage should be unprocessed. 0.0 = all effect. 0.0 = all
-    // unchanged.
-    //
-    // TODO: maybe handle the wet/dry more centrally. It seems like it'll be
-    // repeated a lot.
-    wet_dry_mix: f32,
 
     recirc_delay_lines: Vec<RecirculatingDelayLine>,
     allpass_delay_lines: Vec<AllPassDelayLine>,
@@ -141,8 +113,7 @@ impl TransformsAudio for ReverbChannel {
             + self.recirc_delay_lines[2].pop_output(input_attenuated)
             + self.recirc_delay_lines[3].pop_output(input_attenuated);
         let adl_0_out = self.allpass_delay_lines[0].pop_output(recirc_output);
-        self.allpass_delay_lines[1].pop_output(adl_0_out) * self.wet_dry_mix
-            + input_sample * (1.0 - self.wet_dry_mix)
+        self.allpass_delay_lines[1].pop_output(adl_0_out)
     }
 }
 impl Configurable for ReverbChannel {
@@ -161,14 +132,9 @@ impl ReverbChannel {
         // constants.
         Self {
             attenuation: params.attenuation(),
-            wet_dry_mix: params.wet_dry_mix(),
             recirc_delay_lines: Self::instantiate_recirc_delay_lines(params.seconds()),
             allpass_delay_lines: Self::instantiate_allpass_delay_lines(),
         }
-    }
-
-    pub fn set_wet_dry_mix(&mut self, mix: f32) {
-        self.wet_dry_mix = mix;
     }
 
     fn set_attenuation(&mut self, attenuation: Normal) {
@@ -240,24 +206,7 @@ mod tests {
     };
 
     #[test]
-    fn reverb_dry_works() {
-        let mut fx = Reverb::new_with(&ReverbParams {
-            attenuation: Normal::from(0.5),
-            seconds: 1.5,
-            wet_dry_mix: 0.0,
-        });
-        assert_eq!(
-            fx.transform_channel(0, Sample::from(0.8f32)),
-            Sample::from(0.8f32)
-        );
-        assert_eq!(
-            fx.transform_channel(0, Sample::from(0.7f32)),
-            Sample::from(0.7f32)
-        );
-    }
-
-    #[test]
-    fn reverb_wet_works() {
+    fn reverb_does_anything_at_all() {
         // This test is lame, because I can't think of a programmatic way to
         // test that reverb works. I observed that with the Schroeder reverb set
         // to 0.5 seconds, we start getting back nonzero samples (first
@@ -266,7 +215,6 @@ mod tests {
         let mut fx = Reverb::new_with(&ReverbParams {
             attenuation: Normal::from(0.9),
             seconds: 0.5,
-            wet_dry_mix: 1.0,
         });
         fx.update_sample_rate(SampleRate::DEFAULT);
         assert_eq!(fx.transform_channel(0, Sample::from(0.8)), Sample::SILENCE);

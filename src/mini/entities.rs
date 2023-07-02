@@ -224,7 +224,6 @@ pub fn register_mini_factory_entities(factory: &mut EntityFactory) {
         Box::new(Reverb::new_with(&ReverbParams {
             attenuation: Normal::from(0.8),
             seconds: 1.0,
-            wet_dry_mix: 0.8,
         }))
     });
     factory.register_thing(Key::from("filter-low-pass-24db"), || {

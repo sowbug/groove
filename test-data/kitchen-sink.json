@@ -106,7 +106,6 @@
                 "reverb-1",
                 {
                     "reverb": {
-                        "wet-dry-mix": 0.6,
                         "attenuation": 0.8,
                         "seconds": 0.4
                     }

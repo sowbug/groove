@@ -22,6 +22,7 @@ mod midi_router;
 mod orchestrator;
 mod sequencer;
 mod track;
+mod wet_dry_manager;
 
 /// Generates unique [Uid]s. This factory is not threadsafe.
 #[derive(Debug, Default, Serialize, Deserialize)]
