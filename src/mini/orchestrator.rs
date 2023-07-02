@@ -104,8 +104,9 @@ impl MiniOrchestrator {
     // matter?
     pub const SAMPLE_BUFFER_SIZE: usize = 64;
 
-    /// Creates a new [MiniOrchestrator] with a (hopefully) initialized
-    /// [EntityFactory].
+    /// Creates a new [MiniOrchestrator] with an [EntityFactory]. Note that an
+    /// [Arc] wraps the factory, which implies that the factory must be fully
+    /// equipped by the time it's given to the orchestrator.
     pub fn new_with(entity_factory: Arc<EntityFactory>) -> Self {
         Self {
             entity_factory: Some(entity_factory),

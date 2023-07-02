@@ -5,76 +5,77 @@ use std::collections::HashMap;
 use groove_core::{Normal, Sample, StereoSample, Uid};
 use serde::{Deserialize, Serialize};
 
+/// Controls the wet/dry mix of arranged effects.
 #[derive(Serialize, Deserialize, Debug, Default)]
-pub struct WetDryManager {
-    uid_to_wetness: HashMap<Uid, Normal>,
+pub struct Humidifier {
+    uid_to_humidity: HashMap<Uid, Normal>,
 }
-impl WetDryManager {
-    pub fn get(&self, uid: &Uid) -> Normal {
-        if let Some(wetness) = self.uid_to_wetness.get(uid) {
-            *wetness
+impl Humidifier {
+    pub fn get_humidity_by_uid(&self, uid: &Uid) -> Normal {
+        if let Some(humidity) = self.uid_to_humidity.get(uid) {
+            *humidity
         } else {
             Normal::default()
         }
     }
 
     #[allow(dead_code)]
-    pub fn set(&mut self, uid: Uid, wetness: Normal) {
-        self.uid_to_wetness.insert(uid, wetness);
+    pub fn set_humidity_by_uid(&mut self, uid: Uid, humidity: Normal) {
+        self.uid_to_humidity.insert(uid, humidity);
     }
 
     pub fn transform_audio(
         &mut self,
-        wetness: Normal,
+        humidity: Normal,
         pre_effect: StereoSample,
         post_effect: StereoSample,
     ) -> StereoSample {
         StereoSample(
-            self.transform_channel(wetness, 0, pre_effect.0, post_effect.0),
-            self.transform_channel(wetness, 1, pre_effect.1, post_effect.1),
+            self.transform_channel(humidity, 0, pre_effect.0, post_effect.0),
+            self.transform_channel(humidity, 1, pre_effect.1, post_effect.1),
         )
     }
 
     fn transform_channel(
         &mut self,
-        wetness: Normal,
+        humidity: Normal,
         _: usize,
         pre_effect: Sample,
         post_effect: Sample,
     ) -> Sample {
-        let wetness = wetness.value();
-        let dryness = 1.0 - wetness;
-        post_effect * wetness + pre_effect * dryness
+        let humidity = humidity.value();
+        let aridity = 1.0 - humidity;
+        post_effect * humidity + pre_effect * aridity
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::mini::wet_dry_manager::WetDryManager;
+    use crate::mini::humidifier::Humidifier;
     use groove_core::{traits::TransformsAudio, Normal, Sample, Uid};
     use groove_toys::ToyEffect;
 
     #[test]
     fn lookups_work() {
-        let mut wd = WetDryManager::default();
+        let mut wd = Humidifier::default();
         assert_eq!(
-            wd.get(&Uid(1)),
+            wd.get_humidity_by_uid(&Uid(1)),
             Normal::maximum(),
-            "a missing Uid should return default wetness 1.0"
+            "a missing Uid should return default humidity 1.0"
         );
 
         let uid = Uid(1);
-        wd.set(uid, Normal::from(0.5));
+        wd.set_humidity_by_uid(uid, Normal::from(0.5));
         assert_eq!(
-            wd.get(&Uid(1)),
+            wd.get_humidity_by_uid(&Uid(1)),
             Normal::from(0.5),
-            "a non-missing Uid should return the wetness that we set"
+            "a non-missing Uid should return the humidity that we set"
         );
     }
 
     #[test]
     fn processing_works() {
-        let mut wd = WetDryManager::default();
+        let mut humidifier = Humidifier::default();
 
         let mut effect = ToyEffect::default();
         assert_eq!(
@@ -85,7 +86,7 @@ mod tests {
 
         let pre_effect = Sample::MAX;
         assert_eq!(
-            wd.transform_channel(
+            humidifier.transform_channel(
                 Normal::maximum(),
                 0,
                 pre_effect,
@@ -95,7 +96,7 @@ mod tests {
             "Wetness 1.0 means full effect, zero pre-effect"
         );
         assert_eq!(
-            wd.transform_channel(
+            humidifier.transform_channel(
                 Normal::from_percentage(50.0),
                 0,
                 pre_effect,
@@ -105,7 +106,7 @@ mod tests {
             "Wetness 0.5 means even parts effect and pre-effect"
         );
         assert_eq!(
-            wd.transform_channel(
+            humidifier.transform_channel(
                 Normal::zero(),
                 0,
                 pre_effect,

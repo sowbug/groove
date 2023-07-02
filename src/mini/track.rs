@@ -3,9 +3,9 @@
 use super::{
     control_router::ControlRouter,
     entity_factory::{Thing, ThingStore, ThingType},
+    humidifier::Humidifier,
     midi_router::MidiRouter,
     sequencer::MiniSequencer,
-    wet_dry_manager::WetDryManager,
 };
 use crate::mini::sequencer::MiniSequencerParams;
 use eframe::{
@@ -115,7 +115,7 @@ pub struct Track {
 
     midi_router: MidiRouter,
     control_router: ControlRouter,
-    wet_dry_manager: WetDryManager,
+    humidifier: Humidifier,
 
     // Whether the track is selected in the UI.
     is_selected: bool,
@@ -135,7 +135,7 @@ impl Default for Track {
             effects: Default::default(),
             midi_router: Default::default(),
             control_router: Default::default(),
-            wet_dry_manager: Default::default(),
+            humidifier: Default::default(),
             is_selected: Default::default(),
             buffer: [StereoSample::default(); 64],
         }
@@ -652,13 +652,13 @@ impl GeneratesToInternalBuffer<StereoSample> for Track {
         for uid in self.effects.iter() {
             if let Some(e) = self.thing_store.get_mut(uid) {
                 if let Some(e) = e.as_effect_mut() {
-                    let wetness = self.wet_dry_manager.get(uid);
-                    if wetness == Normal::zero() {
+                    let humidity = self.humidifier.get_humidity_by_uid(uid);
+                    if humidity == Normal::zero() {
                         continue;
                     }
                     for sample in self.buffer.iter_mut() {
-                        *sample = self.wet_dry_manager.transform_audio(
-                            wetness,
+                        *sample = self.humidifier.transform_audio(
+                            humidity,
                             *sample,
                             e.transform_audio(*sample),
                         );
