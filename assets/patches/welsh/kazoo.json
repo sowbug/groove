@@ -1,0 +1,59 @@
+{
+  "name": "kazoo",
+  "oscillator-1": {
+    "waveform": {
+      "pulse-width": 0.15
+    },
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": {
+      "pulse-width": 0.02
+    },
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": false,
+  "noise": 0,
+  "lfo": {
+    "routing": "pitch",
+    "waveform": "noise",
+    "frequency": 32,
+    "depth": {
+      "cents": 70
+    }
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "mono",
+  "filter-type-24db": {
+    "cutoff-hz": 1200,
+    "cutoff-pct": 0.59
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 600,
+    "cutoff-pct": 0.49
+  },
+  "filter-resonance": 0.3,
+  "filter-envelope-weight": 0.5,
+  "filter-envelope": {
+    "attack": 0.06,
+    "decay": 1.2,
+    "sustain": 0,
+    "release": 0.63
+  },
+  "amp-envelope": {
+    "attack": 0.03,
+    "decay": 3.9,
+    "sustain": 0,
+    "release": 0.33
+  }
+}

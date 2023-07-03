@@ -26,5 +26,5 @@ strum = "0.25"
 strum_macros = "0.25"
 
 [features]
-"serialization" = ["serde"] #, "serde_yaml"]
+"serialization" = ["serde"] 
 "egui-framework" = ["eframe"]

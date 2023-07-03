@@ -1,0 +1,143 @@
+{
+  "title": "Drum track, low-pass filter, q rising",
+  "clock": {
+    "bpm": 128,
+    "time-signature": [
+      4,
+      4
+    ]
+  },
+  "devices": [
+    {
+      "instrument": [
+        "drum-1",
+        {
+          "drumkit": [
+            {
+              "midi-in": 10
+            },
+            {
+              "name": "707"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect": [
+        "low-pass-1",
+        {
+          "filter-low-pass-12db": {
+            "cutoff": 1200,
+            "q": 1
+          }
+        }
+      ]
+    }
+  ],
+  "patch-cables": [
+    [
+      "drum-1",
+      "low-pass-1",
+      "main-mixer"
+    ]
+  ],
+  "patterns": [
+    {
+      "id": "four-on-the-floor",
+      "note-value": "sixteenth",
+      "notes": [
+        [
+          42,
+          44,
+          42,
+          44,
+          42,
+          44,
+          42,
+          44,
+          42,
+          44,
+          42,
+          44,
+          42,
+          44,
+          42,
+          44
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          38,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          38,
+          0,
+          0,
+          0
+        ],
+        [
+          35,
+          0,
+          0,
+          0,
+          35,
+          0,
+          0,
+          0,
+          35,
+          0,
+          0,
+          0,
+          35,
+          0,
+          0,
+          0
+        ]
+      ]
+    }
+  ],
+  "tracks": [
+    {
+      "id": "drum-1",
+      "midi-channel": 10,
+      "patterns": [
+        "four-on-the-floor",
+        "four-on-the-floor"
+      ]
+    }
+  ],
+  "paths": [
+    {
+      "id": "path-slope-1",
+      "note-value": "double",
+      "steps": [
+        {
+          "exponential": {
+            "start": 0,
+            "end": 1
+          }
+        }
+      ]
+    }
+  ],
+  "trips": [
+    {
+      "id": "trip-1",
+      "target": {
+        "id": "low-pass-1",
+        "param": "q"
+      },
+      "paths": [
+        "path-slope-1"
+      ]
+    }
+  ]
+}

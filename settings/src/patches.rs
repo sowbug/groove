@@ -54,8 +54,8 @@ impl WelshPatchSettings {
             .to_case(Case::Kebab)
     }
 
-    pub fn new_from_yaml(yaml: &str) -> Result<Self, LoadError> {
-        serde_yaml::from_str(yaml).map_err(|e| {
+    pub fn new_from_json(json: &str) -> Result<Self, LoadError> {
+        serde_json::from_str(json).map_err(|e| {
             println!("{e}");
             LoadError::FormatError
         })
@@ -64,12 +64,12 @@ impl WelshPatchSettings {
     pub fn by_name(paths: &Paths, name: &str) -> Self {
         let path = paths.build_patch(
             "welsh",
-            Path::new(&format!("{}.yaml", Self::patch_name_to_settings_name(name))),
+            Path::new(&format!("{}.json", Self::patch_name_to_settings_name(name))),
         );
         if let Ok(mut file) = paths.search_and_open(&path) {
             let mut contents = String::new();
             if let Ok(_bytes_read) = file.read_to_string(&mut contents) {
-                match Self::new_from_yaml(&contents) {
+                match Self::new_from_json(&contents) {
                     Ok(patch) => {
                         return patch;
                     }

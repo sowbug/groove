@@ -1,0 +1,53 @@
+{
+  "name": "tambourine",
+  "oscillator-1": {
+    "waveform": "none",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": "none",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 0,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": false,
+  "noise": 1,
+  "lfo": {
+    "routing": "none",
+    "waveform": "none",
+    "frequency": 0,
+    "depth": "none"
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "mono",
+  "filter-type-24db": {
+    "cutoff-hz": 5300,
+    "cutoff-pct": 0.81
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 5300,
+    "cutoff-pct": 0.81
+  },
+  "filter-resonance": 1,
+  "filter-envelope-weight": 0,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 0,
+    "sustain": 0,
+    "release": 0
+  },
+  "amp-envelope": {
+    "attack": 0,
+    "decay": 0.34,
+    "sustain": 0,
+    "release": 0.34
+  }
+}

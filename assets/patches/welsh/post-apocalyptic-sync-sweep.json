@@ -1,0 +1,63 @@
+{
+  "name": "post-apocalyptic-sync-sweep",
+  "oscillator-1": {
+    "waveform": "square",
+    "tune": {
+      "osc": {
+        "octave": -2,
+        "semi": 0,
+        "cent": 0
+      }
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": "square",
+    "tune": {
+      "osc": {
+        "octave": -1,
+        "semi": 0,
+        "cent": 0
+      }
+    },
+    "mix-pct": 0.85,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": true,
+  "noise": 0,
+  "lfo": {
+    "routing": "pitch-osc2",
+    "waveform": "triangle-sine",
+    "frequency": 0.7,
+    "depth": {
+      "cents": 450
+    }
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 40,
+    "cutoff-pct": 0.1
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 40,
+    "cutoff-pct": 0.1
+  },
+  "filter-resonance": 0.65,
+  "filter-envelope-weight": 0.5,
+  "filter-envelope": {
+    "attack": 2.1,
+    "decay": 5.2,
+    "sustain": 0,
+    "release": 3
+  },
+  "amp-envelope": {
+    "attack": 0,
+    "decay": 0,
+    "sustain": 1,
+    "release": 0.6
+  }
+}

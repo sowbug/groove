@@ -1,0 +1,55 @@
+{
+  "name": "celestial-wash",
+  "oscillator-1": {
+    "waveform": "none",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 0,
+    "mix-db": -40
+  },
+  "oscillator-2": {
+    "waveform": "none",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 0,
+    "mix-db": -40
+  },
+  "oscillator-2-track": false,
+  "oscillator-2-sync": false,
+  "noise": 1,
+  "lfo": {
+    "routing": "resonance",
+    "waveform": "square",
+    "frequency": 5.5,
+    "depth": {
+      "pct": 1
+    }
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 1000,
+    "cutoff-pct": 0.57
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 500,
+    "cutoff-pct": 0.46
+  },
+  "filter-resonance": 1,
+  "filter-envelope-weight": 0,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 0,
+    "sustain": 0,
+    "release": 0
+  },
+  "amp-envelope": {
+    "attack": 1.65,
+    "decay": 5.85,
+    "sustain": 0,
+    "release": 4.4
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "name": "dulcimer",
+  "oscillator-1": {
+    "waveform": {
+      "pulse-width": 0.25
+    },
+    "tune": {
+      "osc": {
+        "octave": 0,
+        "semi": -7,
+        "cent": 0
+      }
+    },
+    "mix-pct": 0.8,
+    "mix-db": -7.6
+  },
+  "oscillator-2": {
+    "waveform": {
+      "pulse-width": 0.05
+    },
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": false,
+  "noise": 0,
+  "lfo": {
+    "routing": "amplitude",
+    "waveform": "triangle",
+    "frequency": 1.5,
+    "depth": {
+      "pct": 0.22
+    }
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 600,
+    "cutoff-pct": 0.49
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 200,
+    "cutoff-pct": 0.33
+  },
+  "filter-resonance": 0,
+  "filter-envelope-weight": 0.5,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 1.69,
+    "sustain": 0,
+    "release": 1.78
+  },
+  "amp-envelope": {
+    "attack": 0,
+    "decay": 4,
+    "sustain": 0,
+    "release": 4
+  }
+}

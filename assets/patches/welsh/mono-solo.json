@@ -1,0 +1,63 @@
+{
+  "name": "mono-solo",
+  "oscillator-1": {
+    "waveform": {
+      "pulse-width": 0.3
+    },
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": {
+      "pulse-width": 0.2
+    },
+    "tune": {
+      "osc": {
+        "octave": 0,
+        "semi": 0,
+        "cent": 4
+      }
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": false,
+  "noise": 0,
+  "lfo": {
+    "routing": "pitch",
+    "waveform": "triangle-sine",
+    "frequency": 4.5,
+    "depth": {
+      "cents": 22
+    }
+  },
+  "glide": 0.04,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 40,
+    "cutoff-pct": 0.1
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 40,
+    "cutoff-pct": 0.1
+  },
+  "filter-resonance": 0.45,
+  "filter-envelope-weight": 0.8,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 0.2,
+    "sustain": 0.7,
+    "release": 1
+  },
+  "amp-envelope": {
+    "attack": 0,
+    "decay": 0,
+    "sustain": 1,
+    "release": 0.02
+  }
+}

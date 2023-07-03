@@ -1,0 +1,59 @@
+{
+  "name": "vocal-female",
+  "oscillator-1": {
+    "waveform": {
+      "pulse-width": 0.05
+    },
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": {
+      "pulse-width": 0.25
+    },
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 0.65,
+    "mix-db": -13.9
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": false,
+  "noise": 0,
+  "lfo": {
+    "routing": "pitch",
+    "waveform": "triangle",
+    "frequency": 2.4,
+    "depth": {
+      "cents": 20
+    }
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 1200,
+    "cutoff-pct": 0.59
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 1200,
+    "cutoff-pct": 0.59
+  },
+  "filter-resonance": 0.5,
+  "filter-envelope-weight": 0,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 0,
+    "sustain": 0,
+    "release": 0
+  },
+  "amp-envelope": {
+    "attack": 0.32,
+    "decay": 0,
+    "sustain": 1,
+    "release": 0.93
+  }
+}

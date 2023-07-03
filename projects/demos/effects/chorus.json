@@ -1,0 +1,103 @@
+{
+  "title": "chorus",
+  "clock": {
+    "bpm": 120,
+    "time-signature": [
+      4,
+      4
+    ]
+  },
+  "devices": [
+    {
+      "instrument": [
+        "instrument-1",
+        {
+          "welsh": [
+            {
+              "midi-in": 0
+            },
+            {
+              "name": "cowbell"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect": [
+        "effect-1",
+        {
+          "chorus": {
+            "voices": 4,
+            "delay-seconds": 0.25
+          }
+        }
+      ]
+    }
+  ],
+  "patch-cables": [
+    [
+      "instrument-1",
+      "effect-1",
+      "main-mixer"
+    ]
+  ],
+  "patterns": [
+    {
+      "id": "scale",
+      "note-value": "eighth",
+      "notes": [
+        [
+          60,
+          62,
+          64,
+          65,
+          67,
+          69,
+          71,
+          72
+        ]
+      ]
+    }
+  ],
+  "tracks": [
+    {
+      "id": "track-1",
+      "midi-channel": 0,
+      "patterns": [
+        "scale",
+        "scale"
+      ]
+    }
+  ],
+  "paths": [
+    {
+      "id": "dry-then-wet",
+      "note-value": "whole",
+      "steps": [
+        {
+          "flat": [
+            0.5
+          ]
+        },
+        {
+          "flat": [
+            1
+          ]
+        }
+      ]
+    }
+  ],
+  "trips": [
+    {
+      "id": "control-effect",
+      "target": {
+        "id": "effect-1",
+        "param": "wet-dry-mix"
+      },
+      "paths": [
+        "dry-then-wet"
+      ]
+    }
+  ]
+}

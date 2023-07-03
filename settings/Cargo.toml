@@ -19,7 +19,6 @@ json5 = "0.4"
 rustc-hash = "1.1"
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = "1.0"
-serde_yaml = "0.8"
 strum = "0.25"
 strum_macros = "0.25"
 

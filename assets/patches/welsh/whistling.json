@@ -1,0 +1,61 @@
+{
+  "name": "whistling",
+  "oscillator-1": {
+    "waveform": "triangle",
+    "tune": {
+      "osc": {
+        "octave": 2,
+        "semi": 0,
+        "cent": 0
+      }
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": "none",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 0,
+    "mix-db": -40
+  },
+  "oscillator-2-track": false,
+  "oscillator-2-sync": false,
+  "noise": 0,
+  "lfo": {
+    "routing": "pitch",
+    "waveform": "triangle",
+    "frequency": 7,
+    "depth": {
+      "cents": 12
+    }
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": {
+    "multi-limit": 2
+  },
+  "filter-type-24db": {
+    "cutoff-hz": 500,
+    "cutoff-pct": 0.46
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 200,
+    "cutoff-pct": 0.33
+  },
+  "filter-resonance": 0,
+  "filter-envelope-weight": 0.4,
+  "filter-envelope": {
+    "attack": 0.04,
+    "decay": 0,
+    "sustain": 1,
+    "release": 30
+  },
+  "amp-envelope": {
+    "attack": 0.03,
+    "decay": 0,
+    "sustain": 1,
+    "release": 0.35
+  }
+}

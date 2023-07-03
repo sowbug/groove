@@ -1,0 +1,59 @@
+{
+  "name": "clavichord",
+  "oscillator-1": {
+    "waveform": "sawtooth",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": "sawtooth",
+    "tune": {
+      "osc": {
+        "octave": 1,
+        "semi": 4,
+        "cent": 0
+      }
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": true,
+  "noise": 0,
+  "lfo": {
+    "routing": "pitch",
+    "waveform": "triangle",
+    "frequency": 1,
+    "depth": {
+      "cents": 15
+    }
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 1800,
+    "cutoff-pct": 0.65
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 1000,
+    "cutoff-pct": 0.57
+  },
+  "filter-resonance": 0,
+  "filter-envelope-weight": 0.7,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 0.1,
+    "sustain": 0.65,
+    "release": 30
+  },
+  "amp-envelope": {
+    "attack": 0,
+    "decay": 1.9,
+    "sustain": 0,
+    "release": 0.35
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "name": "cymbal",
+  "oscillator-1": {
+    "waveform": "none",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 0,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": "none",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 0,
+    "mix-db": 0
+  },
+  "oscillator-2-track": false,
+  "oscillator-2-sync": false,
+  "noise": 1,
+  "lfo": {
+    "routing": "none",
+    "waveform": "none",
+    "frequency": 0,
+    "depth": "none"
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "mono",
+  "filter-type-24db": {
+    "cutoff-hz": 9400,
+    "cutoff-pct": 0.89
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 9400,
+    "cutoff-pct": 0.89
+  },
+  "filter-resonance": 0.5,
+  "filter-envelope-weight": 0.7,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 0.14,
+    "sustain": 0,
+    "release": 1.8
+  },
+  "amp-envelope": {
+    "attack": 0,
+    "decay": 1.1,
+    "sustain": 0,
+    "release": 1
+  }
+}

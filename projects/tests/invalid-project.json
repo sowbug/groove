@@ -1,0 +1,27 @@
+{
+  "title": "Invalid project that should fail to load",
+  "clock": {
+    "bpm": 99.9,
+    "time-signature": [
+      4,
+      4
+    ]
+  },
+  "devices": [
+    {
+      "instrumentx": [
+        "foo",
+        {
+          "bar": [
+            {
+              "baz": 0
+            },
+            {
+              "qux": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

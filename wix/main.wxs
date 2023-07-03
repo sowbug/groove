@@ -108,7 +108,7 @@
             <Directory Id='Patches' Name="patches">
               <Directory Id='Welsh' Name="welsh">
                 <Component Id='welsh0' Guid='43a6ff2c-5f70-4254-b71b-e1def699e303'>
-                  <File Name='piano.yaml'/>
+                  <File Name='piano.json'/>
                 </Component>
               </Directory>
             </Directory>

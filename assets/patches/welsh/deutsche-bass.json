@@ -1,0 +1,63 @@
+{
+  "name": "deutsche-bass",
+  "oscillator-1": {
+    "waveform": {
+      "pulse-width": 0.25
+    },
+    "tune": {
+      "osc": {
+        "octave": -2,
+        "semi": 0,
+        "cent": 0
+      }
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": "sawtooth",
+    "tune": {
+      "osc": {
+        "octave": -1,
+        "semi": -3,
+        "cent": 0
+      }
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": true,
+  "noise": 0,
+  "lfo": {
+    "routing": "none",
+    "waveform": "none",
+    "frequency": 0,
+    "depth": "none"
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "mono",
+  "filter-type-24db": {
+    "cutoff-hz": 800,
+    "cutoff-pct": 0.53
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 500,
+    "cutoff-pct": 0.46
+  },
+  "filter-resonance": 0.35,
+  "filter-envelope-weight": 0.5,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 0.15,
+    "sustain": 0,
+    "release": 0.15
+  },
+  "amp-envelope": {
+    "attack": 0,
+    "decay": 0,
+    "sustain": 1,
+    "release": 0.15
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "title": "Automation work",
+  "clock": {
+    "bpm": 128,
+    "midi-ticks-per-second": 960,
+    "time-signature": [
+      4,
+      4
+    ]
+  },
+  "devices": [
+    {
+      "instrument": [
+        "instrument-1",
+        {
+          "welsh": [
+            {
+              "midi-in": 0
+            },
+            {
+              "name": "growling-bass"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "controller": [
+        "lfo-1",
+        {
+          "lfo": [
+            {
+              "midi-in": 0,
+              "midi-out": 0
+            },
+            {
+              "waveform": "sine",
+              "frequency": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect": [
+        "effect-1",
+        {
+          "reverb": {
+            "attenuation": 1,
+            "seconds": 2
+          }
+        }
+      ]
+    }
+  ],
+  "patch-cables": [
+    [
+      "instrument-1",
+      "effect-1",
+      "main-mixer"
+    ]
+  ],
+  "patterns": [
+    {
+      "id": "basic-1",
+      "note-value": "eighth",
+      "notes": [
+        [
+          60,
+          0,
+          64,
+          0,
+          67,
+          0,
+          71,
+          72
+        ]
+      ]
+    }
+  ],
+  "tracks": [
+    {
+      "id": "track-1",
+      "midi-channel": 0,
+      "patterns": [
+        "basic-1",
+        "basic-1"
+      ]
+    }
+  ]
+}

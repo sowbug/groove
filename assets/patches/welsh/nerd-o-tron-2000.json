@@ -1,0 +1,59 @@
+{
+  "name": "nerd-o-tron-2000",
+  "oscillator-1": {
+    "waveform": "sawtooth",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": "square",
+    "tune": {
+      "osc": {
+        "octave": 2,
+        "semi": 0,
+        "cent": 0
+      }
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": false,
+  "noise": 0,
+  "lfo": {
+    "routing": "filter-cutoff",
+    "waveform": "noise",
+    "frequency": 0.9,
+    "depth": {
+      "pct": 0.25
+    }
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 680,
+    "cutoff-pct": 0.51
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 680,
+    "cutoff-pct": 0.51
+  },
+  "filter-resonance": 0.85,
+  "filter-envelope-weight": 0,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 0,
+    "sustain": 0,
+    "release": 0
+  },
+  "amp-envelope": {
+    "attack": 0,
+    "decay": 0,
+    "sustain": 1,
+    "release": 2
+  }
+}

@@ -1,0 +1,612 @@
+{
+  "title": "Performance test data #1. Listen at your own risk.",
+  "clock": {
+    "bpm": 1024,
+    "midi-ticks-per-second": 960,
+    "time-signature": [
+      4,
+      4
+    ]
+  },
+  "devices": [
+    {
+      "instrument": [
+        "piano-1",
+        {
+          "welsh": [
+            {
+              "midi-in": 0
+            },
+            {
+              "name": "piano"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "instrument": [
+        "bassline",
+        {
+          "welsh": [
+            {
+              "midi-in": 1
+            },
+            {
+              "name": "digital-bass"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "instrument": [
+        "drum-1",
+        {
+          "drumkit": [
+            {
+              "midi-in": 10
+            },
+            {
+              "name": "707"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "controller": [
+        "arp-1",
+        {
+          "arpeggiator": [
+            {
+              "midi-in": 2,
+              "midi-out": 3
+            },
+            {
+              "bpm": 1024
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect": [
+        "gain-1",
+        {
+          "gain": {
+            "ceiling": 0.01
+          }
+        }
+      ]
+    },
+    {
+      "effect": [
+        "gain-2",
+        {
+          "gain": {
+            "ceiling": 0.9
+          }
+        }
+      ]
+    },
+    {
+      "effect": [
+        "limiter-1",
+        {
+          "limiter": {
+            "max": 0.03,
+            "min": 0.02
+          }
+        }
+      ]
+    },
+    {
+      "effect": [
+        "reverb-1",
+        {
+          "reverb": {
+            "attenuation": 0.8,
+            "seconds": 0.4
+          }
+        }
+      ]
+    },
+    {
+      "effect": [
+        "bitcrusher-1",
+        {
+          "bitcrusher": {
+            "bits": 8
+          }
+        }
+      ]
+    },
+    {
+      "effect": [
+        "filter-low-pass-12db-1",
+        {
+          "filter-low-pass-12db": {
+            "cutoff": 0.04,
+            "q": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "effect": [
+        "filter-high-pass-12db-1",
+        {
+          "filter-high-pass-12db": {
+            "cutoff": 0.06,
+            "q": 0.07
+          }
+        }
+      ]
+    },
+    {
+      "effect": [
+        "filter-band-pass-12db-1",
+        {
+          "filter-band-pass-12db": {
+            "bandwidth": 0.09,
+            "cutoff": 0.08
+          }
+        }
+      ]
+    },
+    {
+      "effect": [
+        "filter-band-stop-12db-1",
+        {
+          "filter-band-stop-12db": {
+            "bandwidth": 0.1,
+            "cutoff": 0.1
+          }
+        }
+      ]
+    },
+    {
+      "effect": [
+        "filter-all-pass-12db-1",
+        {
+          "filter-all-pass-12db": {
+            "cutoff": 0.11,
+            "q": 0.12
+          }
+        }
+      ]
+    },
+    {
+      "effect": [
+        "filter-peaking-eq-12db-1",
+        {
+          "filter-peaking-eq-12db": {
+            "cutoff": 0.13,
+            "db-gain": 0.15
+          }
+        }
+      ]
+    },
+    {
+      "effect": [
+        "filter-low-shelf-12db-1",
+        {
+          "filter-low-shelf-12db": {
+            "cutoff": 0.16,
+            "db-gain": 0.17
+          }
+        }
+      ]
+    },
+    {
+      "effect": [
+        "filter-high-shelf-12db-1",
+        {
+          "filter-high-shelf-12db": {
+            "cutoff": 0.18,
+            "db-gain": 0.19
+          }
+        }
+      ]
+    }
+  ],
+  "patch-cables": [
+    [
+      "piano-1",
+      "bitcrusher-1",
+      "filter-low-pass-12db-1",
+      "gain-1",
+      "main-mixer"
+    ],
+    [
+      "bassline",
+      "gain-2",
+      "main-mixer"
+    ],
+    [
+      "drum-1",
+      "main-mixer"
+    ]
+  ],
+  "patterns": [
+    {
+      "id": "basic-1",
+      "note-value": "sixteenth",
+      "notes": [
+        [
+          60,
+          0,
+          60,
+          0,
+          60,
+          0,
+          60,
+          0,
+          67,
+          0,
+          67,
+          0,
+          67,
+          0,
+          67,
+          0
+        ]
+      ]
+    },
+    {
+      "id": "bass",
+      "note-value": "sixteenth",
+      "notes": [
+        [
+          67,
+          0,
+          60,
+          0,
+          67,
+          0,
+          60,
+          0,
+          67,
+          0,
+          60,
+          0,
+          67,
+          0,
+          60,
+          0
+        ]
+      ]
+    },
+    {
+      "id": "four-on-the-floor",
+      "note-value": "sixteenth",
+      "notes": [
+        [
+          0,
+          0,
+          0,
+          0,
+          38,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          38,
+          0,
+          0,
+          0
+        ],
+        [
+          35,
+          0,
+          0,
+          0,
+          35,
+          0,
+          0,
+          0,
+          35,
+          0,
+          0,
+          0,
+          35,
+          0,
+          0,
+          0
+        ]
+      ]
+    }
+  ],
+  "tracks": [
+    {
+      "id": "track-1",
+      "midi-channel": 0,
+      "patterns": [
+        "basic-1"
+      ]
+    },
+    {
+      "id": "bass-1",
+      "midi-channel": 1,
+      "patterns": [
+        "bass"
+      ]
+    },
+    {
+      "id": "track-10",
+      "midi-channel": 10,
+      "patterns": [
+        "four-on-the-floor"
+      ]
+    }
+  ],
+  "paths": [
+    {
+      "id": "i-have-no-beat-value-and-i-am-short",
+      "steps": [
+        {
+          "flat": [
+            0
+          ]
+        },
+        {
+          "flat": [
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "auto-1",
+      "note-value": "whole",
+      "steps": [
+        {
+          "flat": [
+            0
+          ]
+        },
+        {
+          "flat": [
+            0.1
+          ]
+        },
+        {
+          "flat": [
+            0.5
+          ]
+        },
+        {
+          "flat": [
+            1
+          ]
+        }
+      ]
+    }
+  ],
+  "trips": [
+    {
+      "id": "trip-1",
+      "paths": [
+        "auto-1"
+      ],
+      "start-measure": 7,
+      "target": {
+        "id": "gain-1",
+        "param": "ceiling"
+      }
+    },
+    {
+      "id": "trip-2",
+      "paths": [
+        "auto-1"
+      ],
+      "start-measure": 7,
+      "target": {
+        "id": "limiter-1",
+        "param": "min"
+      }
+    },
+    {
+      "id": "trip-3",
+      "paths": [
+        "auto-1"
+      ],
+      "start-measure": 7,
+      "target": {
+        "id": "limiter-1",
+        "param": "max"
+      }
+    },
+    {
+      "id": "trip-4",
+      "paths": [
+        "auto-1"
+      ],
+      "start-measure": 7,
+      "target": {
+        "id": "bitcrusher-1",
+        "param": "bits-to-crush"
+      }
+    },
+    {
+      "id": "trip-5",
+      "paths": [
+        "auto-1"
+      ],
+      "start-measure": 7,
+      "target": {
+        "id": "filter-low-pass-12db-1",
+        "param": "cutoff"
+      }
+    },
+    {
+      "id": "trip-6",
+      "paths": [
+        "auto-1"
+      ],
+      "start-measure": 7,
+      "target": {
+        "id": "filter-low-pass-12db-1",
+        "param": "q"
+      }
+    },
+    {
+      "id": "trip-7",
+      "paths": [
+        "auto-1"
+      ],
+      "start-measure": 7,
+      "target": {
+        "id": "filter-high-pass-12db-1",
+        "param": "cutoff"
+      }
+    },
+    {
+      "id": "trip-8",
+      "paths": [
+        "auto-1"
+      ],
+      "start-measure": 7,
+      "target": {
+        "id": "filter-high-pass-12db-1",
+        "param": "q"
+      }
+    },
+    {
+      "id": "trip-9",
+      "paths": [
+        "auto-1"
+      ],
+      "start-measure": 7,
+      "target": {
+        "id": "filter-band-pass-12db-1",
+        "param": "cutoff"
+      }
+    },
+    {
+      "id": "trip-10",
+      "paths": [
+        "auto-1"
+      ],
+      "start-measure": 7,
+      "target": {
+        "id": "filter-band-pass-12db-1",
+        "param": "bandwidth"
+      }
+    },
+    {
+      "id": "trip-11",
+      "paths": [
+        "auto-1"
+      ],
+      "start-measure": 7,
+      "target": {
+        "id": "filter-band-stop-12db-1",
+        "param": "cutoff"
+      }
+    },
+    {
+      "id": "trip-12",
+      "paths": [
+        "auto-1"
+      ],
+      "start-measure": 7,
+      "target": {
+        "id": "filter-band-stop-12db-1",
+        "param": "bandwidth"
+      }
+    },
+    {
+      "id": "trip-13",
+      "paths": [
+        "auto-1"
+      ],
+      "start-measure": 7,
+      "target": {
+        "id": "filter-all-pass-12db-1",
+        "param": "cutoff"
+      }
+    },
+    {
+      "id": "trip-14",
+      "paths": [
+        "auto-1"
+      ],
+      "start-measure": 7,
+      "target": {
+        "id": "filter-all-pass-12db-1",
+        "param": "q"
+      }
+    },
+    {
+      "id": "trip-15",
+      "paths": [
+        "auto-1"
+      ],
+      "start-measure": 7,
+      "target": {
+        "id": "filter-peaking-eq-12db-1",
+        "param": "cutoff"
+      }
+    },
+    {
+      "id": "trip-16",
+      "paths": [
+        "auto-1"
+      ],
+      "start-measure": 7,
+      "target": {
+        "id": "filter-peaking-eq-12db-1",
+        "param": "db-gain"
+      }
+    },
+    {
+      "id": "trip-17",
+      "paths": [
+        "auto-1"
+      ],
+      "start-measure": 7,
+      "target": {
+        "id": "filter-low-shelf-12db-1",
+        "param": "cutoff"
+      }
+    },
+    {
+      "id": "trip-18",
+      "paths": [
+        "auto-1"
+      ],
+      "start-measure": 7,
+      "target": {
+        "id": "filter-low-shelf-12db-1",
+        "param": "db-gain"
+      }
+    },
+    {
+      "id": "trip-19",
+      "paths": [
+        "auto-1"
+      ],
+      "start-measure": 7,
+      "target": {
+        "id": "filter-high-shelf-12db-1",
+        "param": "cutoff"
+      }
+    },
+    {
+      "id": "trip-20",
+      "paths": [
+        "auto-1"
+      ],
+      "start-measure": 7,
+      "target": {
+        "id": "filter-high-shelf-12db-1",
+        "param": "db-gain"
+      }
+    }
+  ]
+}

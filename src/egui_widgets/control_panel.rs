@@ -127,19 +127,19 @@ impl ControlBar {
             }
             if ui.button("load (BROKEN)").clicked() {
                 let s =
-                    std::fs::read_to_string(Path::new("/home/miket/orchestrator-serialized.yaml"));
+                    std::fs::read_to_string(Path::new("/home/miket/orchestrator-serialized.json"));
                 if let Ok(contents) = s {
-                    if let Ok(new_orchestrator) = serde_yaml::from_str(&contents) {
+                    if let Ok(new_orchestrator) = serde_json::from_str(&contents) {
                         *orchestrator = new_orchestrator;
                     }
                 }
             }
 
             if ui.button("save").clicked() {
-                let s = serde_yaml::to_string(orchestrator);
+                let s = serde_json::to_string(orchestrator);
                 if let Ok(contents) = s {
                     let _ = std::fs::write(
-                        Path::new("/home/miket/orchestrator-serialized.yaml"),
+                        Path::new("/home/miket/orchestrator-serialized.json"),
                         contents,
                     );
                 }

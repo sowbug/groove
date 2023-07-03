@@ -1,0 +1,105 @@
+{
+  "title": "Drum track, no filter",
+  "clock": {
+    "bpm": 128,
+    "time-signature": [
+      4,
+      4
+    ]
+  },
+  "devices": [
+    {
+      "instrument": [
+        "drum-1",
+        {
+          "drumkit": [
+            {
+              "midi-in": 10
+            },
+            {
+              "name": "707"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "patch-cables": [
+    [
+      "drum-1",
+      "main-mixer"
+    ]
+  ],
+  "patterns": [
+    {
+      "id": "four-on-the-floor",
+      "note-value": "sixteenth",
+      "notes": [
+        [
+          42,
+          44,
+          42,
+          44,
+          42,
+          44,
+          42,
+          44,
+          42,
+          44,
+          42,
+          44,
+          42,
+          44,
+          42,
+          44
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          38,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          38,
+          0,
+          0,
+          0
+        ],
+        [
+          35,
+          0,
+          0,
+          0,
+          35,
+          0,
+          0,
+          0,
+          35,
+          0,
+          0,
+          0,
+          35,
+          0,
+          0,
+          0
+        ]
+      ]
+    }
+  ],
+  "tracks": [
+    {
+      "id": "drum-1",
+      "midi-channel": 10,
+      "patterns": [
+        "four-on-the-floor",
+        "four-on-the-floor"
+      ]
+    }
+  ]
+}

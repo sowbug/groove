@@ -1,0 +1,59 @@
+{
+  "name": "screaming-sync",
+  "oscillator-1": {
+    "waveform": "sawtooth",
+    "tune": {
+      "osc": {
+        "octave": -1,
+        "semi": 0,
+        "cent": 0
+      }
+    },
+    "mix-pct": 0,
+    "mix-db": -40
+  },
+  "oscillator-2": {
+    "waveform": "square",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": true,
+  "noise": 0,
+  "lfo": {
+    "routing": "pitch-osc2",
+    "waveform": "triangle-sine",
+    "frequency": 0.66,
+    "depth": {
+      "cents": 4.5
+    }
+  },
+  "glide": 0.02,
+  "unison": true,
+  "polyphony": "mono",
+  "filter-type-24db": {
+    "cutoff-hz": 20000,
+    "cutoff-pct": 1
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 20000,
+    "cutoff-pct": 1
+  },
+  "filter-resonance": 0,
+  "filter-envelope-weight": 0,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 0,
+    "sustain": 0,
+    "release": 0
+  },
+  "amp-envelope": {
+    "attack": 0,
+    "decay": 0,
+    "sustain": 1,
+    "release": 0.6
+  }
+}

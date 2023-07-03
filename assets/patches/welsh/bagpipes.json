@@ -1,0 +1,53 @@
+{
+  "name": "bagpipes",
+  "oscillator-1": {
+    "waveform": "sawtooth",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": "square",
+    "tune": {
+      "note": 48
+    },
+    "mix-pct": 0.75,
+    "mix-db": -11
+  },
+  "oscillator-2-track": false,
+  "oscillator-2-sync": false,
+  "noise": 0,
+  "lfo": {
+    "routing": "none",
+    "waveform": "none",
+    "frequency": 0,
+    "depth": "none"
+  },
+  "glide": 0.04,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 20000,
+    "cutoff-pct": 1
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 20000,
+    "cutoff-pct": 1
+  },
+  "filter-resonance": 0,
+  "filter-envelope-weight": 0,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 0,
+    "sustain": 0,
+    "release": 0
+  },
+  "amp-envelope": {
+    "attack": 0.02,
+    "decay": 0,
+    "sustain": 1,
+    "release": 0.85
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "name": "journey-to-the-core",
+  "oscillator-1": {
+    "waveform": "sawtooth",
+    "tune": {
+      "osc": {
+        "octave": -2,
+        "semi": 0,
+        "cent": 0
+      }
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": "square",
+    "tune": {
+      "osc": {
+        "octave": -1,
+        "semi": 0,
+        "cent": 0
+      }
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": false,
+  "noise": 0,
+  "lfo": {
+    "routing": "pulse-width",
+    "waveform": "sawtooth",
+    "frequency": 7.5,
+    "depth": "none"
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 120,
+    "cutoff-pct": 0.26
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 120,
+    "cutoff-pct": 0.26
+  },
+  "filter-resonance": 0.45,
+  "filter-envelope-weight": 1,
+  "filter-envelope": {
+    "attack": 3.3,
+    "decay": 3.2,
+    "sustain": 0,
+    "release": 3.2
+  },
+  "amp-envelope": {
+    "attack": 0,
+    "decay": 0,
+    "sustain": 1,
+    "release": 0.8
+  }
+}

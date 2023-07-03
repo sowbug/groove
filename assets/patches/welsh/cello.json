@@ -1,0 +1,57 @@
+{
+  "name": "cello",
+  "oscillator-1": {
+    "waveform": {
+      "pulse-width": 0.1
+    },
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": "square",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": false,
+  "noise": 0,
+  "lfo": {
+    "routing": "amplitude",
+    "waveform": "sine",
+    "frequency": 7.5,
+    "depth": {
+      "pct": 0.05
+    }
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 40,
+    "cutoff-pct": 0.1
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 40,
+    "cutoff-pct": 0.1
+  },
+  "filter-resonance": 0,
+  "filter-envelope-weight": 0.9,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 3.29,
+    "sustain": 0.78,
+    "release": 30
+  },
+  "amp-envelope": {
+    "attack": 0.06,
+    "decay": 0,
+    "sustain": 1,
+    "release": 0.3
+  }
+}

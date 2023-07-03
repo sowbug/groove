@@ -1,0 +1,47 @@
+{
+  "name": "octave-switch",
+  "oscillator-1": {
+    "waveform": "triangle",
+    "tune": 0.497407,
+    "mix": 1
+  },
+  "oscillator-2": {
+    "waveform": "sawtooth",
+    "tune": 1.008702,
+    "mix": 0.96
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": false,
+  "noise": 0,
+  "lfo": {
+    "routing": "pitch",
+    "waveform": "square",
+    "frequency": 6.6,
+    "depth": 2.015075
+  },
+  "glide": "off",
+  "has-unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff": 447,
+    "weight": 0.45
+  },
+  "filter-type-12db": {
+    "cutoff": 447,
+    "weight": 0.45
+  },
+  "filter-resonance": 0.68,
+  "filter-envelope-weight": 0.53,
+  "filter-envelope": {
+    "attack": 1,
+    "decay": 0.618,
+    "sustain": 0.35,
+    "release": 0.008
+  },
+  "amp-envelope": {
+    "attack": 0.01,
+    "decay": 5,
+    "sustain": 1,
+    "release": 0.11
+  }
+}

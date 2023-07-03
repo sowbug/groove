@@ -1,0 +1,98 @@
+{
+  "title": "Sampler (C4 major scale)",
+  "clock": {
+    "bpm": 60,
+    "time-signature": [
+      4,
+      4
+    ]
+  },
+  "devices": [
+    {
+      "instrument": [
+        "instrument-1",
+        {
+          "sampler": [
+            {
+              "midi-in": 0
+            },
+            {
+              "filename": "stereo-pluck.wav",
+              "root": 587.3295358348151
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "instrument": [
+        "instrument-2",
+        {
+          "sampler": [
+            {
+              "midi-in": 1
+            },
+            {
+              "filename": "stereo-pluck.wav",
+              "root": 86
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "patch-cables": [
+    [
+      "instrument-1",
+      "main-mixer"
+    ],
+    [
+      "instrument-2",
+      "main-mixer"
+    ]
+  ],
+  "patterns": [
+    {
+      "id": "basic-1",
+      "note-value": "eighth",
+      "notes": [
+        [
+          60,
+          62,
+          64,
+          65,
+          67,
+          69,
+          71,
+          72
+        ]
+      ]
+    },
+    {
+      "id": "silent-measure-1",
+      "notes": [
+        [
+          0
+        ]
+      ]
+    }
+  ],
+  "tracks": [
+    {
+      "id": "track-1",
+      "midi-channel": 0,
+      "patterns": [
+        "basic-1",
+        "silent-measure-1"
+      ]
+    },
+    {
+      "id": "track-2",
+      "midi-channel": 1,
+      "patterns": [
+        "silent-measure-1",
+        "basic-1"
+      ]
+    }
+  ]
+}

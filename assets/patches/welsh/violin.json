@@ -1,0 +1,59 @@
+{
+  "name": "violin",
+  "oscillator-1": {
+    "waveform": "none",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 0,
+    "mix-db": -40
+  },
+  "oscillator-2": {
+    "waveform": "sawtooth",
+    "tune": {
+      "osc": {
+        "octave": 0,
+        "semi": 6,
+        "cent": 0
+      }
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": true,
+  "noise": 0,
+  "lfo": {
+    "routing": "pitch-osc2",
+    "waveform": "triangle",
+    "frequency": 5,
+    "depth": {
+      "cents": 88
+    }
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 3200,
+    "cutoff-pct": 0.73
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 1900,
+    "cutoff-pct": 0.66
+  },
+  "filter-resonance": 0,
+  "filter-envelope-weight": 0,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 0,
+    "sustain": 0,
+    "release": 0
+  },
+  "amp-envelope": {
+    "attack": 0.03,
+    "decay": 0,
+    "sustain": 1,
+    "release": 0.35
+  }
+}

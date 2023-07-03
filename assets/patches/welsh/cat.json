@@ -1,0 +1,63 @@
+{
+  "name": "cat",
+  "oscillator-1": {
+    "waveform": {
+      "pulse-width": 0.1
+    },
+    "tune": {
+      "osc": {
+        "octave": 1,
+        "semi": 5,
+        "cent": 0
+      }
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": {
+      "pulse-width": 0.05
+    },
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": false,
+  "noise": 0,
+  "lfo": {
+    "routing": "pitch",
+    "waveform": "sine",
+    "frequency": 1.7,
+    "depth": {
+      "cents": 11
+    }
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 270,
+    "cutoff-pct": 0.37
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 160,
+    "cutoff-pct": 0.3
+  },
+  "filter-resonance": 0.65,
+  "filter-envelope-weight": 0.65,
+  "filter-envelope": {
+    "attack": 0.57,
+    "decay": 1.9,
+    "sustain": 0.55,
+    "release": 0.29
+  },
+  "amp-envelope": {
+    "attack": 0.51,
+    "decay": 1.05,
+    "sustain": 0.55,
+    "release": 0.93
+  }
+}

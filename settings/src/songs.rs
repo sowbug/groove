@@ -74,10 +74,9 @@ impl SongSettings {
                         return Ok(settings);
                     }
                     Err(err) => {
-                        eprintln!("Failed to load as JSON5; trying legacy YAML: {}", err);
+                        return Err(err);
                     }
                 }
-                return Self::new_from_yaml(contents);
             }
             Err(err) => {
                 return Err(anyhow!(err));
@@ -88,19 +87,6 @@ impl SongSettings {
     pub fn new_from_json5(json: &str) -> anyhow::Result<Self> {
         match json5::from_str(json) {
             Ok(settings) => Ok(settings),
-            Err(err) => Err(anyhow!(err)),
-        }
-    }
-
-    pub fn new_from_yaml(yaml: &str) -> anyhow::Result<Self> {
-        match serde_yaml::from_str(yaml) {
-            Ok(settings) => {
-                eprintln!(
-                    "loaded as YAML... by the way, as json5: {:?}",
-                    json5::to_string(&settings).unwrap(),
-                );
-                Ok(settings)
-            }
             Err(err) => Err(anyhow!(err)),
         }
     }
@@ -330,27 +316,25 @@ mod tests {
 
     #[test]
     fn empty_file_fails_with_proper_error() {
-        let r = SongSettings::new_from_yaml("");
-        assert_eq!(r.unwrap_err().to_string(), "EOF while parsing a value");
+        let r = SongSettings::new_from_json5("");
+        assert!(r
+            .unwrap_err()
+            .to_string()
+            .contains("expected array, boolean, null, number, object, or string"));
     }
 
     #[test]
     fn garbage_file_fails_with_proper_error() {
-        let r = SongSettings::new_from_yaml("da39a3ee5e6b4b0d3255bfef95601890afd80709");
+        let r = SongSettings::new_from_json5("da39a3ee5e6b4b0d3255bfef95601890afd80709");
         assert!(r
             .unwrap_err()
             .to_string()
-            .contains("expected struct SongSettings at line 1 column 1"));
+            .contains("expected array, boolean, null, number, object, or string"));
     }
 
     #[test]
-    fn valid_yaml_bad_song_file_fails_with_proper_error() {
-        let r = SongSettings::new_from_yaml(
-            "---\ndo: \"a deer, a female deer\"\nre: \"a drop of golden sun\"",
-        );
-        assert_eq!(
-            r.unwrap_err().to_string(),
-            "missing field `clock` at line 2 column 3"
-        );
+    fn valid_json_bad_song_file_fails_with_proper_error() {
+        let r = SongSettings::new_from_json5("{\"foo\": 1}");
+        assert!(r.unwrap_err().to_string().contains("missing field "));
     }
 }

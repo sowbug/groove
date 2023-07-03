@@ -1,0 +1,61 @@
+{
+  "name": "guitar-acoustic",
+  "oscillator-1": {
+    "waveform": {
+      "pulse-width": 0.25
+    },
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": {
+      "pulse-width": 0.1
+    },
+    "tune": {
+      "osc": {
+        "octave": 0,
+        "semi": 10,
+        "cent": 0
+      }
+    },
+    "mix-pct": 0.9,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": true,
+  "noise": 0,
+  "lfo": {
+    "routing": "none",
+    "waveform": "none",
+    "frequency": 0,
+    "depth": "none"
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 3100,
+    "cutoff-pct": 0.73
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 2000,
+    "cutoff-pct": 0.67
+  },
+  "filter-resonance": 0,
+  "filter-envelope-weight": 0.7,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 0.35,
+    "sustain": 0,
+    "release": 0.29
+  },
+  "amp-envelope": {
+    "attack": 0,
+    "decay": 1.7,
+    "sustain": 0,
+    "release": 1.7
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "name": "bongos",
+  "oscillator-1": {
+    "waveform": "triangle",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": "square",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 0.65,
+    "mix-db": -13.9
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": false,
+  "noise": 0,
+  "lfo": {
+    "routing": "none",
+    "waveform": "none",
+    "frequency": 0,
+    "depth": "none"
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": {
+    "multi-limit": 2
+  },
+  "filter-type-24db": {
+    "cutoff-hz": 600,
+    "cutoff-pct": 0.49
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 400,
+    "cutoff-pct": 0.43
+  },
+  "filter-resonance": 0,
+  "filter-envelope-weight": 0.6,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 0.11,
+    "sustain": 0,
+    "release": 0.11
+  },
+  "amp-envelope": {
+    "attack": 0,
+    "decay": 0.22,
+    "sustain": 0,
+    "release": 0.22
+  }
+}

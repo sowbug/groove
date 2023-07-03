@@ -1,0 +1,61 @@
+{
+  "name": "viola",
+  "oscillator-1": {
+    "waveform": "sawtooth",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 0.7,
+    "mix-db": -11.6
+  },
+  "oscillator-2": {
+    "waveform": {
+      "pulse-width": 0.25
+    },
+    "tune": {
+      "osc": {
+        "octave": 0,
+        "semi": 7,
+        "cent": 0
+      }
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": true,
+  "noise": 0,
+  "lfo": {
+    "routing": "pitch-osc2",
+    "waveform": "triangle",
+    "frequency": 4,
+    "depth": {
+      "cents": 80
+    }
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 4900,
+    "cutoff-pct": 0.8
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 2300,
+    "cutoff-pct": 0.69
+  },
+  "filter-resonance": 0,
+  "filter-envelope-weight": 0,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 0,
+    "sustain": 0,
+    "release": 0
+  },
+  "amp-envelope": {
+    "attack": 0.81,
+    "decay": 0,
+    "sustain": 1,
+    "release": 0.73
+  }
+}

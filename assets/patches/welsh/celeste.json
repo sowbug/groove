@@ -1,0 +1,53 @@
+{
+  "name": "celeste",
+  "oscillator-1": {
+    "waveform": "triangle",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": "none",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 0,
+    "mix-db": -40
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": false,
+  "noise": 0,
+  "lfo": {
+    "routing": "none",
+    "waveform": "none",
+    "frequency": 0,
+    "depth": "none"
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "all",
+  "filter-type-24db": {
+    "cutoff-hz": 1200,
+    "cutoff-pct": 0.59
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 500,
+    "cutoff-pct": 0.46
+  },
+  "filter-resonance": 0,
+  "filter-envelope-weight": 1,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 0.07,
+    "sustain": 0.45,
+    "release": 2.1
+  },
+  "amp-envelope": {
+    "attack": 0,
+    "decay": 2.1,
+    "sustain": 0,
+    "release": 2.1
+  }
+}

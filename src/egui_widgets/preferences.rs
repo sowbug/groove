@@ -99,7 +99,7 @@ impl Preferences {
                 )),
             },
             Err(err) => Err(anyhow::format_err!(
-                "Error while reading YAML file {}: {}",
+                "Error while reading project file {}: {}",
                 path.display(),
                 err
             )),

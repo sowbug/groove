@@ -1,0 +1,54 @@
+{
+  "title": "Envelope, ADSR, 0.1/0.2/1.0/0.3",
+  "clock": {
+    "bpm": 128,
+    "time-signature": [
+      4,
+      4
+    ]
+  },
+  "devices": [
+    {
+      "instrument": [
+        "instrument-1",
+        {
+          "envelope": [
+            {
+              "midi-in": 0,
+              "attack": 0.1,
+              "decay": 0.2,
+              "sustain": 1,
+              "release": 0.3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "patch-cables": [
+    [
+      "instrument-1",
+      "main-mixer"
+    ]
+  ],
+  "patterns": [
+    {
+      "id": "pattern-1",
+      "note-value": "half",
+      "notes": [
+        [
+          60
+        ]
+      ]
+    }
+  ],
+  "tracks": [
+    {
+      "id": "track-1",
+      "midi-channel": 0,
+      "patterns": [
+        "pattern-1"
+      ]
+    }
+  ]
+}

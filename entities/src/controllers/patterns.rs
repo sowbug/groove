@@ -601,7 +601,7 @@ impl PatternProgrammer {
                         vel: note.velocity.into(),
                     },
                 );
-                // This makes the dev-loop.yaml playback sound funny, since no
+                // This makes the dev-loop.json playback sound funny, since no
                 // note lasts longer than the pattern's note value. I'm going to
                 // leave it like this to force myself to implement duration
                 // expression correctly, rather than continuing to hardcode 0.49

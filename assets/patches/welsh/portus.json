@@ -1,0 +1,57 @@
+{
+  "name": "portus",
+  "oscillator-1": {
+    "waveform": "triangle",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": "triangle",
+    "tune": {
+      "osc": {
+        "octave": 1,
+        "semi": 0,
+        "cent": 0
+      }
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": false,
+  "noise": 0,
+  "lfo": {
+    "routing": "none",
+    "waveform": "none",
+    "frequency": 0,
+    "depth": "none"
+  },
+  "glide": 1.5,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 75,
+    "cutoff-pct": 0.19
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 75,
+    "cutoff-pct": 0.19
+  },
+  "filter-resonance": 0.7,
+  "filter-envelope-weight": 0.7,
+  "filter-envelope": {
+    "attack": 1.8,
+    "decay": 0,
+    "sustain": 1,
+    "release": 2.9
+  },
+  "amp-envelope": {
+    "attack": 1.5,
+    "decay": 0,
+    "sustain": 1,
+    "release": 3.3
+  }
+}

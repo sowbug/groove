@@ -1,0 +1,80 @@
+{
+  "title": "Welsh harmonica",
+  "clock": {
+    "bpm": 128,
+    "time-signature": [
+      4,
+      4
+    ]
+  },
+  "devices": [
+    {
+      "instrument": [
+        "piano-1",
+        {
+          "welsh": [
+            {
+              "midi-in": 0
+            },
+            {
+              "name": "harmonica"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect": [
+        "gain-1",
+        {
+          "gain": {
+            "ceiling": 0.8
+          }
+        }
+      ]
+    }
+  ],
+  "patch-cables": [
+    [
+      "piano-1",
+      "gain-1",
+      "main-mixer"
+    ]
+  ],
+  "patterns": [
+    {
+      "id": "basic-1",
+      "note-value": "eighth",
+      "notes": [
+        [
+          60,
+          62,
+          64,
+          65,
+          67,
+          69,
+          71,
+          72
+        ]
+      ]
+    },
+    {
+      "id": "silent-measure-1",
+      "notes": [
+        [
+          0
+        ]
+      ]
+    }
+  ],
+  "tracks": [
+    {
+      "id": "track-1",
+      "midi-channel": 0,
+      "patterns": [
+        "basic-1",
+        "silent-measure-1"
+      ]
+    }
+  ]
+}

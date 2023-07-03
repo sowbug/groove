@@ -1,0 +1,63 @@
+{
+  "name": "dark-city",
+  "oscillator-1": {
+    "waveform": "square",
+    "tune": {
+      "osc": {
+        "octave": -2,
+        "semi": 0,
+        "cent": 0
+      }
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": "sawtooth",
+    "tune": {
+      "osc": {
+        "octave": 0,
+        "semi": -11,
+        "cent": -92
+      }
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": false,
+  "noise": 0,
+  "lfo": {
+    "routing": "pulse-width",
+    "waveform": "triangle-sine",
+    "frequency": 4,
+    "depth": {
+      "pct": 0.45
+    }
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 300,
+    "cutoff-pct": 0.39
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 200,
+    "cutoff-pct": 0.33
+  },
+  "filter-resonance": 0,
+  "filter-envelope-weight": 0.75,
+  "filter-envelope": {
+    "attack": 5.15,
+    "decay": 6.35,
+    "sustain": 0.5,
+    "release": 5.2
+  },
+  "amp-envelope": {
+    "attack": 0,
+    "decay": 3.9,
+    "sustain": 0.7,
+    "release": 6.35
+  }
+}

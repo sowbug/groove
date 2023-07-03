@@ -43,7 +43,6 @@ rayon = "1.7"
 regex = "1.7"
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = "1.0"
-serde_yaml = "0.8"
 spectrum-analyzer = { version = "1.2", optional = true }
 strum = "0.25"
 strum_macros = "0.25"
@@ -139,9 +138,9 @@ assets = [
     ["LICENSE.md", "usr/share/doc/groove/LICENSE.md", "644"],
     ["README.md", "usr/share/doc/groove/README.md", "644"],
     ["assets-nodist/os/groove-egui.desktop", "usr/share/applications/", "644"],
-    ["assets/patches/**/*.yaml", "usr/share/groove/patches/", "644"],
+    ["assets/patches/**/*.json", "usr/share/groove/patches/", "644"],
     ["assets/samples/**/*.wav", "usr/share/groove/samples/", "644"],
-    ["projects/**/*.yaml", "usr/share/groove/projects/", "644"],
+    ["projects/**/*.json", "usr/share/groove/projects/", "644"],
     ["target/release/groove-cli", "usr/bin/", "755"],
     ["target/release/groove-egui", "usr/bin/", "755"],
 ]

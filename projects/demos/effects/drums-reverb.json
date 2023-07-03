@@ -1,0 +1,117 @@
+{
+  "title": "Drum track, reverb",
+  "clock": {
+    "bpm": 128,
+    "time-signature": [
+      4,
+      4
+    ]
+  },
+  "devices": [
+    {
+      "instrument": [
+        "drum-1",
+        {
+          "drumkit": [
+            {
+              "midi-in": 10
+            },
+            {
+              "name": "707"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect": [
+        "effect-1",
+        {
+          "reverb": {
+            "attenuation": 0.95,
+            "seconds": 1.25
+          }
+        }
+      ]
+    }
+  ],
+  "patch-cables": [
+    [
+      "drum-1",
+      "effect-1",
+      "main-mixer"
+    ]
+  ],
+  "patterns": [
+    {
+      "id": "drum-pat-1",
+      "note-value": "sixteenth",
+      "notes": [
+        [
+          42,
+          0,
+          42,
+          0,
+          42,
+          0,
+          42,
+          0,
+          42,
+          0,
+          42,
+          0,
+          42,
+          0,
+          44,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          38,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          38,
+          0,
+          0,
+          0
+        ],
+        [
+          35,
+          0,
+          0,
+          0,
+          35,
+          0,
+          35,
+          0,
+          35,
+          0,
+          0,
+          0,
+          35,
+          0,
+          0,
+          0
+        ]
+      ]
+    }
+  ],
+  "tracks": [
+    {
+      "id": "drum-1",
+      "midi-channel": 10,
+      "patterns": [
+        "drum-pat-1",
+        "drum-pat-1"
+      ]
+    }
+  ]
+}

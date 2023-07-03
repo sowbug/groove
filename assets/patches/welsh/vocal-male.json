@@ -1,0 +1,63 @@
+{
+  "name": "vocal-male",
+  "oscillator-1": {
+    "waveform": {
+      "pulse-width": 0.15
+    },
+    "tune": {
+      "osc": {
+        "octave": -1,
+        "semi": 0,
+        "cent": 0
+      }
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": {
+      "pulse-width": 0.25
+    },
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 0.9,
+    "mix-db": -4.3
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": false,
+  "noise": 0,
+  "lfo": {
+    "routing": "pitch",
+    "waveform": "triangle",
+    "frequency": 2.4,
+    "depth": {
+      "cents": 20
+    }
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 2000,
+    "cutoff-pct": 0.67
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 1200,
+    "cutoff-pct": 0.59
+  },
+  "filter-resonance": 0,
+  "filter-envelope-weight": 0,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 0,
+    "sustain": 0,
+    "release": 0
+  },
+  "amp-envelope": {
+    "attack": 0.32,
+    "decay": 0,
+    "sustain": 1,
+    "release": 0.93
+  }
+}

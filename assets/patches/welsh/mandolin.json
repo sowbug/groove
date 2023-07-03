@@ -1,0 +1,63 @@
+{
+  "name": "mandolin",
+  "oscillator-1": {
+    "waveform": {
+      "pulse-width": 0.25
+    },
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": {
+      "pulse-width": 0.15
+    },
+    "tune": {
+      "osc": {
+        "octave": 1,
+        "semi": 0,
+        "cent": 0
+      }
+    },
+    "mix-pct": 0.75,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": false,
+  "noise": 0,
+  "lfo": {
+    "routing": "amplitude",
+    "waveform": "triangle",
+    "frequency": 2,
+    "depth": {
+      "pct": 0.09
+    }
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 40,
+    "cutoff-pct": 0.1
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 40,
+    "cutoff-pct": 0.1
+  },
+  "filter-resonance": 0,
+  "filter-envelope-weight": 1,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 2.07,
+    "sustain": 0,
+    "release": 2.13
+  },
+  "amp-envelope": {
+    "attack": 0,
+    "decay": 0.09,
+    "sustain": 0.2,
+    "release": 2.33
+  }
+}

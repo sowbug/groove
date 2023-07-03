@@ -1,0 +1,101 @@
+{
+  "title": "FM Synthesizer - simple bass",
+  "clock": {
+    "bpm": 60,
+    "midi-ticks-per-second": 960,
+    "time-signature": [
+      4,
+      4
+    ]
+  },
+  "devices": [
+    {
+      "instrument": [
+        "instrument-1",
+        {
+          "fm-synthesizer": [
+            {
+              "midi-in": 0
+            },
+            {
+              "gain": 1,
+              "pan": 0,
+              "ratio": 2,
+              "depth": 1,
+              "beta": 15,
+              "carrier-envelope": {
+                "attack": 0,
+                "decay": 0.05,
+                "sustain": 0.9,
+                "release": 0.5
+              },
+              "modulator-envelope": {
+                "attack": 0,
+                "decay": 0.8,
+                "sustain": 0.2,
+                "release": 0
+              },
+              "dca": {
+                "pan": 0,
+                "gain": 1
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect": [
+        "gain-1",
+        {
+          "gain": {
+            "ceiling": 0.5
+          }
+        }
+      ]
+    }
+  ],
+  "patch-cables": [
+    [
+      "instrument-1",
+      "gain-1",
+      "main-mixer"
+    ]
+  ],
+  "patterns": [
+    {
+      "id": "basic-1",
+      "note-value": "eighth",
+      "notes": [
+        [
+          36,
+          38,
+          40,
+          41,
+          43,
+          45,
+          47,
+          48
+        ]
+      ]
+    },
+    {
+      "id": "silent-measure-1",
+      "notes": [
+        [
+          0
+        ]
+      ]
+    }
+  ],
+  "tracks": [
+    {
+      "id": "track-1",
+      "midi-channel": 0,
+      "patterns": [
+        "basic-1",
+        "silent-measure-1"
+      ]
+    }
+  ]
+}

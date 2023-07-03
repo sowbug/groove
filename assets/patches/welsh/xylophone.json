@@ -1,0 +1,59 @@
+{
+  "name": "xylophone",
+  "oscillator-1": {
+    "waveform": "triangle",
+    "tune": {
+      "osc": {
+        "octave": 1,
+        "semi": 10,
+        "cent": 0
+      }
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": "triangle",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": false,
+  "noise": 0,
+  "lfo": {
+    "routing": "amplitude",
+    "waveform": "triangle",
+    "frequency": 7.5,
+    "depth": {
+      "pct": 0.05
+    }
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 300,
+    "cutoff-pct": 0.39
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 100,
+    "cutoff-pct": 0.23
+  },
+  "filter-resonance": 0,
+  "filter-envelope-weight": 0.6,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 0.53,
+    "sustain": 0.45,
+    "release": 0.5
+  },
+  "amp-envelope": {
+    "attack": 0,
+    "decay": 1.88,
+    "sustain": 0,
+    "release": 1.78
+  }
+}

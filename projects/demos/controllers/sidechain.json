@@ -1,0 +1,229 @@
+{
+  "title": "Sidechain (without, then with)",
+  "clock": {
+    "bpm": 60,
+    "time-signature": [
+      4,
+      4
+    ]
+  },
+  "devices": [
+    {
+      "instrument": [
+        "instrument-1",
+        {
+          "welsh": [
+            {
+              "midi-in": 1
+            },
+            {
+              "name": "acid-bass"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "instrument": [
+        "instrument-2",
+        {
+          "welsh": [
+            {
+              "midi-in": 2
+            },
+            {
+              "name": "acid-bass"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "instrument": [
+        "drum-1",
+        {
+          "drumkit": [
+            {
+              "midi-in": 10
+            },
+            {
+              "name": "707"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect": [
+        "compressor-1",
+        {
+          "compressor": {
+            "threshold": 1,
+            "ratio": 0.2,
+            "attack": 0,
+            "release": 0
+          }
+        }
+      ]
+    },
+    {
+      "effect": [
+        "compressor-2",
+        {
+          "compressor": {
+            "threshold": 1,
+            "ratio": 0.2,
+            "attack": 0,
+            "release": 0
+          }
+        }
+      ]
+    },
+    {
+      "controller": [
+        "sidechain-2",
+        {
+          "signal-passthrough-controller": [
+            {
+              "midi-in": 0,
+              "midi-out": 0
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "patch-cables": [
+    [
+      "instrument-1",
+      "compressor-1",
+      "main-mixer"
+    ],
+    [
+      "instrument-2",
+      "compressor-2",
+      "main-mixer"
+    ],
+    [
+      "drum-1",
+      "sidechain-2",
+      "main-mixer"
+    ]
+  ],
+  "controls": [
+    {
+      "id": "sidechain-drums-to-instrument-2",
+      "source": "sidechain-2",
+      "target": {
+        "id": "compressor-2",
+        "param": "threshold"
+      }
+    }
+  ],
+  "patterns": [
+    {
+      "id": "on-then-off-1",
+      "note-value": "sixteenth",
+      "notes": [
+        [
+          48,
+          48,
+          48,
+          48,
+          48,
+          48,
+          46,
+          46,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "id": "off-then-on-1",
+      "note-value": "sixteenth",
+      "notes": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          48,
+          48,
+          48,
+          48,
+          48,
+          48,
+          46,
+          46
+        ]
+      ]
+    },
+    {
+      "id": "silence-1",
+      "note-value": "whole",
+      "notes": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "id": "bass-on-each-beat",
+      "note-value": "sixteenth",
+      "notes": [
+        [
+          39,
+          0,
+          39,
+          0,
+          39,
+          0,
+          39,
+          0,
+          39,
+          0,
+          39,
+          0,
+          39,
+          0,
+          39,
+          0
+        ]
+      ]
+    }
+  ],
+  "tracks": [
+    {
+      "id": "track-1",
+      "midi-channel": 1,
+      "patterns": [
+        "on-then-off-1"
+      ]
+    },
+    {
+      "id": "track-2",
+      "midi-channel": 2,
+      "patterns": [
+        "off-then-on-1"
+      ]
+    },
+    {
+      "id": "track-3",
+      "midi-channel": 10,
+      "patterns": [
+        "bass-on-each-beat"
+      ]
+    }
+  ]
+}

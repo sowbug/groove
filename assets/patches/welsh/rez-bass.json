@@ -1,0 +1,63 @@
+{
+  "name": "rez-bass",
+  "oscillator-1": {
+    "waveform": "square",
+    "tune": {
+      "osc": {
+        "octave": -2,
+        "semi": 0,
+        "cent": 0
+      }
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": "square",
+    "tune": {
+      "osc": {
+        "octave": -2,
+        "semi": 0,
+        "cent": 0
+      }
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": true,
+  "noise": 0,
+  "lfo": {
+    "routing": "pitch-osc2",
+    "waveform": "triangle-sine",
+    "frequency": 10,
+    "depth": {
+      "cents": 30
+    }
+  },
+  "glide": 0.08,
+  "unison": false,
+  "polyphony": "mono",
+  "filter-type-24db": {
+    "cutoff-hz": 6500,
+    "cutoff-pct": 0.84
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 6500,
+    "cutoff-pct": 0.84
+  },
+  "filter-resonance": 0.5,
+  "filter-envelope-weight": 0,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 0,
+    "sustain": 0,
+    "release": 0
+  },
+  "amp-envelope": {
+    "attack": 0,
+    "decay": 0,
+    "sustain": 1,
+    "release": 0.1
+  }
+}

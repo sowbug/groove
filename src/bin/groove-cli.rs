@@ -25,7 +25,7 @@ use groove::ScriptEngine;
 #[derive(Parser, Debug, Default)]
 #[clap(author, about, long_about = None)]
 struct Args {
-    /// Names of files to process. Can be YAML, MIDI, or scripts.
+    /// Names of files to process. Can be JSON, JSON5, MIDI, or scripts.
     input: Vec<String>,
 
     /// Render as WAVE file(s) (file will appear next to source file)
@@ -82,10 +82,9 @@ fn main() -> anyhow::Result<()> {
                 midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
                 time_signature: TimeSignatureParams { top: 4, bottom: 4 },
             })
-        } else if input_filename.ends_with(".yaml")
-            || input_filename.ends_with(".yml")
-            || input_filename.ends_with(".nsn")
+        } else if input_filename.ends_with(".json")
             || input_filename.ends_with(".json5")
+            || input_filename.ends_with(".nsn")
         {
             let start_instant = Instant::now();
             let paths = Paths::default();

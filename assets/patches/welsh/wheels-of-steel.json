@@ -1,0 +1,53 @@
+{
+  "name": "wheels-of-steel",
+  "oscillator-1": {
+    "waveform": "none",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": "none",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 0,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": false,
+  "noise": 1,
+  "lfo": {
+    "routing": "none",
+    "waveform": "none",
+    "frequency": 0,
+    "depth": "none"
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "mono",
+  "filter-type-24db": {
+    "cutoff-hz": 40,
+    "cutoff-pct": 0.1
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 40,
+    "cutoff-pct": 0.1
+  },
+  "filter-resonance": 0.4,
+  "filter-envelope-weight": 1,
+  "filter-envelope": {
+    "attack": 0.02,
+    "decay": 0.09,
+    "sustain": 0,
+    "release": 0.09
+  },
+  "amp-envelope": {
+    "attack": 0,
+    "decay": 1.65,
+    "sustain": 0,
+    "release": 0.05
+  }
+}

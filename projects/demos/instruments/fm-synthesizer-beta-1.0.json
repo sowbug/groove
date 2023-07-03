@@ -1,0 +1,78 @@
+{
+  "title": "FM Synthesizer, beta 1.0",
+  "clock": {
+    "bpm": 480,
+    "time-signature": [
+      4,
+      4
+    ]
+  },
+  "devices": [
+    {
+      "instrument": [
+        "instrument-1",
+        {
+          "fm-synthesizer": [
+            {
+              "midi-in": 0,
+              "voice": {
+                "ratio": 2,
+                "depth": 1,
+                "beta": 1,
+                "carrier-envelope": {
+                  "attack": 0,
+                  "decay": 0,
+                  "sustain": 1,
+                  "release": 0
+                },
+                "modulator-envelope": {
+                  "attack": 0,
+                  "decay": 0,
+                  "sustain": 1,
+                  "release": 0
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect": [
+        "gain-1",
+        {
+          "gain": {
+            "ceiling": 0.5
+          }
+        }
+      ]
+    }
+  ],
+  "patch-cables": [
+    [
+      "instrument-1",
+      "gain-1",
+      "main-mixer"
+    ]
+  ],
+  "patterns": [
+    {
+      "id": "single-long-note",
+      "note-value": "whole",
+      "notes": [
+        [
+          69
+        ]
+      ]
+    }
+  ],
+  "tracks": [
+    {
+      "id": "track-1",
+      "midi-channel": 0,
+      "patterns": [
+        "single-long-note"
+      ]
+    }
+  ]
+}

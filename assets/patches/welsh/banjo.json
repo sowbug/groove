@@ -1,0 +1,65 @@
+{
+  "name": "banjo",
+  "oscillator-1": {
+    "waveform": {
+      "pulse-width": 0.2
+    },
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": {
+      "pulse-width": 0.1
+    },
+    "tune": {
+      "osc": {
+        "octave": 0,
+        "semi": 5,
+        "cent": 0
+      }
+    },
+    "mix-pct": 0.8,
+    "mix-db": 0
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": true,
+  "noise": 0,
+  "lfo": {
+    "routing": "amplitude",
+    "waveform": "triangle",
+    "frequency": 10,
+    "depth": {
+      "pct": 0.1
+    }
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": {
+    "multi-limit": 5
+  },
+  "filter-type-24db": {
+    "cutoff-hz": 2900,
+    "cutoff-pct": 0.72
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 1500,
+    "cutoff-pct": 0.63
+  },
+  "filter-resonance": 0,
+  "filter-envelope-weight": 0.75,
+  "filter-envelope": {
+    "attack": 0,
+    "decay": 0.19,
+    "sustain": 0,
+    "release": 0.19
+  },
+  "amp-envelope": {
+    "attack": 0,
+    "decay": 0.67,
+    "sustain": 0,
+    "release": 0.67
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "name": "saxophone",
+  "oscillator-1": {
+    "waveform": {
+      "pulse-width": 0.3
+    },
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": {
+      "pulse-width": 0.45
+    },
+    "tune": {
+      "osc": {
+        "octave": 0,
+        "semi": 8,
+        "cent": 0
+      }
+    },
+    "mix-pct": 0.75,
+    "mix-db": -9.6
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": true,
+  "noise": 0,
+  "lfo": {
+    "routing": "pitch",
+    "waveform": "sine",
+    "frequency": 7.5,
+    "depth": {
+      "cents": 10
+    }
+  },
+  "glide": 0,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 40,
+    "cutoff-pct": 0.1
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 40,
+    "cutoff-pct": 0.1
+  },
+  "filter-resonance": 0,
+  "filter-envelope-weight": 0.9,
+  "filter-envelope": {
+    "attack": 0.14,
+    "decay": 0.37,
+    "sustain": 0.78,
+    "release": 30
+  },
+  "amp-envelope": {
+    "attack": 0,
+    "decay": 0,
+    "sustain": 1,
+    "release": 0.3
+  }
+}

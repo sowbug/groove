@@ -1,0 +1,51 @@
+{
+  "title": "Oscillator, square wave, 1000Hz",
+  "clock": {
+    "bpm": 240,
+    "time-signature": [
+      4,
+      4
+    ]
+  },
+  "devices": [
+    {
+      "instrument": [
+        "oscillator-1",
+        {
+          "oscillator": [
+            {
+              "midi-in": 0,
+              "waveform": "square",
+              "frequency": 1000
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "patch-cables": [
+    [
+      "oscillator-1",
+      "main-mixer"
+    ]
+  ],
+  "patterns": [
+    {
+      "id": "silent-measure-1",
+      "notes": [
+        [
+          0
+        ]
+      ]
+    }
+  ],
+  "tracks": [
+    {
+      "id": "track-1",
+      "midi-channel": 0,
+      "patterns": [
+        "silent-measure-1"
+      ]
+    }
+  ]
+}

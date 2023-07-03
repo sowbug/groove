@@ -1,0 +1,59 @@
+{
+  "name": "penny-whistle",
+  "oscillator-1": {
+    "waveform": "square",
+    "tune": {
+      "float": 1
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": "triangle",
+    "tune": {
+      "osc": {
+        "octave": 2,
+        "semi": 0,
+        "cent": 0
+      }
+    },
+    "mix-pct": 0.85,
+    "mix-db": -7
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": false,
+  "noise": 0,
+  "lfo": {
+    "routing": "amplitude",
+    "waveform": "triangle",
+    "frequency": 90,
+    "depth": {
+      "pct": 0.05
+    }
+  },
+  "glide": 0.04,
+  "unison": false,
+  "polyphony": "multi",
+  "filter-type-24db": {
+    "cutoff-hz": 1100,
+    "cutoff-pct": 0.58
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 800,
+    "cutoff-pct": 0.53
+  },
+  "filter-resonance": 0.8,
+  "filter-envelope-weight": 0.77,
+  "filter-envelope": {
+    "attack": 0.11,
+    "decay": 0,
+    "sustain": 1,
+    "release": 30
+  },
+  "amp-envelope": {
+    "attack": 0.11,
+    "decay": 0,
+    "sustain": 1,
+    "release": 0.57
+  }
+}

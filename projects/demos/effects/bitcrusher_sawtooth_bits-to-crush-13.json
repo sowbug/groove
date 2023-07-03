@@ -1,0 +1,62 @@
+{
+  "title": "bitcrusher_sawtooth_bits-to-crush-13",
+  "clock": {
+    "bpm": 240,
+    "time-signature": [
+      4,
+      4
+    ]
+  },
+  "devices": [
+    {
+      "instrument": [
+        "instrument-1",
+        {
+          "oscillator": [
+            {
+              "midi-in": 0,
+              "waveform": "sawtooth",
+              "frequency": 440
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect": [
+        "effect-1",
+        {
+          "bitcrusher": {
+            "bits-to-crush": 13
+          }
+        }
+      ]
+    }
+  ],
+  "patch-cables": [
+    [
+      "instrument-1",
+      "effect-1",
+      "main-mixer"
+    ]
+  ],
+  "patterns": [
+    {
+      "id": "silent-1",
+      "notes": [
+        [
+          0
+        ]
+      ]
+    }
+  ],
+  "tracks": [
+    {
+      "id": "track-1",
+      "midi-channel": 0,
+      "patterns": [
+        "silent-1"
+      ]
+    }
+  ]
+}

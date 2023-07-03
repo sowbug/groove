@@ -1,0 +1,61 @@
+{
+  "name": "r&b-slide",
+  "oscillator-1": {
+    "waveform": "triangle",
+    "tune": {
+      "osc": {
+        "octave": 1,
+        "semi": 0,
+        "cent": 0
+      }
+    },
+    "mix-pct": 1,
+    "mix-db": 0
+  },
+  "oscillator-2": {
+    "waveform": "triangle",
+    "tune": {
+      "osc": {
+        "octave": 3,
+        "semi": 0,
+        "cent": 0
+      }
+    },
+    "mix-pct": 0.85,
+    "mix-db": -6
+  },
+  "oscillator-2-track": true,
+  "oscillator-2-sync": false,
+  "noise": 0,
+  "lfo": {
+    "routing": "none",
+    "waveform": "none",
+    "frequency": 0,
+    "depth": "none"
+  },
+  "glide": 0.02,
+  "unison": false,
+  "polyphony": "mono",
+  "filter-type-24db": {
+    "cutoff-hz": 1900,
+    "cutoff-pct": 0.66
+  },
+  "filter-type-12db": {
+    "cutoff-hz": 1900,
+    "cutoff-pct": 0.66
+  },
+  "filter-resonance": 0.45,
+  "filter-envelope-weight": 0.65,
+  "filter-envelope": {
+    "attack": 1.2,
+    "decay": 0,
+    "sustain": 1,
+    "release": 6.3
+  },
+  "amp-envelope": {
+    "attack": 0.02,
+    "decay": 0,
+    "sustain": 1,
+    "release": 0.6
+  }
+}
