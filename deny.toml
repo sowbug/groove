@@ -48,15 +48,11 @@ wildcards = "allow"
 highlight = "all"
 workspace-default-features = "allow"
 external-default-features = "allow"
-skip = [
-    { name = "convert_case" },
-    { name = "memoffset" },
-    { name = "windows" },
-    { name = "rustix" }
-]
+skip = [{ name = "convert_case" }, { name = "memoffset" }, { name = "windows" }]
 skip-tree = [
     { name = "cpal", version = "=0.15.2" },
     { name = "winit", version = "=0.28" },
+    { name = "rustix", version = "=0.37" }
 ]
 
 [sources]
