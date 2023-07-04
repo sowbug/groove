@@ -307,38 +307,38 @@ impl Ord for PerfectTimeUnit {
 impl Eq for PerfectTimeUnit {}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
-pub struct TimeUnit(pub f64);
-impl TimeUnit {
-    pub fn zero() -> TimeUnit {
-        TimeUnit(0.0)
+pub struct Seconds(pub f64);
+impl Seconds {
+    pub fn zero() -> Seconds {
+        Seconds(0.0)
     }
 
-    pub fn infinite() -> TimeUnit {
-        TimeUnit(-1.0)
+    pub fn infinite() -> Seconds {
+        Seconds(-1.0)
     }
 }
-impl From<f64> for TimeUnit {
+impl From<f64> for Seconds {
     fn from(value: f64) -> Self {
         Self(value)
     }
 }
-impl From<f32> for TimeUnit {
+impl From<f32> for Seconds {
     fn from(value: f32) -> Self {
         Self(value as f64)
     }
 }
-impl Add<f64> for TimeUnit {
-    type Output = TimeUnit;
+impl Add<f64> for Seconds {
+    type Output = Seconds;
 
     fn add(self, rhs: f64) -> Self::Output {
-        TimeUnit(self.0 + rhs)
+        Seconds(self.0 + rhs)
     }
 }
-impl Add<TimeUnit> for TimeUnit {
-    type Output = TimeUnit;
+impl Add<Seconds> for Seconds {
+    type Output = Seconds;
 
-    fn add(self, rhs: TimeUnit) -> Self::Output {
-        TimeUnit(self.0 + rhs.0)
+    fn add(self, rhs: Seconds) -> Self::Output {
+        Seconds(self.0 + rhs.0)
     }
 }
 

@@ -1,11 +1,14 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::{time::Tempo, BipolarNormal, Duration30Seconds, FrequencyHz, Normal, Ratio};
+use crate::{time::Tempo, BipolarNormal, FrequencyHz, Normal, Ratio};
+#[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ControlName(pub String);
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ControlIndex(pub usize);
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct ControlValue(pub f64);
@@ -97,16 +100,6 @@ impl From<Ratio> for ControlValue {
 impl From<ControlValue> for Ratio {
     fn from(value: ControlValue) -> Self {
         Self::from(Normal::from(value))
-    }
-}
-impl From<Duration30Seconds> for ControlValue {
-    fn from(value: Duration30Seconds) -> Self {
-        Self(value.safe().0 / 30.0)
-    }
-}
-impl From<ControlValue> for Duration30Seconds {
-    fn from(value: ControlValue) -> Self {
-        Self(value.0 * 30.0).safe()
     }
 }
 impl From<Tempo> for ControlValue {

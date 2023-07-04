@@ -731,11 +731,11 @@ mod tests {
     use convert_case::{Case, Casing};
     use float_cmp::approx_eq;
     use groove_core::{
-        generators::{EnvelopeParams, Waveform},
-        time::{Clock, ClockParams, SampleRate, TimeSignatureParams},
+        generators::{Envelope, EnvelopeParams, Waveform},
+        time::{Clock, ClockParams, SampleRate, Seconds, TimeSignatureParams},
         traits::{Configurable, Generates, PlaysNotes, Ticks},
         util::tests::TestOnlyPaths,
-        Duration30Seconds, Normal, ParameterType, Ratio, SampleType, StereoSample,
+        Normal, ParameterType, Ratio, SampleType, StereoSample,
     };
     use groove_entities::instruments::WelshVoice;
 
@@ -870,16 +870,16 @@ mod tests {
             filter_resonance: 0.0,
             filter_envelope_weight: 0.9,
             filter_envelope: EnvelopeParams {
-                attack: Duration30Seconds::zero(),
-                decay: Duration30Seconds(3.29),
-                sustain: Normal::from(0.78),
-                release: Duration30Seconds::max(),
+                attack: Normal::minimum(),
+                decay: Envelope::from_seconds_to_normal(Seconds(3.29)),
+                sustain: Envelope::from_seconds_to_normal(Seconds(0.78)),
+                release: Normal::maximum(),
             },
             amp_envelope: EnvelopeParams {
-                attack: Duration30Seconds(0.06),
-                decay: Duration30Seconds::max(),
+                attack: Envelope::from_seconds_to_normal(Seconds(0.06)),
+                decay: Normal::maximum(),
                 sustain: Normal::maximum(),
-                release: Duration30Seconds(0.3),
+                release: Envelope::from_seconds_to_normal(Seconds(0.3)),
             },
         }
     }
@@ -916,16 +916,16 @@ mod tests {
             filter_resonance: 0.0,
             filter_envelope_weight: 1.0,
             filter_envelope: EnvelopeParams {
-                attack: Duration30Seconds(5.0),
-                decay: Duration30Seconds::max(),
+                attack: Envelope::from_seconds_to_normal(Seconds(5.0)),
+                decay: Normal::maximum(),
                 sustain: Normal::maximum(),
-                release: Duration30Seconds::max(),
+                release: Normal::maximum(),
             },
             amp_envelope: EnvelopeParams {
-                attack: Duration30Seconds(0.5),
-                decay: Duration30Seconds::max(),
+                attack: Envelope::from_seconds_to_normal(Seconds(0.5)),
+                decay: Normal::maximum(),
                 sustain: Normal::maximum(),
-                release: Duration30Seconds::max(),
+                release: Normal::maximum(),
             },
         }
     }

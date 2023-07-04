@@ -2,9 +2,9 @@
 
 use crate::{
     control::ControlValue,
-    time::{Clock, ClockTimeUnit, SampleRate, TimeUnit},
+    time::{Clock, ClockTimeUnit, SampleRate, Seconds},
     traits::{Configurable, Generates, GeneratesEnvelope, Ticks},
-    BipolarNormal, Duration30Seconds, FrequencyHz, Normal, ParameterType, Ratio, SignalType,
+    BipolarNormal, FrequencyHz, Normal, ParameterType, Ratio, SignalType,
 };
 use groove_proc_macros::{Control, Params};
 use kahan::KahanSum;
@@ -447,14 +447,7 @@ enum State {
 }
 
 impl EnvelopeParams {
-    pub const MAX: ParameterType = 10000.0;
-
-    pub fn new_with(
-        attack: Duration30Seconds,
-        decay: Duration30Seconds,
-        sustain: Normal,
-        release: Duration30Seconds,
-    ) -> Self {
+    pub fn new_with(attack: Normal, decay: Normal, sustain: Normal, release: Normal) -> Self {
         Self {
             attack,
             decay,
@@ -468,12 +461,7 @@ impl EnvelopeParams {
     // so I'm creating a custom default method. I think that only test/toy code
     // would rely on defaults for an envelope.
     pub fn safe_default() -> Self {
-        Self::new_with(
-            Duration30Seconds(0.0),
-            Duration30Seconds(0.0),
-            1.0.into(),
-            Duration30Seconds(0.0),
-        )
+        Self::new_with(0.0.into(), 0.0.into(), 1.0.into(), 0.0.into())
     }
 }
 
@@ -482,16 +470,16 @@ impl EnvelopeParams {
 pub struct Envelope {
     #[control]
     #[params]
-    attack: Duration30Seconds,
+    attack: Normal,
     #[control]
     #[params]
-    decay: Duration30Seconds,
+    decay: Normal,
     #[control]
     #[params]
     sustain: Normal,
     #[control]
     #[params]
-    release: Duration30Seconds,
+    release: Normal,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
     sample_rate: SampleRate,
@@ -503,7 +491,7 @@ pub struct Envelope {
     #[cfg_attr(feature = "serialization", serde(skip))]
     ticks: usize,
     #[cfg_attr(feature = "serialization", serde(skip))]
-    time: TimeUnit,
+    time: Seconds,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
     uncorrected_amplitude: KahanSum<f64>,
@@ -514,7 +502,7 @@ pub struct Envelope {
     #[cfg_attr(feature = "serialization", serde(skip))]
     amplitude_target: f64,
     #[cfg_attr(feature = "serialization", serde(skip))]
-    time_target: TimeUnit,
+    time_target: Seconds,
 
     // Whether the amplitude was set to an explicit value during this frame,
     // which means that the caller is expecting to get an amplitude of that
@@ -586,7 +574,7 @@ impl Ticks for Envelope {
                 self.ticks += 1;
                 self.update_amplitude();
             }
-            self.time = TimeUnit(self.ticks as f64 / self.sample_rate.value() as f64);
+            self.time = Seconds(self.ticks as f64 / self.sample_rate.value() as f64);
 
             self.handle_state();
 
@@ -605,6 +593,9 @@ impl Ticks for Envelope {
     }
 }
 impl Envelope {
+    pub const MIN_SECONDS: f64 = 0.0;
+    pub const MAX_SECONDS: f64 = 30.0;
+
     pub fn new_with(params: &EnvelopeParams) -> Self {
         Self {
             attack: params.attack(),
@@ -629,6 +620,14 @@ impl Envelope {
             concave_b: Default::default(),
             concave_c: Default::default(),
         }
+    }
+
+    pub fn from_seconds_to_normal(seconds: Seconds) -> Normal {
+        Normal::new(seconds.0 / Self::MAX_SECONDS)
+    }
+
+    pub fn from_normal_to_seconds(normal: Normal) -> Seconds {
+        Seconds(normal.0 * Self::MAX_SECONDS)
     }
 
     fn update_amplitude(&mut self) {
@@ -689,7 +688,7 @@ impl Envelope {
                 self.delta = 0.0;
             }
             State::Attack => {
-                if self.attack == Duration30Seconds::zero() {
+                if self.attack == Normal::minimum() {
                     self.set_explicit_amplitude(Normal::maximum());
                     self.set_state(State::Decay);
                 } else {
@@ -709,7 +708,7 @@ impl Envelope {
                 }
             }
             State::Decay => {
-                if self.decay == Duration30Seconds::zero() {
+                if self.decay == Normal::minimum() {
                     self.set_explicit_amplitude(self.sustain);
                     self.set_state(State::Sustain);
                 } else {
@@ -729,10 +728,10 @@ impl Envelope {
             }
             State::Sustain => {
                 self.state = State::Sustain;
-                self.set_target(self.sustain, Duration30Seconds::infinite(), false, false);
+                self.set_target(self.sustain, Normal::maximum(), false, false);
             }
             State::Release => {
-                if self.release == Duration30Seconds::zero() {
+                if self.release == Normal::minimum() {
                     self.set_explicit_amplitude(Normal::maximum());
                     self.set_state(State::Idle);
                 } else {
@@ -754,7 +753,7 @@ impl Envelope {
                 self.state = State::Shutdown;
                 self.set_target(
                     Normal::minimum(),
-                    Duration30Seconds(1.0 / 1000.0),
+                    Envelope::from_seconds_to_normal(Seconds(1.0 / 1000.0)),
                     false,
                     true,
                 );
@@ -770,21 +769,24 @@ impl Envelope {
     fn set_target(
         &mut self,
         target_amplitude: Normal,
-        duration: Duration30Seconds,
+        duration: Normal,
         calculate_for_full_amplitude_range: bool,
         fast_reaction: bool,
     ) {
         self.amplitude_target = target_amplitude.into();
-        if duration != Duration30Seconds::infinite() {
+        if duration != Normal::maximum() {
             let fast_reaction_extra_frame = if fast_reaction { 1.0 } else { 0.0 };
             let range = if calculate_for_full_amplitude_range {
                 -1.0
             } else {
                 self.amplitude_target - self.uncorrected_amplitude.sum()
             };
-            self.time_target = self.time + duration.0;
-            self.delta = if duration != Duration30Seconds::zero() {
-                range / (duration.0 * self.sample_rate.value() as f64 + fast_reaction_extra_frame)
+            let duration_seconds = Self::from_normal_to_seconds(duration);
+            self.time_target = self.time + duration_seconds;
+            self.delta = if duration != Normal::minimum() {
+                range
+                    / (duration_seconds.0 * self.sample_rate.value() as f64
+                        + fast_reaction_extra_frame)
             } else {
                 0.0
             };
@@ -792,7 +794,7 @@ impl Envelope {
                 self.uncorrected_amplitude += self.delta;
             }
         } else {
-            self.time_target = TimeUnit::infinite();
+            self.time_target = Seconds::infinite();
             self.delta = 0.0;
         }
     }
@@ -838,11 +840,11 @@ impl Envelope {
         self.concave_c * linear_value.powi(2) + self.concave_b * linear_value + self.concave_a
     }
 
-    pub fn attack(&self) -> Duration30Seconds {
+    pub fn attack(&self) -> Normal {
         self.attack
     }
 
-    pub fn decay(&self) -> Duration30Seconds {
+    pub fn decay(&self) -> Normal {
         self.decay
     }
 
@@ -850,15 +852,15 @@ impl Envelope {
         self.sustain
     }
 
-    pub fn release(&self) -> Duration30Seconds {
+    pub fn release(&self) -> Normal {
         self.release
     }
 
-    pub fn set_attack(&mut self, attack: Duration30Seconds) {
+    pub fn set_attack(&mut self, attack: Normal) {
         self.attack = attack;
     }
 
-    pub fn set_decay(&mut self, decay: Duration30Seconds) {
+    pub fn set_decay(&mut self, decay: Normal) {
         self.decay = decay;
     }
 
@@ -866,7 +868,7 @@ impl Envelope {
         self.sustain = sustain;
     }
 
-    pub fn set_release(&mut self, release: Duration30Seconds) {
+    pub fn set_release(&mut self, release: Normal) {
         self.release = release;
     }
 
@@ -884,8 +886,6 @@ impl Envelope {
 
 #[cfg(feature = "egui-framework")]
 mod gui {
-    use crate::Duration30Seconds;
-
     use super::{Envelope, Oscillator, Waveform};
     use eframe::{
         egui::{ComboBox, DragValue, Frame, Sense, Ui},
@@ -990,22 +990,18 @@ mod gui {
             if which_changed != usize::MAX {
                 match which_changed {
                     0 => {
-                        self.set_attack(Duration30Seconds::from(
-                            control_points[0].x / (x_max / 4.0),
-                        ));
+                        self.set_attack((control_points[0].x / (x_max / 4.0)).into());
                     }
                     1 => {
-                        self.set_decay(Duration30Seconds::from(
-                            (control_points[1].x - control_points[0].x) / (x_max / 4.0),
-                        ));
+                        self.set_decay(
+                            ((control_points[1].x - control_points[0].x) / (x_max / 4.0)).into(),
+                        );
                     }
                     2 => {
                         self.set_sustain((1.0 - control_points[2].y / y_max).into());
                     }
                     3 => {
-                        self.set_release(Duration30Seconds::from(
-                            (x_max - control_points[3].x) / (x_max / 4.0),
-                        ));
+                        self.set_release(((x_max - control_points[3].x) / (x_max / 4.0)).into());
                     }
                     _ => unreachable!(),
                 }
@@ -1253,7 +1249,7 @@ pub mod tests {
         time::Clock,
         traits::{tests::DebugTicks, Configurable, Generates, GeneratesEnvelope, Ticks},
         util::tests::TestOnlyPaths,
-        Normal, ParameterType, Sample, SampleType, SAMPLE_BUFFER_SIZE,
+        Normal, Sample, SampleType, SAMPLE_BUFFER_SIZE,
     };
     use float_cmp::approx_eq;
     use more_asserts::{assert_gt, assert_lt};
@@ -1730,10 +1726,10 @@ pub mod tests {
     fn get_ge_trait_stuff() -> (Clock, impl GeneratesEnvelope) {
         let clock = Clock::new_test();
         let envelope = Envelope::new_with(&EnvelopeParams::new_with(
-            Duration30Seconds(0.1),
-            Duration30Seconds(0.2),
+            (0.1).into(),
+            (0.2).into(),
             Normal::new(0.8),
-            Duration30Seconds(0.3),
+            (0.3).into(),
         ));
         (clock, envelope)
     }
@@ -1811,18 +1807,18 @@ pub mod tests {
     #[test]
     fn generates_envelope_trait_attack_decay_duration() {
         let mut clock = Clock::new_test();
-        const ATTACK: Duration30Seconds = Duration30Seconds(0.1);
-        const DECAY: Duration30Seconds = Duration30Seconds(0.2);
-        let sustain = Normal::new(0.8);
-        const RELEASE: Duration30Seconds = Duration30Seconds(0.3);
+        let attack: Normal = Envelope::from_seconds_to_normal(Seconds(0.1));
+        let decay: Normal = Envelope::from_seconds_to_normal(Seconds(0.2));
+        const SUSTAIN: Normal = Normal::new_const(0.8);
+        let release: Normal = Envelope::from_seconds_to_normal(Seconds(0.3));
         let mut envelope =
-            Envelope::new_with(&EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE));
+            Envelope::new_with(&EnvelopeParams::new_with(attack, decay, SUSTAIN, release));
 
         // An even sample rate means we can easily calculate how much time was spent in each state.
         clock.update_sample_rate(SampleRate::from(100));
         envelope.update_sample_rate(SampleRate::from(100));
 
-        let mut time_marker = clock.seconds() + ATTACK.0;
+        let mut time_marker = clock.seconds() + Envelope::from_normal_to_seconds(attack).0;
         envelope.trigger_attack();
         assert!(
             matches!(envelope.debug_state(), State::Attack),
@@ -1855,7 +1851,7 @@ pub mod tests {
             (1.0 - amplitude.value()).abs()
         );
 
-        time_marker += DECAY.0;
+        time_marker += Envelope::from_normal_to_seconds(decay).0;
         let amplitude = run_until(
             &mut envelope,
             &mut clock,
@@ -1863,7 +1859,7 @@ pub mod tests {
             |_amplitude, _clock| {},
         );
         assert_eq!(
-            amplitude, sustain,
+            amplitude, SUSTAIN,
             "Amplitude should reach sustain level after decay."
         );
         assert!(matches!(envelope.debug_state(), State::Sustain));
@@ -1872,30 +1868,28 @@ pub mod tests {
     // Decay and release rates should be determined as if the envelope stages
     // were operating on a full 1.0..=0.0 amplitude range. Thus, the expected
     // time for the stage is not necessarily the same as the parameter.
-    fn expected_decay_time(decay: Duration30Seconds, sustain: Normal) -> Duration30Seconds {
-        decay * (1.0 - sustain.value())
+    fn expected_decay_time(decay: Normal, sustain: Normal) -> Seconds {
+        Envelope::from_normal_to_seconds(decay * (1.0 - sustain.value()))
     }
 
-    fn expected_release_time(
-        release: Duration30Seconds,
-        current_amplitude: ParameterType,
-    ) -> Duration30Seconds {
-        release * current_amplitude
+    fn expected_release_time(release: Normal, current_amplitude: Normal) -> Seconds {
+        Envelope::from_normal_to_seconds(release * current_amplitude)
     }
 
     #[test]
     fn generates_envelope_trait_sustain_duration_then_release() {
         let mut clock = Clock::new_test();
-        const ATTACK: Duration30Seconds = Duration30Seconds(0.1);
-        const DECAY: Duration30Seconds = Duration30Seconds(0.2);
-        let sustain = Normal::new(0.8);
-        const RELEASE: Duration30Seconds = Duration30Seconds(0.3);
+        let attack: Normal = Envelope::from_seconds_to_normal(Seconds(0.1));
+        let decay: Normal = Envelope::from_seconds_to_normal(Seconds(0.2));
+        const SUSTAIN: Normal = Normal::new_const(0.8);
+        let release: Normal = Envelope::from_seconds_to_normal(Seconds(0.3));
         let mut envelope =
-            Envelope::new_with(&EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE));
+            Envelope::new_with(&EnvelopeParams::new_with(attack, decay, SUSTAIN, release));
 
         envelope.trigger_attack();
         envelope.tick(1);
-        let mut time_marker = clock.seconds() + (ATTACK + expected_decay_time(DECAY, sustain)).0;
+        let mut time_marker = clock.seconds()
+            + (Envelope::from_normal_to_seconds(attack) + expected_decay_time(decay, SUSTAIN)).0;
         clock.tick(1);
 
         // Skip past attack/decay.
@@ -1913,7 +1907,7 @@ pub mod tests {
             time_marker,
             |amplitude, _clock| {
                 assert_eq!(
-                    amplitude, sustain,
+                    amplitude, SUSTAIN,
                     "Amplitude should remain at sustain level while note is still triggered"
                 );
             },
@@ -1921,7 +1915,7 @@ pub mod tests {
         .value();
 
         envelope.trigger_release();
-        time_marker += expected_release_time(RELEASE, amplitude).0;
+        time_marker += expected_release_time(release, amplitude.into()).0;
         let mut last_amplitude = amplitude;
         let amplitude = run_until(
             &mut envelope,
@@ -1957,12 +1951,12 @@ pub mod tests {
 
         // These settings are copied from Welsh Piano's filter envelope, which
         // is where I noticed some unwanted behavior.
-        const ATTACK: Duration30Seconds = Duration30Seconds(0.0);
-        const DECAY: Duration30Seconds = Duration30Seconds(5.22);
-        let sustain = Normal::new(0.25);
-        const RELEASE: Duration30Seconds = Duration30Seconds(0.5);
+        let attack: Normal = Envelope::from_seconds_to_normal(Seconds(0.0));
+        let decay: Normal = Envelope::from_seconds_to_normal(Seconds(5.22));
+        const SUSTAIN: Normal = Normal::new_const(0.25);
+        let release: Normal = Envelope::from_seconds_to_normal(Seconds(0.5));
         let mut envelope =
-            Envelope::new_with(&EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE));
+            Envelope::new_with(&EnvelopeParams::new_with(attack, decay, SUSTAIN, release));
 
         clock.update_sample_rate(SampleRate::DEFAULT);
         envelope.update_sample_rate(SampleRate::DEFAULT);
@@ -2002,7 +1996,8 @@ pub mod tests {
         );
 
         // Jump to halfway through decay.
-        time_marker += ATTACK.0 + DECAY.0 / 2.0;
+        time_marker += Envelope::from_normal_to_seconds(attack).0
+            + Envelope::from_normal_to_seconds(decay).0 / 2.0;
         let amplitude = run_until(
             &mut envelope,
             &mut clock,
@@ -2039,7 +2034,7 @@ pub mod tests {
         envelope.trigger_release();
 
         // Check that we keep decreasing amplitude to zero, not to sustain.
-        time_marker += RELEASE.0;
+        time_marker += Envelope::from_normal_to_seconds(release).0;
         let mut last_amplitude = envelope.value().value();
         let _amplitude = run_until(
             &mut envelope,
@@ -2076,19 +2071,19 @@ pub mod tests {
     #[test]
     fn generates_envelope_trait_decay_and_release_based_on_full_amplitude_range() {
         let mut clock = Clock::new_test();
-        const ATTACK: Duration30Seconds = Duration30Seconds(0.0);
-        const DECAY: Duration30Seconds = Duration30Seconds(0.8);
-        let sustain = Normal::new(0.5);
-        const RELEASE: Duration30Seconds = Duration30Seconds(0.4);
+        const ATTACK: Normal = Normal::minimum();
+        let decay: Normal = Envelope::from_seconds_to_normal(Seconds(0.8));
+        let sustain = Normal::new_const(0.5);
+        let release: Normal = Envelope::from_seconds_to_normal(Seconds(0.4));
         let mut envelope =
-            Envelope::new_with(&EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE));
+            Envelope::new_with(&EnvelopeParams::new_with(ATTACK, decay, sustain, release));
 
         clock.update_sample_rate(SampleRate::DEFAULT);
         envelope.update_sample_rate(SampleRate::DEFAULT);
 
         // Decay after note-on should be shorter than the decay value.
         envelope.trigger_attack();
-        let mut time_marker = clock.seconds() + expected_decay_time(DECAY, sustain).0;
+        let mut time_marker = clock.seconds() + expected_decay_time(decay, sustain).0;
         let amplitude = run_until(
             &mut envelope,
             &mut clock,
@@ -2101,14 +2096,14 @@ pub mod tests {
             sustain.value(),
             amplitude,
             time_marker,
-            DECAY,
+            decay,
             100.0 * (1.0 - sustain.value())
         );
         clock.tick(1);
 
         // Release after note-off should also be shorter than the release value.
         envelope.trigger_release();
-        let expected_release_time = expected_release_time(RELEASE, envelope.value().value());
+        let expected_release_time = expected_release_time(release, envelope.value().into());
         time_marker += expected_release_time.0 - 0.000000000000001; // I AM SICK OF FP PRECISION ERRORS
         let amplitude = run_until(
             &mut envelope,
@@ -2128,9 +2123,9 @@ pub mod tests {
         assert!(
             envelope.is_idle(),
             "Expected release to end after time {}, which is {:.1}% of release time {}. Amplitude is {}",
-            expected_release_time,
+            expected_release_time.0,
             100.0 * portion_of_full_amplitude_range,
-            RELEASE,
+            release,
             amplitude.value()
         );
     }
@@ -2147,10 +2142,10 @@ pub mod tests {
     #[test]
     fn envelope_amplitude_batching() {
         let mut e = Envelope::new_with(&EnvelopeParams::new_with(
-            Duration30Seconds(0.1),
-            Duration30Seconds(0.2),
+            Envelope::from_seconds_to_normal(Seconds(0.1)),
+            Envelope::from_seconds_to_normal(Seconds(0.2)),
             Normal::new(0.5),
-            Duration30Seconds(0.3),
+            Envelope::from_seconds_to_normal(Seconds(0.3)),
         ));
 
         // Initialize the buffer with a nonsense value so we know it got
@@ -2182,10 +2177,10 @@ pub mod tests {
     #[test]
     fn envelope_shutdown_state() {
         let mut e = Envelope::new_with(&EnvelopeParams::new_with(
-            Duration30Seconds(0.0),
-            Duration30Seconds(0.0),
+            Normal::minimum(),
+            Normal::minimum(),
             Normal::maximum(),
-            Duration30Seconds(0.5),
+            Envelope::from_seconds_to_normal(Seconds(0.5)),
         ));
         e.update_sample_rate(SampleRate::from(2000));
 
@@ -2204,12 +2199,14 @@ pub mod tests {
         assert_lt!(
             amplitudes[0].value(),
             (Normal::MAX - Normal::MIN) / 2.0,
-            "At sample rate 2KHz, shutdown state should take two samples to go from 1.0 to 0.0."
+            "At sample rate {}, shutdown state should take two samples to go from 1.0 to 0.0, but when we checked it's {}.",
+            e.sample_rate, amplitudes[0].value()
         );
         assert_eq!(
             amplitudes[1].value(),
             Normal::MIN,
-            "At sample rate 2KHz, shutdown state should reach 0.0 within two samples."
+            "At sample rate {}, shutdown state should reach 0.0 within two samples.",
+            e.sample_rate
         );
     }
 
@@ -2226,10 +2223,10 @@ pub mod tests {
     #[test]
     fn sustain_full() {
         let mut e = Envelope::new_with(&EnvelopeParams::new_with(
-            Duration30Seconds(0.0),
-            Duration30Seconds(0.67),
+            Normal::minimum(),
+            Envelope::from_seconds_to_normal(Seconds(0.67)),
             Normal::maximum(),
-            Duration30Seconds(0.5),
+            Envelope::from_seconds_to_normal(Seconds(0.5)),
         ));
         e.update_sample_rate(SampleRate::from(44100));
         assert_eq!(e.value().value(), 0.0);

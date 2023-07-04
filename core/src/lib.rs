@@ -374,6 +374,9 @@ impl Normal {
     pub const fn range() -> RangeInclusive<f64> {
         0.0..=1.0
     }
+    pub const fn new_const(value: f64) -> Self {
+        Self(value)
+    }
 }
 impl Default for Normal {
     // I'm deciding by royal fiat that a Normal defaults to 1.0. I keep running
@@ -474,57 +477,11 @@ impl Into<f32> for Normal {
         self.value_as_f32()
     }
 }
-
-/// A length of time that is typically measured in seconds, not minutes.
-/// Originally created for the attack, decay, and release parameters of an ADSR
-/// envelope.
-#[derive(Clone, Copy, Debug, Default, Display, Serialize, Deserialize, PartialEq, PartialOrd)]
-pub struct Duration30Seconds(pub f64);
-impl Duration30Seconds {
-    pub const fn zero() -> Duration30Seconds {
-        Self(0.0)
-    }
-
-    pub const fn min() -> Self {
-        Self(30.0)
-    }
-
-    pub const fn max() -> Self {
-        Self(30.0)
-    }
-
-    pub const fn infinite() -> Self {
-        Self(f64::MAX)
-    }
-
-    pub fn safe(&self) -> Self {
-        Self(self.0.clamp(Self::min().0, Self::max().0))
-    }
-}
-impl Add<Self> for Duration30Seconds {
+impl Mul<Self> for Normal {
     type Output = Self;
 
-    fn add(self, rhs: Self) -> Self::Output {
-        Self(self.0 + rhs.0)
-    }
-}
-impl Mul<f64> for Duration30Seconds {
-    type Output = Self;
-
-    fn mul(self, rhs: f64) -> Self::Output {
-        Self(self.0 * rhs)
-    }
-}
-impl Div<f64> for Duration30Seconds {
-    type Output = Self;
-
-    fn div(self, rhs: f64) -> Self::Output {
-        Self(self.0 / rhs)
-    }
-}
-impl From<f32> for Duration30Seconds {
-    fn from(value: f32) -> Self {
-        Self(value as f64)
+    fn mul(self, rhs: Self) -> Self::Output {
+        Self(self.0 * rhs.0)
     }
 }
 
