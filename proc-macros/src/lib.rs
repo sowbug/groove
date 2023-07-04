@@ -51,6 +51,7 @@ pub fn derive_everything(input: TokenStream) -> TokenStream {
 fn make_primitives() -> HashSet<Ident> {
     vec![
         "BipolarNormal",
+        "Duration30Seconds",
         "FrequencyHz",
         "Normal",
         "ParameterType",
