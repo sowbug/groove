@@ -42,6 +42,8 @@ pub enum MiniOrchestratorInput {
     TrackPatternRemoveSelected,
     /// Add a new entity to the selected track.
     TrackAddThing(Key),
+    /// Sets the tempo.
+    Tempo(Tempo),
 
     // TODO: these are waiting for the big refactor (which might never happen)
     /// Select the given track.
@@ -180,6 +182,10 @@ impl OrchestratorPanel {
                         MiniOrchestratorInput::TrackSelectReset => todo!(),
                         MiniOrchestratorInput::TrackAddThing(key) => {
                             let _ = o.add_thing_by_key_to_selected_track(&key);
+                        }
+                        MiniOrchestratorInput::Tempo(tempo) => {
+                            o.set_tempo(tempo);
+                            let _ = sender.send(MiniOrchestratorEvent::Tempo(tempo));
                         }
                     },
                     Err(err) => {

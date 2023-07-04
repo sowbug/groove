@@ -1,19 +1,16 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use crate::mini::Transport;
+use eframe::egui::{self, DragValue};
+use groove_core::{
+    time::PerfectTimeUnit,
+    traits::{gui::Shows, Performs},
+};
+use groove_orchestration::Orchestrator;
 use std::{
     ops::Range,
     path::{Path, PathBuf},
 };
-
-use eframe::{
-    egui::{self, DragValue},
-    epaint::vec2,
-};
-use groove_core::{
-    time::{MusicalTime, PerfectTimeUnit, Tempo},
-    traits::{gui::Shows, Performs},
-};
-use groove_orchestration::Orchestrator;
 
 /// Actions the user might take via the control panel.
 pub enum ControlPanelAction {
@@ -33,36 +30,19 @@ pub enum ControlPanelAction {
     Save(PathBuf),
 }
 
-/// [ControlBar2] is the UI component at the top of the main window. Transport,
+/// [ControlPanel] is the UI component at the top of the main window. Transport,
 /// MIDI status, etc.
 #[derive(Debug, Default)]
 pub struct ControlPanel {
-    tempo: Tempo,
-    current_time: MusicalTime,
+    /// A local cached copy of [Transport].
+    transport_copy: Transport,
 }
 impl ControlPanel {
-    /// Sets a cached copy of the current piece's tempo.
-    pub fn set_tempo(&mut self, tempo: Tempo) {
-        self.tempo = tempo;
-    }
-
-    /// Updates cached copy of global clock.
-    pub fn set_current_time(&mut self, current_time: MusicalTime) {
-        self.current_time = current_time;
-    }
-
     /// Renders the control bar and maybe returns a UI action.
     pub fn show_with_action(&mut self, ui: &mut egui::Ui) -> Option<ControlPanelAction> {
         let mut action = None;
         ui.horizontal_centered(|ui| {
-            ui.allocate_ui(vec2(72.0, 20.0), |ui| {
-                ui.set_min_width(128.0);
-                ui.label(format!("{}", self.tempo));
-            });
-            ui.allocate_ui(vec2(72.0, 20.0), |ui| {
-                ui.set_min_width(128.0);
-                ui.label(format!("{}", self.current_time));
-            });
+            self.transport_copy.show(ui);
             if ui.button("play").clicked() {
                 action = Some(ControlPanelAction::Play);
             }
@@ -82,6 +62,11 @@ impl ControlPanel {
         });
 
         action
+    }
+
+    /// Updates the copy of [Transport] with a fresh one.
+    pub fn set_transport(&mut self, transport: Transport) {
+        self.transport_copy = transport;
     }
 }
 impl Shows for ControlPanel {

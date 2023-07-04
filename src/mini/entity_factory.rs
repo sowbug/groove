@@ -71,7 +71,7 @@ impl EntityFactory {
     pub fn new_thing(&self, key: &Key) -> Option<Box<dyn Thing>> {
         if let Some(f) = self.things.get(key) {
             let mut r = f();
-            r.set_uid(Uid(self.next_id.inc()));
+            r.set_uid(self.mint_uid());
             Some(r)
         } else {
             None
@@ -86,6 +86,15 @@ impl EntityFactory {
     /// Returns the [HashMap] for all [Key] and entity pairs.
     pub fn entities(&self) -> &HashMap<Key, ThingFactoryFn> {
         &self.things
+    }
+
+    /// Returns a [Uid] that is guaranteed to be unique among all [Uid]s minted
+    /// by this factory. This method is exposed if someone wants to create an
+    /// entity outside this factory, but still refer to it by [Uid]. An example
+    /// is [super::Transport], which is an entity that [super::MiniOrchestrator]
+    /// treats specially.
+    pub fn mint_uid(&self) -> Uid {
+        Uid(self.next_id.inc())
     }
 
     /// Naively increments the RelaxedCounter until it is higher than or equal to

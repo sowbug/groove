@@ -6,6 +6,7 @@ pub use entity_factory::{EntityFactory, Key};
 pub use orchestrator::MiniOrchestrator;
 pub use sequencer::{MiniSequencer, MiniSequencerParams};
 pub use track::TrackIndex; // TODO: this is weird to have to export without Track
+pub use transport::Transport;
 
 #[cfg(test)]
 pub use entities::register_test_factory_entities;
@@ -23,6 +24,7 @@ mod midi_router;
 mod orchestrator;
 mod sequencer;
 mod track;
+mod transport;
 
 /// Generates unique [Uid]s. This factory is not threadsafe.
 #[derive(Debug, Default, Serialize, Deserialize)]

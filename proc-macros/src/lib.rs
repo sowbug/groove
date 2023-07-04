@@ -57,6 +57,7 @@ fn make_primitives() -> HashSet<Ident> {
         "ParameterType",
         "Ratio",
         "String",
+        "Tempo",
         "Waveform",
         "VoiceCount",
         "bool",

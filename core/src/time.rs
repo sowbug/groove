@@ -748,6 +748,13 @@ impl From<f64> for Tempo {
     }
 }
 impl Tempo {
+    /// The largest value we'll allow.
+    pub const MAX_VALUE: f64 = 1024.0;
+
+    /// The smallest value we'll allow. Note that zero is actually a degenerate
+    /// case... maybe we should be picking 0.1 or similar.
+    pub const MIN_VALUE: f64 = 0.0;
+
     pub fn value(&self) -> f64 {
         self.0
     }

@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::{BipolarNormal, Duration30Seconds, FrequencyHz, Normal, Ratio};
+use crate::{time::Tempo, BipolarNormal, Duration30Seconds, FrequencyHz, Normal, Ratio};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -107,6 +107,16 @@ impl From<Duration30Seconds> for ControlValue {
 impl From<ControlValue> for Duration30Seconds {
     fn from(value: ControlValue) -> Self {
         Self(value.0 * 30.0).safe()
+    }
+}
+impl From<Tempo> for ControlValue {
+    fn from(value: Tempo) -> Self {
+        Self(value.0 / Tempo::MAX_VALUE)
+    }
+}
+impl From<ControlValue> for Tempo {
+    fn from(value: ControlValue) -> Self {
+        Self(value.0 * Tempo::MAX_VALUE)
     }
 }
 

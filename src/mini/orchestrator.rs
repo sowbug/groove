@@ -3,6 +3,7 @@
 use super::{
     entity_factory::{EntityFactory, Thing},
     track::{Track, TrackAction, TrackFactory, TrackIndex},
+    transport::Transport,
     Key,
 };
 use anyhow::{anyhow, Result};
@@ -11,10 +12,10 @@ use groove_audio::AudioQueue;
 use groove_core::{
     control::ControlValue,
     midi::{MidiChannel, MidiMessage, MidiMessagesFn},
-    time::{MusicalTime, SampleRate, Tempo, TimeSignature},
+    time::{MusicalTime, SampleRate, Tempo},
     traits::{
         gui::Shows, Configurable, ControlMessagesFn, Controls, Generates,
-        GeneratesToInternalBuffer, HandlesMidi, Performs, Ticks,
+        GeneratesToInternalBuffer, HandlesMidi, HasUid, Performs, Ticks,
     },
     Sample, StereoSample, Uid,
 };
@@ -29,7 +30,6 @@ use std::{fmt::Debug, ops::Range, sync::Arc};
 #[derive(Debug, Default)]
 pub struct OrchestratorEphemerals {
     sample_rate: SampleRate,
-    current_time: MusicalTime,
     range: Range<MusicalTime>,
     messages: Vec<(Uid, EntityMessage)>,
     is_finished: bool,
@@ -42,10 +42,7 @@ pub struct OrchestratorEphemerals {
 pub struct MiniOrchestrator {
     /// The user-supplied name of this project.
     title: Option<String>,
-    /// The current global time signature.
-    time_signature: TimeSignature,
-    /// The current beats per minute.
-    tempo: Tempo,
+    transport: Transport,
 
     track_factory: TrackFactory,
     tracks: Vec<Track>,
@@ -66,8 +63,7 @@ impl Default for MiniOrchestrator {
         let mut track_factory = TrackFactory::default();
         Self {
             title: None,
-            time_signature: Default::default(),
-            tempo: Default::default(),
+            transport: Default::default(),
 
             tracks: vec![
                 track_factory.midi(),
@@ -93,10 +89,13 @@ impl MiniOrchestrator {
     /// [Arc] wraps the factory, which implies that the factory must be fully
     /// equipped by the time it's given to the orchestrator.
     pub fn new_with(entity_factory: Arc<EntityFactory>) -> Self {
-        Self {
+        let transport_uid = entity_factory.mint_uid();
+        let mut r = Self {
             entity_factory: Some(entity_factory),
             ..Default::default()
-        }
+        };
+        r.transport.set_uid(transport_uid);
+        r
     }
 
     /// The current [SampleRate] used to render the current project. Typically
@@ -115,12 +114,13 @@ impl MiniOrchestrator {
 
     /// Returns the current [Tempo].
     pub fn tempo(&self) -> Tempo {
-        self.tempo
+        self.transport.tempo()
     }
 
-    #[allow(dead_code)]
-    fn set_tempo(&mut self, tempo: Tempo) {
-        self.tempo = tempo;
+    /// Sets a new [Tempo].
+    pub fn set_tempo(&mut self, tempo: Tempo) {
+        self.transport.set_tempo(tempo);
+        // TODO: how do we let the service know this changed?
     }
 
     /// Returns the number of channels in the audio stream. For now, this is
@@ -173,24 +173,15 @@ impl MiniOrchestrator {
     /// Renders the next set of samples into the provided buffer. This is the
     /// main event loop.
     pub fn generate_next_samples(&mut self, samples: &mut [StereoSample]) {
-        // Calculate the work time range. Note that we make sure the range is
-        // length > 0, which can mean that we will call update_time() twice with
-        // the same range if the sample rate is extremely high. TODO: we should
-        // decide whose responsibility it is to handle that -- either we skip
-        // calling work() if the time range is the same as prior, or everyone
-        // who gets called needs to detect the case or be idempotent.
-        let start = self.e.current_time;
-        let units = 1.max(MusicalTime::frames_to_units(
-            self.tempo,
-            self.e.sample_rate,
-            samples.len(),
-        ));
-        let length = MusicalTime::new_with_units(units);
-        let range = start..start + length;
+        // Note that advance() can return the same range twice, depending on
+        // sample rate. TODO: we should decide whose responsibility it is to
+        // handle that -- either we skip calling work() if the time range is the
+        // same as prior, or everyone who gets called needs to detect the case
+        // or be idempotent.
+        let range = self.transport.advance(samples.len());
         self.update_time(&range);
         self.work(&mut |_, _| panic!("work() was supposed to handle all messages"));
         self.generate_batch_values(samples);
-        self.e.current_time += length;
     }
 
     /// After loading a new Self from disk, we want to copy all the appropriate
@@ -475,11 +466,6 @@ impl MiniOrchestrator {
     //         .retain(|&uid| uid != receiver_uid);
     // }
 
-    /// Returns the global music clock.
-    pub fn current_time(&self) -> MusicalTime {
-        self.e.current_time
-    }
-
     fn calculate_is_finished(&self) -> bool {
         self.tracks.iter().all(|t| t.is_finished())
     }
@@ -508,6 +494,11 @@ impl MiniOrchestrator {
         for t in self.tracks.iter_mut() {
             t.route_control_change(uid, value);
         }
+    }
+
+    #[allow(missing_docs)]
+    pub fn transport(&self) -> &Transport {
+        &self.transport
     }
 }
 impl Generates<StereoSample> for MiniOrchestrator {
@@ -585,7 +576,7 @@ impl Performs for MiniOrchestrator {
     }
 
     fn skip_to_start(&mut self) {
-        self.e.current_time = MusicalTime::START;
+        self.transport.skip_to_start();
         self.tracks.iter_mut().for_each(|t| t.skip_to_start());
     }
 
@@ -605,6 +596,8 @@ impl Controls for MiniOrchestrator {
     }
 
     fn work(&mut self, _: &mut ControlMessagesFn<Self::Message>) {
+        self.transport
+            .work(&mut |u, m| self.e.messages.push((u, m)));
         for track in self.tracks.iter_mut() {
             track.work(&mut |u, m| self.e.messages.push((u, m)));
         }
@@ -675,11 +668,11 @@ mod tests {
             if o.is_finished() {
                 break;
             }
-            prior_start_time = o.e.current_time;
+            prior_start_time = o.transport().current_time();
             let mut samples = [StereoSample::SILENCE; 1];
             o.generate_next_samples(&mut samples);
         }
-        let prior_range = prior_start_time..o.current_time();
+        let prior_range = prior_start_time..o.transport().current_time();
         assert!(prior_range.contains(&TIMER_DURATION));
     }
 }
