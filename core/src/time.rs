@@ -690,7 +690,7 @@ impl Display for MusicalTime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}.{}.{}",
+            "{:5}.{:02}.{:05}",
             self.total_beats(),
             self.parts(),
             self.units()
