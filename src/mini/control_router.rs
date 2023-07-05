@@ -109,7 +109,7 @@ mod tests {
         fn thing_type(&self) -> ThingType {
             ThingType::Instrument
         }
-        fn as_instrument_mut(&mut self) -> Option<&mut dyn IsInstrument> {
+        fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
             Some(self)
         }
     }
