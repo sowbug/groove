@@ -153,7 +153,7 @@ pub struct Oscillator {
     #[cfg_attr(feature = "serialization", serde(skip))]
     delta: f64,
     #[cfg_attr(feature = "serialization", serde(skip))]
-    delta_needs_update: bool,
+    delta_updated: bool,
 
     // Whether this oscillator's owner should sync other oscillators to this
     // one. Calculated during tick().
@@ -167,7 +167,7 @@ pub struct Oscillator {
 
     // Set on init and reset().
     #[cfg_attr(feature = "serialization", serde(skip))]
-    is_reset_pending: bool,
+    reset_handled: bool,
 }
 impl Default for Oscillator {
     fn default() -> Self {
@@ -185,10 +185,10 @@ impl Default for Oscillator {
             signal: Default::default(),
             cycle_position: Default::default(),
             delta: Default::default(),
-            delta_needs_update: true,
+            delta_updated: Default::default(),
             should_sync: Default::default(),
             is_sync_pending: Default::default(),
-            is_reset_pending: true,
+            reset_handled: Default::default(),
         }
     }
 }
@@ -207,13 +207,13 @@ impl Generates<BipolarNormal> for Oscillator {
 impl Configurable for Oscillator {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
-        self.is_reset_pending = true;
+        self.reset_handled = false;
     }
 }
 impl Ticks for Oscillator {
     fn tick(&mut self, tick_count: usize) {
         for _ in 0..tick_count {
-            if self.is_reset_pending {
+            if !self.reset_handled {
                 self.ticks = 0; // TODO: this might not be the right thing to do
 
                 self.update_delta();
@@ -229,23 +229,22 @@ impl Ticks for Oscillator {
 
             // We need this to be at the end of tick() because any code running
             // during tick() might look at it.
-            self.is_reset_pending = false;
+            self.reset_handled = true;
         }
     }
 }
 
 impl Oscillator {
     pub fn new_with(params: &OscillatorParams) -> Self {
-        let mut r = Self::default();
-        r.waveform = params.waveform();
-        r.frequency = params.frequency();
-        // TODO https://github.com/sowbug/groove/issues/135
-        // r.fixed_frequency = params.fixed_frequency();
-        r.frequency_tune = params.frequency_tune();
-        r.frequency_modulation = params.frequency_modulation();
-        r.delta_needs_update = true;
-        r.is_reset_pending = true;
-        r
+        Self {
+            waveform: params.waveform(),
+            frequency: params.frequency(),
+            // TODO https://github.com/sowbug/groove/issues/135
+            // fixed_frequency: params.fixed_frequency(),
+            frequency_tune: params.frequency_tune(),
+            frequency_modulation: params.frequency_modulation(),
+            ..Default::default()
+        }
     }
 
     fn adjusted_frequency(&self) -> FrequencyHz {
@@ -262,22 +261,22 @@ impl Oscillator {
 
     pub fn set_frequency(&mut self, frequency: FrequencyHz) {
         self.frequency = frequency;
-        self.delta_needs_update = true;
+        self.delta_updated = false;
     }
 
     pub fn set_fixed_frequency(&mut self, frequency: FrequencyHz) {
         self.fixed_frequency = Some(frequency);
-        self.delta_needs_update = true;
+        self.delta_updated = false;
     }
 
     pub fn set_frequency_modulation(&mut self, frequency_modulation: BipolarNormal) {
         self.frequency_modulation = frequency_modulation;
-        self.delta_needs_update = true;
+        self.delta_updated = false;
     }
 
     pub fn set_linear_frequency_modulation(&mut self, linear_frequency_modulation: ParameterType) {
         self.linear_frequency_modulation = linear_frequency_modulation;
-        self.delta_needs_update = true;
+        self.delta_updated = false;
     }
 
     pub fn waveform(&self) -> Waveform {
@@ -309,14 +308,14 @@ impl Oscillator {
     }
 
     fn update_delta(&mut self) {
-        if self.delta_needs_update {
+        if !self.delta_updated {
             self.delta =
                 (self.adjusted_frequency() / FrequencyHz::from(self.sample_rate.value())).0;
 
             // This resets the accumulated error.
             self.cycle_position = KahanSum::new_with_value(self.cycle_position.sum());
 
-            self.delta_needs_update = false;
+            self.delta_updated = true;
         }
     }
 
@@ -341,14 +340,14 @@ impl Oscillator {
 
         // If we haven't just reset, add delta to the previous position and mod
         // 1.0.
-        let next_cycle_position_unrounded = if self.is_reset_pending {
+        let next_cycle_position_unrounded = if !self.reset_handled {
             0.0
         } else {
             self.cycle_position += self.delta;
             self.cycle_position.sum()
         };
 
-        self.should_sync = if self.is_reset_pending {
+        self.should_sync = if !self.reset_handled {
             // If we're in the first post-reset tick(), then we want other
             // oscillators to sync.
             true
