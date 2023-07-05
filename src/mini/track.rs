@@ -1,6 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::{
+    control_atlas::ControlAtlas,
     control_router::ControlRouter,
     entity_factory::{Thing, ThingStore, ThingType},
     humidifier::Humidifier,
@@ -108,6 +109,7 @@ pub struct Track {
     ty: TrackType,
 
     sequencer: Option<MiniSequencer>,
+    control_atlas: Option<ControlAtlas>,
     thing_store: ThingStore,
     controllers: Vec<Uid>,
     instruments: Vec<Uid>,
@@ -129,6 +131,7 @@ impl Default for Track {
             name: String::from("Untitled"),
             ty: Default::default(),
             sequencer: Default::default(),
+            control_atlas: Default::default(),
             thing_store: Default::default(),
             controllers: Default::default(),
             instruments: Default::default(),
@@ -697,14 +700,33 @@ impl Ticks for Track {
 }
 impl Configurable for Track {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        if let Some(sequencer) = self.sequencer.as_mut() {
+            sequencer.update_sample_rate(sample_rate);
+        }
+        if let Some(atlas) = self.control_atlas.as_mut() {
+            atlas.update_sample_rate(sample_rate);
+        }
         self.thing_store.update_sample_rate(sample_rate);
     }
 
     fn update_tempo(&mut self, tempo: Tempo) {
+        if let Some(sequencer) = self.sequencer.as_mut() {
+            sequencer.update_tempo(tempo);
+        }
+        if let Some(atlas) = self.control_atlas.as_mut() {
+            atlas.update_tempo(tempo)
+        }
         self.thing_store.update_tempo(tempo);
     }
 
     fn update_time_signature(&mut self, time_signature: TimeSignature) {
+        if let Some(sequencer) = self.sequencer.as_mut() {
+            sequencer.update_time_signature(time_signature);
+        }
+        if let Some(atlas) = self.control_atlas.as_mut() {
+            atlas.update_time_signature(time_signature);
+        }
+
         self.thing_store.update_time_signature(time_signature);
     }
 }
@@ -735,15 +757,35 @@ impl Controls for Track {
     type Message = EntityMessage;
 
     fn update_time(&mut self, range: &std::ops::Range<groove_core::time::MusicalTime>) {
+        if let Some(sequencer) = self.sequencer.as_mut() {
+            sequencer.update_time(range);
+        }
+        if let Some(atlas) = self.control_atlas.as_mut() {
+            atlas.update_time(range);
+        }
         self.thing_store.update_time(range);
     }
 
     fn work(&mut self, control_messages_fn: &mut ControlMessagesFn<Self::Message>) {
+        if let Some(sequencer) = self.sequencer.as_mut() {
+            sequencer.work(control_messages_fn);
+        }
+        if let Some(atlas) = self.control_atlas.as_mut() {
+            atlas.work(control_messages_fn);
+        }
         self.thing_store.work(control_messages_fn);
     }
 
     fn is_finished(&self) -> bool {
-        self.thing_store.is_finished()
+        (if let Some(sequencer) = &self.sequencer {
+            sequencer.is_finished()
+        } else {
+            true
+        }) && (if let Some(atlas) = &self.control_atlas {
+            atlas.is_finished()
+        } else {
+            true
+        }) && self.thing_store.is_finished()
     }
 }
 impl Performs for Track {

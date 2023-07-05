@@ -437,11 +437,11 @@ impl Controls for MiniSequencer {
     }
 
     fn work(&mut self, _: &mut ControlMessagesFn<Self::Message>) {
-        todo!()
+        // TODO
     }
 
     fn is_finished(&self) -> bool {
-        todo!()
+        true
     }
 }
 impl Configurable for MiniSequencer {}

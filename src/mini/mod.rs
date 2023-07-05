@@ -15,6 +15,7 @@ use crossbeam_channel::{Receiver, Sender};
 use groove_core::Uid;
 use serde::{Deserialize, Serialize};
 
+mod control_atlas;
 mod control_router;
 mod drag_drop;
 mod entities;

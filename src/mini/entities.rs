@@ -1,6 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::{entity_factory::ThingType, EntityFactory, Key, MiniSequencerParams, Transport};
+use super::{
+    control_atlas::ControlAtlas, entity_factory::ThingType, EntityFactory, Key,
+    MiniSequencerParams, Transport,
+};
 use crate::mini::{entity_factory::Thing, MiniSequencer};
 use groove_core::{
     generators::Waveform,
@@ -48,6 +51,18 @@ impl Thing for BiQuadFilterLowPass24db {
         Some(self)
     }
     fn as_effect_mut(&mut self) -> Option<&mut dyn IsEffect> {
+        Some(self)
+    }
+}
+#[typetag::serde]
+impl Thing for ControlAtlas {
+    fn thing_type(&self) -> ThingType {
+        ThingType::Controller
+    }
+    fn as_controller(&self) -> Option<&dyn IsController<Message = EntityMessage>> {
+        Some(self)
+    }
+    fn as_controller_mut(&mut self) -> Option<&mut dyn IsController<Message = EntityMessage>> {
         Some(self)
     }
 }
