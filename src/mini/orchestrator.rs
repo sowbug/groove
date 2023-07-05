@@ -445,30 +445,6 @@ impl MiniOrchestrator {
         Ok(uid)
     }
 
-    // /// The entities receiving on the given MIDI channel.
-    // pub fn midi_receivers(&mut self, channel: &MidiChannel) -> &Vec<Uid> {
-    //     self.mi
-    //     self.midi_channel_to_receiver_uid
-    //         .entry(*channel)
-    //         .or_default()
-    // }
-
-    // /// Connect an entity to the given MIDI channel.
-    // pub fn connect_midi_receiver(&mut self, receiver_uid: Uid, channel: MidiChannel) {
-    //     self.midi_channel_to_receiver_uid
-    //         .entry(channel)
-    //         .or_default()
-    //         .push(receiver_uid);
-    // }
-
-    // /// Disconnect an entity from the given MIDI channel.
-    // pub fn disconnect_midi_receiver(&mut self, receiver_uid: Uid, channel: MidiChannel) {
-    //     self.midi_channel_to_receiver_uid
-    //         .entry(channel)
-    //         .or_default()
-    //         .retain(|&uid| uid != receiver_uid);
-    // }
-
     fn calculate_is_finished(&self) -> bool {
         self.tracks.iter().all(|t| t.is_finished())
     }
