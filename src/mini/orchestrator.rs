@@ -1,6 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::{
+    control_router::ControlRouter,
     entity_factory::{EntityFactory, Thing},
     track::{Track, TrackAction, TrackFactory, TrackIndex},
     transport::Transport,
@@ -14,7 +15,7 @@ use groove_core::{
     midi::{MidiChannel, MidiMessage, MidiMessagesFn},
     time::{MusicalTime, SampleRate, Tempo},
     traits::{
-        gui::Shows, Configurable, ControlMessagesFn, Controls, Generates,
+        gui::Shows, Configurable, ControlMessagesFn, Controllable, Controls, Generates,
         GeneratesToInternalBuffer, HandlesMidi, HasUid, Performs, Ticks,
     },
     Sample, StereoSample, Uid,
@@ -43,6 +44,7 @@ pub struct MiniOrchestrator {
     /// The user-supplied name of this project.
     title: Option<String>,
     transport: Transport,
+    control_router: ControlRouter,
 
     track_factory: TrackFactory,
     tracks: Vec<Track>,
@@ -64,6 +66,7 @@ impl Default for MiniOrchestrator {
         Self {
             title: None,
             transport: Default::default(),
+            control_router: Default::default(),
 
             tracks: vec![
                 track_factory.midi(),
@@ -490,9 +493,18 @@ impl MiniOrchestrator {
         }
     }
 
-    fn route_control_change(&mut self, uid: Uid, value: ControlValue) {
+    fn route_control_change(&mut self, source_uid: Uid, value: ControlValue) {
+        let _ = self.control_router.route(
+            &mut |target_uid, index, value| {
+                if target_uid == &self.transport.uid() {
+                    self.transport.control_set_param_by_index(index.0, value);
+                }
+            },
+            source_uid,
+            value,
+        );
         for t in self.tracks.iter_mut() {
-            t.route_control_change(uid, value);
+            t.route_control_change(source_uid, value);
         }
     }
 

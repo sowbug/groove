@@ -1,14 +1,17 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::{entity_factory::ThingType, EntityFactory, Key, MiniSequencerParams};
+use super::{entity_factory::ThingType, EntityFactory, Key, MiniSequencerParams, Transport};
 use crate::mini::{entity_factory::Thing, MiniSequencer};
 use groove_core::{
+    generators::Waveform,
     midi::MidiChannel,
     traits::{HandlesMidi, IsController, IsEffect, IsInstrument},
-    Normal,
+    FrequencyHz, Normal,
 };
 use groove_entities::{
-    controllers::{Arpeggiator, ArpeggiatorParams, Timer, ToyController},
+    controllers::{
+        Arpeggiator, ArpeggiatorParams, LfoController, LfoControllerParams, Timer, ToyController,
+    },
     effects::{BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbParams, Reverb, ReverbParams},
     instruments::{Drumkit, DrumkitParams, WelshSynth, WelshSynthParams},
     EntityMessage,
@@ -57,6 +60,24 @@ impl Thing for Drumkit {
         Some(self)
     }
     fn as_instrument_mut(&mut self) -> Option<&mut dyn IsInstrument> {
+        Some(self)
+    }
+    fn as_handles_midi(&self) -> Option<&dyn HandlesMidi> {
+        Some(self)
+    }
+    fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
+        Some(self)
+    }
+}
+#[typetag::serde]
+impl Thing for LfoController {
+    fn thing_type(&self) -> ThingType {
+        ThingType::Controller
+    }
+    fn as_controller(&self) -> Option<&dyn IsController<Message = EntityMessage>> {
+        Some(self)
+    }
+    fn as_controller_mut(&mut self) -> Option<&mut dyn IsController<Message = EntityMessage>> {
         Some(self)
     }
     fn as_handles_midi(&self) -> Option<&dyn HandlesMidi> {
@@ -184,6 +205,18 @@ impl Thing for ToySynth {
     }
 }
 #[typetag::serde]
+impl Thing for Transport {
+    fn thing_type(&self) -> ThingType {
+        ThingType::Controller
+    }
+    fn as_controller(&self) -> Option<&dyn IsController<Message = EntityMessage>> {
+        Some(self)
+    }
+    fn as_controller_mut(&mut self) -> Option<&mut dyn IsController<Message = EntityMessage>> {
+        Some(self)
+    }
+}
+#[typetag::serde]
 impl Thing for WelshSynth {
     fn thing_type(&self) -> ThingType {
         ThingType::Instrument
@@ -245,6 +278,12 @@ pub fn register_mini_factory_entities(factory: &mut EntityFactory) {
             &DrumkitParams::default(),
             &Paths::default(),
         ))
+    });
+    factory.register_thing(Key::from("lfo"), || {
+        Box::new(LfoController::new_with(&LfoControllerParams {
+            frequency: FrequencyHz(0.2),
+            waveform: Waveform::Sawtooth,
+        }))
     });
 }
 

@@ -31,7 +31,6 @@ pub struct LfoController {
     #[params]
     frequency: FrequencyHz,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
     oscillator: Oscillator,
 
     #[cfg_attr(feature = "serialization", serde(skip))]

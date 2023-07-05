@@ -1,9 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use eframe::epaint::vec2;
+use eframe::{egui::Layout, emath::Align, epaint::vec2};
 use groove_core::{
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
-    traits::{Configurable, Controls, Performs},
+    traits::{
+        gui::Shows, Configurable, ControlMessagesFn, Controls, HandlesMidi, IsController, Performs,
+    },
     Uid,
 };
 use groove_entities::EntityMessage;
@@ -18,7 +20,6 @@ pub struct Transport {
     uid: Uid,
 
     /// The current global time signature.
-    #[control]
     time_signature: TimeSignature,
 
     /// The current beats per minute.
@@ -32,6 +33,8 @@ pub struct Transport {
     #[serde(skip)]
     sample_rate: SampleRate,
 }
+impl IsController for Transport {}
+impl HandlesMidi for Transport {}
 impl Transport {
     /// Returns the current [Tempo].
     pub fn tempo(&self) -> Tempo {
@@ -70,7 +73,9 @@ impl Transport {
     pub fn show(&self, ui: &mut eframe::egui::Ui) {
         ui.allocate_ui(vec2(72.0, 20.0), |ui| {
             ui.set_min_width(128.0);
-            ui.label(format!("{}", self.tempo));
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                ui.label(format!("{:0.2}", self.tempo))
+            });
         });
         ui.allocate_ui(vec2(72.0, 20.0), |ui| {
             ui.set_min_width(128.0);
@@ -78,6 +83,7 @@ impl Transport {
         });
     }
 }
+impl Shows for Transport {}
 impl Configurable for Transport {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -121,10 +127,7 @@ impl Controls for Transport {
         );
     }
 
-    fn work(
-        &mut self,
-        control_messages_fn: &mut groove_core::traits::ControlMessagesFn<Self::Message>,
-    ) {
+    fn work(&mut self, _control_messages_fn: &mut ControlMessagesFn<Self::Message>) {
         // nothing, but in the future we might want to propagate a tempo or time-sig change
     }
 

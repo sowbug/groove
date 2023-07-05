@@ -620,7 +620,19 @@ impl Track {
     }
 
     pub fn route_control_change(&mut self, uid: Uid, value: ControlValue) {
-        if let Err(e) = self.control_router.route(&mut self.thing_store, uid, value) {
+        if let Err(e) = self.control_router.route(
+            &mut |target_uid, index, value| {
+                if let Some(e) = self.thing_store.get_mut(target_uid) {
+                    if let Some(e) = e.as_instrument_mut() {
+                        e.control_set_param_by_index(index.0, value);
+                    } else if let Some(e) = e.as_effect_mut() {
+                        e.control_set_param_by_index(index.0, value);
+                    }
+                }
+            },
+            uid,
+            value,
+        ) {
             eprintln!("While routing control change: {e}")
         }
     }

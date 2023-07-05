@@ -1,6 +1,5 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::entity_factory::ThingStore;
 use groove_core::{
     control::{ControlIndex, ControlValue},
     Uid,
@@ -39,24 +38,13 @@ impl ControlRouter {
 
     pub fn route(
         &mut self,
-        entity_store: &mut ThingStore,
+        entity_store_fn: &mut dyn FnMut(&Uid, ControlIndex, ControlValue),
         source_uid: Uid,
         value: ControlValue,
     ) -> anyhow::Result<()> {
         if let Some(control_links) = self.control_links(source_uid) {
             control_links.iter().for_each(|(target_uid, index)| {
-                if let Some(e) = entity_store.get_mut(target_uid) {
-                    // TODO: I got lazy here because I don't have an
-                    // as_controllable_mut() yet. If/when we set up the macro to
-                    // generate these easily, then extend to add that.
-                    if let Some(e) = e.as_instrument_mut() {
-                        e.control_set_param_by_index(index.0, value);
-                    } else if let Some(e) = e.as_effect_mut() {
-                        e.control_set_param_by_index(index.0, value);
-                    }
-                } else {
-                    eprintln!("Warning: Couldn't find uid {target_uid} during control routing from {source_uid}. This might be OK because an entity lives in just one Track.");
-                }
+                entity_store_fn(target_uid, *index, value);
             });
         }
         Ok(())
@@ -66,7 +54,7 @@ impl ControlRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mini::entity_factory::{Thing, ThingType};
+    use crate::mini::entity_factory::{Thing, ThingStore, ThingType};
     use groove_core::{
         traits::{
             gui::Shows, Configurable, Controllable, Generates, HandlesMidi, IsInstrument, Ticks,
@@ -176,7 +164,19 @@ mod tests {
         let controllable = TestControllable::new_with(target_2_uid, Arc::clone(&tracker));
         es.add(Box::new(controllable));
 
-        let _ = cr.route(&mut es, source_uid, ControlValue(0.5));
+        let _ = cr.route(
+            &mut |target_uid, index, value| {
+                if let Some(e) = es.get_mut(target_uid) {
+                    if let Some(e) = e.as_instrument_mut() {
+                        e.control_set_param_by_index(index.0, value);
+                    } else if let Some(e) = e.as_effect_mut() {
+                        e.control_set_param_by_index(index.0, value);
+                    }
+                }
+            },
+            source_uid,
+            ControlValue(0.5),
+        );
         if let Ok(t) = tracker.read() {
             assert_eq!(
                 t.len(),
@@ -193,7 +193,19 @@ mod tests {
             t.clear();
         }
         cr.unlink_control(source_uid, target_uid, ControlIndex(99));
-        let _ = cr.route(&mut es, source_uid, ControlValue(0.5));
+        let _ = cr.route(
+            &mut |target_uid, index, value| {
+                if let Some(e) = es.get_mut(target_uid) {
+                    if let Some(e) = e.as_instrument_mut() {
+                        e.control_set_param_by_index(index.0, value);
+                    } else if let Some(e) = e.as_effect_mut() {
+                        e.control_set_param_by_index(index.0, value);
+                    }
+                }
+            },
+            source_uid,
+            ControlValue(0.5),
+        );
         if let Ok(t) = tracker.read() {
             assert_eq!(
                 t.len(),
@@ -207,7 +219,19 @@ mod tests {
             t.clear();
         }
         cr.unlink_control(source_uid, target_uid, ControlIndex(0));
-        let _ = cr.route(&mut es, source_uid, ControlValue(0.5));
+        let _ = cr.route(
+            &mut |target_uid, index, value| {
+                if let Some(e) = es.get_mut(target_uid) {
+                    if let Some(e) = e.as_instrument_mut() {
+                        e.control_set_param_by_index(index.0, value);
+                    } else if let Some(e) = e.as_effect_mut() {
+                        e.control_set_param_by_index(index.0, value);
+                    }
+                }
+            },
+            source_uid,
+            ControlValue(0.5),
+        );
         if let Ok(t) = tracker.read() {
             assert_eq!(
                 t.len(),
