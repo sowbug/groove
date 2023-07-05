@@ -30,7 +30,7 @@ mod tests {
 
     mod params {
         use groove_core::{
-            control::ControlValue,
+            control::{ControlIndex, ControlValue},
             traits::{Configurable, Controllable},
         };
         use groove_proc_macros::{Control, Params, Uid};
@@ -295,11 +295,11 @@ mod tests {
 
             assert_eq!(a.control_index_count(), 3);
 
-            b.control_set_param_by_index(0, a.apple_count().into());
+            b.control_set_param_by_index(ControlIndex(0), a.apple_count().into());
             assert_ne!(a, b);
-            b.control_set_param_by_index(1, a.banana_quality().into());
+            b.control_set_param_by_index(ControlIndex(1), a.banana_quality().into());
             assert_ne!(a, b);
-            b.control_set_param_by_index(2, a.cherry().into());
+            b.control_set_param_by_index(ControlIndex(2), a.cherry().into());
             assert_ne!(a, b);
 
             b.set_abnormal(a.abnormal());
@@ -311,15 +311,27 @@ mod tests {
         fn control_ergonomics() {
             let a: Stuff = Stuff::new(StuffParams::make_fake());
 
-            assert_eq!(a.control_name_for_index(2), Some("cherry".to_string()));
+            assert_eq!(
+                a.control_name_for_index(ControlIndex(2)),
+                Some("cherry".to_string())
+            );
             assert_eq!(a.control_index_count(), 3);
-            assert_eq!(a.control_name_for_index(a.control_index_count()), None);
+            assert_eq!(
+                a.control_name_for_index(ControlIndex(a.control_index_count())),
+                None
+            );
 
             let a = Misc::new(MiscParams::make_fake());
 
-            assert_eq!(a.control_name_for_index(0), Some("cat-count".to_string()));
+            assert_eq!(
+                a.control_name_for_index(ControlIndex(0)),
+                Some("cat-count".to_string())
+            );
             assert_eq!(a.control_index_count(), 2 + 3);
-            assert_eq!(a.control_name_for_index(a.control_index_count()), None);
+            assert_eq!(
+                a.control_name_for_index(ControlIndex(a.control_index_count())),
+                None
+            );
         }
     }
 }

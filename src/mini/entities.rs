@@ -8,7 +8,7 @@ use crate::mini::{entity_factory::Thing, MiniSequencer};
 use groove_core::{
     generators::Waveform,
     midi::MidiChannel,
-    traits::{HandlesMidi, IsController, IsEffect, IsInstrument},
+    traits::{Controllable, HandlesMidi, IsController, IsEffect, IsInstrument},
     FrequencyHz, Normal,
 };
 use groove_entities::{
@@ -53,6 +53,9 @@ impl Thing for BiQuadFilterLowPass24db {
     fn as_effect_mut(&mut self) -> Option<&mut dyn IsEffect> {
         Some(self)
     }
+    fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
+        Some(self)
+    }
 }
 #[typetag::serde]
 impl Thing for ControlAtlas {
@@ -81,6 +84,9 @@ impl Thing for Drumkit {
         Some(self)
     }
     fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
+        Some(self)
+    }
+    fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
         Some(self)
     }
 }
@@ -129,6 +135,9 @@ impl Thing for Reverb {
         Some(self)
     }
     fn as_effect_mut(&mut self) -> Option<&mut dyn IsEffect> {
+        Some(self)
+    }
+    fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
         Some(self)
     }
 }
@@ -182,6 +191,9 @@ impl Thing for ToyEffect {
     fn as_effect_mut(&mut self) -> Option<&mut dyn IsEffect> {
         Some(self)
     }
+    fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
+        Some(self)
+    }
 }
 #[typetag::serde]
 impl Thing for ToyInstrument {
@@ -200,6 +212,9 @@ impl Thing for ToyInstrument {
     fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
         Some(self)
     }
+    fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
+        Some(self)
+    }
 }
 #[typetag::serde]
 impl Thing for ToySynth {
@@ -216,6 +231,9 @@ impl Thing for ToySynth {
         Some(self)
     }
     fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
+        Some(self)
+    }
+    fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
         Some(self)
     }
 }
@@ -246,6 +264,9 @@ impl Thing for WelshSynth {
         Some(self)
     }
     fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
+        Some(self)
+    }
+    fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
         Some(self)
     }
 }

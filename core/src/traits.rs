@@ -2,7 +2,7 @@
 
 pub use crate::midi::HandlesMidi;
 use crate::{
-    control::ControlValue,
+    control::{ControlIndex, ControlValue},
     midi::u7,
     time::{MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
     Normal, Sample, StereoSample, Uid,
@@ -91,16 +91,16 @@ pub trait Controllable {
     fn control_index_count(&self) -> usize {
         unimplemented!()
     }
-    fn control_index_for_name(&self, name: &str) -> Option<usize> {
+    fn control_index_for_name(&self, name: &str) -> Option<ControlIndex> {
         unimplemented!("Controllable trait methods are implemented by the Control #derive macro")
     }
-    fn control_name_for_index(&self, index: usize) -> Option<String> {
+    fn control_name_for_index(&self, index: ControlIndex) -> Option<String> {
         unimplemented!()
     }
     fn control_set_param_by_name(&mut self, name: &str, value: ControlValue) {
         unimplemented!()
     }
-    fn control_set_param_by_index(&mut self, index: usize, value: ControlValue) {
+    fn control_set_param_by_index(&mut self, index: ControlIndex, value: ControlValue) {
         unimplemented!()
     }
 }

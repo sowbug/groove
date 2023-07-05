@@ -81,9 +81,9 @@ mod tests {
     }
     impl IsInstrument for TestControllable {}
     impl Controllable for TestControllable {
-        fn control_set_param_by_index(&mut self, index: usize, value: ControlValue) {
+        fn control_set_param_by_index(&mut self, index: ControlIndex, value: ControlValue) {
             if let Ok(mut tracker) = self.tracker.write() {
-                tracker.push((self.uid, ControlIndex(index), value));
+                tracker.push((self.uid, index, value));
             }
         }
     }
@@ -167,10 +167,8 @@ mod tests {
         let _ = cr.route(
             &mut |target_uid, index, value| {
                 if let Some(e) = es.get_mut(target_uid) {
-                    if let Some(e) = e.as_instrument_mut() {
-                        e.control_set_param_by_index(index.0, value);
-                    } else if let Some(e) = e.as_effect_mut() {
-                        e.control_set_param_by_index(index.0, value);
+                    if let Some(e) = e.as_controllable_mut() {
+                        e.control_set_param_by_index(index, value);
                     }
                 }
             },
@@ -196,10 +194,8 @@ mod tests {
         let _ = cr.route(
             &mut |target_uid, index, value| {
                 if let Some(e) = es.get_mut(target_uid) {
-                    if let Some(e) = e.as_instrument_mut() {
-                        e.control_set_param_by_index(index.0, value);
-                    } else if let Some(e) = e.as_effect_mut() {
-                        e.control_set_param_by_index(index.0, value);
+                    if let Some(e) = e.as_controllable_mut() {
+                        e.control_set_param_by_index(index, value);
                     }
                 }
             },
@@ -222,10 +218,8 @@ mod tests {
         let _ = cr.route(
             &mut |target_uid, index, value| {
                 if let Some(e) = es.get_mut(target_uid) {
-                    if let Some(e) = e.as_instrument_mut() {
-                        e.control_set_param_by_index(index.0, value);
-                    } else if let Some(e) = e.as_effect_mut() {
-                        e.control_set_param_by_index(index.0, value);
+                    if let Some(e) = e.as_controllable_mut() {
+                        e.control_set_param_by_index(index, value);
                     }
                 }
             },

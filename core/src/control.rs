@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ControlName(pub String);
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ControlIndex(pub usize);
 #[derive(Debug, Clone, Copy, Default, PartialEq)]

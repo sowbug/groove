@@ -5,6 +5,7 @@
 #[cfg(feature = "iced-framework")]
 use crate::entities::OtherEntityMessage;
 use groove_core::{
+    control::ControlIndex,
     midi::{MidiChannel, MidiMessage},
     time::SampleRate,
     traits::MessageBounds,
@@ -74,7 +75,7 @@ impl MessageBounds for GrooveEvent {}
 pub struct ControlLink {
     pub source_uid: Uid,
     pub target_uid: Uid,
-    pub control_index: usize,
+    pub control_index: ControlIndex,
 }
 
 #[derive(Debug)]

@@ -626,10 +626,8 @@ impl Track {
         if let Err(e) = self.control_router.route(
             &mut |target_uid, index, value| {
                 if let Some(e) = self.thing_store.get_mut(target_uid) {
-                    if let Some(e) = e.as_instrument_mut() {
-                        e.control_set_param_by_index(index.0, value);
-                    } else if let Some(e) = e.as_effect_mut() {
-                        e.control_set_param_by_index(index.0, value);
+                    if let Some(e) = e.as_controllable_mut() {
+                        e.control_set_param_by_index(index, value);
                     }
                 }
             },

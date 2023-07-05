@@ -8,7 +8,7 @@ use anyhow::anyhow;
 use core::fmt::Debug;
 use crossbeam::deque::Worker;
 use groove_core::{
-    control::ControlValue,
+    control::{ControlIndex, ControlValue},
     midi::{MidiChannel, MidiMessage},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
     traits::{Configurable, Performs},
@@ -182,7 +182,7 @@ impl Orchestrator {
         &mut self,
         source_uid: Uid,
         target_uid: Uid,
-        control_index: usize,
+        control_index: ControlIndex,
     ) -> anyhow::Result<()> {
         if let Some(target) = self.store.get(target_uid) {
             if target.as_controllable().is_some() {
@@ -244,7 +244,7 @@ impl Orchestrator {
         &mut self,
         controller_uid: Uid,
         target_uid: Uid,
-        control_index: usize,
+        control_index: ControlIndex,
     ) {
         self.store
             .unlink_control(controller_uid, target_uid, control_index);
@@ -937,7 +937,7 @@ impl Orchestrator {
         &self.clock
     }
 
-    fn handle_control(&mut self, uid: Uid, param_id: usize, value: ControlValue) {
+    fn handle_control(&mut self, uid: Uid, param_id: ControlIndex, value: ControlValue) {
         if let Some(entity) = self.store.get_mut(uid) {
             if let Some(controllable) = entity.as_controllable_mut() {
                 controllable.control_set_param_by_index(param_id, value);
@@ -1327,7 +1327,7 @@ pub(crate) struct Store {
     uid_to_item: FxHashMap<Uid, Entity>,
 
     /// Linked controls (one entity controls another entity's parameter)
-    uid_to_control: FxHashMap<Uid, Vec<(Uid, usize)>>,
+    uid_to_control: FxHashMap<Uid, Vec<(Uid, ControlIndex)>>,
 
     /// Same as uid_to_control but flattened
     flattened_control_links: Vec<ControlLink>,
@@ -1412,7 +1412,12 @@ impl Store {
         self.last_uid
     }
 
-    pub(crate) fn link_control(&mut self, source_uid: Uid, target_uid: Uid, control_index: usize) {
+    pub(crate) fn link_control(
+        &mut self,
+        source_uid: Uid,
+        target_uid: Uid,
+        control_index: ControlIndex,
+    ) {
         self.uid_to_control
             .entry(source_uid)
             .or_default()
@@ -1428,7 +1433,7 @@ impl Store {
         &mut self,
         source_uid: Uid,
         target_uid: Uid,
-        control_index: usize,
+        control_index: ControlIndex,
     ) {
         self.uid_to_control
             .entry(source_uid)
@@ -1450,7 +1455,7 @@ impl Store {
         }
     }
 
-    pub(crate) fn control_links(&self, source_uid: Uid) -> Option<&Vec<(Uid, usize)>> {
+    pub(crate) fn control_links(&self, source_uid: Uid) -> Option<&Vec<(Uid, ControlIndex)>> {
         self.uid_to_control.get(&source_uid)
     }
 

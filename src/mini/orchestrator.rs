@@ -473,7 +473,7 @@ impl MiniOrchestrator {
         let _ = self.control_router.route(
             &mut |target_uid, index, value| {
                 if target_uid == &self.transport.uid() {
-                    self.transport.control_set_param_by_index(index.0, value);
+                    self.transport.control_set_param_by_index(index, value);
                 }
             },
             source_uid,

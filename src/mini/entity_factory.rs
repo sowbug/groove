@@ -5,8 +5,8 @@ use derive_more::Display;
 use groove_core::{
     time::{SampleRate, Tempo, TimeSignature},
     traits::{
-        gui::Shows, Configurable, ControlMessagesFn, Controls, HandlesMidi, HasUid, IsController,
-        IsEffect, IsInstrument, Performs, Ticks,
+        gui::Shows, Configurable, ControlMessagesFn, Controllable, Controls, HandlesMidi, HasUid,
+        IsController, IsEffect, IsInstrument, Performs, Ticks,
     },
     Uid,
 };
@@ -141,6 +141,9 @@ pub trait Thing: HasUid + Shows + Configurable + Debug + Send {
         None
     }
     fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
+        None
+    }
+    fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
         None
     }
 }

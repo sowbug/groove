@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    control::ControlValue,
+    control::{ControlIndex, ControlValue},
     midi::{MidiChannel, MidiMessage},
     traits::MessageBounds,
 };
@@ -28,6 +28,6 @@ pub enum EntityMessage {
 
     /// Sent by system to every entity that subscribes to a control.
     #[deprecated]
-    HandleControl(usize, ControlValue),
+    HandleControl(ControlIndex, ControlValue),
 }
 impl MessageBounds for EntityMessage {}

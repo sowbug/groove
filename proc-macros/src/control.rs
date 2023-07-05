@@ -161,22 +161,22 @@ pub(crate) fn impl_control_derive(input: TokenStream, primitives: &HashSet<Ident
             } else {
                 let field_index_name = index_const_id(ident);
                 let name_const = name_const_id(ident);
-                id_bodies.push(quote! { Some(format!("{}-{}", Self::#name_const, self.#ident.control_name_for_index(index - Self::#field_index_name).unwrap()))});
+                id_bodies.push(quote! { Some(format!("{}-{}", Self::#name_const, self.#ident.control_name_for_index(#core_crate::control::ControlIndex(index.0 - Self::#field_index_name)).unwrap()))});
                 setter_bodies
-                    .push(quote! {self.#ident.control_set_param_by_index(index - Self::#field_index_name, value);});
+                    .push(quote! {self.#ident.control_set_param_by_index(#core_crate::control::ControlIndex(index.0 - Self::#field_index_name), value);});
             }
         });
         let control_name_for_index_body = quote! {
-            fn control_name_for_index(&self, index: usize) -> Option<String> {
-                match index {
+            fn control_name_for_index(&self, index: #core_crate::control::ControlIndex) -> Option<String> {
+                match index.0 {
                     #( Self::#index_const_ids..=Self::#index_const_range_end_ids => {#id_bodies}, )*
                     _ => {None},
                 }
             }
         };
         let control_set_param_by_index_bodies = quote! {
-            fn control_set_param_by_index(&mut self, index: usize, value: #core_crate::control::ControlValue) {
-                match index {
+            fn control_set_param_by_index(&mut self, index: #core_crate::control::ControlIndex, value: #core_crate::control::ControlValue) {
+                match index.0 {
                     #( Self::#index_const_ids..=Self::#index_const_range_end_ids => {#setter_bodies}, )*
                     _ => {},
                 }
@@ -207,14 +207,14 @@ pub(crate) fn impl_control_derive(input: TokenStream, primitives: &HashSet<Ident
             }
         });
         let control_index_for_name_body = quote! {
-            fn control_index_for_name(&self, name: &str) -> Option<usize> {
+            fn control_index_for_name(&self, name: &str) -> Option<#core_crate::control::ControlIndex> {
                 match name {
-                    #( #leaf_names => Some(#leaf_indexes), )*
+                    #( #leaf_names => Some(#core_crate::control::ControlIndex(#leaf_indexes)), )*
                     _ => {
                         #(
                             if name.starts_with(#node_names) {
                                 if let Some(r) = self.#node_fields.control_index_for_name(&name[#node_field_lens..]) {
-                                    return Some(r + #node_indexes)
+                                    return Some(#core_crate::control::ControlIndex(r.0 + #node_indexes))
                                 }
                             }
                         )*
