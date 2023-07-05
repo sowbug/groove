@@ -563,7 +563,7 @@ impl Dca {
 /// Eventually we might impose a non-negative restriction on this type.
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct FrequencyHz(ParameterType);
+pub struct FrequencyHz(pub ParameterType);
 impl FrequencyHz {
     pub const FREQUENCY_TO_LINEAR_BASE: ParameterType = 800.0;
     pub const FREQUENCY_TO_LINEAR_COEFFICIENT: ParameterType = 25.0;
