@@ -110,6 +110,10 @@ serialization = [
 ]
 visualization = ["dep:plotters", "dep:spectrum-analyzer"]
 
+[build-dependencies]
+clap_mangen = "0.2.12"
+clap = { version = "4.0", features = ["derive"] }
+
 [package.metadata.cross.target.aarch64-unknown-linux-gnu]
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
@@ -135,12 +139,13 @@ assets = [
     # "You can use target/release/ in asset paths, even if Cargo is configured
     # to cross-compile or use custom CARGO_TARGET_DIR. The target dir paths will
     # be automatically corrected." https://github.com/kornelski/cargo-deb
-    ["LICENSE.md", "usr/share/doc/groove/LICENSE.md", "644"],
-    ["README.md", "usr/share/doc/groove/README.md", "644"],
+    ["LICENSE.md", "usr/share/doc/groove/", "644"],
+    ["README.md", "usr/share/doc/groove/", "644"],
     ["assets-nodist/os/groove-egui.desktop", "usr/share/applications/", "644"],
     ["assets/patches/**/*.json", "usr/share/groove/patches/", "644"],
     ["assets/samples/**/*.wav", "usr/share/groove/samples/", "644"],
     ["projects/**/*.json", "usr/share/groove/projects/", "644"],
     ["target/release/groove-cli", "usr/bin/", "755"],
     ["target/release/groove-egui", "usr/bin/", "755"],
+    ["target/groove.1", "usr/local/man/man1/", "644"],
 ]
