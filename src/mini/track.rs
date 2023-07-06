@@ -64,10 +64,10 @@ impl Default for TrackFactory {
 }
 impl TrackFactory {
     pub fn midi(&mut self) -> Track {
-        let name = format!("MIDI {}", self.next_midi);
+        let title = TrackTitle(format!("MIDI {}", self.next_midi));
         self.next_midi += 1;
         Track {
-            name,
+            title,
             ty: TrackType::Midi,
             sequencer: Some(MiniSequencer::new_with(
                 &MiniSequencerParams::default(),
@@ -78,29 +78,48 @@ impl TrackFactory {
     }
 
     pub fn audio(&mut self) -> Track {
-        let name = format!("Audio {}", self.next_audio);
+        let title = TrackTitle(format!("Audio {}", self.next_audio));
         self.next_audio += 1;
         Track {
-            name,
+            title,
             ty: TrackType::Audio,
             ..Default::default()
         }
     }
 
     pub fn send(&mut self) -> Track {
-        let name = format!("Send {}", self.next_send);
+        let title = TrackTitle(format!("Send {}", self.next_send));
         self.next_send += 1;
         Track {
-            name,
+            title,
             ty: TrackType::Send,
             ..Default::default()
         }
     }
 }
 
+#[derive(Debug)]
+pub struct TrackBuffer(pub [StereoSample; Self::LEN]);
+impl TrackBuffer {
+    pub const LEN: usize = 64;
+}
+impl Default for TrackBuffer {
+    fn default() -> Self {
+        Self([StereoSample::default(); Self::LEN])
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
+pub struct TrackTitle(pub String);
+impl Default for TrackTitle {
+    fn default() -> Self {
+        Self("Untitled".to_string())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Track {
-    name: String,
+    title: TrackTitle,
     ty: TrackType,
 
     sequencer: Option<MiniSequencer>,
@@ -117,33 +136,10 @@ pub struct Track {
     // Whether the track is selected in the UI.
     is_selected: bool,
 
-    #[serde(skip, default = "Track::init_buffer")]
-    buffer: [StereoSample; 64],
-}
-impl Default for Track {
-    fn default() -> Self {
-        Self {
-            name: String::from("Untitled"),
-            ty: Default::default(),
-            sequencer: Default::default(),
-            control_atlas: Default::default(),
-            thing_store: Default::default(),
-            controllers: Default::default(),
-            instruments: Default::default(),
-            effects: Default::default(),
-            midi_router: Default::default(),
-            control_router: Default::default(),
-            humidifier: Default::default(),
-            is_selected: Default::default(),
-            buffer: [StereoSample::default(); 64],
-        }
-    }
+    #[serde(skip)]
+    buffer: TrackBuffer,
 }
 impl Track {
-    fn init_buffer() -> [StereoSample; 64] {
-        [StereoSample::default(); 64]
-    }
-
     pub fn is_send(&self) -> bool {
         matches!(self.ty, TrackType::Send)
     }
@@ -553,7 +549,7 @@ impl Track {
                         .fill(Color32::GRAY)
                         .show(ui, |ui| {
                             ui.horizontal(|ui| {
-                                ui.text_edit_singleline(&mut self.name);
+                                ui.text_edit_singleline(&mut self.title.0);
                                 ui.allocate_response(
                                     ui.available_size_before_wrap(),
                                     Sense::click(),
@@ -594,10 +590,6 @@ impl Track {
         self.is_selected = selected;
     }
 
-    pub fn buffer(&self) -> [StereoSample; 64] {
-        self.buffer
-    }
-
     pub fn route_midi_message(
         &mut self,
         channel: MidiChannel,
@@ -633,23 +625,23 @@ impl Track {
 }
 impl GeneratesToInternalBuffer<StereoSample> for Track {
     fn generate_batch_values(&mut self, len: usize) -> usize {
-        if len > self.buffer.len() {
+        if len > self.buffer.0.len() {
             eprintln!(
                 "requested {} samples but buffer is only len {}",
                 len,
-                self.buffer.len()
+                self.buffer.0.len()
             );
             return 0;
         }
 
-        self.buffer.fill(StereoSample::SILENCE);
+        self.buffer.0.fill(StereoSample::SILENCE);
         for uid in self.instruments.iter() {
             if let Some(e) = self.thing_store.get_mut(uid) {
                 if let Some(e) = e.as_instrument_mut() {
                     // Note that we're expecting everyone to ADD to the buffer,
                     // not to overwrite! TODO: convert all instruments to have
                     // internal buffers
-                    e.generate_batch_values(&mut self.buffer);
+                    e.generate_batch_values(&mut self.buffer.0);
                 }
             }
         }
@@ -662,7 +654,7 @@ impl GeneratesToInternalBuffer<StereoSample> for Track {
                     if humidity == Normal::zero() {
                         continue;
                     }
-                    for sample in self.buffer.iter_mut() {
+                    for sample in self.buffer.0.iter_mut() {
                         *sample = self.humidifier.transform_audio(
                             humidity,
                             *sample,
@@ -673,11 +665,11 @@ impl GeneratesToInternalBuffer<StereoSample> for Track {
             }
         }
 
-        self.buffer.len()
+        self.buffer.0.len()
     }
 
     fn values(&self) -> &[StereoSample] {
-        &self.buffer
+        &self.buffer.0
     }
 }
 impl Ticks for Track {
