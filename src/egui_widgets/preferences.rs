@@ -5,17 +5,14 @@ use groove_core::traits::{gui::Shows, Configurable};
 use groove_orchestration::Orchestrator;
 use groove_settings::SongSettings;
 use groove_utils::Paths;
+use serde::{Deserialize, Serialize};
 use std::{
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
 
-#[cfg(feature = "serialization")]
-use serde::{Deserialize, Serialize};
-
 /// User-specific preferences for the whole app
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Preferences {
     /// The last-selected MIDI input
     selected_midi_input: Option<String>,
@@ -28,9 +25,7 @@ pub struct Preferences {
     /// The last-loaded project filename.
     last_project_filename: Option<PathBuf>,
 
-    // #[cfg_attr(feature = "serialization", serde(skip))]
-    // current_project_filename: Arc<Mutex<String>>,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     is_saved: bool,
 }
 impl Preferences {

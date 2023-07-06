@@ -13,9 +13,9 @@ use egui_toast::{Toast, ToastOptions, Toasts};
 use groove::{
     app_version,
     egui_widgets::{
-        AudioPanelEvent, ControlPanel, ControlPanelAction, MidiPanel, MidiPanelEvent,
-        MiniAudioPanel, MiniOrchestratorEvent, MiniOrchestratorInput, NeedsAudioFn,
-        OrchestratorPanel, PaletteAction, PalettePanel,
+        AudioPanelEvent, ControlPanel, ControlPanelAction, MidiPanelEvent, MiniOrchestratorEvent,
+        MiniOrchestratorInput, NeedsAudioFn, OrchestratorPanel, PaletteAction, PalettePanel,
+        SettingsPanel,
     },
     mini::{register_mini_factory_entities, DragDropManager, EntityFactory, Key, MiniOrchestrator},
 };
@@ -203,9 +203,8 @@ struct MiniDaw {
     menu_bar: MenuBar,
     control_panel: ControlPanel,
     orchestrator_panel: OrchestratorPanel,
-    audio_panel: MiniAudioPanel,
-    midi_panel: MidiPanel,
     palette_panel: PalettePanel,
+    settings_panel: SettingsPanel,
 
     first_update_done: bool,
     exit_requested: bool,
@@ -253,9 +252,8 @@ impl MiniDaw {
             menu_bar: MenuBar::new_with(Arc::clone(&factory)),
             control_panel: Default::default(),
             orchestrator_panel,
-            audio_panel: MiniAudioPanel::new_with(Box::new(needs_audio)),
-            midi_panel: Default::default(),
             palette_panel: PalettePanel::new_with(factory, Arc::clone(&drag_drop_manager)),
+            settings_panel: SettingsPanel::new_with(Box::new(needs_audio)),
 
             first_update_done: Default::default(),
             exit_requested: Default::default(),
@@ -359,7 +357,7 @@ impl MiniDaw {
     }
 
     fn handle_midi_panel_channel(&mut self) -> bool {
-        if let Ok(m) = self.midi_panel.receiver().try_recv() {
+        if let Ok(m) = self.settings_panel.midi_panel().receiver().try_recv() {
             match m {
                 MidiPanelEvent::Midi(channel, message) => {
                     self.orchestrator_panel
@@ -382,7 +380,7 @@ impl MiniDaw {
     }
 
     fn handle_audio_panel_channel(&mut self) -> bool {
-        if let Ok(m) = self.audio_panel.receiver().try_recv() {
+        if let Ok(m) = self.settings_panel.audio_panel().receiver().try_recv() {
             match m {
                 AudioPanelEvent::InterfaceChanged => {
                     self.update_orchestrator_audio_interface_config();
@@ -468,8 +466,8 @@ impl MiniDaw {
     // complete the operation that is ready, while ready() just tells us that a
     // recv() would not block.
     fn spawn_channel_watcher(&mut self, ctx: Context) {
-        let r1 = self.midi_panel.receiver().clone();
-        let r2 = self.audio_panel.receiver().clone();
+        let r1 = self.settings_panel.midi_panel().receiver().clone();
+        let r2 = self.settings_panel.audio_panel().receiver().clone();
         let r3 = self.orchestrator_panel.receiver().clone();
         let _ = std::thread::spawn(move || {
             let mut sel = Select::new();
@@ -484,7 +482,7 @@ impl MiniDaw {
     }
 
     fn update_orchestrator_audio_interface_config(&mut self) {
-        let sample_rate = self.audio_panel.sample_rate();
+        let sample_rate = self.settings_panel.audio_panel().sample_rate();
         if let Ok(mut o) = self.mini_orchestrator.lock() {
             o.set_sample_rate(SampleRate::from(sample_rate));
         }
@@ -492,13 +490,19 @@ impl MiniDaw {
 
     fn handle_control_panel_action(&mut self, action: ControlPanelAction) {
         let input = match action {
-            ControlPanelAction::Play => MiniOrchestratorInput::ProjectPlay,
-            ControlPanelAction::Stop => MiniOrchestratorInput::ProjectStop,
-            ControlPanelAction::New => MiniOrchestratorInput::ProjectNew,
-            ControlPanelAction::Open(path) => MiniOrchestratorInput::ProjectOpen(path),
-            ControlPanelAction::Save(path) => MiniOrchestratorInput::ProjectSave(path),
+            ControlPanelAction::Play => Some(MiniOrchestratorInput::ProjectPlay),
+            ControlPanelAction::Stop => Some(MiniOrchestratorInput::ProjectStop),
+            ControlPanelAction::New => Some(MiniOrchestratorInput::ProjectNew),
+            ControlPanelAction::Open(path) => Some(MiniOrchestratorInput::ProjectOpen(path)),
+            ControlPanelAction::Save(path) => Some(MiniOrchestratorInput::ProjectSave(path)),
+            ControlPanelAction::ToggleSettings => {
+                self.settings_panel.toggle();
+                None
+            }
         };
-        self.orchestrator_panel.send_to_service(input);
+        if let Some(input) = input {
+            self.orchestrator_panel.send_to_service(input);
+        }
     }
 
     fn handle_menu_bar_action(&mut self, action: MenuBarAction) {
@@ -586,10 +590,7 @@ impl MiniDaw {
         }
     }
 
-    fn show_right(&mut self, ui: &mut egui::Ui) {
-        self.audio_panel.show(ui);
-        self.midi_panel.show(ui);
-    }
+    fn show_right(&mut self, _ui: &mut egui::Ui) {}
 
     fn show_center(&mut self, ui: &mut egui::Ui, is_shift_only_down: bool) {
         self.orchestrator_panel.show(ui, is_shift_only_down);
@@ -676,14 +677,21 @@ impl eframe::App for MiniDaw {
             self.toasts.show(ctx);
         });
 
+        let mut is_settings_open = self.settings_panel.is_open();
+        egui::Window::new("Settings")
+            .open(&mut is_settings_open)
+            .show(ctx, |ui| self.settings_panel.show(ui));
+        if self.settings_panel.is_open() && !is_settings_open {
+            self.settings_panel.toggle();
+        }
+
         if self.exit_requested {
             frame.close();
         }
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
-        self.audio_panel.exit();
-        self.midi_panel.exit();
+        self.settings_panel.exit();
         self.orchestrator_panel.exit();
     }
 }

@@ -192,7 +192,7 @@ pub struct MiniAudioPanel {
     config: Arc<Mutex<Option<AudioInterfaceConfig>>>,
 }
 impl MiniAudioPanel {
-    /// Construct a new [AudioPanel2].
+    /// Construct a new [MiniAudioPanel].
     pub fn new_with(needs_audio_fn: NeedsAudioFn) -> Self {
         let audio_stream_service = AudioStreamService::default();
         let sender = audio_stream_service.sender().clone();

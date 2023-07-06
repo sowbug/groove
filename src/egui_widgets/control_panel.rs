@@ -28,6 +28,9 @@ pub enum ControlPanelAction {
 
     /// The user asked to save the current project to the given filename.
     Save(PathBuf),
+
+    /// The user pressed the settings icon.
+    ToggleSettings,
 }
 
 /// [ControlPanel] is the UI component at the top of the main window. Transport,
@@ -58,6 +61,10 @@ impl ControlPanel {
             }
             if ui.button("save").clicked() {
                 action = Some(ControlPanelAction::Save(PathBuf::from("minidaw.json")));
+            }
+            ui.separator();
+            if ui.button("settings").clicked() {
+                action = Some(ControlPanelAction::ToggleSettings);
             }
         });
 
