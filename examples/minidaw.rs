@@ -19,10 +19,7 @@ use groove::{
     },
     mini::{register_mini_factory_entities, DragDropManager, EntityFactory, Key, MiniOrchestrator},
 };
-use groove_core::{
-    time::{SampleRate, Tempo},
-    traits::gui::Shows,
-};
+use groove_core::{time::SampleRate, traits::gui::Shows};
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -676,25 +673,6 @@ impl eframe::App for MiniDaw {
             ScrollArea::vertical().show(ui, |ui| {
                 self.show_center(ui, is_control_only_down);
             });
-
-            //
-            //
-            //
-            //
-            // TODO: replace this with something inside a Controller, so we can develop the control -> transport part of the flow.
-            if ui.button("more").clicked() {
-                self.orchestrator_panel
-                    .send_to_service(MiniOrchestratorInput::Tempo(Tempo(256.0)));
-            }
-            if ui.button("less").clicked() {
-                self.orchestrator_panel
-                    .send_to_service(MiniOrchestratorInput::Tempo(Tempo(32.0)));
-            }
-            //
-            //
-            //
-            //
-
             self.toasts.show(ctx);
         });
 
