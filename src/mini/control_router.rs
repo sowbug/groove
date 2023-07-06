@@ -54,17 +54,15 @@ impl ControlRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mini::entity_factory::{Thing, ThingStore, ThingType};
+    use crate::mini::entity_factory::ThingStore;
     use groove_core::{
-        traits::{
-            gui::Shows, Configurable, Controllable, Generates, HandlesMidi, IsInstrument, Ticks,
-        },
+        traits::{gui::Shows, Configurable, Controllable, Generates, HandlesMidi, Ticks},
         StereoSample,
     };
-    use groove_proc_macros::Uid;
+    use groove_proc_macros::{IsInstrument, Uid};
     use std::sync::{Arc, RwLock};
 
-    #[derive(Debug, Default, Uid, Serialize, Deserialize)]
+    #[derive(Debug, Default, IsInstrument, Uid, Serialize, Deserialize)]
     struct TestControllable {
         uid: Uid,
 
@@ -79,7 +77,6 @@ mod tests {
             Self { uid, tracker }
         }
     }
-    impl IsInstrument for TestControllable {}
     impl Controllable for TestControllable {
         fn control_set_param_by_index(&mut self, index: ControlIndex, value: ControlValue) {
             if let Ok(mut tracker) = self.tracker.write() {
@@ -104,15 +101,6 @@ mod tests {
     }
     impl Configurable for TestControllable {}
     impl Shows for TestControllable {}
-    #[typetag::serde]
-    impl Thing for TestControllable {
-        fn thing_type(&self) -> ThingType {
-            ThingType::Instrument
-        }
-        fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
-            Some(self)
-        }
-    }
 
     #[test]
     fn crud_works() {

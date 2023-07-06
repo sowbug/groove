@@ -10,11 +10,13 @@ use proc_macro_crate::crate_name;
 use quote::{format_ident, quote};
 use std::collections::HashSet;
 use syn::{parse_macro_input, DeriveInput, Ident};
+use thing::{parse_and_generate_thing, ThingType};
 use uid::impl_uid_derive;
 
 mod control;
 mod everything;
 mod params;
+mod thing;
 mod uid;
 
 /// The [Uid] macro derives the boilerplate necessary for the HasUid trait. If a
@@ -45,6 +47,36 @@ pub fn derive_everything(input: TokenStream) -> TokenStream {
     TokenStream::from(parse_and_generate_everything(
         &(parse_macro_input!(input as DeriveInput)).data,
     ))
+}
+
+/// Derives helper methods to access Thing traits associated with controllers.
+#[proc_macro_derive(IsController)]
+pub fn controller_derive(input: TokenStream) -> TokenStream {
+    parse_and_generate_thing(input, ThingType::Controller)
+}
+
+/// Derives helper methods to access Thing traits associated with effects.
+#[proc_macro_derive(IsEffect)]
+pub fn effect_derive(input: TokenStream) -> TokenStream {
+    parse_and_generate_thing(input, ThingType::Effect)
+}
+
+/// Derives helper methods to access Thing traits associated with instruments.
+#[proc_macro_derive(IsInstrument)]
+pub fn instrument_derive(input: TokenStream) -> TokenStream {
+    parse_and_generate_thing(input, ThingType::Instrument)
+}
+
+/// Derives helper methods to access Thing traits associated with entities that are both controllers and effects.
+#[proc_macro_derive(IsControllerEffect)]
+pub fn controller_effect_derive(input: TokenStream) -> TokenStream {
+    parse_and_generate_thing(input, ThingType::ControllerEffect)
+}
+
+/// Derives helper methods to access Thing traits associated with entities that are both controllers and instruments.
+#[proc_macro_derive(IsControllerInstrument)]
+pub fn controller_instrument_derive(input: TokenStream) -> TokenStream {
+    parse_and_generate_thing(input, ThingType::ControllerInstrument)
 }
 
 /// field types that don't recurse further for #[derive(Control)] purposes

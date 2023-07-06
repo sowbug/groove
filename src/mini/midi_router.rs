@@ -90,18 +90,18 @@ impl MidiRouter {
 #[cfg(test)]
 mod tests {
     use super::MidiRouter;
-    use crate::mini::entity_factory::{Thing, ThingStore, ThingType};
+    use crate::mini::entity_factory::ThingStore;
     use groove_core::{
         midi,
         midi::{MidiChannel, MidiMessage, MidiMessagesFn},
-        traits::{gui::Shows, Configurable, HandlesMidi},
-        Uid,
+        traits::{gui::Shows, Configurable, Generates, HandlesMidi, Ticks},
+        StereoSample, Uid,
     };
-    use groove_proc_macros::Uid;
+    use groove_proc_macros::{Control, IsInstrument, Uid};
     use serde::{Deserialize, Serialize};
     use std::sync::{Arc, RwLock};
 
-    #[derive(Debug, Default, Uid, Serialize, Deserialize)]
+    #[derive(Debug, Control, Default, IsInstrument, Uid, Serialize, Deserialize)]
     struct TestHandlesMidi {
         uid: Uid,
 
@@ -140,13 +140,20 @@ mod tests {
     }
     impl Configurable for TestHandlesMidi {}
     impl Shows for TestHandlesMidi {}
-    #[typetag::serde]
-    impl Thing for TestHandlesMidi {
-        fn thing_type(&self) -> ThingType {
-            ThingType::Instrument
+    impl Generates<StereoSample> for TestHandlesMidi {
+        fn value(&self) -> StereoSample {
+            todo!()
         }
-        fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
-            Some(self)
+
+        #[allow(unused_variables)]
+        fn generate_batch_values(&mut self, values: &mut [StereoSample]) {
+            todo!()
+        }
+    }
+    impl Ticks for TestHandlesMidi {
+        #[allow(unused_variables)]
+        fn tick(&mut self, tick_count: usize) {
+            todo!()
         }
     }
 

@@ -26,17 +26,13 @@ mod lfo;
 mod patterns;
 mod sequencers;
 
-use crate::EntityMessage;
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessagesFn},
     time::{ClockTimeUnit, MusicalTime, MusicalTimeParams, SampleRate},
-    traits::{
-        Configurable, ControlMessagesFn, Controls, IsController, IsEffect, Performs,
-        TransformsAudio,
-    },
+    traits::{Configurable, ControlMessagesFn, Controls, EntityMessage, Performs, TransformsAudio},
     BipolarNormal, Normal, Sample, StereoSample,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsController, IsControllerEffect, Params, Uid};
 use midly::MidiMessage;
 use std::{collections::VecDeque, ops::Range};
 
@@ -75,7 +71,7 @@ pub struct MidiChannelOutputParams {
 /// [Timer] runs for a specified amount of time, then indicates that it's done.
 /// It is useful when you need something to happen after a certain amount of
 /// wall-clock time, rather than musical time.
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsController, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Timer {
     uid: groove_core::Uid,
@@ -111,14 +107,11 @@ impl Timer {
         self.duration = duration;
     }
 }
-impl IsController for Timer {}
 impl HandlesMidi for Timer {}
 impl Configurable for Timer {
     fn update_sample_rate(&mut self, _sample_rate: SampleRate) {}
 }
 impl Controls for Timer {
-    type Message = EntityMessage;
-
     fn update_time(&mut self, range: &Range<MusicalTime>) {
         if self.is_performing {
             if self.duration == MusicalTime::default() {
@@ -138,7 +131,7 @@ impl Controls for Timer {
         }
     }
 
-    fn work(&mut self, _messages_fn: &mut ControlMessagesFn<Self::Message>) {
+    fn work(&mut self, _messages_fn: &mut ControlMessagesFn) {
         // All the state was computable during update_time(), so there's nothing to do here.
     }
 
@@ -166,7 +159,7 @@ impl Performs for Timer {
 
 // TODO: needs tests!
 /// [Trigger] issues a control signal after a specified amount of time.
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsController, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Trigger {
     uid: groove_core::Uid,
@@ -180,15 +173,12 @@ pub struct Trigger {
     has_triggered: bool,
     is_performing: bool,
 }
-impl IsController for Trigger {}
 impl Controls for Trigger {
-    type Message = EntityMessage;
-
     fn update_time(&mut self, range: &Range<MusicalTime>) {
         self.timer.update_time(range)
     }
 
-    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn<Self::Message>) {
+    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn) {
         if self.timer.is_finished() && self.is_performing && !self.has_triggered {
             self.has_triggered = true;
             control_messages_fn(self.uid, EntityMessage::Control(self.value().into()));
@@ -246,7 +236,7 @@ impl Trigger {
 }
 
 /// Uses an input signal as a control source.
-#[derive(Control, Debug, Params, Uid)]
+#[derive(Control, Debug, IsControllerEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct SignalPassthroughController {
     uid: groove_core::Uid,
@@ -257,16 +247,13 @@ pub struct SignalPassthroughController {
     #[cfg_attr(feature = "serialization", serde(skip))]
     is_performing: bool,
 }
-impl IsController for SignalPassthroughController {}
 impl Configurable for SignalPassthroughController {}
 impl Controls for SignalPassthroughController {
-    type Message = EntityMessage;
-
     fn update_time(&mut self, _range: &Range<MusicalTime>) {
         // We can ignore because we already have our own de-duplicating logic.
     }
 
-    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn<Self::Message>) {
+    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn) {
         if !self.is_performing {
             return;
         }
@@ -296,7 +283,6 @@ impl Performs for SignalPassthroughController {
         self.is_performing
     }
 }
-impl IsEffect for SignalPassthroughController {}
 impl TransformsAudio for SignalPassthroughController {
     fn transform_audio(&mut self, input_sample: StereoSample) -> StereoSample {
         let averaged_sample: Sample = (input_sample.0 + input_sample.1) * 0.5;
@@ -352,7 +338,7 @@ enum TestControllerAction {
 
 /// An [IsController](groove_core::traits::IsController) that emits a MIDI
 /// note-on event on each beat, and a note-off event on each half-beat.
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsController, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToyController {
     uid: groove_core::Uid,
@@ -382,15 +368,12 @@ pub struct ToyController {
     #[cfg_attr(feature = "serialization", serde(skip))]
     last_time_handled: MusicalTime,
 }
-impl IsController for ToyController {}
 impl Controls for ToyController {
-    type Message = EntityMessage;
-
     fn update_time(&mut self, range: &Range<MusicalTime>) {
         self.time_range = range.clone();
     }
 
-    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn<Self::Message>) {
+    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn) {
         match self.what_to_do() {
             TestControllerAction::Nothing => {}
             TestControllerAction::NoteOn => {

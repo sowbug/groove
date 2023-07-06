@@ -1,15 +1,16 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::messages::EntityMessage;
 use core::fmt::Debug;
 use groove_core::{
     generators::{Oscillator, OscillatorParams, Waveform},
     midi::HandlesMidi,
     time::{MusicalTime, SampleRate, Tempo},
-    traits::{Configurable, ControlMessagesFn, Controls, Generates, IsController, Performs, Ticks},
+    traits::{
+        Configurable, ControlMessagesFn, Controls, EntityMessage, Generates, Performs, Ticks,
+    },
     FrequencyHz, ParameterType,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsController, Params, Uid};
 use std::{
     ops::{Range, RangeInclusive},
     option::Option,
@@ -19,7 +20,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 /// Uses an internal LFO as a control source.
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsController, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct LfoController {
     uid: groove_core::Uid,
@@ -46,20 +47,17 @@ pub struct LfoController {
     #[cfg_attr(feature = "serialization", serde(skip))]
     last_frame: usize,
 }
-impl IsController for LfoController {}
 impl Configurable for LfoController {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.oscillator.update_sample_rate(sample_rate);
     }
 }
 impl Controls for LfoController {
-    type Message = EntityMessage;
-
     fn update_time(&mut self, range: &Range<MusicalTime>) {
         self.time_range = range.clone();
     }
 
-    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn<Self::Message>) {
+    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn) {
         let frames = self.time_range.start.as_frames(
             Tempo::from(120),
             SampleRate::from(self.oscillator.sample_rate()),

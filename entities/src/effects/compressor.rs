@@ -1,15 +1,15 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    traits::{Configurable, IsEffect, TransformsAudio},
+    traits::{Configurable, TransformsAudio},
     Normal, ParameterType, Sample,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsEffect, Params, Uid};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Control, Params, Uid)]
+#[derive(Debug, Default, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Compressor {
     uid: groove_core::Uid,
@@ -46,7 +46,6 @@ pub struct Compressor {
     #[allow(dead_code)]
     current_gain: f32,
 }
-impl IsEffect for Compressor {}
 impl TransformsAudio for Compressor {
     fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         let input_sample_positive = input_sample.0.abs();

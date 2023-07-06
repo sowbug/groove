@@ -1,14 +1,13 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::{sequencers::Sequencer, SequencerParams};
-use crate::EntityMessage;
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
     time::{MusicalTime, PerfectTimeUnit, SampleRate},
-    traits::{Configurable, ControlMessagesFn, Controls, IsController, Performs},
+    traits::{Configurable, ControlMessagesFn, Controls, Performs},
     ParameterType,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsController, Params, Uid};
 use std::{ops::Range, option::Option};
 
 #[cfg(feature = "serialization")]
@@ -20,7 +19,7 @@ use serde::{Deserialize, Serialize};
 /// order." You can also think of it as a hybrid MIDI instrument and MIDI
 /// controller; you play it with MIDI, but instead of producing audio, it
 /// produces more MIDI.
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsController, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Arpeggiator {
     uid: groove_core::Uid,
@@ -38,20 +37,17 @@ pub struct Arpeggiator {
     // arpeggiator would frequently get clipped.
     note_semaphore: i16,
 }
-impl IsController for Arpeggiator {}
 impl Configurable for Arpeggiator {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sequencer.update_sample_rate(sample_rate);
     }
 }
 impl Controls for Arpeggiator {
-    type Message = EntityMessage;
-
     fn update_time(&mut self, range: &Range<MusicalTime>) {
         self.sequencer.update_time(range);
     }
 
-    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn<Self::Message>) {
+    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn) {
         self.sequencer.work(control_messages_fn)
     }
 

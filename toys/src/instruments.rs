@@ -6,13 +6,12 @@ use groove_core::{
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
     time::{ClockTimeUnit, SampleRate},
     traits::{
-        Configurable, Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice,
-        PlaysNotes, Ticks,
+        Configurable, Generates, GeneratesEnvelope, IsStereoSampleVoice, IsVoice, PlaysNotes, Ticks,
     },
     voices::{VoiceCount, VoiceStore},
     BipolarNormal, Dca, DcaParams, Normal, ParameterType, Sample, SampleType, StereoSample,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsInstrument, Params, Uid};
 use std::{collections::VecDeque, fmt::Debug};
 
 #[cfg(feature = "serialization")]
@@ -22,7 +21,7 @@ use serde::{Deserialize, Serialize};
 /// Oscillator to produce sound. Its "envelope" is just a boolean that responds
 /// to MIDI NoteOn/NoteOff. [Controllable](groove_core::traits::Controllable) by
 /// two parameters: Oscillator waveform and frequency.
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsInstrument, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToyInstrument {
     uid: groove_core::Uid,
@@ -59,7 +58,6 @@ pub struct ToyInstrument {
     #[cfg_attr(feature = "serialization", serde(skip))]
     pub debug_messages: Vec<MidiMessage>,
 }
-impl IsInstrument for ToyInstrument {}
 impl Generates<StereoSample> for ToyInstrument {
     fn value(&self) -> StereoSample {
         self.sample
@@ -222,7 +220,7 @@ impl ToyInstrument {
 
 /// Another [IsInstrument](groove_core::traits::IsInstrument) that was designed
 /// for black-box debugging.
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsInstrument, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct DebugSynth {
     uid: groove_core::Uid,
@@ -241,7 +239,6 @@ pub struct DebugSynth {
     oscillator: Box<Oscillator>,
     envelope: Box<Envelope>,
 }
-impl IsInstrument for DebugSynth {}
 impl Generates<StereoSample> for DebugSynth {
     fn value(&self) -> StereoSample {
         self.sample
@@ -336,7 +333,7 @@ impl DebugSynth {
     }
 }
 
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsInstrument, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToySynth {
     uid: groove_core::Uid,
@@ -359,7 +356,6 @@ pub struct ToySynth {
     #[cfg_attr(feature = "serialization", serde(skip))]
     inner: Synthesizer<ToyVoice>,
 }
-impl IsInstrument for ToySynth {}
 impl Generates<StereoSample> for ToySynth {
     fn value(&self) -> StereoSample {
         self.inner.value()
@@ -499,7 +495,7 @@ impl ToyVoice {
 
 /// Produces a constant audio signal. Used for ensuring that a known signal
 /// value gets all the way through the pipeline.
-#[derive(Debug, Default, Control, Params, Uid)]
+#[derive(Debug, Default, Control, IsInstrument, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToyAudioSource {
     uid: groove_core::Uid,
@@ -510,7 +506,6 @@ pub struct ToyAudioSource {
     #[params]
     level: ParameterType,
 }
-impl IsInstrument for ToyAudioSource {}
 impl Generates<StereoSample> for ToyAudioSource {
     fn value(&self) -> StereoSample {
         StereoSample::from(self.level)

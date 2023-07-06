@@ -11,22 +11,16 @@
 // - should BPM be global?
 // - a better LCD
 
-use crate::{
-    instruments::{Sampler, SamplerVoice},
-    EntityMessage,
-};
+use crate::instruments::{Sampler, SamplerVoice};
 use groove_core::{
     instruments::Synthesizer,
     midi::{note_to_frequency, MidiChannel, MidiMessage, MidiMessagesFn},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, TimeSignatureParams},
-    traits::{
-        Configurable, ControlMessagesFn, Controls, Generates, HandlesMidi, IsController,
-        IsInstrument, Performs, Ticks,
-    },
+    traits::{Configurable, ControlMessagesFn, Controls, Generates, HandlesMidi, Performs, Ticks},
     voices::VoicePerNoteStore,
     ParameterType, StereoSample,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsControllerInstrument, Params, Uid};
 use groove_utils::Paths;
 use std::{ops::Range, path::Path, sync::Arc};
 use strum_macros::Display;
@@ -427,7 +421,7 @@ pub enum Tempo {
 /// [Calculator] is the top-level musical instrument. It contains an [Engine]
 /// that has the song data, as well as a sampler synth that can generate digital
 /// audio. It draws the GUI and handles user input.
-#[derive(Control, Params, Debug, Uid)]
+#[derive(Control, IsControllerInstrument, Params, Debug, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Calculator {
     /// Required for the [groove_core::traits::HasUid] trait.
@@ -469,8 +463,6 @@ pub struct Calculator {
     #[cfg_attr(feature = "serialization", serde(skip))]
     last_handled_step: usize,
 }
-impl IsController for Calculator {}
-impl IsInstrument for Calculator {}
 impl Performs for Calculator {
     fn play(&mut self) {
         // We don't have resume, so play always skips to start.
@@ -514,13 +506,11 @@ impl Ticks for Calculator {
     }
 }
 impl Controls for Calculator {
-    type Message = EntityMessage;
-
     fn update_time(&mut self, _range: &Range<MusicalTime>) {
         todo!()
     }
 
-    fn work(&mut self, _: &mut ControlMessagesFn<Self::Message>) {
+    fn work(&mut self, _: &mut ControlMessagesFn) {
         self.handle_tick();
     }
 

@@ -1,6 +1,5 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::messages::EntityMessage;
 use core::fmt::Debug;
 use groove_core::{
     generators::{SteppedEnvelope, SteppedEnvelopeFunction, SteppedEnvelopeStep},
@@ -9,10 +8,10 @@ use groove_core::{
         BeatValue, Clock, ClockParams, ClockTimeUnit, MusicalTime, PerfectTimeUnit, SampleRate,
         TimeSignature, TimeSignatureParams,
     },
-    traits::{Configurable, ControlMessagesFn, Controls, IsController, Performs},
+    traits::{Configurable, ControlMessagesFn, Controls, Performs},
     ParameterType, SignalType,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsController, Params, Uid};
 use std::{ops::Range, option::Option};
 
 #[cfg(feature = "serialization")]
@@ -46,7 +45,7 @@ pub enum ControlStep {
 ///
 /// A ControlTrip is one automation track, which can run as long as the whole
 /// song. For now, it controls one parameter of one target.
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsController, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ControlTrip {
     uid: groove_core::Uid,
@@ -69,7 +68,6 @@ pub struct ControlTrip {
     is_finished: bool,
     is_performing: bool,
 }
-impl IsController for ControlTrip {}
 impl HandlesMidi for ControlTrip {}
 impl Performs for ControlTrip {
     fn play(&mut self) {
@@ -227,11 +225,9 @@ impl Configurable for ControlTrip {
     }
 }
 impl Controls for ControlTrip {
-    type Message = EntityMessage;
-
     fn update_time(&mut self, _range: &Range<MusicalTime>) {}
 
-    fn work(&mut self, _messages_fn: &mut ControlMessagesFn<Self::Message>) {
+    fn work(&mut self, _messages_fn: &mut ControlMessagesFn) {
         if self.is_performing {
             // #[cfg(tired)] TODO not sure if this should survive
             // for i in 0..tick_count {

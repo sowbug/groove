@@ -8,10 +8,9 @@ use groove_core::{
     control::ControlIndex,
     midi::{MidiChannel, MidiMessage},
     time::SampleRate,
-    traits::MessageBounds,
+    traits::{EntityMessage, MessageBounds},
     Uid,
 };
-use groove_entities::EntityMessage;
 use std::fmt::Debug;
 
 #[cfg(feature = "serialization")]

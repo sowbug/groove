@@ -1,20 +1,20 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    traits::{Configurable, IsEffect, TransformsAudio},
+    traits::{Configurable, TransformsAudio},
     Sample,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsEffect, Params, Uid};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Control, Params, Uid)]
+// TODO: I don't think Mixer needs to exist.
+#[derive(Debug, Default, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Mixer {
     uid: groove_core::Uid,
 }
-impl IsEffect for Mixer {}
 impl Configurable for Mixer {}
 impl TransformsAudio for Mixer {
     fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {

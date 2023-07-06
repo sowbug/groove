@@ -3,17 +3,17 @@
 use super::delay::{AllPassDelayLine, Delays, RecirculatingDelayLine};
 use groove_core::{
     time::SampleRate,
-    traits::{Configurable, IsEffect, TransformsAudio},
+    traits::{Configurable, TransformsAudio},
     Normal, ParameterType, Sample,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsEffect, Params, Uid};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
 /// Schroeder reverb. Uses four parallel recirculating delay lines feeding into
 /// a series of two all-pass delay lines.
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Reverb {
     uid: groove_core::Uid,
@@ -33,8 +33,6 @@ pub struct Reverb {
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [ReverbChannel; 2],
 }
-
-impl IsEffect for Reverb {}
 impl Configurable for Reverb {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;

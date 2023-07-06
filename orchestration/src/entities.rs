@@ -6,7 +6,6 @@
 #[cfg(feature = "iced-framework")]
 use groove_core::time::ClockMessage;
 use groove_core::{time::Clock, traits::HasUid};
-
 use groove_entities::{
     controllers::{
         Arpeggiator, Calculator, ControlTrip, LfoController, PatternManager, Sequencer,
@@ -19,7 +18,6 @@ use groove_entities::{
         Compressor, Delay, Gain, Limiter, Mixer, Reverb,
     },
     instruments::{Drumkit, FmSynth, Metronome, Sampler, WelshSynth},
-    EntityMessage,
 };
 use groove_proc_macros::Everything;
 use groove_toys::{DebugSynth, ToyAudioSource, ToyEffect, ToyInstrument, ToySynth};
@@ -55,8 +53,6 @@ use groove_toys::{
 use serde::{Deserialize, Serialize};
 
 // PRO TIP: use `cargo expand --lib entities` to see what's being generated
-
-type MsgType = EntityMessage;
 
 /// The #[derive] macro uses [Everything] to generate a lot of boilerplate code.
 /// The enum itself is otherwise unused.

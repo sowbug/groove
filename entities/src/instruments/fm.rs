@@ -6,13 +6,12 @@ use groove_core::{
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
     time::SampleRate,
     traits::{
-        Configurable, Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice,
-        PlaysNotes, Ticks,
+        Configurable, Generates, GeneratesEnvelope, IsStereoSampleVoice, IsVoice, PlaysNotes, Ticks,
     },
     voices::StealingVoiceStore,
     BipolarNormal, Dca, DcaParams, FrequencyHz, Normal, ParameterType, Ratio, Sample, StereoSample,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsInstrument, Params, Uid};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -205,7 +204,7 @@ impl FmVoice {
     }
 }
 
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsInstrument, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct FmSynth {
     #[control]
@@ -236,7 +235,6 @@ pub struct FmSynth {
     #[cfg_attr(feature = "serialization", serde(skip))]
     inner_synth: Synthesizer<FmVoice>,
 }
-impl IsInstrument for FmSynth {}
 impl Generates<StereoSample> for FmSynth {
     fn value(&self) -> StereoSample {
         self.inner_synth.value()

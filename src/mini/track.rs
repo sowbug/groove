@@ -1,12 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::{
-    control_atlas::ControlAtlas,
-    control_router::ControlRouter,
-    entity_factory::{Thing, ThingStore, ThingType},
-    humidifier::Humidifier,
-    midi_router::MidiRouter,
-    sequencer::MiniSequencer,
+    control_atlas::ControlAtlas, control_router::ControlRouter, entity_factory::ThingStore,
+    humidifier::Humidifier, midi_router::MidiRouter, sequencer::MiniSequencer,
 };
 use crate::mini::sequencer::MiniSequencerParams;
 use eframe::{
@@ -20,11 +16,10 @@ use groove_core::{
     time::{SampleRate, Tempo, TimeSignature},
     traits::{
         gui::Shows, Configurable, ControlMessagesFn, Controls, GeneratesToInternalBuffer, Performs,
-        Ticks,
+        Thing, Ticks,
     },
     Normal, StereoSample, Uid,
 };
-use groove_entities::EntityMessage;
 use serde::{Deserialize, Serialize};
 
 /// An ephemeral identifier for a [Track] in the current project.
@@ -156,19 +151,12 @@ impl Track {
     // TODO: for now the only way to add something new to a Track is to append it.
     pub fn append_thing(&mut self, thing: Box<dyn Thing>) -> Uid {
         let uid = thing.uid();
-        match thing.thing_type() {
-            ThingType::Unknown => {
-                panic!("append_thing({:#?}) -> unknown type", thing)
-            }
-            ThingType::Controller => {
-                self.controllers.push(uid);
-            }
-            ThingType::Effect => {
-                self.effects.push(uid);
-            }
-            ThingType::Instrument => {
-                self.instruments.push(uid);
-            }
+        if thing.as_controller().is_some() {
+            self.controllers.push(uid);
+        } else if thing.as_effect().is_some() {
+            self.effects.push(uid);
+        } else if thing.as_instrument().is_some() {
+            self.instruments.push(uid);
         }
         self.thing_store.add(thing);
 
@@ -180,11 +168,12 @@ impl Track {
 
     pub fn remove_thing(&mut self, uid: &Uid) -> Option<Box<dyn Thing>> {
         if let Some(thing) = self.thing_store.remove(uid) {
-            match thing.thing_type() {
-                ThingType::Unknown => eprintln!("Warning: removed thing id {uid} of unknown type"),
-                ThingType::Controller => self.controllers.retain(|e| e != uid),
-                ThingType::Effect => self.effects.retain(|e| e != uid),
-                ThingType::Instrument => self.instruments.retain(|e| e != uid),
+            if thing.as_controller().is_some() {
+                self.controllers.retain(|e| e != uid)
+            } else if thing.as_effect().is_some() {
+                self.effects.retain(|e| e != uid);
+            } else if thing.as_instrument().is_some() {
+                self.instruments.retain(|e| e != uid);
             }
             Some(thing)
         } else {
@@ -752,8 +741,6 @@ impl HandlesMidi for Track {
     }
 }
 impl Controls for Track {
-    type Message = EntityMessage;
-
     fn update_time(&mut self, range: &std::ops::Range<groove_core::time::MusicalTime>) {
         if let Some(sequencer) = self.sequencer.as_mut() {
             sequencer.update_time(range);
@@ -764,7 +751,7 @@ impl Controls for Track {
         self.thing_store.update_time(range);
     }
 
-    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn<Self::Message>) {
+    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn) {
         if let Some(sequencer) = self.sequencer.as_mut() {
             sequencer.work(control_messages_fn);
         }

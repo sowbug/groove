@@ -5,13 +5,11 @@ use groove_core::{
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
     time::SampleRate,
-    traits::{
-        Configurable, Generates, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes, Ticks,
-    },
+    traits::{Configurable, Generates, IsStereoSampleVoice, IsVoice, PlaysNotes, Ticks},
     voices::{VoiceCount, VoiceStore},
     FrequencyHz, ParameterType, Sample, SampleType, StereoSample,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsInstrument, Params, Uid};
 use groove_utils::Paths;
 use hound::WavReader;
 use std::{fs::File, io::BufReader, path::Path, sync::Arc};
@@ -110,7 +108,7 @@ impl SamplerVoice {
     }
 }
 
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsInstrument, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Sampler {
     uid: groove_core::Uid,
@@ -127,7 +125,6 @@ pub struct Sampler {
 
     calculated_root: FrequencyHz,
 }
-impl IsInstrument for Sampler {}
 impl HandlesMidi for Sampler {
     fn handle_midi_message(
         &mut self,

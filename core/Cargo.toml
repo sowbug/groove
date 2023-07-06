@@ -24,6 +24,7 @@ rustc-hash = "1.1"
 serde = { version = "1.0", features = ["derive"], optional = true }
 strum = "0.25"
 strum_macros = "0.25"
+typetag = "0.2"
 
 [features]
 "serialization" = ["serde"] 

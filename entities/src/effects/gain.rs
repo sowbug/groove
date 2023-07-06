@@ -1,15 +1,15 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    traits::{Configurable, IsEffect, TransformsAudio},
+    traits::{Configurable, TransformsAudio},
     Normal, Sample,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsEffect, Params, Uid};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Control, Params, Uid)]
+#[derive(Debug, Default, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Gain {
     uid: groove_core::Uid,
@@ -18,7 +18,6 @@ pub struct Gain {
     #[params]
     ceiling: Normal,
 }
-impl IsEffect for Gain {}
 impl Configurable for Gain {}
 impl TransformsAudio for Gain {
     fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {

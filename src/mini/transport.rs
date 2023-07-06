@@ -3,19 +3,16 @@
 use eframe::{egui::Layout, emath::Align, epaint::vec2};
 use groove_core::{
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
-    traits::{
-        gui::Shows, Configurable, ControlMessagesFn, Controls, HandlesMidi, IsController, Performs,
-    },
+    traits::{gui::Shows, Configurable, ControlMessagesFn, Controls, HandlesMidi, Performs},
     Uid,
 };
-use groove_entities::EntityMessage;
-use groove_proc_macros::{Control, Uid};
+use groove_proc_macros::{Control, IsController, Uid};
 use serde::{Deserialize, Serialize};
 use std::ops::Range;
 
 /// [Transport] is the global clock. It knows where in the song we are, and how
 /// fast time should advance.
-#[derive(Serialize, Deserialize, Clone, Control, Debug, Default, Uid)]
+#[derive(Serialize, Deserialize, Clone, Control, IsController, Debug, Default, Uid)]
 pub struct Transport {
     uid: Uid,
 
@@ -33,7 +30,6 @@ pub struct Transport {
     #[serde(skip)]
     sample_rate: SampleRate,
 }
-impl IsController for Transport {}
 impl HandlesMidi for Transport {}
 impl Transport {
     /// Returns the current [Tempo].
@@ -115,8 +111,6 @@ impl Performs for Transport {
     }
 }
 impl Controls for Transport {
-    type Message = EntityMessage;
-
     fn update_time(&mut self, range: &Range<MusicalTime>) {
         // Nothing - we calculated the range, so we don't need to do anything with it.
         debug_assert!(
@@ -127,7 +121,7 @@ impl Controls for Transport {
         );
     }
 
-    fn work(&mut self, _control_messages_fn: &mut ControlMessagesFn<Self::Message>) {
+    fn work(&mut self, _control_messages_fn: &mut ControlMessagesFn) {
         // nothing, but in the future we might want to propagate a tempo or time-sig change
     }
 

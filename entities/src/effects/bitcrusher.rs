@@ -1,10 +1,10 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    traits::{Configurable, IsEffect, TransformsAudio},
+    traits::{Configurable, TransformsAudio},
     Sample, SampleType,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsEffect, Params, Uid};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 /// TODO: this is a pretty lame bitcrusher. It is hardly noticeable for values
 /// below 13, and it destroys the waveform at 15. It doesn't do any simulation
 /// of sample-rate reduction, either.
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Bitcrusher {
     uid: groove_core::Uid,
@@ -23,7 +23,6 @@ pub struct Bitcrusher {
 
     c: SampleType,
 }
-impl IsEffect for Bitcrusher {}
 impl TransformsAudio for Bitcrusher {
     fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         const I16_SCALE: SampleType = i16::MAX as SampleType;

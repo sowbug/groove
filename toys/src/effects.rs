@@ -2,10 +2,10 @@
 
 use groove_core::{
     time::ClockTimeUnit,
-    traits::{Configurable, IsEffect, TransformsAudio},
+    traits::{Configurable, TransformsAudio},
     Normal, Sample,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsEffect, Params, Uid};
 use std::collections::VecDeque;
 use std::fmt::Debug;
 
@@ -13,7 +13,7 @@ use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
 
 /// An [IsEffect](groove_core::traits::IsEffect) that negates the input signal.
-#[derive(Debug, Default, Control, Params, Uid)]
+#[derive(Debug, Default, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToyEffect {
     #[cfg_attr(feature = "serialization", serde(skip))]
@@ -32,7 +32,6 @@ pub struct ToyEffect {
     #[cfg_attr(feature = "serialization", serde(skip))]
     pub time_unit: ClockTimeUnit,
 }
-impl IsEffect for ToyEffect {}
 impl TransformsAudio for ToyEffect {
     fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         /////////////////////// TODO        self.check_values(clock);

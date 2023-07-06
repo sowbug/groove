@@ -2,10 +2,10 @@
 
 use groove_core::{
     time::SampleRate,
-    traits::{Configurable, IsEffect, TransformsAudio},
+    traits::{Configurable, TransformsAudio},
     Normal, ParameterType, Sample, SignalType,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsEffect, Params, Uid};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -196,7 +196,7 @@ impl Configurable for AllPassDelayLine {
     }
 }
 
-#[derive(Debug, Default, Control, Params, Uid)]
+#[derive(Debug, Default, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Delay {
     uid: groove_core::Uid,
@@ -208,7 +208,6 @@ pub struct Delay {
     #[cfg_attr(feature = "serialization", serde(skip))]
     delay: DelayLine,
 }
-impl IsEffect for Delay {}
 impl Configurable for Delay {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.delay.update_sample_rate(sample_rate);

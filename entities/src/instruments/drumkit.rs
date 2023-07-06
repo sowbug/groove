@@ -9,18 +9,18 @@ use groove_core::{
         MidiMessagesFn,
     },
     time::SampleRate,
-    traits::{Configurable, Generates, IsInstrument, Ticks},
+    traits::{Configurable, Generates, Ticks},
     voices::VoicePerNoteStore,
     StereoSample,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsInstrument, Params, Uid};
 use groove_utils::Paths;
 use std::{path::Path, sync::Arc};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsInstrument, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Drumkit {
     #[params]
@@ -35,7 +35,6 @@ pub struct Drumkit {
     #[cfg_attr(feature = "serialization", serde(skip))]
     inner_synth: Synthesizer<SamplerVoice>,
 }
-impl IsInstrument for Drumkit {}
 impl Generates<StereoSample> for Drumkit {
     fn value(&self) -> StereoSample {
         self.inner_synth.value()

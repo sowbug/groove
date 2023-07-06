@@ -2,7 +2,7 @@
 
 use super::{
     control_router::ControlRouter,
-    entity_factory::{EntityFactory, Thing},
+    entity_factory::EntityFactory,
     track::{Track, TrackAction, TrackFactory, TrackIndex},
     transport::Transport,
     Key,
@@ -15,12 +15,11 @@ use groove_core::{
     midi::{MidiChannel, MidiMessage, MidiMessagesFn},
     time::{MusicalTime, SampleRate, Tempo},
     traits::{
-        gui::Shows, Configurable, ControlMessagesFn, Controllable, Controls, Generates,
-        GeneratesToInternalBuffer, HandlesMidi, HasUid, Performs, Ticks,
+        gui::Shows, Configurable, ControlMessagesFn, Controllable, Controls, EntityMessage,
+        Generates, GeneratesToInternalBuffer, HandlesMidi, HasUid, Performs, Thing, Ticks,
     },
     Sample, StereoSample, Uid,
 };
-use groove_entities::EntityMessage;
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, ops::Range, sync::Arc};
@@ -573,8 +572,6 @@ impl Performs for MiniOrchestrator {
     }
 }
 impl Controls for MiniOrchestrator {
-    type Message = EntityMessage;
-
     fn update_time(&mut self, range: &Range<MusicalTime>) {
         self.e.range = range.clone();
 
@@ -583,7 +580,7 @@ impl Controls for MiniOrchestrator {
         }
     }
 
-    fn work(&mut self, _: &mut ControlMessagesFn<Self::Message>) {
+    fn work(&mut self, _: &mut ControlMessagesFn) {
         self.transport
             .work(&mut |u, m| self.e.messages.push((u, m)));
         for track in self.tracks.iter_mut() {

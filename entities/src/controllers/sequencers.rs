@@ -1,14 +1,13 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::EntityMessage;
 use btreemultimap::BTreeMultiMap;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn, MidiNoteMinder},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, TimeSignatureParams},
-    traits::{Configurable, ControlMessagesFn, Controls, IsController, Performs},
+    traits::{Configurable, ControlMessagesFn, Controls, EntityMessage, Performs},
     ParameterType,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsController, Params, Uid};
 use std::{
     fmt::Debug,
     ops::{
@@ -24,7 +23,7 @@ pub(crate) type BeatEventsMap = BTreeMultiMap<MusicalTime, (MidiChannel, MidiMes
 
 /// [Sequencer] produces MIDI according to a programmed sequence. Its unit of
 /// time is the beat.
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsController, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Sequencer {
     uid: groove_core::Uid,
@@ -55,7 +54,6 @@ pub struct Sequencer {
     #[cfg_attr(feature = "serialization", serde(skip))]
     time_range_handled: bool,
 }
-impl IsController for Sequencer {}
 impl HandlesMidi for Sequencer {}
 impl Performs for Sequencer {
     fn play(&mut self) {
@@ -160,7 +158,7 @@ impl Sequencer {
         self.next_instant
     }
 
-    fn stop_pending_notes(&mut self, control_messages_fn: &mut ControlMessagesFn<EntityMessage>) {
+    fn stop_pending_notes(&mut self, control_messages_fn: &mut ControlMessagesFn) {
         for channel in 0..MidiChannel::MAX {
             let channel_msgs = self.active_notes[channel as usize].generate_off_messages();
             for msg in channel_msgs.into_iter() {
@@ -224,8 +222,6 @@ impl Configurable for Sequencer {
     }
 }
 impl Controls for Sequencer {
-    type Message = EntityMessage;
-
     fn update_time(&mut self, range: &Range<MusicalTime>) {
         if &self.time_range != range {
             self.time_range = range.clone();
@@ -233,7 +229,7 @@ impl Controls for Sequencer {
         }
     }
 
-    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn<Self::Message>) {
+    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn) {
         if !self.is_performing || self.is_finished() {
             return;
         }
@@ -286,7 +282,7 @@ mod tired {
     /// [MidiTickSequencer] is another kind of sequencer whose time unit is the MIDI
     /// tick. It exists to make it easy for [MidiSmfReader] to turn MIDI files into
     /// sequences.
-    #[derive(Debug, Control, Params, Uid)]
+    #[derive(Debug, Control, IsController, Params, Uid)]
     #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
     pub struct MidiTickSequencer {
         uid: groove_core::Uid,
@@ -313,7 +309,6 @@ mod tired {
 
         temp_hack_clock: Clock,
     }
-    impl IsController for MidiTickSequencer {}
     impl HandlesMidi for MidiTickSequencer {}
     impl Performs for MidiTickSequencer {
         fn play(&mut self) {
@@ -422,8 +417,6 @@ mod tired {
         }
     }
     impl Controls for MidiTickSequencer {
-        type Message = EntityMessage;
-
         fn work(&mut self, messages_fn: &mut dyn FnMut(Uid, Self::Message)) {
             if self.is_finished() || !self.is_performing {
                 return (None, 0);

@@ -4,13 +4,9 @@ use atomic_counter::{AtomicCounter, RelaxedCounter};
 use derive_more::Display;
 use groove_core::{
     time::{SampleRate, Tempo, TimeSignature},
-    traits::{
-        gui::Shows, Configurable, ControlMessagesFn, Controllable, Controls, HandlesMidi, HasUid,
-        IsController, IsEffect, IsInstrument, Performs, Ticks,
-    },
+    traits::{Configurable, ControlMessagesFn, Controls, Performs, Thing, Ticks},
     Uid,
 };
-use groove_entities::EntityMessage;
 use serde::{Deserialize, Serialize};
 use std::{collections::hash_map, fmt::Debug};
 use std::{
@@ -107,47 +103,6 @@ impl EntityFactory {
     }
 }
 
-pub enum ThingType {
-    Unknown,
-    Controller,
-    Effect,
-    Instrument,
-}
-
-#[typetag::serde(tag = "type")]
-pub trait Thing: HasUid + Shows + Configurable + Debug + Send {
-    fn thing_type(&self) -> ThingType {
-        ThingType::Unknown
-    }
-    fn as_controller(&self) -> Option<&dyn IsController<Message = EntityMessage>> {
-        None
-    }
-    fn as_controller_mut(&mut self) -> Option<&mut dyn IsController<Message = EntityMessage>> {
-        None
-    }
-    fn as_effect(&self) -> Option<&dyn IsEffect> {
-        None
-    }
-    fn as_effect_mut(&mut self) -> Option<&mut dyn IsEffect> {
-        None
-    }
-    fn as_instrument(&self) -> Option<&dyn IsInstrument> {
-        None
-    }
-    fn as_instrument_mut(&mut self) -> Option<&mut dyn IsInstrument> {
-        None
-    }
-    fn as_handles_midi(&self) -> Option<&dyn HandlesMidi> {
-        None
-    }
-    fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
-        None
-    }
-    fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
-        None
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct ThingStore {
     things: HashMap<Uid, Box<dyn Thing>>,
@@ -216,8 +171,6 @@ impl Configurable for ThingStore {
     }
 }
 impl Controls for ThingStore {
-    type Message = EntityMessage;
-
     fn update_time(&mut self, range: &std::ops::Range<groove_core::time::MusicalTime>) {
         self.iter_mut().for_each(|t| {
             if let Some(t) = t.as_controller_mut() {
@@ -226,7 +179,7 @@ impl Controls for ThingStore {
         });
     }
 
-    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn<Self::Message>) {
+    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn) {
         self.iter_mut().for_each(|t| {
             if let Some(t) = t.as_controller_mut() {
                 let tuid = t.uid();

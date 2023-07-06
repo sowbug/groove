@@ -1,14 +1,13 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::Sequencer;
-use crate::messages::EntityMessage;
 //use btreemultimap::BTreeMultiMap;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage},
     time::{BeatValue, MusicalTime, PerfectTimeUnit, TimeSignature, TimeSignatureParams},
-    traits::{Configurable, ControlMessagesFn, Controls, IsController, Performs},
+    traits::{Configurable, ControlMessagesFn, Controls, Performs},
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsController, Params, Uid};
 use std::{cmp, fmt::Debug, ops::Range};
 
 #[cfg(feature = "egui-framework")]
@@ -54,22 +53,19 @@ impl<T: Default> Pattern<T> {
 // There is so much paperwork for a vector because this will eventually become a
 // substantial part of the GUI experience.
 /// [PatternManager] stores all the [Patterns] that make up a song.
-#[derive(Clone, Debug, Default, Control, Params, Uid)]
+#[derive(Clone, Debug, Default, Control, IsController, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct PatternManager {
     uid: groove_core::Uid,
     patterns: Vec<Pattern<Note>>,
     selected_pattern: usize,
 }
-impl IsController for PatternManager {}
 impl HandlesMidi for PatternManager {}
 impl Configurable for PatternManager {}
 impl Controls for PatternManager {
-    type Message = EntityMessage;
-
     fn update_time(&mut self, _range: &Range<MusicalTime>) {}
 
-    fn work(&mut self, _: &mut ControlMessagesFn<Self::Message>) {}
+    fn work(&mut self, _: &mut ControlMessagesFn) {}
 
     fn is_finished(&self) -> bool {
         true

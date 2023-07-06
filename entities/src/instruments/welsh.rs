@@ -8,13 +8,13 @@ use groove_core::{
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
     time::SampleRate,
     traits::{
-        Configurable, Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice,
-        PlaysNotes, Ticks, TransformsAudio,
+        Configurable, Generates, GeneratesEnvelope, IsStereoSampleVoice, IsVoice, PlaysNotes,
+        Ticks, TransformsAudio,
     },
     voices::StealingVoiceStore,
     BipolarNormal, Dca, DcaParams, FrequencyHz, Normal, Sample, StereoSample,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsInstrument, Params, Uid};
 use strum_macros::{EnumCount as EnumCountMacro, FromRepr};
 
 #[cfg(feature = "serialization")]
@@ -318,7 +318,7 @@ impl WelshVoice {
     }
 }
 
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsInstrument, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct WelshSynth {
     uid: groove_core::Uid,
@@ -334,7 +334,6 @@ pub struct WelshSynth {
     #[params]
     dca: Dca,
 }
-impl IsInstrument for WelshSynth {}
 impl Generates<StereoSample> for WelshSynth {
     fn value(&self) -> StereoSample {
         self.inner_synth.value()

@@ -1,275 +1,17 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::{
-    control_atlas::ControlAtlas, entity_factory::ThingType, EntityFactory, Key,
-    MiniSequencerParams, Transport,
-};
-use crate::mini::{entity_factory::Thing, MiniSequencer};
-use groove_core::{
-    generators::Waveform,
-    midi::MidiChannel,
-    traits::{Controllable, HandlesMidi, IsController, IsEffect, IsInstrument},
-    FrequencyHz, Normal,
-};
+use super::{EntityFactory, Key, MiniSequencerParams};
+use crate::mini::MiniSequencer;
+use groove_core::{generators::Waveform, midi::MidiChannel, FrequencyHz, Normal};
 use groove_entities::{
     controllers::{
-        Arpeggiator, ArpeggiatorParams, LfoController, LfoControllerParams, Timer, ToyController,
+        Arpeggiator, ArpeggiatorParams, LfoController, LfoControllerParams, Timer, TimerParams,
     },
     effects::{BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbParams, Reverb, ReverbParams},
     instruments::{Drumkit, DrumkitParams, WelshSynth, WelshSynthParams},
-    EntityMessage,
 };
-use groove_toys::{ToyEffect, ToyInstrument, ToyInstrumentParams, ToySynth, ToySynthParams};
+use groove_toys::{ToyInstrument, ToyInstrumentParams, ToySynth, ToySynthParams};
 use groove_utils::Paths;
-
-// TODO: I think these can be moved to each instrument, but I'm not sure and
-// don't care right now.
-#[typetag::serde]
-impl Thing for Arpeggiator {
-    fn thing_type(&self) -> ThingType {
-        ThingType::Controller
-    }
-    fn as_controller(&self) -> Option<&dyn IsController<Message = EntityMessage>> {
-        Some(self)
-    }
-    fn as_controller_mut(&mut self) -> Option<&mut dyn IsController<Message = EntityMessage>> {
-        Some(self)
-    }
-    fn as_handles_midi(&self) -> Option<&dyn HandlesMidi> {
-        Some(self)
-    }
-    fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
-        Some(self)
-    }
-}
-#[typetag::serde]
-impl Thing for BiQuadFilterLowPass24db {
-    fn thing_type(&self) -> ThingType {
-        ThingType::Effect
-    }
-    fn as_effect(&self) -> Option<&dyn IsEffect> {
-        Some(self)
-    }
-    fn as_effect_mut(&mut self) -> Option<&mut dyn IsEffect> {
-        Some(self)
-    }
-    fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
-        Some(self)
-    }
-}
-#[typetag::serde]
-impl Thing for ControlAtlas {
-    fn thing_type(&self) -> ThingType {
-        ThingType::Controller
-    }
-    fn as_controller(&self) -> Option<&dyn IsController<Message = EntityMessage>> {
-        Some(self)
-    }
-    fn as_controller_mut(&mut self) -> Option<&mut dyn IsController<Message = EntityMessage>> {
-        Some(self)
-    }
-}
-#[typetag::serde]
-impl Thing for Drumkit {
-    fn thing_type(&self) -> ThingType {
-        ThingType::Instrument
-    }
-    fn as_instrument(&self) -> Option<&dyn IsInstrument> {
-        Some(self)
-    }
-    fn as_instrument_mut(&mut self) -> Option<&mut dyn IsInstrument> {
-        Some(self)
-    }
-    fn as_handles_midi(&self) -> Option<&dyn HandlesMidi> {
-        Some(self)
-    }
-    fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
-        Some(self)
-    }
-    fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
-        Some(self)
-    }
-}
-#[typetag::serde]
-impl Thing for LfoController {
-    fn thing_type(&self) -> ThingType {
-        ThingType::Controller
-    }
-    fn as_controller(&self) -> Option<&dyn IsController<Message = EntityMessage>> {
-        Some(self)
-    }
-    fn as_controller_mut(&mut self) -> Option<&mut dyn IsController<Message = EntityMessage>> {
-        Some(self)
-    }
-    fn as_handles_midi(&self) -> Option<&dyn HandlesMidi> {
-        Some(self)
-    }
-    fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
-        Some(self)
-    }
-}
-#[typetag::serde]
-impl Thing for MiniSequencer {
-    fn thing_type(&self) -> ThingType {
-        ThingType::Controller
-    }
-    fn as_controller(&self) -> Option<&dyn IsController<Message = EntityMessage>> {
-        Some(self)
-    }
-    fn as_controller_mut(&mut self) -> Option<&mut dyn IsController<Message = EntityMessage>> {
-        Some(self)
-    }
-    fn as_handles_midi(&self) -> Option<&dyn HandlesMidi> {
-        Some(self)
-    }
-    fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
-        Some(self)
-    }
-}
-#[typetag::serde]
-impl Thing for Reverb {
-    fn thing_type(&self) -> ThingType {
-        ThingType::Effect
-    }
-    fn as_effect(&self) -> Option<&dyn IsEffect> {
-        Some(self)
-    }
-    fn as_effect_mut(&mut self) -> Option<&mut dyn IsEffect> {
-        Some(self)
-    }
-    fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
-        Some(self)
-    }
-}
-#[typetag::serde]
-impl Thing for Timer {
-    fn thing_type(&self) -> ThingType {
-        ThingType::Controller
-    }
-    fn as_controller(&self) -> Option<&dyn IsController<Message = EntityMessage>> {
-        Some(self)
-    }
-
-    fn as_controller_mut(&mut self) -> Option<&mut dyn IsController<Message = EntityMessage>> {
-        Some(self)
-    }
-
-    fn as_handles_midi(&self) -> Option<&dyn HandlesMidi> {
-        Some(self)
-    }
-
-    fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
-        Some(self)
-    }
-}
-#[typetag::serde]
-impl Thing for ToyController {
-    fn thing_type(&self) -> ThingType {
-        ThingType::Controller
-    }
-    fn as_controller(&self) -> Option<&dyn IsController<Message = EntityMessage>> {
-        Some(self)
-    }
-    fn as_controller_mut(&mut self) -> Option<&mut dyn IsController<Message = EntityMessage>> {
-        Some(self)
-    }
-    fn as_handles_midi(&self) -> Option<&dyn HandlesMidi> {
-        Some(self)
-    }
-    fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
-        Some(self)
-    }
-}
-#[typetag::serde]
-impl Thing for ToyEffect {
-    fn thing_type(&self) -> ThingType {
-        ThingType::Effect
-    }
-    fn as_effect(&self) -> Option<&dyn IsEffect> {
-        Some(self)
-    }
-    fn as_effect_mut(&mut self) -> Option<&mut dyn IsEffect> {
-        Some(self)
-    }
-    fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
-        Some(self)
-    }
-}
-#[typetag::serde]
-impl Thing for ToyInstrument {
-    fn thing_type(&self) -> ThingType {
-        ThingType::Instrument
-    }
-    fn as_instrument(&self) -> Option<&dyn IsInstrument> {
-        Some(self)
-    }
-    fn as_instrument_mut(&mut self) -> Option<&mut dyn IsInstrument> {
-        Some(self)
-    }
-    fn as_handles_midi(&self) -> Option<&dyn HandlesMidi> {
-        Some(self)
-    }
-    fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
-        Some(self)
-    }
-    fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
-        Some(self)
-    }
-}
-#[typetag::serde]
-impl Thing for ToySynth {
-    fn thing_type(&self) -> ThingType {
-        ThingType::Instrument
-    }
-    fn as_instrument(&self) -> Option<&dyn IsInstrument> {
-        Some(self)
-    }
-    fn as_instrument_mut(&mut self) -> Option<&mut dyn IsInstrument> {
-        Some(self)
-    }
-    fn as_handles_midi(&self) -> Option<&dyn HandlesMidi> {
-        Some(self)
-    }
-    fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
-        Some(self)
-    }
-    fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
-        Some(self)
-    }
-}
-#[typetag::serde]
-impl Thing for Transport {
-    fn thing_type(&self) -> ThingType {
-        ThingType::Controller
-    }
-    fn as_controller(&self) -> Option<&dyn IsController<Message = EntityMessage>> {
-        Some(self)
-    }
-    fn as_controller_mut(&mut self) -> Option<&mut dyn IsController<Message = EntityMessage>> {
-        Some(self)
-    }
-}
-#[typetag::serde]
-impl Thing for WelshSynth {
-    fn thing_type(&self) -> ThingType {
-        ThingType::Instrument
-    }
-    fn as_instrument(&self) -> Option<&dyn IsInstrument> {
-        Some(self)
-    }
-    fn as_instrument_mut(&mut self) -> Option<&mut dyn IsInstrument> {
-        Some(self)
-    }
-    fn as_handles_midi(&self) -> Option<&dyn HandlesMidi> {
-        Some(self)
-    }
-    fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
-        Some(self)
-    }
-    fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
-        Some(self)
-    }
-}
 
 /// Registers all the entities we want for the minidaw example's EntityFactory.
 pub fn register_mini_factory_entities(factory: &mut EntityFactory) {
@@ -300,6 +42,9 @@ pub fn register_mini_factory_entities(factory: &mut EntityFactory) {
             &BiQuadFilterLowPass24dbParams::default(),
         ))
     });
+    factory.register_thing(Key::from("timer"), || {
+        Box::new(Timer::new_with(&TimerParams::default()))
+    });
     factory.register_thing(Key::from("toy-synth"), || {
         Box::new(ToySynth::new_with(&ToySynthParams::default()))
     });
@@ -324,7 +69,10 @@ pub fn register_mini_factory_entities(factory: &mut EntityFactory) {
 }
 
 #[cfg(test)]
-use {groove_entities::controllers::ToyControllerParams, groove_toys::ToyEffectParams};
+use {
+    groove_entities::controllers::{ToyController, ToyControllerParams},
+    groove_toys::{ToyEffect, ToyEffectParams},
+};
 
 /// Registers all the entities we want for the minidaw example's EntityFactory.
 #[cfg(test)]

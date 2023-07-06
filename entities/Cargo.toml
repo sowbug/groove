@@ -29,6 +29,7 @@ rustc-hash = "1.1"
 strum = "0.25"
 strum_macros = "0.25"
 serde = { version = "1.0", features = ["derive"], optional = true }
+typetag = "0.2"
 
 [features]
 # https://stackoverflow.com/a/62972981/344467

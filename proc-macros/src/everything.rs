@@ -122,13 +122,13 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
                     _ => false,
                 }
             }
-            pub fn as_is_controller(&self) -> Option<&dyn #core_crate::traits::IsController<Message=MsgType>> {
+            pub fn as_is_controller(&self) -> Option<&dyn #core_crate::traits::IsController> {
                 match self {
                     #( Entity::#structs(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
-            pub fn as_is_controller_mut(&mut self) -> Option<&mut dyn #core_crate::traits::IsController<Message=MsgType>> {
+            pub fn as_is_controller_mut(&mut self) -> Option<&mut dyn #core_crate::traits::IsController> {
                 match self {
                     #( Entity::#structs(e) => Some(e.as_mut()), )*
                     _ => None,

@@ -4,15 +4,15 @@ use groove_core::{
     generators::{Oscillator, OscillatorParams, Waveform},
     midi::HandlesMidi,
     time::{Clock, ClockParams, SampleRate},
-    traits::{Configurable, Generates, IsInstrument, Ticks},
+    traits::{Configurable, Generates, Ticks},
     ParameterType, StereoSample,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsInstrument, Params, Uid};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsInstrument, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Metronome {
     #[control]
@@ -30,7 +30,6 @@ pub struct Metronome {
     current_measure: usize,
     current_beat: usize,
 }
-impl IsInstrument for Metronome {}
 impl Generates<StereoSample> for Metronome {
     fn value(&self) -> StereoSample {
         if self.is_playing {

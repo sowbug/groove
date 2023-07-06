@@ -1,15 +1,15 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    traits::{Configurable, IsEffect, TransformsAudio},
+    traits::{Configurable, TransformsAudio},
     Normal, Sample,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsEffect, Params, Uid};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Limiter {
     uid: groove_core::Uid,
@@ -30,7 +30,6 @@ impl Default for Limiter {
         }
     }
 }
-impl IsEffect for Limiter {}
 impl Configurable for Limiter {}
 impl TransformsAudio for Limiter {
     fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {

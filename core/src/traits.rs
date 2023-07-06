@@ -3,7 +3,7 @@
 pub use crate::midi::HandlesMidi;
 use crate::{
     control::{ControlIndex, ControlValue},
-    midi::u7,
+    midi::{u7, MidiChannel, MidiMessage},
     time::{MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
     Normal, Sample, StereoSample, Uid,
 };
@@ -13,6 +13,31 @@ use std::ops::Range;
 use self::gui::Shows;
 
 pub trait MessageBounds: std::fmt::Debug + Send {}
+
+/// An [EntityMessage] describes how external components, such as an application
+/// GUI, communicate with [Entities](Entity). Some variants, such as `Midi` and
+/// `ControlF32`, go in the other direction; Entities send them to the rest of
+/// the system.
+#[derive(Clone, Debug)]
+pub enum EntityMessage {
+    /// A MIDI message sent to a channel. In most cases, MidiChannel is
+    /// redundant, as the sender of a message generally won't route a message to
+    /// someone not listening on the channel.
+    Midi(MidiChannel, MidiMessage),
+
+    /// (new controller_value)
+    ///
+    /// Sent by controller. Handled by system. Indicates "My value has changed
+    /// to \[value\], and I'd like subscribers to know about that." The
+    /// recipient will typically fan this out to multiple targets controlled by
+    /// the controller.
+    Control(ControlValue),
+
+    /// Sent by system to every entity that subscribes to a control.
+    #[deprecated]
+    HandleControl(ControlIndex, ControlValue),
+}
+impl MessageBounds for EntityMessage {}
 
 /// An [IsController] controls things in the system that implement
 /// [Controllable]. Examples are sequencers, arpeggiators, and discrete LFOs (as
@@ -154,10 +179,8 @@ pub trait Ticks: Configurable + Send + std::fmt::Debug {
     fn tick(&mut self, tick_count: usize);
 }
 
-pub type ControlMessagesFn<'a, M> = dyn FnMut(Uid, M) + 'a;
+pub type ControlMessagesFn<'a> = dyn FnMut(Uid, EntityMessage) + 'a;
 pub trait Controls: Configurable + Send + std::fmt::Debug {
-    type Message;
-
     #[allow(unused_variables)]
     fn update_time(&mut self, range: &Range<MusicalTime>);
 
@@ -179,7 +202,7 @@ pub trait Controls: Configurable + Send + std::fmt::Debug {
     ///
     /// Returns the number of requested ticks handled before terminating (TODO:
     /// no it doesn't).
-    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn<Self::Message>);
+    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn);
 
     /// Returns true if the entity is done with all its scheduled work. An
     /// entity that performs work only on command should always return true, as
@@ -307,6 +330,37 @@ pub trait Performs {
     /// itself to the start point.
     #[allow(unused_variables)]
     fn set_loop_enabled(&mut self, is_enabled: bool) {}
+}
+
+#[typetag::serde(tag = "type")]
+pub trait Thing: HasUid + Shows + Configurable + std::fmt::Debug + Send {
+    fn as_controller(&self) -> Option<&dyn IsController> {
+        None
+    }
+    fn as_controller_mut(&mut self) -> Option<&mut dyn IsController> {
+        None
+    }
+    fn as_effect(&self) -> Option<&dyn IsEffect> {
+        None
+    }
+    fn as_effect_mut(&mut self) -> Option<&mut dyn IsEffect> {
+        None
+    }
+    fn as_instrument(&self) -> Option<&dyn IsInstrument> {
+        None
+    }
+    fn as_instrument_mut(&mut self) -> Option<&mut dyn IsInstrument> {
+        None
+    }
+    fn as_handles_midi(&self) -> Option<&dyn HandlesMidi> {
+        None
+    }
+    fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
+        None
+    }
+    fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
+        None
+    }
 }
 
 /// A synthesizer is composed of Voices. Ideally, a synth will know how to

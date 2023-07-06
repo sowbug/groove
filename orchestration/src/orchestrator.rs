@@ -11,14 +11,13 @@ use groove_core::{
     control::{ControlIndex, ControlValue},
     midi::{MidiChannel, MidiMessage},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
-    traits::{Configurable, Performs},
+    traits::{Configurable, EntityMessage, Performs},
     ParameterType, StereoSample, Uid,
 };
 use groove_entities::{
     controllers::{PatternManager, Sequencer, SequencerParams},
     effects::Mixer,
     instruments::{Metronome, MetronomeParams},
-    EntityMessage,
 };
 use groove_proc_macros::Uid;
 use rustc_hash::{FxHashMap, FxHashSet};

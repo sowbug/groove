@@ -2,16 +2,16 @@
 
 use groove_core::{
     time::SampleRate,
-    traits::{Configurable, IsEffect, TransformsAudio},
+    traits::{Configurable, TransformsAudio},
     FrequencyHz, Normal, ParameterType, Sample,
 };
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsEffect, Params, Uid};
 use std::f64::consts::PI;
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterLowPass24db {
     #[control]
@@ -38,7 +38,6 @@ impl Default for BiQuadFilterLowPass24db {
         }
     }
 }
-impl IsEffect for BiQuadFilterLowPass24db {}
 impl Configurable for BiQuadFilterLowPass24db {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -176,7 +175,7 @@ impl BiQuadFilterLowPass24dbChannel {
     }
 }
 
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterLowPass12db {
     #[control]
@@ -192,7 +191,6 @@ pub struct BiQuadFilterLowPass12db {
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterLowPass12dbChannel; 2],
 }
-impl IsEffect for BiQuadFilterLowPass12db {}
 impl Configurable for BiQuadFilterLowPass12db {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -284,7 +282,7 @@ impl BiQuadFilterLowPass12dbChannel {
     }
 }
 
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterHighPass {
     #[control]
@@ -300,7 +298,6 @@ pub struct BiQuadFilterHighPass {
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterHighPassChannel; 2],
 }
-impl IsEffect for BiQuadFilterHighPass {}
 impl Configurable for BiQuadFilterHighPass {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -394,7 +391,7 @@ impl BiQuadFilterHighPassChannel {
     }
 }
 
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterAllPass {
     #[control]
@@ -410,7 +407,6 @@ pub struct BiQuadFilterAllPass {
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterAllPassChannel; 2],
 }
-impl IsEffect for BiQuadFilterAllPass {}
 impl Configurable for BiQuadFilterAllPass {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -501,7 +497,7 @@ impl BiQuadFilterAllPassChannel {
     }
 }
 
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterBandPass {
     #[control]
@@ -517,7 +513,6 @@ pub struct BiQuadFilterBandPass {
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterBandPassChannel; 2],
 }
-impl IsEffect for BiQuadFilterBandPass {}
 impl Configurable for BiQuadFilterBandPass {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -608,7 +603,7 @@ impl BiQuadFilterBandPassChannel {
     }
 }
 
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterBandStop {
     #[control]
@@ -625,7 +620,6 @@ pub struct BiQuadFilterBandStop {
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterBandStopChannel; 2],
 }
-impl IsEffect for BiQuadFilterBandStop {}
 impl Configurable for BiQuadFilterBandStop {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -717,7 +711,7 @@ impl BiQuadFilterBandStopChannel {
     }
 }
 
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterPeakingEq {
     #[control]
@@ -736,7 +730,6 @@ pub struct BiQuadFilterPeakingEq {
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterPeakingEqChannel; 2],
 }
-impl IsEffect for BiQuadFilterPeakingEq {}
 impl Configurable for BiQuadFilterPeakingEq {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -834,7 +827,7 @@ impl BiQuadFilterPeakingEqChannel {
     }
 }
 
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterLowShelf {
     #[control]
@@ -850,7 +843,6 @@ pub struct BiQuadFilterLowShelf {
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterLowShelfChannel; 2],
 }
-impl IsEffect for BiQuadFilterLowShelf {}
 impl Configurable for BiQuadFilterLowShelf {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -943,7 +935,7 @@ impl BiQuadFilterLowShelfChannel {
     }
 }
 
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterHighShelf {
     #[control]
@@ -959,7 +951,6 @@ pub struct BiQuadFilterHighShelf {
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterHighShelfChannel; 2],
 }
-impl IsEffect for BiQuadFilterHighShelf {}
 impl Configurable for BiQuadFilterHighShelf {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -1054,7 +1045,7 @@ impl BiQuadFilterHighShelfChannel {
 
 /// This filter does nothing, expensively. It exists for debugging. I might
 /// delete it later.
-#[derive(Debug, Control, Params, Uid)]
+#[derive(Debug, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterNone {
     uid: groove_core::Uid,
@@ -1063,7 +1054,6 @@ pub struct BiQuadFilterNone {
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilter; 2],
 }
-impl IsEffect for BiQuadFilterNone {}
 impl Configurable for BiQuadFilterNone {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;

@@ -2,24 +2,23 @@
 
 use groove_core::{
     time::MusicalTime,
-    traits::{gui::Shows, Configurable, Controls, HandlesMidi, IsController, Performs},
+    traits::{gui::Shows, Configurable, ControlMessagesFn, Controls, HandlesMidi, Performs},
     Uid,
 };
-use groove_entities::{controllers::ControlTrip, EntityMessage};
-use groove_proc_macros::Uid;
+use groove_entities::controllers::ControlTrip;
+use groove_proc_macros::{IsController, Uid};
 use serde::{Deserialize, Serialize};
 use std::ops::Range;
 
 /// A [ControlAtlas] manages a group of [ControlTrip]s. (An atlas is a book of
 /// maps.)
-#[derive(Serialize, Deserialize, Debug, Uid)]
+#[derive(Serialize, Deserialize, IsController, Debug, Uid)]
 pub struct ControlAtlas {
     uid: Uid,
     trips: Vec<ControlTrip>,
     #[serde(skip)]
     range: Range<MusicalTime>,
 }
-impl IsController for ControlAtlas {}
 impl Shows for ControlAtlas {}
 impl Performs for ControlAtlas {
     fn play(&mut self) {
@@ -40,17 +39,12 @@ impl Performs for ControlAtlas {
 }
 impl HandlesMidi for ControlAtlas {}
 impl Controls for ControlAtlas {
-    type Message = EntityMessage;
-
     fn update_time(&mut self, range: &Range<MusicalTime>) {
         self.range = range.clone();
         self.trips.iter_mut().for_each(|t| t.update_time(range));
     }
 
-    fn work(
-        &mut self,
-        control_messages_fn: &mut groove_core::traits::ControlMessagesFn<Self::Message>,
-    ) {
+    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn) {
         self.trips
             .iter_mut()
             .for_each(|t| t.work(control_messages_fn));

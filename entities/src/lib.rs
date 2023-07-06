@@ -2,8 +2,6 @@
 
 //! The suite of instruments, effects, and controllers supplied with Groove.
 
-pub use messages::EntityMessage;
-
 /// Controllers implement the [IsController](groove_core::traits::IsController)
 /// trait, which means that they control other devices. An example of a
 /// controller is a [Sequencer](groove_entities::controllers::Sequencer), which
@@ -29,7 +27,6 @@ pub mod effects;
 /// Examples of instruments are [Sampler](crate::instruments::Sampler) and
 /// [WelshSynth](crate::instruments::WelshSynth).
 pub mod instruments;
-mod messages;
 
 #[cfg(test)]
 mod tests {

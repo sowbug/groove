@@ -8,13 +8,10 @@ use eframe::{
 use groove_core::{
     midi::MidiChannel,
     time::{MusicalTime, TimeSignature},
-    traits::{
-        gui::Shows, Configurable, ControlMessagesFn, Controls, HandlesMidi, IsController, Performs,
-    },
+    traits::{gui::Shows, Configurable, ControlMessagesFn, Controls, HandlesMidi, Performs},
     Uid,
 };
-use groove_entities::EntityMessage;
-use groove_proc_macros::{Control, Params, Uid};
+use groove_proc_macros::{Control, IsController, Params, Uid};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, ops::Range};
 
@@ -294,7 +291,7 @@ enum MiniSequencerAction {
 
 /// [MiniSequencer] converts a chain of [MiniPattern]s into MIDI notes according
 /// to a given [Tempo] and [TimeSignature].
-#[derive(Debug, Default, Control, Params, Uid, Serialize, Deserialize)]
+#[derive(Debug, Default, Control, IsController, Params, Uid, Serialize, Deserialize)]
 pub struct MiniSequencer {
     uid: groove_core::Uid,
     midi_channel_out: MidiChannel,
@@ -397,7 +394,6 @@ impl MiniSequencer {
         self.arranged_patterns.retain(|p| !p.is_selected);
     }
 }
-impl IsController for MiniSequencer {}
 impl Shows for MiniSequencer {
     fn show(&mut self, ui: &mut Ui) {
         if let Some(action) = self.ui_content(ui) {
@@ -430,13 +426,11 @@ impl Performs for MiniSequencer {
 }
 impl HandlesMidi for MiniSequencer {}
 impl Controls for MiniSequencer {
-    type Message = EntityMessage;
-
     fn update_time(&mut self, range: &std::ops::Range<MusicalTime>) {
         self.range = range.clone();
     }
 
-    fn work(&mut self, _: &mut ControlMessagesFn<Self::Message>) {
+    fn work(&mut self, _: &mut ControlMessagesFn) {
         // TODO
     }
 
