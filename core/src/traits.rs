@@ -14,30 +14,32 @@ use self::gui::Shows;
 
 pub trait MessageBounds: std::fmt::Debug + Send {}
 
-/// An [EntityMessage] describes how external components, such as an application
-/// GUI, communicate with [Entities](Entity). Some variants, such as `Midi` and
-/// `ControlF32`, go in the other direction; Entities send them to the rest of
-/// the system.
+/// [Thing]s produce these events to communicate with other [Thing]s. Only the
+/// system receives [ThingEvent]s; rather than forwarding them directly, the
+/// system converts them into something else.
 #[derive(Clone, Debug)]
-pub enum EntityMessage {
-    /// A MIDI message sent to a channel. In most cases, MidiChannel is
-    /// redundant, as the sender of a message generally won't route a message to
-    /// someone not listening on the channel.
+pub enum ThingEvent {
+    /// A MIDI message sent to a channel. Controllers usually produce this
+    /// message, and the system transforms it into one or more
+    /// [HandlesMidi::handle_midi_message()] calls to route it to instruments or
+    /// other controllers.
     Midi(MidiChannel, MidiMessage),
 
-    /// (new controller_value)
-    ///
-    /// Sent by controller. Handled by system. Indicates "My value has changed
-    /// to \[value\], and I'd like subscribers to know about that." The
-    /// recipient will typically fan this out to multiple targets controlled by
-    /// the controller.
+    /// A control event. Indicates that the sender's value has changed, and that
+    /// subscribers should receive the update. This is how we perform
+    /// automation: a controller produces a [ThingEvent::Control] message, and
+    /// the system transforms it into [Controllable::control_set_param_by_index]
+    /// method calls to inform subscribing [Thing]s that their linked parameters
+    /// should change.
     Control(ControlValue),
 
-    /// Sent by system to every entity that subscribes to a control.
+    /// Sent by system to every entity that subscribes to a control. This
+    /// doesn't belong here (it goes in the wrong direction). When we eliminate
+    /// the old Orchestrator, we can remove this message. TODO
     #[deprecated]
     HandleControl(ControlIndex, ControlValue),
 }
-impl MessageBounds for EntityMessage {}
+impl MessageBounds for ThingEvent {}
 
 /// An [IsController] controls things in the system that implement
 /// [Controllable]. Examples are sequencers, arpeggiators, and discrete LFOs (as
@@ -179,34 +181,33 @@ pub trait Ticks: Configurable + Send + std::fmt::Debug {
     fn tick(&mut self, tick_count: usize);
 }
 
-pub type ControlMessagesFn<'a> = dyn FnMut(Uid, EntityMessage) + 'a;
+/// TODO: The [Uid] argument is a little weird. The ones actually producing the
+/// messages should *not* be allowed to specify their uid, because we don't want
+/// things to be able to impersonate other things. Rather, the ones who are
+/// routing messages specify uid, because they know the identity of the entities
+/// that they called. So a message-producing entity can specify uid if it wants,
+/// but the facility that called it will ignore it and report the correct one.
+/// This might end up like MIDI routing: there are some things that ask others
+/// to do work, and there are some things that do work, and a transparent proxy
+/// API like we have now isn't appropriate.
+pub type ControlEventsFn<'a> = dyn FnMut(Uid, ThingEvent) + 'a;
+
 pub trait Controls: Configurable + Send + std::fmt::Debug {
     #[allow(unused_variables)]
     fn update_time(&mut self, range: &Range<MusicalTime>);
 
     /// The entity should perform work for the time range specified in the
-    /// previous [update_time()]. If the work produces any messages, use
-    /// [control_messages_fn] to ask the system to queue them. They might be
+    /// previous [update_time()]. If the work produces any events, use
+    /// [control_events_fn] to ask the system to queue them. They might be
     /// handled right away, or later.
-    ///
-    /// TODO: The [Uid] argument is a little weird. The ones actually producing
-    /// the messages should *not* be allowed to specify their uid, because we
-    /// don't want entities to be able to impersonate other entities. Rather,
-    /// the ones who are routing messages specify uid, because they know the
-    /// identity of the entities that they called. So a message-producing entity
-    /// can specify uid if it wants, but the facility that called it will ignore
-    /// it and report the correct one. This might end up like MIDI routing:
-    /// there are some things that ask others to do work, and there are some
-    /// things that do work, and a transparent proxy API like we have now isn't
-    /// appropriate.
     ///
     /// Returns the number of requested ticks handled before terminating (TODO:
     /// no it doesn't).
-    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn);
+    fn work(&mut self, control_events_fn: &mut ControlEventsFn);
 
     /// Returns true if the entity is done with all its scheduled work. An
     /// entity that performs work only on command should always return true, as
-    /// the framework ends the piece being performed only when all entities
+    /// the framework ends the piece being performed only when all things
     /// implementing [Controls] indicate that they're finished.
     fn is_finished(&self) -> bool;
 }

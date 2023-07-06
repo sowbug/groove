@@ -8,7 +8,7 @@ use eframe::{
 use groove_core::{
     midi::MidiChannel,
     time::{MusicalTime, TimeSignature},
-    traits::{gui::Shows, Configurable, ControlMessagesFn, Controls, HandlesMidi, Performs},
+    traits::{gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, Performs},
     Uid,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
@@ -430,7 +430,7 @@ impl Controls for MiniSequencer {
         self.range = range.clone();
     }
 
-    fn work(&mut self, _: &mut ControlMessagesFn) {
+    fn work(&mut self, _: &mut ControlEventsFn) {
         // TODO
     }
 

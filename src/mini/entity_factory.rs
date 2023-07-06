@@ -4,7 +4,7 @@ use atomic_counter::{AtomicCounter, RelaxedCounter};
 use derive_more::Display;
 use groove_core::{
     time::{SampleRate, Tempo, TimeSignature},
-    traits::{Configurable, ControlMessagesFn, Controls, Performs, Thing, Ticks},
+    traits::{Configurable, ControlEventsFn, Controls, Performs, Thing, Ticks},
     Uid,
 };
 use serde::{Deserialize, Serialize};
@@ -179,12 +179,12 @@ impl Controls for ThingStore {
         });
     }
 
-    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn) {
+    fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
         self.iter_mut().for_each(|t| {
             if let Some(t) = t.as_controller_mut() {
                 let tuid = t.uid();
                 t.work(&mut |claimed_uid, message| {
-                    control_messages_fn(tuid, message);
+                    control_events_fn(tuid, message);
                     if tuid != claimed_uid {
                         eprintln!("Warning: entity {tuid} is sending control messages with incorrect uid {claimed_uid}");
                     }

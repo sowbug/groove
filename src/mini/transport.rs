@@ -3,7 +3,7 @@
 use eframe::{egui::Layout, emath::Align, epaint::vec2};
 use groove_core::{
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
-    traits::{gui::Shows, Configurable, ControlMessagesFn, Controls, HandlesMidi, Performs},
+    traits::{gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, Performs},
     Uid,
 };
 use groove_proc_macros::{Control, IsController, Uid};
@@ -121,7 +121,7 @@ impl Controls for Transport {
         );
     }
 
-    fn work(&mut self, _control_messages_fn: &mut ControlMessagesFn) {
+    fn work(&mut self, _control_events_fn: &mut ControlEventsFn) {
         // nothing, but in the future we might want to propagate a tempo or time-sig change
     }
 

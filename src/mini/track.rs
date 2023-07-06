@@ -15,7 +15,7 @@ use groove_core::{
     midi::MidiChannel,
     time::{SampleRate, Tempo, TimeSignature},
     traits::{
-        gui::Shows, Configurable, ControlMessagesFn, Controls, GeneratesToInternalBuffer, Performs,
+        gui::Shows, Configurable, ControlEventsFn, Controls, GeneratesToInternalBuffer, Performs,
         Thing, Ticks,
     },
     Normal, StereoSample, Uid,
@@ -751,14 +751,14 @@ impl Controls for Track {
         self.thing_store.update_time(range);
     }
 
-    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn) {
+    fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
         if let Some(sequencer) = self.sequencer.as_mut() {
-            sequencer.work(control_messages_fn);
+            sequencer.work(control_events_fn);
         }
         if let Some(atlas) = self.control_atlas.as_mut() {
-            atlas.work(control_messages_fn);
+            atlas.work(control_events_fn);
         }
-        self.thing_store.work(control_messages_fn);
+        self.thing_store.work(control_events_fn);
     }
 
     fn is_finished(&self) -> bool {

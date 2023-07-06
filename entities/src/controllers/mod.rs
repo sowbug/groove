@@ -29,7 +29,7 @@ mod sequencers;
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessagesFn},
     time::{ClockTimeUnit, MusicalTime, MusicalTimeParams, SampleRate},
-    traits::{Configurable, ControlMessagesFn, Controls, EntityMessage, Performs, TransformsAudio},
+    traits::{Configurable, ControlEventsFn, Controls, Performs, ThingEvent, TransformsAudio},
     BipolarNormal, Normal, Sample, StereoSample,
 };
 use groove_proc_macros::{Control, IsController, IsControllerEffect, Params, Uid};
@@ -131,7 +131,7 @@ impl Controls for Timer {
         }
     }
 
-    fn work(&mut self, _messages_fn: &mut ControlMessagesFn) {
+    fn work(&mut self, _messages_fn: &mut ControlEventsFn) {
         // All the state was computable during update_time(), so there's nothing to do here.
     }
 
@@ -178,10 +178,10 @@ impl Controls for Trigger {
         self.timer.update_time(range)
     }
 
-    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn) {
+    fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
         if self.timer.is_finished() && self.is_performing && !self.has_triggered {
             self.has_triggered = true;
-            control_messages_fn(self.uid, EntityMessage::Control(self.value().into()));
+            control_events_fn(self.uid, ThingEvent::Control(self.value().into()));
         }
     }
 
@@ -253,13 +253,13 @@ impl Controls for SignalPassthroughController {
         // We can ignore because we already have our own de-duplicating logic.
     }
 
-    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn) {
+    fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
         if !self.is_performing {
             return;
         }
         if self.has_signal_changed {
             self.has_signal_changed = false;
-            control_messages_fn(self.uid, EntityMessage::Control(self.signal.into()))
+            control_events_fn(self.uid, ThingEvent::Control(self.signal.into()))
         }
     }
 
@@ -373,7 +373,7 @@ impl Controls for ToyController {
         self.time_range = range.clone();
     }
 
-    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn) {
+    fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
         match self.what_to_do() {
             TestControllerAction::Nothing => {}
             TestControllerAction::NoteOn => {
@@ -382,17 +382,17 @@ impl Controls for ToyController {
                 // then we still send the off note,
                 if self.is_enabled && self.is_performing {
                     self.is_playing = true;
-                    control_messages_fn(
+                    control_events_fn(
                         self.uid,
-                        EntityMessage::Midi(self.midi_channel_out, new_note_on(60, 127)),
+                        ThingEvent::Midi(self.midi_channel_out, new_note_on(60, 127)),
                     );
                 }
             }
             TestControllerAction::NoteOff => {
                 if self.is_playing {
-                    control_messages_fn(
+                    control_events_fn(
                         self.uid,
-                        EntityMessage::Midi(self.midi_channel_out, new_note_off(60, 0)),
+                        ThingEvent::Midi(self.midi_channel_out, new_note_off(60, 0)),
                     );
                 }
             }

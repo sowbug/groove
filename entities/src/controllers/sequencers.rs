@@ -4,7 +4,7 @@ use btreemultimap::BTreeMultiMap;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn, MidiNoteMinder},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, TimeSignatureParams},
-    traits::{Configurable, ControlMessagesFn, Controls, EntityMessage, Performs},
+    traits::{Configurable, ControlEventsFn, Controls, Performs, ThingEvent},
     ParameterType,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
@@ -158,11 +158,11 @@ impl Sequencer {
         self.next_instant
     }
 
-    fn stop_pending_notes(&mut self, control_messages_fn: &mut ControlMessagesFn) {
+    fn stop_pending_notes(&mut self, control_events_fn: &mut ControlEventsFn) {
         for channel in 0..MidiChannel::MAX {
             let channel_msgs = self.active_notes[channel as usize].generate_off_messages();
             for msg in channel_msgs.into_iter() {
-                control_messages_fn(self.uid, EntityMessage::Midi(channel.into(), msg));
+                control_events_fn(self.uid, ThingEvent::Midi(channel.into(), msg));
             }
         }
     }
@@ -229,13 +229,13 @@ impl Controls for Sequencer {
         }
     }
 
-    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn) {
+    fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
         if !self.is_performing || self.is_finished() {
             return;
         }
         if self.should_stop_pending_notes {
             self.should_stop_pending_notes = false;
-            self.stop_pending_notes(control_messages_fn);
+            self.stop_pending_notes(control_events_fn);
         }
 
         if self.is_enabled() {
@@ -244,7 +244,7 @@ impl Controls for Sequencer {
                 let time_range = self.time_range.clone();
                 let uid = self.uid;
                 self.generate_midi_messages_for_interval(&time_range, &mut |channel, message| {
-                    control_messages_fn(uid, EntityMessage::Midi(channel, message))
+                    control_events_fn(uid, ThingEvent::Midi(channel, message))
                 });
             }
         };
@@ -436,7 +436,7 @@ mod tired {
                     Vec::default(),
                     |mut vec, (_when, (channel, message))| {
                         self.active_notes[*channel as usize].watch_message(message);
-                        vec.push(EntityMessage::Midi(*channel, *message));
+                        vec.push(ThingEvent::Midi(*channel, *message));
                         vec
                     },
                 ));

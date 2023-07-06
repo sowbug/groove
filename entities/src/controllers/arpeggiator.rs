@@ -4,7 +4,7 @@ use super::{sequencers::Sequencer, SequencerParams};
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
     time::{MusicalTime, PerfectTimeUnit, SampleRate},
-    traits::{Configurable, ControlMessagesFn, Controls, Performs},
+    traits::{Configurable, ControlEventsFn, Controls, Performs},
     ParameterType,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
@@ -47,8 +47,8 @@ impl Controls for Arpeggiator {
         self.sequencer.update_time(range);
     }
 
-    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn) {
-        self.sequencer.work(control_messages_fn)
+    fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
+        self.sequencer.work(control_events_fn)
     }
 
     fn is_finished(&self) -> bool {

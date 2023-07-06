@@ -11,7 +11,7 @@ use groove_core::{
     control::{ControlIndex, ControlValue},
     midi::{MidiChannel, MidiMessage},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
-    traits::{Configurable, EntityMessage, Performs},
+    traits::{Configurable, Performs, ThingEvent},
     ParameterType, StereoSample, Uid,
 };
 use groove_entities::{
@@ -588,7 +588,7 @@ impl Orchestrator {
             while let Some(message) = messages.pop() {
                 match message {
                     GrooveInput::EntityMessage(uid, event) => match event {
-                        EntityMessage::Midi(channel, message) => {
+                        ThingEvent::Midi(channel, message) => {
                             // We could have pushed this onto the regular
                             // commands vector, and then instead of panicking on
                             // the MidiToExternal match, handle it by pushing it
@@ -599,10 +599,10 @@ impl Orchestrator {
                             )));
                             self.broadcast_midi_messages(&[(channel, message)]);
                         }
-                        EntityMessage::Control(value) => {
+                        ThingEvent::Control(value) => {
                             messages.extend(self.generate_control_update_messages(uid, value));
                         }
-                        EntityMessage::HandleControl(param_id, value) => {
+                        ThingEvent::HandleControl(param_id, value) => {
                             self.handle_control(uid, param_id, value)
                         }
                     },
@@ -772,7 +772,7 @@ impl Orchestrator {
                 .fold(Vec::default(), |mut v, (target_uid, param_id)| {
                     v.push(GrooveInput::EntityMessage(
                         *target_uid,
-                        EntityMessage::HandleControl(*param_id, value),
+                        ThingEvent::HandleControl(*param_id, value),
                     ));
                     v
                 });

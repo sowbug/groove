@@ -5,9 +5,7 @@ use groove_core::{
     generators::{Oscillator, OscillatorParams, Waveform},
     midi::HandlesMidi,
     time::{MusicalTime, SampleRate, Tempo},
-    traits::{
-        Configurable, ControlMessagesFn, Controls, EntityMessage, Generates, Performs, Ticks,
-    },
+    traits::{Configurable, ControlEventsFn, Controls, Generates, Performs, ThingEvent, Ticks},
     FrequencyHz, ParameterType,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
@@ -57,7 +55,7 @@ impl Controls for LfoController {
         self.time_range = range.clone();
     }
 
-    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn) {
+    fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
         let frames = self.time_range.start.as_frames(
             Tempo::from(120),
             SampleRate::from(self.oscillator.sample_rate()),
@@ -82,9 +80,9 @@ impl Controls for LfoController {
             self.last_frame += tick_count;
             self.oscillator.tick(tick_count);
         }
-        control_messages_fn(
+        control_events_fn(
             self.uid,
-            EntityMessage::Control(self.oscillator.value().into()),
+            ThingEvent::Control(self.oscillator.value().into()),
         );
     }
 

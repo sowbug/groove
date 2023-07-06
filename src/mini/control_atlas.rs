@@ -2,7 +2,7 @@
 
 use groove_core::{
     time::MusicalTime,
-    traits::{gui::Shows, Configurable, ControlMessagesFn, Controls, HandlesMidi, Performs},
+    traits::{gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, Performs},
     Uid,
 };
 use groove_entities::controllers::ControlTrip;
@@ -44,10 +44,10 @@ impl Controls for ControlAtlas {
         self.trips.iter_mut().for_each(|t| t.update_time(range));
     }
 
-    fn work(&mut self, control_messages_fn: &mut ControlMessagesFn) {
+    fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
         self.trips
             .iter_mut()
-            .for_each(|t| t.work(control_messages_fn));
+            .for_each(|t| t.work(control_events_fn));
     }
 
     fn is_finished(&self) -> bool {

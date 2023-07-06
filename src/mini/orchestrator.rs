@@ -15,8 +15,8 @@ use groove_core::{
     midi::{MidiChannel, MidiMessage, MidiMessagesFn},
     time::{MusicalTime, SampleRate, Tempo},
     traits::{
-        gui::Shows, Configurable, ControlMessagesFn, Controllable, Controls, EntityMessage,
-        Generates, GeneratesToInternalBuffer, HandlesMidi, HasUid, Performs, Thing, Ticks,
+        gui::Shows, Configurable, ControlEventsFn, Controllable, Controls, Generates,
+        GeneratesToInternalBuffer, HandlesMidi, HasUid, Performs, Thing, ThingEvent, Ticks,
     },
     Sample, StereoSample, Uid,
 };
@@ -31,7 +31,7 @@ use std::{fmt::Debug, ops::Range, sync::Arc};
 pub struct OrchestratorEphemerals {
     sample_rate: SampleRate,
     range: Range<MusicalTime>,
-    messages: Vec<(Uid, EntityMessage)>,
+    events: Vec<(Uid, ThingEvent)>,
     is_finished: bool,
     is_performing: bool,
 }
@@ -182,7 +182,7 @@ impl MiniOrchestrator {
         // or be idempotent.
         let range = self.transport.advance(samples.len());
         self.update_time(&range);
-        self.work(&mut |_, _| panic!("work() was supposed to handle all messages"));
+        self.work(&mut |_, _| panic!("work() was supposed to handle all events"));
         self.generate_batch_values(samples);
     }
 
@@ -448,16 +448,19 @@ impl MiniOrchestrator {
         self.tracks.iter().all(|t| t.is_finished())
     }
 
-    fn dispatch_message(&mut self, uid: Uid, message: EntityMessage) {
-        match message {
-            EntityMessage::Midi(channel, message) => {
+    fn dispatch_event(&mut self, uid: Uid, event: ThingEvent) {
+        match event {
+            ThingEvent::Midi(channel, message) => {
                 self.route_midi_message(channel, message);
             }
-            EntityMessage::Control(value) => {
+            ThingEvent::Control(value) => {
                 self.route_control_change(uid, value);
             }
-            EntityMessage::HandleControl(_, _) => {
-                panic!("New system doesn't use this message. Consider deleting it!")
+            _ => {
+                panic!(
+                    "New system doesn't use event {:?}. Consider deleting it!",
+                    event
+                )
             }
         }
     }
@@ -580,14 +583,13 @@ impl Controls for MiniOrchestrator {
         }
     }
 
-    fn work(&mut self, _: &mut ControlMessagesFn) {
-        self.transport
-            .work(&mut |u, m| self.e.messages.push((u, m)));
+    fn work(&mut self, _: &mut ControlEventsFn) {
+        self.transport.work(&mut |u, m| self.e.events.push((u, m)));
         for track in self.tracks.iter_mut() {
-            track.work(&mut |u, m| self.e.messages.push((u, m)));
+            track.work(&mut |u, m| self.e.events.push((u, m)));
         }
-        while let Some((uid, message)) = self.e.messages.pop() {
-            self.dispatch_message(uid, message);
+        while let Some((uid, event)) = self.e.events.pop() {
+            self.dispatch_event(uid, event);
         }
         self.e.is_finished = self.calculate_is_finished();
     }

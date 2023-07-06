@@ -8,7 +8,7 @@ use groove_core::{
     control::ControlIndex,
     midi::{MidiChannel, MidiMessage},
     time::SampleRate,
-    traits::{EntityMessage, MessageBounds},
+    traits::{MessageBounds, ThingEvent},
     Uid,
 };
 use std::fmt::Debug;
@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
 pub enum GrooveInput {
-    EntityMessage(Uid, EntityMessage),
+    EntityMessage(Uid, ThingEvent),
 
     /// A MIDI message that has arrived from outside Groove, typically from
     /// MidiInputHandler.
@@ -50,7 +50,7 @@ impl MessageBounds for GrooveInput {}
 
 #[derive(Clone, Debug)]
 pub enum GrooveEvent {
-    EntityMessage(usize, EntityMessage),
+    EntityMessage(usize, ThingEvent),
 
     /// Indicates that an Orchestrator performance has begun. The app should
     /// adjust the GUI state accordingly.

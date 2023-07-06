@@ -16,7 +16,7 @@ use groove_core::{
     instruments::Synthesizer,
     midi::{note_to_frequency, MidiChannel, MidiMessage, MidiMessagesFn},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, TimeSignatureParams},
-    traits::{Configurable, ControlMessagesFn, Controls, Generates, HandlesMidi, Performs, Ticks},
+    traits::{Configurable, ControlEventsFn, Controls, Generates, HandlesMidi, Performs, Ticks},
     voices::VoicePerNoteStore,
     ParameterType, StereoSample,
 };
@@ -510,7 +510,7 @@ impl Controls for Calculator {
         todo!()
     }
 
-    fn work(&mut self, _: &mut ControlMessagesFn) {
+    fn work(&mut self, _: &mut ControlEventsFn) {
         self.handle_tick();
     }
 
