@@ -148,6 +148,7 @@ impl Track {
     pub fn append_thing(&mut self, thing: Box<dyn Thing>) -> Uid {
         let uid = thing.uid();
         if thing.as_controller().is_some() {
+            // TODO: some things are hybrids - the "else" is wrong
             self.controllers.push(uid);
         } else if thing.as_effect().is_some() {
             self.effects.push(uid);
