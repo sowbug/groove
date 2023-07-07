@@ -1,8 +1,12 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::{
-    control_atlas::ControlAtlas, control_router::ControlRouter, entity_factory::ThingStore,
-    humidifier::Humidifier, midi_router::MidiRouter, sequencer::MiniSequencer,
+    control_atlas::ControlAtlas,
+    control_router::ControlRouter,
+    entity_factory::ThingStore,
+    humidifier::Humidifier,
+    midi_router::MidiRouter,
+    sequencer::{MiniSequencer, MiniSequencerAction},
 };
 use crate::mini::sequencer::MiniSequencerParams;
 use eframe::{
@@ -37,6 +41,7 @@ pub enum TrackElementAction {
 pub enum TrackAction {
     Select(TrackIndex, bool),
     SelectClear,
+    SetTitle(TrackIndex, TrackTitle),
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -373,16 +378,16 @@ impl Track {
         response
     }
 
-    fn show_midi(&mut self, ui: &mut Ui) -> Response {
-        if let Some(sequencer) = self.sequencer.as_mut() {
+    fn show_midi(&self, ui: &mut Ui) -> (Response, Option<MiniSequencerAction>) {
+        if let Some(sequencer) = &self.sequencer {
             sequencer.show_arrangement(ui)
         } else {
             eprintln!("Hmmm, no sequencer in a MIDI track?");
-            ui.allocate_ui(ui.available_size(), |_ui| {}).response
+            (ui.allocate_ui(ui.available_size(), |_ui| {}).response, None)
         }
     }
 
-    fn show_audio(&mut self, ui: &mut Ui) -> Response {
+    fn show_audio(&self, ui: &mut Ui) -> Response {
         self.draw_temp_squiggles(ui)
     }
 
@@ -538,43 +543,54 @@ impl Track {
         action
     }
 
-    pub fn show(&mut self, ui: &mut Ui) -> Response {
-        ui.allocate_ui(vec2(ui.available_width(), 64.0), |ui| {
-            Frame::default()
-                .stroke(Stroke {
-                    width: if self.is_selected { 2.0 } else { 0.0 },
-                    color: Color32::YELLOW,
-                })
-                .show(ui, |ui| {
-                    let response = Frame::default()
-                        .fill(Color32::GRAY)
-                        .show(ui, |ui| {
-                            ui.horizontal(|ui| {
-                                ui.text_edit_singleline(&mut self.title.0);
-                                ui.allocate_response(
-                                    ui.available_size_before_wrap(),
-                                    Sense::click(),
-                                )
+    #[must_use]
+    pub fn show(&self, ui: &mut Ui, track_index: TrackIndex) -> (Response, Option<TrackAction>) {
+        let mut action = None;
+        (
+            ui.allocate_ui(vec2(ui.available_width(), 64.0), |ui| {
+                Frame::default()
+                    .stroke(Stroke {
+                        width: if self.is_selected { 2.0 } else { 0.0 },
+                        color: Color32::YELLOW,
+                    })
+                    .show(ui, |ui| {
+                        let response = Frame::default()
+                            .fill(Color32::GRAY)
+                            .show(ui, |ui| {
+                                ui.horizontal(|ui| {
+                                    let mut title = self.title.0.clone();
+                                    if ui.text_edit_singleline(&mut title).changed() {
+                                        action = Some(TrackAction::SetTitle(
+                                            track_index,
+                                            TrackTitle(title),
+                                        ));
+                                    };
+                                    ui.allocate_response(
+                                        ui.available_size_before_wrap(),
+                                        Sense::click(),
+                                    )
+                                })
+                                .inner
                             })
-                            .inner
-                        })
-                        .inner;
-                    match self.ty {
-                        TrackType::Midi => {
-                            self.show_midi(ui);
+                            .inner;
+                        match self.ty {
+                            TrackType::Midi => {
+                                self.show_midi(ui);
+                            }
+                            TrackType::Audio => {
+                                self.show_audio(ui);
+                            }
+                            TrackType::Send => {
+                                // For now, the title bar is enough for a send track, which holds only effects.
+                            }
                         }
-                        TrackType::Audio => {
-                            self.show_audio(ui);
-                        }
-                        TrackType::Send => {
-                            // For now, the title bar is enough for a send track, which holds only effects.
-                        }
-                    }
-                    response
-                })
-                .inner
-        })
-        .inner
+                        response
+                    })
+                    .inner
+            })
+            .inner,
+            action,
+        )
     }
 
     pub fn remove_selected_patterns(&mut self) {
@@ -622,6 +638,10 @@ impl Track {
 
     pub(crate) fn max_uid(&self) -> Uid {
         self.thing_store.max_uid()
+    }
+
+    pub(crate) fn set_title(&mut self, title: TrackTitle) {
+        self.title = title;
     }
 }
 impl GeneratesToInternalBuffer<StereoSample> for Track {

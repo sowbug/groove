@@ -5,7 +5,8 @@ pub use entities::register_mini_factory_entities;
 pub use entity_factory::{EntityFactory, Key};
 pub use orchestrator::MiniOrchestrator;
 pub use sequencer::{MiniSequencer, MiniSequencerParams};
-pub use track::TrackIndex; // TODO: this is weird to have to export without Track
+pub use track::{Track, TrackAction, TrackIndex};
+
 pub use transport::Transport;
 
 #[cfg(test)]

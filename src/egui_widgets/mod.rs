@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+pub use arrangement_view::ArrangementView;
 pub use audio_panel::{AudioPanel, AudioPanelEvent, MiniAudioPanel, NeedsAudioFn};
 pub use control_panel::{ControlBar, ControlPanel, ControlPanelAction};
 pub use legacy::preferences::Preferences;
@@ -9,6 +10,7 @@ pub use orchestrator_panel::{MiniOrchestratorEvent, MiniOrchestratorInput, Orche
 pub use palette_panel::{PaletteAction, PalettePanel};
 pub use settings_panel::SettingsPanel;
 
+mod arrangement_view;
 mod audio_panel;
 mod control_panel;
 mod legacy;

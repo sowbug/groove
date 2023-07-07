@@ -44,7 +44,7 @@ impl ArrangedPattern {
             .show(ui, |ui| ui.label(format!("{}", self.pattern_uid)));
     }
 
-    fn show_in_arrangement(&mut self, ui: &mut Ui, pattern: &MiniPattern) -> Response {
+    fn show_in_arrangement(&self, ui: &mut Ui, pattern: &MiniPattern) -> Response {
         pattern.show_in_arrangement(ui, self.is_selected)
     }
 }
@@ -280,9 +280,10 @@ impl MiniPattern {
 }
 
 #[derive(Debug)]
-enum MiniSequencerAction {
+pub enum MiniSequencerAction {
     CreatePattern,
     ArrangePattern(Uid),
+    ToggleArrangedPatternSelection(usize),
 }
 
 /// [MiniSequencer] converts a chain of [MiniPattern]s into MIDI notes according
@@ -347,7 +348,9 @@ impl MiniSequencer {
     }
 
     /// Renders the arrangement view
-    pub fn show_arrangement(&mut self, ui: &mut Ui) -> Response {
+    #[must_use]
+    pub fn show_arrangement(&self, ui: &mut Ui) -> (Response, Option<MiniSequencerAction>) {
+        let mut action = None;
         let desired_size = vec2(ui.available_width(), 64.0);
         let (_id, rect) = ui.allocate_space(desired_size);
         let painter = ui.painter_at(rect);
@@ -368,21 +371,26 @@ impl MiniSequencer {
             );
         }
 
-        ui.allocate_ui_at_rect(rect, |ui| {
-            ui.style_mut().spacing.item_spacing = Vec2::ZERO;
-            ui.horizontal_top(|ui| {
-                for arranged_pattern in self.arranged_patterns.iter_mut() {
-                    if let Some(pattern) = self.patterns.get(&arranged_pattern.pattern_uid) {
-                        if arranged_pattern.show_in_arrangement(ui, pattern).clicked() {
-                            // TODO: handle shift/control
-                            arranged_pattern.is_selected = !arranged_pattern.is_selected;
+        (
+            ui.allocate_ui_at_rect(rect, |ui| {
+                ui.style_mut().spacing.item_spacing = Vec2::ZERO;
+                ui.horizontal_top(|ui| {
+                    for (index, arranged_pattern) in self.arranged_patterns.iter().enumerate() {
+                        if let Some(pattern) = self.patterns.get(&arranged_pattern.pattern_uid) {
+                            if arranged_pattern.show_in_arrangement(ui, pattern).clicked() {
+                                // TODO: handle shift/control
+                                action = Some(MiniSequencerAction::ToggleArrangedPatternSelection(
+                                    index,
+                                ));
+                            }
                         }
                     }
-                }
+                })
+                .response
             })
-            .response
-        })
-        .inner
+            .inner,
+            action,
+        )
     }
 
     /// Removes all selected arranged patterns.
@@ -399,6 +407,10 @@ impl Shows for MiniSequencer {
                         .insert(self.uid_factory.next(), MiniPattern::default());
                 }
                 MiniSequencerAction::ArrangePattern(uid) => self.append_pattern(&uid),
+                MiniSequencerAction::ToggleArrangedPatternSelection(index) => {
+                    self.arranged_patterns[index].is_selected =
+                        !self.arranged_patterns[index].is_selected
+                }
             }
         }
     }

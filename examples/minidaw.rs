@@ -564,16 +564,22 @@ impl MiniDaw {
     }
 
     fn show_left(&mut self, ui: &mut Ui) {
-        if let Some(_action) = self.palette_panel.show_with_action(ui) {
-            // these are inactive for now because we're skipping the drag/drop stuff.
-            //self.handle_palette_action(action);
-        }
+        ScrollArea::horizontal().show(ui, |ui| {
+            if let Some(_action) = self.palette_panel.show_with_action(ui) {
+                // these are inactive for now because we're skipping the drag/drop stuff.
+                //self.handle_palette_action(action);
+            }
+        });
     }
 
-    fn show_right(&mut self, _ui: &mut Ui) {}
+    fn show_right(&mut self, ui: &mut Ui) {
+        ScrollArea::horizontal().show(ui, |ui| ui.label("Under Construction"));
+    }
 
     fn show_center(&mut self, ui: &mut Ui, is_shift_only_down: bool) {
-        self.orchestrator_panel.show(ui, is_shift_only_down);
+        ScrollArea::vertical().show(ui, |ui| {
+            self.orchestrator_panel.show(ui, is_shift_only_down);
+        });
     }
 
     fn update_window_title(&mut self, frame: &mut eframe::Frame) {
@@ -595,6 +601,16 @@ impl MiniDaw {
             }
         );
         frame.set_window_title(&full_title);
+    }
+
+    fn show_settings_panel(&mut self, ctx: &Context) {
+        let mut is_settings_open = self.settings_panel.is_open();
+        egui::Window::new("Settings")
+            .open(&mut is_settings_open)
+            .show(ctx, |ui| self.settings_panel.show(ui));
+        if self.settings_panel.is_open() && !is_settings_open {
+            self.settings_panel.toggle();
+        }
     }
 }
 impl eframe::App for MiniDaw {
@@ -626,12 +642,12 @@ impl eframe::App for MiniDaw {
             .exact_height(24.0);
         let left = egui::SidePanel::left("left-panel")
             .resizable(true)
-            .default_width(150.0)
-            .width_range(80.0..=200.0);
+            .default_width(160.0)
+            .width_range(160.0..=480.0);
         let right = egui::SidePanel::right("right-panel")
             .resizable(true)
-            .default_width(150.0)
-            .width_range(80.0..=200.0);
+            .default_width(160.0)
+            .width_range(160.0..=480.0);
         let center = egui::CentralPanel::default();
 
         top.show(ctx, |ui| {
@@ -647,19 +663,11 @@ impl eframe::App for MiniDaw {
             self.show_right(ui);
         });
         center.show(ctx, |ui| {
-            ScrollArea::vertical().show(ui, |ui| {
-                self.show_center(ui, is_control_only_down);
-            });
+            self.show_center(ui, is_control_only_down);
             self.toasts.show(ctx);
         });
 
-        let mut is_settings_open = self.settings_panel.is_open();
-        egui::Window::new("Settings")
-            .open(&mut is_settings_open)
-            .show(ctx, |ui| self.settings_panel.show(ui));
-        if self.settings_panel.is_open() && !is_settings_open {
-            self.settings_panel.toggle();
-        }
+        self.show_settings_panel(ctx);
 
         if self.exit_requested {
             frame.close();

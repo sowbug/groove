@@ -3,10 +3,11 @@
 use super::{
     control_router::ControlRouter,
     entity_factory::EntityFactory,
-    track::{Track, TrackAction, TrackFactory, TrackIndex},
+    track::{Track, TrackAction, TrackFactory, TrackIndex, TrackTitle},
     transport::Transport,
     Key,
 };
+use crate::egui_widgets::ArrangementView;
 use anyhow::{anyhow, Result};
 use eframe::egui::{self, Ui};
 use groove_audio::AudioQueue;
@@ -58,6 +59,8 @@ pub struct MiniOrchestrator {
     e: OrchestratorEphemerals,
     #[serde(skip)]
     entity_factory: Option<Arc<EntityFactory>>,
+    #[serde(skip)]
+    arrangement_view: ArrangementView,
 }
 impl Default for MiniOrchestrator {
     fn default() -> Self {
@@ -74,6 +77,8 @@ impl Default for MiniOrchestrator {
             ],
             track_factory,
             single_track_selection: None,
+
+            arrangement_view: Default::default(),
 
             e: Default::default(),
             entity_factory: None,
@@ -261,18 +266,28 @@ impl MiniOrchestrator {
 
         // Non-send tracks are first
         for (index, track) in self.tracks.iter_mut().enumerate() {
+            let index = TrackIndex(index);
             if !track.is_send() {
-                if track.show(ui).clicked() {
-                    action = Some(TrackAction::Select(TrackIndex(index), is_control_only_down));
+                let (response, a) = track.show(ui, index);
+                if a.is_some() {
+                    action = a;
+                }
+                if response.clicked() {
+                    action = Some(TrackAction::Select(index, is_control_only_down));
                 }
             }
         }
 
         // Send tracks are last
         for (index, track) in self.tracks.iter_mut().enumerate() {
+            let index = TrackIndex(index);
             if track.is_send() {
-                if track.show(ui).clicked() {
-                    action = Some(TrackAction::Select(TrackIndex(index), is_control_only_down));
+                let (response, a) = track.show(ui, index);
+                if a.is_some() {
+                    action = a;
+                }
+                if response.clicked() {
+                    action = Some(TrackAction::Select(index, is_control_only_down));
                 }
             }
         }
@@ -281,6 +296,11 @@ impl MiniOrchestrator {
 
     /// Renders the project's GUI.
     pub fn show_with(&mut self, ui: &mut Ui, is_control_only_down: bool) {
+        //self.arrangement_view.set_time_signature(time_signature)
+        self.arrangement_view.set_viewable_time_range(
+            MusicalTime::new_with_beats(0)..MusicalTime::new_with_beats(128),
+        );
+        self.arrangement_view.show(ui, &self.tracks);
         if let Some(action) = self.show_tracks(ui, is_control_only_down) {
             self.handle_track_action(action);
         }
@@ -311,6 +331,7 @@ impl MiniOrchestrator {
             TrackAction::SelectClear => {
                 self.clear_track_selections();
             }
+            TrackAction::SetTitle(index, title) => self.set_track_title(index, title),
         }
     }
 
@@ -494,6 +515,10 @@ impl MiniOrchestrator {
     #[allow(missing_docs)]
     pub fn transport_mut(&mut self) -> &mut Transport {
         &mut self.transport
+    }
+
+    fn set_track_title(&mut self, index: TrackIndex, title: TrackTitle) {
+        self.tracks[index.0].set_title(title);
     }
 }
 impl Generates<StereoSample> for MiniOrchestrator {
