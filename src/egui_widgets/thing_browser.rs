@@ -64,12 +64,7 @@ impl ThingBrowser {
     }
 
     /// Renders the thing browser.
-    pub fn show(
-        &mut self,
-        ui: &mut eframe::egui::Ui,
-        paths: &Paths,
-        orchestrator: Arc<Mutex<Orchestrator>>,
-    ) {
+    pub fn show(&mut self, ui: &mut Ui, paths: &Paths, orchestrator: Arc<Mutex<Orchestrator>>) {
         self.root
             .ui_impl(ui, paths, self.app_sender.clone(), orchestrator);
     }
@@ -139,7 +134,7 @@ impl ThingBrowserNode {
 
     fn show(
         &mut self,
-        ui: &mut eframe::egui::Ui,
+        ui: &mut Ui,
         paths: &Paths,
         sender: Sender<ThingBrowserEvent>,
         orchestrator: Arc<Mutex<Orchestrator>>,

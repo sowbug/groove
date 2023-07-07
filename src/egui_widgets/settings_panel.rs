@@ -1,3 +1,4 @@
+use eframe::egui::Ui;
 use groove_core::traits::gui::Shows;
 
 use super::{MidiPanel, MiniAudioPanel, NeedsAudioFn};
@@ -47,7 +48,7 @@ impl SettingsPanel {
     }
 }
 impl Shows for SettingsPanel {
-    fn show(&mut self, ui: &mut eframe::egui::Ui) {
+    fn show(&mut self, ui: &mut Ui) {
         ui.label("Audio");
         self.audio_panel.show(ui);
         ui.label("MIDI");

@@ -4,8 +4,11 @@
 
 use crossbeam_channel::Select;
 use eframe::{
-    egui::{self, Button, Context, FontData, FontDefinitions, Layout, ScrollArea, TextStyle, Ui},
-    emath::Align2,
+    egui::{
+        self, warn_if_debug_build, Button, Context, Direction, FontData, FontDefinitions, Layout,
+        ScrollArea, TextStyle, Ui,
+    },
+    emath::{Align, Align2},
     epaint::{Color32, FontFamily, FontId},
     CreationContext,
 };
@@ -206,17 +209,8 @@ struct MiniDaw {
     palette_panel: PalettePanel,
     settings_panel: SettingsPanel,
 
-    first_update_done: bool,
     exit_requested: bool,
     drag_drop_manager: Arc<Mutex<DragDropManager>>,
-
-    #[allow(dead_code)]
-    regular_font_id: FontId,
-    #[allow(dead_code)]
-    mono_font_id: FontId,
-    #[allow(dead_code)]
-    bold_font_id: FontId,
-    bold_font_height: f32,
 
     toasts: Toasts,
 }
@@ -255,18 +249,12 @@ impl MiniDaw {
             palette_panel: PalettePanel::new_with(factory, Arc::clone(&drag_drop_manager)),
             settings_panel: SettingsPanel::new_with(Box::new(needs_audio)),
 
-            first_update_done: Default::default(),
             exit_requested: Default::default(),
             drag_drop_manager,
 
-            regular_font_id: FontId::proportional(14.0),
-            bold_font_id: FontId::new(12.0, FontFamily::Name(Self::FONT_BOLD.into())),
-            bold_font_height: Default::default(),
-            mono_font_id: FontId::monospace(14.0),
-
             toasts: Toasts::new()
                 .anchor(Align2::RIGHT_BOTTOM, (-10.0, -10.0))
-                .direction(egui::Direction::BottomUp),
+                .direction(Direction::BottomUp),
         };
         r.spawn_channel_watcher(cc.egui_ctx.clone());
         r
@@ -276,11 +264,11 @@ impl MiniDaw {
         let mut fonts = FontDefinitions::default();
         fonts.font_data.insert(
             Self::FONT_REGULAR.to_owned(),
-            FontData::from_static(include_bytes!("../res/fonts/inter/Inter-Regular.ttf")),
+            FontData::from_static(include_bytes!("../res/fonts/jost/static/Jost-Regular.ttf")),
         );
         fonts.font_data.insert(
             Self::FONT_BOLD.to_owned(),
-            FontData::from_static(include_bytes!("../res/fonts/inter/Inter-Bold.ttf")),
+            FontData::from_static(include_bytes!("../res/fonts/jost/static/Jost-Bold.ttf")),
         );
         fonts.font_data.insert(
             Self::FONT_MONO.to_owned(),
@@ -313,28 +301,20 @@ impl MiniDaw {
         style.text_styles = [
             (
                 TextStyle::Heading,
-                FontId::new(14.0, FontFamily::Proportional),
+                FontId::new(16.0, FontFamily::Proportional),
             ),
-            (
-                TextStyle::Name("Heading2".into()),
-                FontId::new(25.0, FontFamily::Proportional),
-            ),
-            (
-                TextStyle::Name("Context".into()),
-                FontId::new(23.0, FontFamily::Proportional),
-            ),
-            (TextStyle::Body, FontId::new(12.0, FontFamily::Proportional)),
+            (TextStyle::Body, FontId::new(16.0, FontFamily::Proportional)),
             (
                 TextStyle::Monospace,
-                FontId::new(12.0, FontFamily::Proportional),
+                FontId::new(14.0, FontFamily::Monospace),
             ),
             (
                 TextStyle::Button,
-                FontId::new(12.0, FontFamily::Proportional),
+                FontId::new(16.0, FontFamily::Proportional),
             ),
             (
                 TextStyle::Small,
-                FontId::new(10.0, FontFamily::Proportional),
+                FontId::new(14.0, FontFamily::Proportional),
             ),
         ]
         .into();
@@ -561,7 +541,7 @@ impl MiniDaw {
         }
     }
 
-    fn show_top(&mut self, ui: &mut egui::Ui) {
+    fn show_top(&mut self, ui: &mut Ui) {
         if let Some(action) = self
             .menu_bar
             .show_with_action(ui, self.orchestrator_panel.is_any_track_selected())
@@ -574,25 +554,25 @@ impl MiniDaw {
         }
     }
 
-    fn show_bottom(&mut self, ui: &mut egui::Ui) {
+    fn show_bottom(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
-            egui::warn_if_debug_build(ui);
-            ui.with_layout(Layout::right_to_left(eframe::emath::Align::Center), |ui| {
+            warn_if_debug_build(ui);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 ui.label(app_version())
             });
         });
     }
 
-    fn show_left(&mut self, ui: &mut egui::Ui) {
+    fn show_left(&mut self, ui: &mut Ui) {
         if let Some(_action) = self.palette_panel.show_with_action(ui) {
             // these are inactive for now because we're skipping the drag/drop stuff.
             //self.handle_palette_action(action);
         }
     }
 
-    fn show_right(&mut self, _ui: &mut egui::Ui) {}
+    fn show_right(&mut self, _ui: &mut Ui) {}
 
-    fn show_center(&mut self, ui: &mut egui::Ui, is_shift_only_down: bool) {
+    fn show_center(&mut self, ui: &mut Ui, is_shift_only_down: bool) {
         self.orchestrator_panel.show(ui, is_shift_only_down);
     }
 
@@ -620,10 +600,6 @@ impl MiniDaw {
 impl eframe::App for MiniDaw {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.handle_message_channels();
-        if !self.first_update_done {
-            self.first_update_done = true;
-            ctx.fonts(|f| self.bold_font_height = f.row_height(&self.bold_font_id));
-        }
         if let Ok(mut dnd) = self.drag_drop_manager.lock() {
             dnd.reset();
         }
@@ -645,6 +621,9 @@ impl eframe::App for MiniDaw {
         let top = egui::TopBottomPanel::top("top-panel")
             .resizable(false)
             .exact_height(64.0);
+        let bottom = egui::TopBottomPanel::bottom("bottom-panel")
+            .resizable(false)
+            .exact_height(24.0);
         let left = egui::SidePanel::left("left-panel")
             .resizable(true)
             .default_width(150.0)
@@ -653,22 +632,19 @@ impl eframe::App for MiniDaw {
             .resizable(true)
             .default_width(150.0)
             .width_range(80.0..=200.0);
-        let bottom = egui::TopBottomPanel::bottom("bottom-panel")
-            .resizable(false)
-            .exact_height(self.bold_font_height + 2.0);
         let center = egui::CentralPanel::default();
 
         top.show(ctx, |ui| {
             self.show_top(ui);
+        });
+        bottom.show(ctx, |ui| {
+            self.show_bottom(ui);
         });
         left.show(ctx, |ui| {
             self.show_left(ui);
         });
         right.show(ctx, |ui| {
             self.show_right(ui);
-        });
-        bottom.show(ctx, |ui| {
-            self.show_bottom(ui);
         });
         center.show(ctx, |ui| {
             ScrollArea::vertical().show(ui, |ui| {

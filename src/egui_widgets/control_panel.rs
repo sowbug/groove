@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use crate::mini::Transport;
-use eframe::egui::{self, DragValue};
+use eframe::egui::{DragValue, Ui};
 use groove_core::{
     time::PerfectTimeUnit,
     traits::{gui::Shows, Performs},
@@ -42,7 +42,7 @@ pub struct ControlPanel {
 }
 impl ControlPanel {
     /// Renders the control bar and maybe returns a UI action.
-    pub fn show_with_action(&mut self, ui: &mut egui::Ui) -> Option<ControlPanelAction> {
+    pub fn show_with_action(&mut self, ui: &mut Ui) -> Option<ControlPanelAction> {
         let mut action = None;
         ui.horizontal_centered(|ui| {
             self.transport_copy.show(ui);
@@ -77,7 +77,7 @@ impl ControlPanel {
     }
 }
 impl Shows for ControlPanel {
-    fn show(&mut self, ui: &mut egui::Ui) {
+    fn show(&mut self, ui: &mut Ui) {
         let _ = self.show_with_action(ui);
     }
 }
@@ -87,7 +87,7 @@ impl Shows for ControlPanel {
 pub struct ControlBar {}
 impl ControlBar {
     /// Draws the bar
-    pub fn show(&self, ui: &mut egui::Ui, orchestrator: &mut Orchestrator) {
+    pub fn show(&self, ui: &mut Ui, orchestrator: &mut Orchestrator) {
         ui.horizontal(|ui| {
             let mut bpm = orchestrator.bpm();
             let mut is_loop_enabled = orchestrator.is_loop_enabled();

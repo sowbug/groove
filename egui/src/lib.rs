@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use eframe::{
-    egui::{Frame, Label},
+    egui::{Frame, Label, Ui},
     emath,
     epaint::{self, pos2, vec2, Color32, Pos2, Rect, Stroke},
 };
@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Waveform {}
 impl Shows for Waveform {
-    fn show(&mut self, ui: &mut eframe::egui::Ui) {
+    fn show(&mut self, ui: &mut Ui) {
         let color = if ui.visuals().dark_mode {
             Color32::from_additive_luminance(196)
         } else {

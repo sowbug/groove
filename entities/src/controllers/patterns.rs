@@ -196,7 +196,7 @@ mod gui {
     use super::{NewPattern, Note, Pattern, PatternManager};
     use crate::controllers::patterns::NewNote;
     use eframe::{
-        egui::{Frame, Grid, ScrollArea, Sense},
+        egui::{Frame, Grid, ScrollArea, Sense, Ui},
         emath::{self, RectTransform},
         epaint::{Color32, Pos2, Rect, Rounding, Shape, Stroke, Vec2},
     };
@@ -224,7 +224,7 @@ mod gui {
     }
 
     impl Shows for Pattern<Note> {
-        fn show(&mut self, ui: &mut eframe::egui::Ui) {
+        fn show(&mut self, ui: &mut Ui) {
             if let Some(v) = self.note_value.as_mut() {
                 v.show(ui);
             } else {
@@ -258,7 +258,7 @@ mod gui {
     }
 
     impl Shows for PatternManager {
-        fn show(&mut self, ui: &mut eframe::egui::Ui) {
+        fn show(&mut self, ui: &mut Ui) {
             ui.set_min_width(16.0 * Pattern::CELL_WIDTH + 8.0); //  8 pixels margin
             ScrollArea::vertical().show(ui, |ui| {
                 let mut is_first = true;
@@ -275,7 +275,7 @@ mod gui {
     }
 
     impl NewPattern {
-        pub fn show(&mut self, ui: &mut eframe::egui::Ui) {
+        pub fn show(&mut self, ui: &mut Ui) {
             Frame::canvas(ui.style()).show(ui, |ui| {
                 self.ui_content(ui);
             });
@@ -316,7 +316,7 @@ mod gui {
             Rect::from_two_pos(ul, br)
         }
 
-        fn ui_content(&mut self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
+        fn ui_content(&mut self, ui: &mut Ui) -> eframe::egui::Response {
             let notes_vert = 24.0;
             let steps_horiz = 16.0;
 

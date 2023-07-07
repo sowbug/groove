@@ -1018,7 +1018,7 @@ impl Step {
 mod gui {
     use super::{Calculator, EngineState, UiState};
     use eframe::{
-        egui::{Button, Grid, Response, Sense},
+        egui::{Button, Grid, Response, Sense, Ui},
         epaint::{Color32, Stroke, Vec2},
     };
     use egui_extras_xt::displays::SegmentedDisplayWidget;
@@ -1101,7 +1101,7 @@ mod gui {
 
         fn create_button(
             &mut self,
-            ui: &mut eframe::egui::Ui,
+            ui: &mut Ui,
             label: &str,
             state: ButtonState,
             is_highlighted: bool,
@@ -1149,7 +1149,7 @@ mod gui {
 
         // TODO: I can't get this knob to be the same size as the other buttons,
         // so the second button is not correctly centered on the grid.
-        fn create_knob(ui: &mut eframe::egui::Ui, value: &mut f32) -> Response {
+        fn create_knob(ui: &mut Ui, value: &mut f32) -> Response {
             ui.vertical_centered_justified(|ui| {
                 // This is clumsy to try to keep all the widgets evenly spaced
                 let (_rect, _response) = ui.allocate_exact_size(Self::LED_SIZE, Sense::hover());
@@ -1200,7 +1200,7 @@ mod gui {
             }
         }
 
-        fn create_dashboard(&self, ui: &mut eframe::egui::Ui) {
+        fn create_dashboard(&self, ui: &mut Ui) {
             ui.add(
                 SegmentedDisplayWidget::sixteen_segment(&format!(
                     "W: {}",
@@ -1220,7 +1220,7 @@ mod gui {
             );
         }
 
-        fn create_knob_a(&mut self, ui: &mut eframe::egui::Ui) {
+        fn create_knob_a(&mut self, ui: &mut Ui) {
             ui.set_min_size(Self::CELL_SIZE);
             let mut value = if self.ui_state == UiState::Bpm {
                 self.engine.swing().clone().into()
@@ -1232,7 +1232,7 @@ mod gui {
             }
         }
 
-        fn create_knob_b(&mut self, ui: &mut eframe::egui::Ui) {
+        fn create_knob_b(&mut self, ui: &mut Ui) {
             ui.set_min_size(Self::CELL_SIZE);
             let mut value = if self.ui_state == UiState::Bpm {
                 self.engine.tempo_by_value().into()
@@ -1331,7 +1331,7 @@ mod gui {
     }
 
     impl Shows for Calculator {
-        fn show(&mut self, ui: &mut eframe::egui::Ui) {
+        fn show(&mut self, ui: &mut Ui) {
             let highlighted_button = if self.engine.state() == &EngineState::Playing {
                 Some(self.current_step())
             } else {

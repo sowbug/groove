@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use crossbeam_channel::{Receiver, Sender};
-use eframe::egui::{self, CollapsingHeader};
+use eframe::egui::{CollapsingHeader, Ui};
 use groove_audio::{AudioInterfaceEvent, AudioInterfaceInput, AudioQueue, AudioStreamService};
 use groove_core::{time::SampleRate, traits::gui::Shows, StereoSample, SAMPLE_BUFFER_SIZE};
 use groove_orchestration::Orchestrator;
@@ -162,7 +162,7 @@ impl AudioPanel {
     }
 }
 impl Shows for AudioPanel {
-    fn show(&mut self, ui: &mut egui::Ui) {
+    fn show(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("Audio")
             .default_open(true)
             .show(ui, |ui| {
@@ -280,7 +280,7 @@ impl MiniAudioPanel {
     }
 }
 impl Shows for MiniAudioPanel {
-    fn show(&mut self, ui: &mut egui::Ui) {
+    fn show(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("Audio")
             .default_open(true)
             .show(ui, |ui| {

@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use crossbeam_channel::{Receiver, Sender};
-use eframe::egui::{self, CollapsingHeader, ComboBox};
+use eframe::egui::{CollapsingHeader, ComboBox, Ui};
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     traits::gui::Shows,
@@ -163,7 +163,7 @@ impl MidiPanel {
     }
 }
 impl Shows for MidiPanel {
-    fn show(&mut self, ui: &mut egui::Ui) {
+    fn show(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("MIDI")
             .default_open(true)
             .show(ui, |ui| {

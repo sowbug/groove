@@ -1,6 +1,10 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use eframe::{egui::Layout, emath::Align, epaint::vec2};
+use eframe::{
+    egui::{Label, Layout, RichText, TextStyle, Ui},
+    emath::Align,
+    epaint::vec2,
+};
 use groove_core::{
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
     traits::{gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, Performs},
@@ -66,16 +70,20 @@ impl Transport {
     }
 
     /// Renders the [Transport].
-    pub fn show(&self, ui: &mut eframe::egui::Ui) {
+    pub fn show(&self, ui: &mut Ui) {
         ui.allocate_ui(vec2(72.0, 20.0), |ui| {
             ui.set_min_width(128.0);
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.label(format!("{:0.2}", self.tempo))
+                ui.add(Label::new(
+                    RichText::new(format!("{:0.2}", self.tempo)).text_style(TextStyle::Monospace),
+                ));
             });
         });
         ui.allocate_ui(vec2(72.0, 20.0), |ui| {
             ui.set_min_width(128.0);
-            ui.label(format!("{}", self.current_time));
+            ui.add(Label::new(
+                RichText::new(format!("{}", self.current_time)).text_style(TextStyle::Monospace),
+            ));
         });
     }
 }

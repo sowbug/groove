@@ -24,7 +24,7 @@ struct ArrangedPattern {
     is_selected: bool,
 }
 impl Shows for ArrangedPattern {
-    fn show(&mut self, ui: &mut eframe::egui::Ui) {
+    fn show(&mut self, ui: &mut Ui) {
         Frame::canvas(ui.style()).show(ui, |ui| {
             self.ui_content(ui);
         });
@@ -44,11 +44,7 @@ impl ArrangedPattern {
             .show(ui, |ui| ui.label(format!("{}", self.pattern_uid)));
     }
 
-    fn show_in_arrangement(
-        &mut self,
-        ui: &mut eframe::egui::Ui,
-        pattern: &MiniPattern,
-    ) -> Response {
+    fn show_in_arrangement(&mut self, ui: &mut Ui, pattern: &MiniPattern) -> Response {
         pattern.show_in_arrangement(ui, self.is_selected)
     }
 }
@@ -93,7 +89,7 @@ impl Default for MiniPattern {
     }
 }
 impl Shows for MiniPattern {
-    fn show(&mut self, ui: &mut eframe::egui::Ui) {
+    fn show(&mut self, ui: &mut Ui) {
         Frame::canvas(ui.style()).show(ui, |ui| {
             self.ui_content(ui);
         });
@@ -149,7 +145,7 @@ impl MiniPattern {
         Rect::from_two_pos(ul, br)
     }
 
-    fn ui_content(&mut self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
+    fn ui_content(&mut self, ui: &mut Ui) -> eframe::egui::Response {
         let notes_vert = 24.0;
         let steps_horiz = 16.0;
 

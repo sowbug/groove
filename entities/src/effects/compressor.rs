@@ -119,11 +119,11 @@ impl Compressor {
 #[cfg(feature = "egui-framework")]
 mod gui {
     use super::Compressor;
-    use eframe::egui::DragValue;
+    use eframe::egui::{DragValue, Ui};
     use groove_core::{traits::gui::Shows, Normal};
 
     impl Shows for Compressor {
-        fn show(&mut self, ui: &mut eframe::egui::Ui) {
+        fn show(&mut self, ui: &mut Ui) {
             let mut threshold = self.threshold().value();
             let mut ratio = self.ratio();
             let mut attack = self.attack();

@@ -818,12 +818,12 @@ mod gui {
     use super::BeatValue;
     use crate::traits::gui::Shows;
     use eframe::{
-        egui::{Frame, Margin},
+        egui::{Frame, Margin, Ui},
         epaint::{Color32, Stroke, Vec2},
     };
 
     impl Shows for BeatValue {
-        fn show(&mut self, ui: &mut eframe::egui::Ui) {
+        fn show(&mut self, ui: &mut Ui) {
             ui.allocate_ui(Vec2::new(60.0, 24.0), |ui| {
                 Self::show_beat_value(ui, &format!("{} beats", BeatValue::divisor(self.clone())));
             });
@@ -831,7 +831,7 @@ mod gui {
     }
 
     impl BeatValue {
-        fn show_beat_value(ui: &mut eframe::egui::Ui, label: &str) {
+        fn show_beat_value(ui: &mut Ui, label: &str) {
             Frame::none()
                 .stroke(Stroke::new(2.0, Color32::GRAY))
                 .fill(Color32::DARK_GRAY)
@@ -847,7 +847,7 @@ mod gui {
                 });
         }
 
-        pub fn show_inherited(ui: &mut eframe::egui::Ui) {
+        pub fn show_inherited(ui: &mut Ui) {
             Self::show_beat_value(ui, "inherited");
         }
     }

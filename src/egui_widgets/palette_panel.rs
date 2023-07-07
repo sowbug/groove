@@ -1,4 +1,4 @@
-use eframe::egui::{self, Id as EguiId};
+use eframe::egui::{Id as EguiId, Ui};
 use groove_core::traits::gui::Shows;
 use std::sync::{Arc, Mutex};
 
@@ -20,7 +20,7 @@ pub struct PalettePanel {
     drag_drop_manager: Arc<Mutex<DragDropManager>>,
 }
 impl Shows for PalettePanel {
-    fn show(&mut self, ui: &mut egui::Ui) {
+    fn show(&mut self, ui: &mut Ui) {
         for name in self.factory.keys() {
             ui.label(name.to_string());
         }
@@ -39,7 +39,7 @@ impl PalettePanel {
     }
 
     /// Draws the panel.
-    pub fn show_with_action(&mut self, ui: &mut egui::Ui) -> Option<PaletteAction> {
+    pub fn show_with_action(&mut self, ui: &mut Ui) -> Option<PaletteAction> {
         let mut action = None;
         if let Ok(mut dnd) = self.drag_drop_manager.lock() {
             for key in self.factory.keys().iter() {

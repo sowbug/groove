@@ -280,7 +280,7 @@ impl MiniOrchestrator {
     }
 
     /// Renders the project's GUI.
-    pub fn show_with(&mut self, ui: &mut egui::Ui, is_control_only_down: bool) {
+    pub fn show_with(&mut self, ui: &mut Ui, is_control_only_down: bool) {
         if let Some(action) = self.show_tracks(ui, is_control_only_down) {
             self.handle_track_action(action);
         }
@@ -490,6 +490,11 @@ impl MiniOrchestrator {
     pub fn transport(&self) -> &Transport {
         &self.transport
     }
+
+    #[allow(missing_docs)]
+    pub fn transport_mut(&mut self) -> &mut Transport {
+        &mut self.transport
+    }
 }
 impl Generates<StereoSample> for MiniOrchestrator {
     fn value(&self) -> StereoSample {
@@ -530,7 +535,7 @@ impl Ticks for MiniOrchestrator {
 }
 impl Configurable for MiniOrchestrator {}
 impl Shows for MiniOrchestrator {
-    fn show(&mut self, ui: &mut egui::Ui) {
+    fn show(&mut self, ui: &mut Ui) {
         ui.label("not used");
     }
 }
