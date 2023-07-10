@@ -59,7 +59,7 @@
             "kind": "example"
         }
     },
-    "args": [],
+    "args": ["-w", "minicli-work.json"],
       "cwd": "${workspaceFolder}"
     },
     {
