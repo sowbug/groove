@@ -296,7 +296,10 @@ impl MiniDaw {
     fn initialize_style(ctx: &Context) {
         let mut style = (*ctx.style()).clone();
 
-        style.visuals.override_text_color = Some(Color32::LIGHT_GRAY);
+        // Disabled this because it stops text from getting highlighted when the
+        // user hovers over a widget.
+        //
+        // style.visuals.override_text_color = Some(Color32::LIGHT_GRAY);
 
         style.text_styles = [
             (
@@ -428,7 +431,6 @@ impl MiniDaw {
                 }
                 MiniOrchestratorEvent::New => {
                     // No special UI needed for this.
-                    eprintln!("asdfasd");
                 }
             }
             true
