@@ -24,6 +24,7 @@ fn write_performance_to_file(
     let mut buffer = [StereoSample::SILENCE; 64];
     orchestrator.generate_next_debug_samples(&mut buffer);
 
+    let mut batches_processed = 0;
     orchestrator.play();
     loop {
         if orchestrator.is_finished() {
@@ -35,7 +36,13 @@ fn write_performance_to_file(
             let _ = writer.write_sample(left);
             let _ = writer.write_sample(right);
         }
+        batches_processed += 1;
     }
+
+    eprintln!(
+        "Processed {batches_processed} batches of {} samples each",
+        buffer.len()
+    );
 
     Ok(())
 }
