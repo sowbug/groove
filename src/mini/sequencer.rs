@@ -532,9 +532,12 @@ mod tests {
     fn basic() {
         let mut s = MiniSequencer::default();
 
-        assert!(s.patterns.is_empty());
-        assert!(s.arranged_patterns.is_empty());
-        assert!(s.e.events.is_empty());
+        assert!(s.patterns.is_empty(), "default sequencer is empty");
+        assert!(
+            s.arranged_patterns.is_empty(),
+            "default sequencer has no arranged patterns"
+        );
+        assert!(s.e.events.is_empty(), "default sequencer has no events");
 
         let p1 = MiniPattern::new_with(
             Default::default(),
@@ -587,19 +590,37 @@ mod tests {
         assert_eq!(s.patterns.len(), 2);
 
         s.arrange_pattern(&pid1);
-        assert_eq!(s.arranged_patterns.len(), 1);
-        assert_eq!(s.e.final_event_time, p1_end_time);
+        assert_eq!(s.arranged_patterns.len(), 1, "arranging pattern works");
+        assert_eq!(
+            s.e.final_event_time, p1_end_time,
+            "arranging pattern updates final event time"
+        );
 
-        // One event for note-on, one for note-off. This also tests that the
-        // sequencer properly schedules multiple events at the same instant.
-        assert_eq!(s.e.events.len(), p1_note_count * 2);
+        // One event for note-on, one for note-off.
+        assert_eq!(
+            s.e.events.len(),
+            p1_note_count * 2,
+            "sequencer can schedule multiple simultaneous events"
+        );
 
         s.arrange_pattern(&pid2);
-        assert_eq!(s.arranged_patterns.len(), 2);
+        assert_eq!(
+            s.arranged_patterns.len(),
+            2,
+            "arranging multiple patterns works"
+        );
         // We're playing a little fast and loose here, but at this moment in
         // time it's true that arrange_pattern() adds the next pattern exactly
         // at the end of the previous one.
-        assert_eq!(s.e.final_event_time, p1_end_time + p2_end_time);
-        assert_eq!(s.e.events.len(), p1_note_count * 2 + p2_note_count * 2);
+        assert_eq!(
+            s.e.final_event_time,
+            p1_end_time + p2_end_time,
+            "arranging second pattern updates final event time"
+        );
+        assert_eq!(
+            s.e.events.len(),
+            p1_note_count * 2 + p2_note_count * 2,
+            "multiple arranged patterns produces expected number of events"
+        );
     }
 }
