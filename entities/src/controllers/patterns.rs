@@ -5,7 +5,7 @@ use super::Sequencer;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage},
     time::{BeatValue, MusicalTime, PerfectTimeUnit, TimeSignature, TimeSignatureParams},
-    traits::{Configurable, ControlEventsFn, Controls, Performs},
+    traits::{Configurable, ControlEventsFn, Controls, Performs, Serializable},
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
 use std::{cmp, fmt::Debug, ops::Range};
@@ -60,6 +60,7 @@ pub struct PatternManager {
     patterns: Vec<Pattern<Note>>,
     selected_pattern: usize,
 }
+impl Serializable for PatternManager {}
 impl HandlesMidi for PatternManager {}
 impl Configurable for PatternManager {}
 impl Controls for PatternManager {

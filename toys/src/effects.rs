@@ -2,7 +2,7 @@
 
 use groove_core::{
     time::ClockTimeUnit,
-    traits::{Configurable, TransformsAudio},
+    traits::{Configurable, Serializable, TransformsAudio},
     Normal, Sample,
 };
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
@@ -39,6 +39,8 @@ impl TransformsAudio for ToyEffect {
     }
 }
 impl Configurable for ToyEffect {}
+impl Serializable for ToyEffect {}
+
 #[cfg(feature = "egui-framework")]
 mod gui {
     use super::ToyEffect;

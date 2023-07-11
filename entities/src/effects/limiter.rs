@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    traits::{Configurable, TransformsAudio},
+    traits::{Configurable, Serializable, TransformsAudio},
     Normal, Sample,
 };
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
@@ -30,6 +30,7 @@ impl Default for Limiter {
         }
     }
 }
+impl Serializable for Limiter {}
 impl Configurable for Limiter {}
 impl TransformsAudio for Limiter {
     fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {

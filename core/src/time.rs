@@ -11,7 +11,7 @@ use groove_proc_macros::{Control, Params, Uid};
 use std::{
     cmp::Ordering,
     fmt::Display,
-    ops::{Add, AddAssign, Mul, Range},
+    ops::{Add, AddAssign, Mul, Range, Sub},
 };
 use strum_macros::{FromRepr, IntoStaticStr};
 
@@ -538,6 +538,15 @@ impl MusicalTime {
     pub const UNITS_IN_PART: u64 = 4096;
     pub const UNITS_IN_BEAT: u64 = Self::PARTS_IN_BEAT * Self::UNITS_IN_PART;
 
+    pub const DURATION_WHOLE: MusicalTime = Self::new_with_beats(1);
+    pub const DURATION_HALF: MusicalTime = Self::new_with_parts(8);
+    pub const DURATION_QUARTER: MusicalTime = Self::new_with_parts(4);
+    pub const DURATION_EIGHTH: MusicalTime = Self::new_with_parts(2);
+    pub const DURATION_SIXTEENTH: MusicalTime = Self::new_with_parts(1);
+    pub const TIME_ZERO: MusicalTime = Self::new_with_units(0);
+    pub const TIME_END_OF_FIRST_BEAT: MusicalTime = Self::new_with_beats(1);
+    pub const TIME_MAX: MusicalTime = Self::new_with_units(u64::MAX);
+
     pub const START: MusicalTime = MusicalTime { units: 0 };
 
     pub fn new(
@@ -667,18 +676,10 @@ impl MusicalTime {
         (frames_per_beat * (units as f64 / Self::UNITS_IN_BEAT as f64) + 0.5) as usize
     }
 
-    pub const fn start_of_time() -> Self {
-        Self { units: u64::MIN }
-    }
-
-    pub const fn end_of_time() -> Self {
-        Self { units: u64::MAX }
-    }
-
     pub fn end_of_time_range() -> Range<Self> {
         Range {
-            start: Self::end_of_time(),
-            end: Self::end_of_time(),
+            start: Self::TIME_MAX,
+            end: Self::TIME_MAX,
         }
     }
 
@@ -708,9 +709,36 @@ impl Add<Self> for MusicalTime {
         }
     }
 }
+impl Add<u64> for MusicalTime {
+    type Output = Self;
+
+    fn add(self, rhs: u64) -> Self::Output {
+        Self {
+            units: self.units + rhs,
+        }
+    }
+}
 impl AddAssign<Self> for MusicalTime {
     fn add_assign(&mut self, rhs: Self) {
         self.units += rhs.units;
+    }
+}
+impl Mul<u64> for MusicalTime {
+    type Output = Self;
+
+    fn mul(self, rhs: u64) -> Self::Output {
+        Self {
+            units: self.units * rhs,
+        }
+    }
+}
+impl Sub<Self> for MusicalTime {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            units: self.units - rhs.units,
+        }
     }
 }
 impl From<PerfectTimeUnit> for MusicalTime {

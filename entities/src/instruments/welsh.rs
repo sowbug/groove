@@ -9,7 +9,7 @@ use groove_core::{
     time::SampleRate,
     traits::{
         Configurable, Generates, GeneratesEnvelope, IsStereoSampleVoice, IsVoice, PlaysNotes,
-        Ticks, TransformsAudio,
+        Serializable, Ticks, TransformsAudio,
     },
     voices::StealingVoiceStore,
     BipolarNormal, Dca, DcaParams, FrequencyHz, Normal, Sample, StereoSample,
@@ -125,6 +125,7 @@ impl Generates<StereoSample> for WelshVoice {
         todo!()
     }
 }
+impl Serializable for WelshVoice {}
 impl Configurable for WelshVoice {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.ticks = 0;
@@ -343,6 +344,7 @@ impl Generates<StereoSample> for WelshSynth {
         self.inner_synth.generate_batch_values(values);
     }
 }
+impl Serializable for WelshSynth {}
 impl Configurable for WelshSynth {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.inner_synth.update_sample_rate(sample_rate);

@@ -9,7 +9,7 @@ use groove_core::{
         MidiMessagesFn,
     },
     time::SampleRate,
-    traits::{Configurable, Generates, Ticks},
+    traits::{Configurable, Generates, Serializable, Ticks},
     voices::VoicePerNoteStore,
     StereoSample,
 };
@@ -44,6 +44,7 @@ impl Generates<StereoSample> for Drumkit {
         self.inner_synth.generate_batch_values(values);
     }
 }
+impl Serializable for Drumkit {}
 impl Configurable for Drumkit {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.inner_synth.update_sample_rate(sample_rate);

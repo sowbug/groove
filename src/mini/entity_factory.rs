@@ -4,7 +4,7 @@ use atomic_counter::{AtomicCounter, RelaxedCounter};
 use derive_more::Display;
 use groove_core::{
     time::{SampleRate, Tempo, TimeSignature},
-    traits::{Configurable, ControlEventsFn, Controls, Performs, Thing, Ticks},
+    traits::{Configurable, ControlEventsFn, Controls, Performs, Serializable, Thing, Ticks},
     Uid,
 };
 use serde::{Deserialize, Serialize};
@@ -238,6 +238,11 @@ impl Performs for ThingStore {
                 true
             }
         })
+    }
+}
+impl Serializable for ThingStore {
+    fn after_deser(&mut self) {
+        self.things.iter_mut().for_each(|(_, t)| t.after_deser());
     }
 }
 

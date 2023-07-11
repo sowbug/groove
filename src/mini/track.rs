@@ -20,7 +20,7 @@ use groove_core::{
     time::{SampleRate, Tempo, TimeSignature},
     traits::{
         gui::Shows, Configurable, ControlEventsFn, Controls, GeneratesToInternalBuffer, Performs,
-        Thing, Ticks,
+        Serializable, Thing, Ticks,
     },
     Normal, StereoSample, Uid,
 };
@@ -391,6 +391,7 @@ impl Track {
         self.draw_temp_squiggles(ui)
     }
 
+    /// Shows the detail view for the selected track.
     // TODO: ordering should be controllers, instruments, then effects. Within
     // those groups, the user can reorder as desired (but instrument order
     // doesn't matter because they're all simultaneous)
@@ -407,13 +408,15 @@ impl Track {
                 ui.set_max_size(desired_size);
 
                 ui.horizontal_centered(|ui| {
-                    let desired_size = Vec2::new(512.0, ui.available_height());
+                    let desired_size = Vec2::new(384.0, ui.available_height());
 
                     let mut action = None;
 
                     if let Some(sequencer) = self.sequencer.as_mut() {
                         if let Some(a) = Self::add_track_element(ui, 0, false, false, true, |ui| {
-                            sequencer.show(ui);
+                            ui.allocate_ui(vec2(256.0, ui.available_height()), |ui| {
+                                sequencer.show(ui);
+                            });
                         }) {
                             action = Some(a);
                         };
@@ -518,25 +521,27 @@ impl Track {
             .inner_margin(Margin::same(2.0))
             .show(ui, |ui| {
                 ui.vertical(|ui| {
-                    ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-                        if show_left_button {
-                            if ui.button("<").clicked() {
-                                action = Some(TrackElementAction::MoveDeviceLeft(index));
+                    ui.allocate_ui(vec2(384.0, ui.available_height()), |ui| {
+                        ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
+                            if show_left_button {
+                                if ui.button("<").clicked() {
+                                    action = Some(TrackElementAction::MoveDeviceLeft(index));
+                                }
                             }
-                        }
-                        if show_right_button {
-                            if ui.button(">").clicked() {
-                                action = Some(TrackElementAction::MoveDeviceRight(index));
+                            if show_right_button {
+                                if ui.button(">").clicked() {
+                                    action = Some(TrackElementAction::MoveDeviceRight(index));
+                                }
                             }
-                        }
-                        if show_delete_button {
-                            if ui.button("x").clicked() {
-                                action = Some(TrackElementAction::RemoveDevice(index));
+                            if show_delete_button {
+                                if ui.button("x").clicked() {
+                                    action = Some(TrackElementAction::RemoveDevice(index));
+                                }
                             }
-                        }
-                    });
-                    ui.vertical(|ui| {
-                        add_contents(ui);
+                        });
+                        ui.vertical(|ui| {
+                            add_contents(ui);
+                        });
                     });
                 });
             });
@@ -788,19 +793,37 @@ impl Controls for Track {
 }
 impl Performs for Track {
     fn play(&mut self) {
+        if let Some(sequencer) = self.sequencer.as_mut() {
+            sequencer.play()
+        }
         self.thing_store.play();
     }
 
     fn stop(&mut self) {
+        if let Some(sequencer) = self.sequencer.as_mut() {
+            sequencer.stop()
+        }
         self.thing_store.stop();
     }
 
     fn skip_to_start(&mut self) {
+        if let Some(sequencer) = self.sequencer.as_mut() {
+            sequencer.skip_to_start();
+        }
         self.thing_store.skip_to_start();
     }
 
     fn is_performing(&self) -> bool {
-        self.thing_store.is_performing()
+        (if let Some(sequencer) = &self.sequencer {
+            sequencer.is_performing()
+        } else {
+            false
+        }) || self.thing_store.is_performing()
+    }
+}
+impl Serializable for Track {
+    fn after_deser(&mut self) {
+        self.thing_store.after_deser();
     }
 }
 

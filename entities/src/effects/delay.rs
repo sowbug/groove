@@ -2,7 +2,7 @@
 
 use groove_core::{
     time::SampleRate,
-    traits::{Configurable, TransformsAudio},
+    traits::{Configurable, Serializable, TransformsAudio},
     Normal, ParameterType, Sample, SignalType,
 };
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
@@ -208,6 +208,7 @@ pub struct Delay {
     #[cfg_attr(feature = "serialization", serde(skip))]
     delay: DelayLine,
 }
+impl Serializable for Delay {}
 impl Configurable for Delay {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.delay.update_sample_rate(sample_rate);

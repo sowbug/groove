@@ -3,7 +3,7 @@
 use super::delay::{AllPassDelayLine, Delays, RecirculatingDelayLine};
 use groove_core::{
     time::SampleRate,
-    traits::{Configurable, TransformsAudio},
+    traits::{Configurable, Serializable, TransformsAudio},
     Normal, ParameterType, Sample,
 };
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
@@ -33,6 +33,7 @@ pub struct Reverb {
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [ReverbChannel; 2],
 }
+impl Serializable for Reverb {}
 impl Configurable for Reverb {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -114,6 +115,7 @@ impl TransformsAudio for ReverbChannel {
         self.allpass_delay_lines[1].pop_output(adl_0_out)
     }
 }
+impl Serializable for ReverbChannel {}
 impl Configurable for ReverbChannel {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.recirc_delay_lines

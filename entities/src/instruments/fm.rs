@@ -6,7 +6,8 @@ use groove_core::{
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
     time::SampleRate,
     traits::{
-        Configurable, Generates, GeneratesEnvelope, IsStereoSampleVoice, IsVoice, PlaysNotes, Ticks,
+        Configurable, Generates, GeneratesEnvelope, IsStereoSampleVoice, IsVoice, PlaysNotes,
+        Serializable, Ticks,
     },
     voices::StealingVoiceStore,
     BipolarNormal, Dca, DcaParams, FrequencyHz, Normal, ParameterType, Ratio, Sample, StereoSample,
@@ -87,6 +88,7 @@ impl Generates<StereoSample> for FmVoice {
         todo!()
     }
 }
+impl Serializable for FmVoice {}
 impl Configurable for FmVoice {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -244,6 +246,7 @@ impl Generates<StereoSample> for FmSynth {
         self.inner_synth.generate_batch_values(values);
     }
 }
+impl Serializable for FmSynth {}
 impl Configurable for FmSynth {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.inner_synth.update_sample_rate(sample_rate)

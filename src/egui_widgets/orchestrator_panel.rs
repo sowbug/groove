@@ -5,7 +5,7 @@ use eframe::egui::Ui;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::Tempo,
-    traits::{HandlesMidi, Performs},
+    traits::{HandlesMidi, Performs, Serializable},
 };
 use std::{
     path::PathBuf,
@@ -240,8 +240,9 @@ impl OrchestratorPanel {
 
     fn handle_input_load(path: &PathBuf) -> Result<MiniOrchestrator> {
         match std::fs::read_to_string(path) {
-            Ok(project_string) => match serde_json::from_str(&project_string) {
-                Ok(mo) => {
+            Ok(project_string) => match serde_json::from_str::<MiniOrchestrator>(&project_string) {
+                Ok(mut mo) => {
+                    mo.after_deser();
                     return anyhow::Ok(mo);
                 }
                 Err(err) => {

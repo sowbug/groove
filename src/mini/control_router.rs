@@ -56,7 +56,9 @@ mod tests {
     use super::*;
     use crate::mini::entity_factory::ThingStore;
     use groove_core::{
-        traits::{gui::Shows, Configurable, Controllable, Generates, HandlesMidi, Ticks},
+        traits::{
+            gui::Shows, Configurable, Controllable, Generates, HandlesMidi, Serializable, Ticks,
+        },
         StereoSample,
     };
     use groove_proc_macros::{IsInstrument, Uid};
@@ -99,6 +101,7 @@ mod tests {
             todo!()
         }
     }
+    impl Serializable for TestControllable {}
     impl Configurable for TestControllable {}
     impl Shows for TestControllable {}
 

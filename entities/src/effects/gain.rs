@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    traits::{Configurable, TransformsAudio},
+    traits::{Configurable, Serializable, TransformsAudio},
     Normal, Sample,
 };
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
@@ -18,6 +18,7 @@ pub struct Gain {
     #[params]
     ceiling: Normal,
 }
+impl Serializable for Gain {}
 impl Configurable for Gain {}
 impl TransformsAudio for Gain {
     fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {

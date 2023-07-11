@@ -6,7 +6,8 @@ use groove_core::{
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
     time::{ClockTimeUnit, SampleRate},
     traits::{
-        Configurable, Generates, GeneratesEnvelope, IsStereoSampleVoice, IsVoice, PlaysNotes, Ticks,
+        Configurable, Generates, GeneratesEnvelope, IsStereoSampleVoice, IsVoice, PlaysNotes,
+        Serializable, Ticks,
     },
     voices::{VoiceCount, VoiceStore},
     BipolarNormal, Dca, DcaParams, Normal, ParameterType, Sample, SampleType, StereoSample,
@@ -119,6 +120,7 @@ impl HandlesMidi for ToyInstrument {
         }
     }
 }
+impl Serializable for ToyInstrument {}
 
 // impl TestsValues for TestInstrument {
 //     fn has_checkpoint_values(&self) -> bool {
@@ -239,6 +241,7 @@ pub struct DebugSynth {
     oscillator: Box<Oscillator>,
     envelope: Box<Envelope>,
 }
+impl Serializable for DebugSynth {}
 impl Generates<StereoSample> for DebugSynth {
     fn value(&self) -> StereoSample {
         self.sample
@@ -356,6 +359,7 @@ pub struct ToySynth {
     #[cfg_attr(feature = "serialization", serde(skip))]
     inner: Synthesizer<ToyVoice>,
 }
+impl Serializable for ToySynth {}
 impl Generates<StereoSample> for ToySynth {
     fn value(&self) -> StereoSample {
         self.inner.value()
@@ -506,6 +510,7 @@ pub struct ToyAudioSource {
     #[params]
     level: ParameterType,
 }
+impl Serializable for ToyAudioSource {}
 impl Generates<StereoSample> for ToyAudioSource {
     fn value(&self) -> StereoSample {
         StereoSample::from(self.level)

@@ -1,16 +1,15 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use std::ops::Range;
-
+use crate::mini::{Track, TrackAction, TrackIndex};
 use eframe::{
     egui::{Frame, Ui},
     emath::{self, Align2},
     epaint::{pos2, vec2, Color32, FontId, Rect, Shape, Stroke, Vec2},
 };
 use groove_core::time::{MusicalTime, TimeSignature};
+use std::ops::Range;
 
-use crate::mini::{Track, TrackAction, TrackIndex};
-
+/// Renders tracks.
 #[derive(Debug, Default)]
 pub struct ArrangementView {
     time_signature: TimeSignature,
@@ -18,6 +17,7 @@ pub struct ArrangementView {
     size: Vec2,
 }
 impl ArrangementView {
+    /// Main entry point.
     pub fn show(&self, ui: &mut Ui, tracks: &[Track]) -> Option<TrackAction> {
         let mut action = None;
         Frame::canvas(ui.style())
@@ -92,14 +92,17 @@ impl ArrangementView {
         action
     }
 
+    #[allow(missing_docs)]
     pub fn set_time_signature(&mut self, time_signature: TimeSignature) {
         self.time_signature = time_signature;
     }
 
+    #[allow(missing_docs)]
     pub fn set_viewable_time_range(&mut self, viewable_time_range: Range<MusicalTime>) {
         self.viewable_time_range = viewable_time_range;
     }
 
+    #[allow(missing_docs)]
     pub fn set_size(&mut self, size: Vec2) {
         self.size = size;
     }

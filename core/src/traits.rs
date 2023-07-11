@@ -333,8 +333,15 @@ pub trait Performs {
     fn set_loop_enabled(&mut self, is_enabled: bool) {}
 }
 
+/// Something that is [Serializable] might need to do work right before
+/// serialization, or right after deserialization. These are the hooks.
+pub trait Serializable {
+    fn before_ser(&mut self) {}
+    fn after_deser(&mut self) {}
+}
+
 #[typetag::serde(tag = "type")]
-pub trait Thing: HasUid + Shows + Configurable + std::fmt::Debug + Send {
+pub trait Thing: HasUid + Shows + Configurable + Serializable + std::fmt::Debug + Send {
     fn as_controller(&self) -> Option<&dyn IsController> {
         None
     }

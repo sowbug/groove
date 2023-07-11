@@ -17,7 +17,8 @@ use groove_core::{
     time::{MusicalTime, SampleRate, Tempo},
     traits::{
         gui::Shows, Configurable, ControlEventsFn, Controllable, Controls, Generates,
-        GeneratesToInternalBuffer, HandlesMidi, HasUid, Performs, Thing, ThingEvent, Ticks,
+        GeneratesToInternalBuffer, HandlesMidi, HasUid, Performs, Serializable, Thing, ThingEvent,
+        Ticks,
     },
     Sample, StereoSample, Uid,
 };
@@ -161,6 +162,9 @@ impl MiniOrchestrator {
                 } else {
                     self.generate_next_samples(&mut samples);
                 }
+                // No need to do the Arc deref each time through the loop.
+                // TODO: is there a queue type that allows pushing a batch?
+                let queue = queue.as_ref();
                 for sample in samples {
                     let _ = queue.push(sample);
                 }
@@ -581,6 +585,7 @@ impl HandlesMidi for MiniOrchestrator {
 impl Performs for MiniOrchestrator {
     fn play(&mut self) {
         self.e.is_performing = true;
+        self.transport.play();
         self.tracks.iter_mut().for_each(|t| t.play());
     }
 
@@ -592,6 +597,7 @@ impl Performs for MiniOrchestrator {
         } else {
             self.skip_to_start();
         }
+        self.transport.stop();
         self.tracks.iter_mut().for_each(|t| t.stop());
     }
 
@@ -622,10 +628,18 @@ impl Controls for MiniOrchestrator {
             self.dispatch_event(uid, event);
         }
         self.e.is_finished = self.calculate_is_finished();
+        if self.is_performing() && self.e.is_finished {
+            self.stop();
+        }
     }
 
     fn is_finished(&self) -> bool {
         self.e.is_finished
+    }
+}
+impl Serializable for MiniOrchestrator {
+    fn after_deser(&mut self) {
+        self.tracks.iter_mut().for_each(|t| t.after_deser());
     }
 }
 
@@ -680,7 +694,7 @@ mod tests {
         );
 
         o.play();
-        let mut prior_start_time = MusicalTime::start_of_time();
+        let mut prior_start_time = MusicalTime::TIME_ZERO;
         loop {
             if o.is_finished() {
                 break;

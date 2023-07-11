@@ -4,7 +4,7 @@ use btreemultimap::BTreeMultiMap;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn, MidiNoteMinder},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, TimeSignatureParams},
-    traits::{Configurable, ControlEventsFn, Controls, Performs, ThingEvent},
+    traits::{Configurable, ControlEventsFn, Controls, Performs, Serializable, ThingEvent},
     ParameterType,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
@@ -54,6 +54,7 @@ pub struct Sequencer {
     #[cfg_attr(feature = "serialization", serde(skip))]
     time_range_handled: bool,
 }
+impl Serializable for Sequencer {}
 impl HandlesMidi for Sequencer {}
 impl Performs for Sequencer {
     fn play(&mut self) {

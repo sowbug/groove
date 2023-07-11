@@ -1,21 +1,23 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use super::UidFactory;
+use btreemultimap::BTreeMultiMap;
 use eframe::{
     egui::{Frame, Response, Sense, Ui},
     emath::{self, RectTransform},
     epaint::{vec2, Color32, Pos2, Rect, Rounding, Shape, Stroke, Vec2},
 };
 use groove_core::{
-    midi::MidiChannel,
+    midi::{new_note_off, new_note_on, MidiChannel, MidiMessage},
     time::{MusicalTime, TimeSignature},
-    traits::{gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, Performs},
+    traits::{
+        gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, Performs, Serializable,
+    },
     Uid,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, ops::Range};
-
-use super::UidFactory;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ArrangedPattern {
@@ -286,11 +288,23 @@ pub enum MiniSequencerAction {
     ToggleArrangedPatternSelection(usize),
 }
 
+#[derive(Debug, Default)]
+pub struct MiniSequencerEphemerals {
+    // The sequencer should be performing work for this time slice.
+    range: Range<MusicalTime>,
+    // The actual events that the sequencer emits. These are composed of arranged patterns.
+    events: BTreeMultiMap<MusicalTime, MidiMessage>,
+    // The latest end time (exclusive) of all the events.
+    final_event_time: MusicalTime,
+    // Whether we're performing, in the [Performs] sense.
+    is_performing: bool,
+}
+
 /// [MiniSequencer] converts a chain of [MiniPattern]s into MIDI notes according
 /// to a given [Tempo] and [TimeSignature].
 #[derive(Debug, Default, Control, IsController, Params, Uid, Serialize, Deserialize)]
 pub struct MiniSequencer {
-    uid: groove_core::Uid,
+    uid: Uid,
     midi_channel_out: MidiChannel,
 
     uid_factory: UidFactory,
@@ -301,12 +315,11 @@ pub struct MiniSequencer {
     arrangement_cursor: MusicalTime,
     arranged_patterns: Vec<ArrangedPattern>,
 
-    // The sequencer should be performing work for this time slice.
     #[serde(skip)]
-    range: Range<MusicalTime>,
+    e: MiniSequencerEphemerals,
 }
 impl MiniSequencer {
-    /// Creates a new [MiniSequencer]
+    /// Creates a new [MiniSequencer].
     #[allow(unused_variables)]
     pub fn new_with(params: &MiniSequencerParams, midi_channel_out: MidiChannel) -> Self {
         Self {
@@ -315,7 +328,13 @@ impl MiniSequencer {
         }
     }
 
-    fn append_pattern(&mut self, uid: &Uid) {
+    fn add_pattern(&mut self, pattern: MiniPattern) -> Uid {
+        let uid = self.uid_factory.next();
+        self.patterns.insert(uid, pattern);
+        uid
+    }
+
+    fn arrange_pattern(&mut self, uid: &Uid) {
         self.arranged_patterns.push(ArrangedPattern {
             pattern_uid: *uid,
             start: self.arrangement_cursor,
@@ -324,11 +343,12 @@ impl MiniSequencer {
         if let Some(pattern) = self.patterns.get(uid) {
             self.arrangement_cursor += pattern.duration();
         }
+        self.recalculate_events();
     }
 
     fn ui_content(&mut self, ui: &mut Ui) -> Option<MiniSequencerAction> {
         let mut action = None;
-        ui.allocate_ui(vec2(ui.available_width(), 128.0), |ui| {
+        ui.allocate_ui(vec2(384.0, 128.0), |ui| {
             let patterns = &mut self.patterns;
             if ui.button("Add pattern").clicked() {
                 action = Some(MiniSequencerAction::CreatePattern)
@@ -397,16 +417,34 @@ impl MiniSequencer {
     pub fn remove_selected_patterns(&mut self) {
         self.arranged_patterns.retain(|p| !p.is_selected);
     }
+
+    fn recalculate_events(&mut self) {
+        self.e.events.clear();
+        self.e.final_event_time = MusicalTime::default();
+        for ap in &self.arranged_patterns {
+            if let Some(pattern) = self.patterns.get(&ap.pattern_uid) {
+                for note in &pattern.notes {
+                    self.e
+                        .events
+                        .insert(ap.start + note.range.start, new_note_on(note.key, 127));
+                    let end_time = ap.start + note.range.end;
+                    if end_time > self.e.final_event_time {
+                        self.e.final_event_time = end_time;
+                    }
+                    self.e.events.insert(end_time, new_note_off(note.key, 0));
+                }
+            }
+        }
+    }
 }
 impl Shows for MiniSequencer {
     fn show(&mut self, ui: &mut Ui) {
         if let Some(action) = self.ui_content(ui) {
             match action {
                 MiniSequencerAction::CreatePattern => {
-                    self.patterns
-                        .insert(self.uid_factory.next(), MiniPattern::default());
+                    self.add_pattern(MiniPattern::default());
                 }
-                MiniSequencerAction::ArrangePattern(uid) => self.append_pattern(&uid),
+                MiniSequencerAction::ArrangePattern(uid) => self.arrange_pattern(&uid),
                 MiniSequencerAction::ToggleArrangedPatternSelection(index) => {
                     self.arranged_patterns[index].is_selected =
                         !self.arranged_patterns[index].is_selected
@@ -417,33 +455,151 @@ impl Shows for MiniSequencer {
 }
 impl Performs for MiniSequencer {
     fn play(&mut self) {
-        todo!()
+        self.e.is_performing = true;
     }
 
     fn stop(&mut self) {
-        todo!()
+        self.e.is_performing = false;
     }
 
-    fn skip_to_start(&mut self) {
-        todo!()
-    }
+    fn skip_to_start(&mut self) {}
 
     fn is_performing(&self) -> bool {
-        todo!()
+        self.e.is_performing
     }
 }
 impl HandlesMidi for MiniSequencer {}
 impl Controls for MiniSequencer {
     fn update_time(&mut self, range: &std::ops::Range<MusicalTime>) {
-        self.range = range.clone();
+        self.e.range = range.clone();
     }
 
-    fn work(&mut self, _: &mut ControlEventsFn) {
-        // TODO
+    fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
+        let events = self.e.events.range(self.e.range.start..self.e.range.end);
+        for event in events {
+            control_events_fn(
+                self.uid,
+                groove_core::traits::ThingEvent::Midi(MidiChannel(0), *event.1),
+            );
+        }
     }
 
     fn is_finished(&self) -> bool {
-        true
+        // both these are exclusive range bounds
+        self.e.range.end >= self.e.final_event_time
     }
 }
 impl Configurable for MiniSequencer {}
+impl Serializable for MiniSequencer {
+    fn after_deser(&mut self) {
+        self.recalculate_events();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use groove_core::midi::MidiNote;
+
+    impl MiniNote {
+        fn new_with(key: MidiNote, start: MusicalTime, duration: MusicalTime) -> Self {
+            Self {
+                key: key as u8,
+                range: start..(start + duration),
+                ui_state: Default::default(),
+            }
+        }
+    }
+
+    impl MiniPattern {
+        fn new_with(time_signature: TimeSignature, notes: Vec<MiniNote>) -> Self {
+            let min_time = notes.iter().map(|n| n.range.start).min();
+            let max_time = notes.iter().map(|n| n.range.end).max();
+            let duration = if min_time.is_some() && max_time.is_some() {
+                max_time.unwrap() - min_time.unwrap()
+            } else {
+                MusicalTime::TIME_ZERO
+            };
+            Self {
+                time_signature,
+                duration,
+                notes,
+            }
+        }
+    }
+
+    #[test]
+    fn basic() {
+        let mut s = MiniSequencer::default();
+
+        assert!(s.patterns.is_empty());
+        assert!(s.arranged_patterns.is_empty());
+        assert!(s.e.events.is_empty());
+
+        let p1 = MiniPattern::new_with(
+            Default::default(),
+            vec![
+                MiniNote::new_with(
+                    MidiNote::C4,
+                    MusicalTime::TIME_ZERO,
+                    MusicalTime::DURATION_WHOLE,
+                ),
+                MiniNote::new_with(
+                    MidiNote::D4,
+                    MusicalTime::TIME_END_OF_FIRST_BEAT,
+                    MusicalTime::DURATION_WHOLE,
+                ),
+                MiniNote::new_with(
+                    MidiNote::E4,
+                    MusicalTime::TIME_END_OF_FIRST_BEAT * 2,
+                    MusicalTime::DURATION_WHOLE,
+                ),
+            ],
+        );
+        let p1_note_count = p1.notes.len();
+        let p1_end_time = p1.notes.last().unwrap().range.end;
+        let p2 = MiniPattern::new_with(
+            Default::default(),
+            vec![
+                MiniNote::new_with(
+                    MidiNote::C5,
+                    MusicalTime::TIME_ZERO,
+                    MusicalTime::DURATION_WHOLE,
+                ),
+                MiniNote::new_with(
+                    MidiNote::D5,
+                    MusicalTime::TIME_END_OF_FIRST_BEAT,
+                    MusicalTime::DURATION_WHOLE,
+                ),
+                MiniNote::new_with(
+                    MidiNote::E5,
+                    MusicalTime::TIME_END_OF_FIRST_BEAT * 2,
+                    MusicalTime::DURATION_WHOLE,
+                ),
+            ],
+        );
+        let p2_note_count = p2.notes.len();
+        let p2_end_time = p2.notes.last().unwrap().range.end;
+
+        let pid1 = s.add_pattern(p1);
+        let pid2 = s.add_pattern(p2);
+
+        assert_eq!(s.patterns.len(), 2);
+
+        s.arrange_pattern(&pid1);
+        assert_eq!(s.arranged_patterns.len(), 1);
+        assert_eq!(s.e.final_event_time, p1_end_time);
+
+        // One event for note-on, one for note-off. This also tests that the
+        // sequencer properly schedules multiple events at the same instant.
+        assert_eq!(s.e.events.len(), p1_note_count * 2);
+
+        s.arrange_pattern(&pid2);
+        assert_eq!(s.arranged_patterns.len(), 2);
+        // We're playing a little fast and loose here, but at this moment in
+        // time it's true that arrange_pattern() adds the next pattern exactly
+        // at the end of the previous one.
+        assert_eq!(s.e.final_event_time, p1_end_time + p2_end_time);
+        assert_eq!(s.e.events.len(), p1_note_count * 2 + p2_note_count * 2);
+    }
+}

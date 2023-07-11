@@ -7,7 +7,9 @@ use eframe::{
 };
 use groove_core::{
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
-    traits::{gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, Performs},
+    traits::{
+        gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, Performs, Serializable,
+    },
     Uid,
 };
 use groove_proc_macros::{Control, IsController, Uid};
@@ -33,6 +35,9 @@ pub struct Transport {
 
     #[serde(skip)]
     sample_rate: SampleRate,
+
+    #[serde(skip)]
+    is_performing: bool,
 }
 impl HandlesMidi for Transport {}
 impl Transport {
@@ -60,7 +65,23 @@ impl Transport {
         ));
         let length = MusicalTime::new_with_units(units);
         let range = start..start + length;
-        self.current_time += length;
+
+        // If we aren't performing, then we don't advance the clock, but we do
+        // give devices the appearance of time moving forward by providing them
+        // a nonzero time range.
+        //
+        // This is another reason why devices will sometimes get the same time
+        // range twice. It's also why very high sample rates will make
+        // MusicalTime inaccurate for devices like an arpeggiator that depend on
+        // this time source *and* are supposed to operate interactively while
+        // not performing (performance is stopped, but a MIDI track is selected,
+        // and the user expects to hear the arp respond normally to MIDI
+        // keyboard events). TODO: define a better way for these kinds of
+        // devices; maybe they need a different clock that genuinely moves
+        // forward (except when the performance starts).
+        if self.is_performing() {
+            self.current_time += length;
+        }
         range
     }
 
@@ -88,6 +109,7 @@ impl Transport {
     }
 }
 impl Shows for Transport {}
+impl Serializable for Transport {}
 impl Configurable for Transport {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -103,11 +125,11 @@ impl Configurable for Transport {
 }
 impl Performs for Transport {
     fn play(&mut self) {
-        todo!()
+        self.is_performing = true;
     }
 
     fn stop(&mut self) {
-        todo!()
+        self.is_performing = false;
     }
 
     fn skip_to_start(&mut self) {
@@ -115,7 +137,7 @@ impl Performs for Transport {
     }
 
     fn is_performing(&self) -> bool {
-        todo!()
+        self.is_performing
     }
 }
 impl Controls for Transport {

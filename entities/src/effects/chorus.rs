@@ -3,7 +3,7 @@
 use super::delay::{DelayLine, Delays};
 use groove_core::{
     time::SampleRate,
-    traits::{Configurable, TransformsAudio},
+    traits::{Configurable, Serializable, TransformsAudio},
     ParameterType, Sample,
 };
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
@@ -29,6 +29,7 @@ pub struct Chorus {
     #[cfg_attr(feature = "serialization", serde(skip))]
     delay: DelayLine,
 }
+impl Serializable for Chorus {}
 impl TransformsAudio for Chorus {
     fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         let index_offset = self.delay_seconds / self.voices as ParameterType;

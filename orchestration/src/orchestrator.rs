@@ -992,8 +992,8 @@ impl Performs for Orchestrator {
     fn skip_to_start(&mut self) {
         self.clock.seek(0);
         self.last_time_range = Range {
-            start: MusicalTime::end_of_time(),
-            end: MusicalTime::end_of_time(),
+            start: MusicalTime::TIME_MAX,
+            end: MusicalTime::TIME_MAX,
         };
         for entity in self.store.values_mut() {
             if let Some(controller) = entity.as_is_controller_mut() {

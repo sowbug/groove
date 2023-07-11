@@ -4,7 +4,7 @@ use super::{sequencers::Sequencer, SequencerParams};
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
     time::{MusicalTime, PerfectTimeUnit, SampleRate},
-    traits::{Configurable, ControlEventsFn, Controls, Performs},
+    traits::{Configurable, ControlEventsFn, Controls, Performs, Serializable},
     ParameterType,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
@@ -37,6 +37,7 @@ pub struct Arpeggiator {
     // arpeggiator would frequently get clipped.
     note_semaphore: i16,
 }
+impl Serializable for Arpeggiator {}
 impl Configurable for Arpeggiator {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sequencer.update_sample_rate(sample_rate);

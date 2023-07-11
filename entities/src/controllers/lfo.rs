@@ -5,7 +5,10 @@ use groove_core::{
     generators::{Oscillator, OscillatorParams, Waveform},
     midi::HandlesMidi,
     time::{MusicalTime, SampleRate, Tempo},
-    traits::{Configurable, ControlEventsFn, Controls, Generates, Performs, ThingEvent, Ticks},
+    traits::{
+        Configurable, ControlEventsFn, Controls, Generates, Performs, Serializable, ThingEvent,
+        Ticks,
+    },
     FrequencyHz, ParameterType,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
@@ -45,6 +48,7 @@ pub struct LfoController {
     #[cfg_attr(feature = "serialization", serde(skip))]
     last_frame: usize,
 }
+impl Serializable for LfoController {}
 impl Configurable for LfoController {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.oscillator.update_sample_rate(sample_rate);

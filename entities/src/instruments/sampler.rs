@@ -5,7 +5,9 @@ use groove_core::{
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
     time::SampleRate,
-    traits::{Configurable, Generates, IsStereoSampleVoice, IsVoice, PlaysNotes, Ticks},
+    traits::{
+        Configurable, Generates, IsStereoSampleVoice, IsVoice, PlaysNotes, Serializable, Ticks,
+    },
     voices::{VoiceCount, VoiceStore},
     FrequencyHz, ParameterType, Sample, SampleType, StereoSample,
 };
@@ -84,6 +86,7 @@ impl Ticks for SamplerVoice {
         }
     }
 }
+impl Serializable for SamplerVoice {}
 impl Configurable for SamplerVoice {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -151,6 +154,7 @@ impl Ticks for Sampler {
         self.inner_synth.tick(tick_count)
     }
 }
+impl Serializable for Sampler {}
 impl Configurable for Sampler {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.inner_synth.update_sample_rate(sample_rate)

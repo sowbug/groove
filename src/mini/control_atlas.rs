@@ -2,7 +2,9 @@
 
 use groove_core::{
     time::MusicalTime,
-    traits::{gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, Performs},
+    traits::{
+        gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, Performs, Serializable,
+    },
     Uid,
 };
 use groove_entities::controllers::ControlTrip;
@@ -54,6 +56,7 @@ impl Controls for ControlAtlas {
         self.trips.iter().all(|t| t.is_finished())
     }
 }
+impl Serializable for ControlAtlas {}
 impl Configurable for ControlAtlas {
     fn update_sample_rate(&mut self, sample_rate: groove_core::time::SampleRate) {
         self.trips

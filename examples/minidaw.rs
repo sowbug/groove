@@ -9,7 +9,7 @@ use eframe::{
         ScrollArea, TextStyle, Ui,
     },
     emath::{Align, Align2},
-    epaint::{Color32, FontFamily, FontId},
+    epaint::{FontFamily, FontId},
     CreationContext,
 };
 use egui_toast::{Toast, ToastOptions, Toasts};

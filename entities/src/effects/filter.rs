@@ -2,7 +2,7 @@
 
 use groove_core::{
     time::SampleRate,
-    traits::{Configurable, TransformsAudio},
+    traits::{Configurable, Serializable, TransformsAudio},
     FrequencyHz, Normal, ParameterType, Sample,
 };
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
@@ -38,6 +38,7 @@ impl Default for BiQuadFilterLowPass24db {
         }
     }
 }
+impl Serializable for BiQuadFilterLowPass24db {}
 impl Configurable for BiQuadFilterLowPass24db {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -191,6 +192,7 @@ pub struct BiQuadFilterLowPass12db {
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterLowPass12dbChannel; 2],
 }
+impl Serializable for BiQuadFilterLowPass12db {}
 impl Configurable for BiQuadFilterLowPass12db {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -298,6 +300,7 @@ pub struct BiQuadFilterHighPass {
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterHighPassChannel; 2],
 }
+impl Serializable for BiQuadFilterHighPass {}
 impl Configurable for BiQuadFilterHighPass {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -407,6 +410,7 @@ pub struct BiQuadFilterAllPass {
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterAllPassChannel; 2],
 }
+impl Serializable for BiQuadFilterAllPass {}
 impl Configurable for BiQuadFilterAllPass {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -513,6 +517,7 @@ pub struct BiQuadFilterBandPass {
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterBandPassChannel; 2],
 }
+impl Serializable for BiQuadFilterBandPass {}
 impl Configurable for BiQuadFilterBandPass {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -620,6 +625,7 @@ pub struct BiQuadFilterBandStop {
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterBandStopChannel; 2],
 }
+impl Serializable for BiQuadFilterBandStop {}
 impl Configurable for BiQuadFilterBandStop {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -730,6 +736,7 @@ pub struct BiQuadFilterPeakingEq {
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterPeakingEqChannel; 2],
 }
+impl Serializable for BiQuadFilterPeakingEq {}
 impl Configurable for BiQuadFilterPeakingEq {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -843,6 +850,7 @@ pub struct BiQuadFilterLowShelf {
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterLowShelfChannel; 2],
 }
+impl Serializable for BiQuadFilterLowShelf {}
 impl Configurable for BiQuadFilterLowShelf {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -951,6 +959,7 @@ pub struct BiQuadFilterHighShelf {
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilterHighShelfChannel; 2],
 }
+impl Serializable for BiQuadFilterHighShelf {}
 impl Configurable for BiQuadFilterHighShelf {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
@@ -1054,6 +1063,7 @@ pub struct BiQuadFilterNone {
     #[cfg_attr(feature = "serialization", serde(skip))]
     channels: [BiQuadFilter; 2],
 }
+impl Serializable for BiQuadFilterNone {}
 impl Configurable for BiQuadFilterNone {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;

@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    traits::{Configurable, TransformsAudio},
+    traits::{Configurable, Serializable, TransformsAudio},
     Sample, SampleType,
 };
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
@@ -23,6 +23,7 @@ pub struct Bitcrusher {
 
     c: SampleType,
 }
+impl Serializable for Bitcrusher {}
 impl TransformsAudio for Bitcrusher {
     fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         const I16_SCALE: SampleType = i16::MAX as SampleType;

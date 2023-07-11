@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    traits::{Configurable, TransformsAudio},
+    traits::{Configurable, Serializable, TransformsAudio},
     Sample,
 };
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 pub struct Mixer {
     uid: groove_core::Uid,
 }
+impl Serializable for Mixer {}
 impl Configurable for Mixer {}
 impl TransformsAudio for Mixer {
     fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {

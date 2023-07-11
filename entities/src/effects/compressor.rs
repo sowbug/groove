@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    traits::{Configurable, TransformsAudio},
+    traits::{Configurable, Serializable, TransformsAudio},
     Normal, ParameterType, Sample,
 };
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
@@ -46,6 +46,7 @@ pub struct Compressor {
     #[allow(dead_code)]
     current_gain: f32,
 }
+impl Serializable for Compressor {}
 impl TransformsAudio for Compressor {
     fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         let input_sample_positive = input_sample.0.abs();

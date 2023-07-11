@@ -16,7 +16,10 @@ use groove_core::{
     instruments::Synthesizer,
     midi::{note_to_frequency, MidiChannel, MidiMessage, MidiMessagesFn},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, TimeSignatureParams},
-    traits::{Configurable, ControlEventsFn, Controls, Generates, HandlesMidi, Performs, Ticks},
+    traits::{
+        Configurable, ControlEventsFn, Controls, Generates, HandlesMidi, Performs, Serializable,
+        Ticks,
+    },
     voices::VoicePerNoteStore,
     ParameterType, StereoSample,
 };
@@ -463,6 +466,7 @@ pub struct Calculator {
     #[cfg_attr(feature = "serialization", serde(skip))]
     last_handled_step: usize,
 }
+impl Serializable for Calculator {}
 impl Performs for Calculator {
     fn play(&mut self) {
         // We don't have resume, so play always skips to start.

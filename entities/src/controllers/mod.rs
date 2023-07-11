@@ -29,7 +29,10 @@ mod sequencers;
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessagesFn},
     time::{ClockTimeUnit, MusicalTime, MusicalTimeParams, SampleRate},
-    traits::{Configurable, ControlEventsFn, Controls, Performs, ThingEvent, TransformsAudio},
+    traits::{
+        Configurable, ControlEventsFn, Controls, Performs, Serializable, ThingEvent,
+        TransformsAudio,
+    },
     BipolarNormal, Normal, Sample, StereoSample,
 };
 use groove_proc_macros::{Control, IsController, IsControllerEffect, Params, Uid};
@@ -88,6 +91,7 @@ pub struct Timer {
     #[cfg_attr(feature = "serialization", serde(skip))]
     end_time: Option<MusicalTime>,
 }
+impl Serializable for Timer {}
 impl Timer {
     pub fn new_with(params: &TimerParams) -> Self {
         Self {
@@ -173,6 +177,7 @@ pub struct Trigger {
     has_triggered: bool,
     is_performing: bool,
 }
+impl Serializable for Trigger {}
 impl Controls for Trigger {
     fn update_time(&mut self, range: &Range<MusicalTime>) {
         self.timer.update_time(range)
@@ -247,6 +252,7 @@ pub struct SignalPassthroughController {
     #[cfg_attr(feature = "serialization", serde(skip))]
     is_performing: bool,
 }
+impl Serializable for SignalPassthroughController {}
 impl Configurable for SignalPassthroughController {}
 impl Controls for SignalPassthroughController {
     fn update_time(&mut self, _range: &Range<MusicalTime>) {
@@ -368,6 +374,7 @@ pub struct ToyController {
     #[cfg_attr(feature = "serialization", serde(skip))]
     last_time_handled: MusicalTime,
 }
+impl Serializable for ToyController {}
 impl Controls for ToyController {
     fn update_time(&mut self, range: &Range<MusicalTime>) {
         self.time_range = range.clone();
@@ -467,7 +474,7 @@ impl ToyController {
             checkpoint_delta,
             time_unit,
             time_range: MusicalTime::end_of_time_range(),
-            last_time_handled: MusicalTime::end_of_time(),
+            last_time_handled: MusicalTime::TIME_MAX,
         }
     }
 

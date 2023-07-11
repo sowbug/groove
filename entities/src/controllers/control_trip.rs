@@ -8,7 +8,7 @@ use groove_core::{
         BeatValue, Clock, ClockParams, ClockTimeUnit, MusicalTime, PerfectTimeUnit, SampleRate,
         TimeSignature, TimeSignatureParams,
     },
-    traits::{Configurable, ControlEventsFn, Controls, Performs},
+    traits::{Configurable, ControlEventsFn, Controls, Performs, Serializable},
     ParameterType, SignalType,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
@@ -68,6 +68,7 @@ pub struct ControlTrip {
     is_finished: bool,
     is_performing: bool,
 }
+impl Serializable for ControlTrip {}
 impl HandlesMidi for ControlTrip {}
 impl Performs for ControlTrip {
     fn play(&mut self) {
