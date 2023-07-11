@@ -1,6 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::UidFactory;
+use anyhow::{anyhow, Ok, Result};
 use btreemultimap::BTreeMultiMap;
 use eframe::{
     egui::{Frame, Response, Sense, Ui},
@@ -19,10 +20,16 @@ use groove_proc_macros::{Control, IsController, Params, Uid};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, ops::Range};
 
+/// Identifies an arrangement of a [MiniPattern].
+#[derive(
+    Copy, Clone, Debug, Serialize, Deserialize, Default, Eq, PartialEq, Ord, PartialOrd, Hash,
+)]
+pub struct ArrangedPatternUid(pub Uid);
+
 #[derive(Debug, Serialize, Deserialize)]
 struct ArrangedPattern {
     pattern_uid: Uid,
-    start: MusicalTime,
+    position: MusicalTime,
     is_selected: bool,
 }
 impl Shows for ArrangedPattern {
@@ -237,6 +244,7 @@ impl MiniPattern {
         }
     }
 
+    /// This pattern's duration in [MusicalTime].
     pub fn duration(&self) -> MusicalTime {
         self.duration
     }
@@ -284,8 +292,8 @@ impl MiniPattern {
 #[derive(Debug)]
 pub enum MiniSequencerAction {
     CreatePattern,
-    ArrangePattern(Uid),
-    ToggleArrangedPatternSelection(usize),
+    ArrangePatternAppend(Uid),
+    ToggleArrangedPatternSelection(ArrangedPatternUid),
 }
 
 #[derive(Debug, Default)]
@@ -308,12 +316,12 @@ pub struct MiniSequencer {
     midi_channel_out: MidiChannel,
 
     uid_factory: UidFactory,
+    arranged_pattern_uid_factory: UidFactory,
 
     // All the patterns the sequencer knows about. These are not arranged.
     patterns: HashMap<Uid, MiniPattern>,
 
-    arrangement_cursor: MusicalTime,
-    arranged_patterns: Vec<ArrangedPattern>,
+    arranged_patterns: HashMap<ArrangedPatternUid, ArrangedPattern>,
 
     #[serde(skip)]
     e: MiniSequencerEphemerals,
@@ -328,22 +336,48 @@ impl MiniSequencer {
         }
     }
 
+    fn next_arrangement_position(&self) -> MusicalTime {
+        self.e.final_event_time
+    }
+
     fn add_pattern(&mut self, pattern: MiniPattern) -> Uid {
         let uid = self.uid_factory.next();
         self.patterns.insert(uid, pattern);
         uid
     }
 
-    fn arrange_pattern(&mut self, uid: &Uid) {
-        self.arranged_patterns.push(ArrangedPattern {
-            pattern_uid: *uid,
-            start: self.arrangement_cursor,
-            is_selected: false,
-        });
-        if let Some(pattern) = self.patterns.get(uid) {
-            self.arrangement_cursor += pattern.duration();
+    fn arrange_pattern_append(&mut self, uid: &Uid) -> Result<ArrangedPatternUid> {
+        self.arrange_pattern(uid, self.next_arrangement_position())
+    }
+
+    fn arrange_pattern(&mut self, uid: &Uid, position: MusicalTime) -> Result<ArrangedPatternUid> {
+        if self.patterns.get(uid).is_some() {
+            let arranged_pattern_uid = ArrangedPatternUid(self.arranged_pattern_uid_factory.next());
+            self.arranged_patterns.insert(
+                arranged_pattern_uid,
+                ArrangedPattern {
+                    pattern_uid: *uid,
+                    position,
+                    is_selected: false,
+                },
+            );
+            if let Err(r) = self.calculate_events() {
+                Err(r)
+            } else {
+                Ok(arranged_pattern_uid)
+            }
+        } else {
+            Err(anyhow!("Pattern {uid} not found during arrangement"))
         }
-        self.recalculate_events();
+    }
+
+    fn move_pattern(&mut self, uid: &ArrangedPatternUid, position: MusicalTime) -> Result<()> {
+        if let Some(pattern) = self.arranged_patterns.get_mut(uid) {
+            pattern.position = position;
+            self.calculate_events()
+        } else {
+            Err(anyhow!("Couldn't find arranged pattern {}", uid.0))
+        }
     }
 
     fn ui_content(&mut self, ui: &mut Ui) -> Option<MiniSequencerAction> {
@@ -358,7 +392,7 @@ impl MiniSequencer {
             } else {
                 patterns.iter_mut().for_each(|(uid, p)| {
                     if ui.button("Add to track").clicked() {
-                        action = Some(MiniSequencerAction::ArrangePattern(*uid))
+                        action = Some(MiniSequencerAction::ArrangePatternAppend(*uid))
                     }
                     p.show(ui);
                 });
@@ -367,7 +401,7 @@ impl MiniSequencer {
         action
     }
 
-    /// Renders the arrangement view
+    /// Renders the arrangement view.
     #[must_use]
     pub fn show_arrangement(&self, ui: &mut Ui) -> (Response, Option<MiniSequencerAction>) {
         let mut action = None;
@@ -395,12 +429,12 @@ impl MiniSequencer {
             ui.allocate_ui_at_rect(rect, |ui| {
                 ui.style_mut().spacing.item_spacing = Vec2::ZERO;
                 ui.horizontal_top(|ui| {
-                    for (index, arranged_pattern) in self.arranged_patterns.iter().enumerate() {
+                    for (arranged_pattern_uid, arranged_pattern) in self.arranged_patterns.iter() {
                         if let Some(pattern) = self.patterns.get(&arranged_pattern.pattern_uid) {
                             if arranged_pattern.show_in_arrangement(ui, pattern).clicked() {
                                 // TODO: handle shift/control
                                 action = Some(MiniSequencerAction::ToggleArrangedPatternSelection(
-                                    index,
+                                    *arranged_pattern_uid,
                                 ));
                             }
                         }
@@ -415,26 +449,32 @@ impl MiniSequencer {
 
     /// Removes all selected arranged patterns.
     pub fn remove_selected_patterns(&mut self) {
-        self.arranged_patterns.retain(|p| !p.is_selected);
+        self.arranged_patterns.retain(|_, p| !p.is_selected);
     }
 
-    fn recalculate_events(&mut self) {
+    fn calculate_events(&mut self) -> Result<()> {
         self.e.events.clear();
         self.e.final_event_time = MusicalTime::default();
-        for ap in &self.arranged_patterns {
-            if let Some(pattern) = self.patterns.get(&ap.pattern_uid) {
+        for ap in self.arranged_patterns.values() {
+            let uid = ap.pattern_uid;
+            if let Some(pattern) = self.patterns.get(&uid) {
                 for note in &pattern.notes {
                     self.e
                         .events
-                        .insert(ap.start + note.range.start, new_note_on(note.key, 127));
-                    let end_time = ap.start + note.range.end;
+                        .insert(ap.position + note.range.start, new_note_on(note.key, 127));
+                    let end_time = ap.position + note.range.end;
                     if end_time > self.e.final_event_time {
                         self.e.final_event_time = end_time;
                     }
                     self.e.events.insert(end_time, new_note_off(note.key, 0));
                 }
+            } else {
+                return Err(anyhow!(
+                    "Pattern {uid} not found during event recalculation"
+                ));
             }
         }
+        Ok(())
     }
 }
 impl Shows for MiniSequencer {
@@ -444,10 +484,15 @@ impl Shows for MiniSequencer {
                 MiniSequencerAction::CreatePattern => {
                     self.add_pattern(MiniPattern::default());
                 }
-                MiniSequencerAction::ArrangePattern(uid) => self.arrange_pattern(&uid),
-                MiniSequencerAction::ToggleArrangedPatternSelection(index) => {
-                    self.arranged_patterns[index].is_selected =
-                        !self.arranged_patterns[index].is_selected
+                MiniSequencerAction::ArrangePatternAppend(uid) => {
+                    if let Err(e) = self.arrange_pattern_append(&uid) {
+                        eprintln!("while appending arranged pattern: {e}");
+                    }
+                }
+                MiniSequencerAction::ToggleArrangedPatternSelection(uid) => {
+                    if let Some(mut pattern) = self.arranged_patterns.get_mut(&uid) {
+                        pattern.is_selected = !pattern.is_selected;
+                    }
                 }
             }
         }
@@ -492,7 +537,7 @@ impl Controls for MiniSequencer {
 impl Configurable for MiniSequencer {}
 impl Serializable for MiniSequencer {
     fn after_deser(&mut self) {
-        self.recalculate_events();
+        let _ = self.calculate_events();
     }
 }
 
@@ -528,9 +573,61 @@ mod tests {
         }
     }
 
+    impl MiniSequencer {
+        /// For testing only; adds simple patterns.
+        fn populate_pattern(&mut self, pattern_number: usize) -> (Uid, usize, MusicalTime) {
+            let pattern = match pattern_number {
+                0 => MiniPattern::new_with(
+                    Default::default(),
+                    vec![
+                        MiniNote::new_with(
+                            MidiNote::C4,
+                            MusicalTime::TIME_ZERO,
+                            MusicalTime::DURATION_WHOLE,
+                        ),
+                        MiniNote::new_with(
+                            MidiNote::D4,
+                            MusicalTime::TIME_END_OF_FIRST_BEAT,
+                            MusicalTime::DURATION_WHOLE,
+                        ),
+                        MiniNote::new_with(
+                            MidiNote::E4,
+                            MusicalTime::TIME_END_OF_FIRST_BEAT * 2,
+                            MusicalTime::DURATION_WHOLE,
+                        ),
+                    ],
+                ),
+                1 => MiniPattern::new_with(
+                    Default::default(),
+                    vec![
+                        MiniNote::new_with(
+                            MidiNote::C5,
+                            MusicalTime::TIME_ZERO,
+                            MusicalTime::DURATION_WHOLE,
+                        ),
+                        MiniNote::new_with(
+                            MidiNote::D5,
+                            MusicalTime::TIME_END_OF_FIRST_BEAT,
+                            MusicalTime::DURATION_WHOLE,
+                        ),
+                        MiniNote::new_with(
+                            MidiNote::E5,
+                            MusicalTime::TIME_END_OF_FIRST_BEAT * 2,
+                            MusicalTime::DURATION_WHOLE,
+                        ),
+                    ],
+                ),
+                _ => panic!(),
+            };
+            let note_count = pattern.notes.len();
+            let duration = pattern.duration;
+            (self.add_pattern(pattern), note_count, duration)
+        }
+    }
+
     #[test]
     fn basic() {
-        let mut s = MiniSequencer::default();
+        let s = MiniSequencer::default();
 
         assert!(s.patterns.is_empty(), "default sequencer is empty");
         assert!(
@@ -538,72 +635,30 @@ mod tests {
             "default sequencer has no arranged patterns"
         );
         assert!(s.e.events.is_empty(), "default sequencer has no events");
+    }
 
-        let p1 = MiniPattern::new_with(
-            Default::default(),
-            vec![
-                MiniNote::new_with(
-                    MidiNote::C4,
-                    MusicalTime::TIME_ZERO,
-                    MusicalTime::DURATION_WHOLE,
-                ),
-                MiniNote::new_with(
-                    MidiNote::D4,
-                    MusicalTime::TIME_END_OF_FIRST_BEAT,
-                    MusicalTime::DURATION_WHOLE,
-                ),
-                MiniNote::new_with(
-                    MidiNote::E4,
-                    MusicalTime::TIME_END_OF_FIRST_BEAT * 2,
-                    MusicalTime::DURATION_WHOLE,
-                ),
-            ],
-        );
-        let p1_note_count = p1.notes.len();
-        let p1_end_time = p1.notes.last().unwrap().range.end;
-        let p2 = MiniPattern::new_with(
-            Default::default(),
-            vec![
-                MiniNote::new_with(
-                    MidiNote::C5,
-                    MusicalTime::TIME_ZERO,
-                    MusicalTime::DURATION_WHOLE,
-                ),
-                MiniNote::new_with(
-                    MidiNote::D5,
-                    MusicalTime::TIME_END_OF_FIRST_BEAT,
-                    MusicalTime::DURATION_WHOLE,
-                ),
-                MiniNote::new_with(
-                    MidiNote::E5,
-                    MusicalTime::TIME_END_OF_FIRST_BEAT * 2,
-                    MusicalTime::DURATION_WHOLE,
-                ),
-            ],
-        );
-        let p2_note_count = p2.notes.len();
-        let p2_end_time = p2.notes.last().unwrap().range.end;
-
-        let pid1 = s.add_pattern(p1);
-        let pid2 = s.add_pattern(p2);
-
+    #[test]
+    fn test_patterns() {
+        let mut s = MiniSequencer::default();
+        let (pid0, p0_note_count, p0_duration) = s.populate_pattern(0);
+        let (pid1, p1_note_count, p1_duration) = s.populate_pattern(1);
         assert_eq!(s.patterns.len(), 2);
 
-        s.arrange_pattern(&pid1);
+        assert!(s.arrange_pattern_append(&pid0).is_ok());
         assert_eq!(s.arranged_patterns.len(), 1, "arranging pattern works");
         assert_eq!(
-            s.e.final_event_time, p1_end_time,
+            s.e.final_event_time, p0_duration,
             "arranging pattern updates final event time"
         );
 
-        // One event for note-on, one for note-off.
+        // One event for note-on, one for note-off = two events per note.
         assert_eq!(
             s.e.events.len(),
-            p1_note_count * 2,
+            p0_note_count * 2,
             "sequencer can schedule multiple simultaneous events"
         );
 
-        s.arrange_pattern(&pid2);
+        assert!(s.arrange_pattern_append(&pid1).is_ok());
         assert_eq!(
             s.arranged_patterns.len(),
             2,
@@ -614,13 +669,40 @@ mod tests {
         // at the end of the previous one.
         assert_eq!(
             s.e.final_event_time,
-            p1_end_time + p2_end_time,
+            p0_duration + p1_duration,
             "arranging second pattern updates final event time"
         );
         assert_eq!(
             s.e.events.len(),
-            p1_note_count * 2 + p2_note_count * 2,
+            p0_note_count * 2 + p1_note_count * 2,
             "multiple arranged patterns produces expected number of events"
         );
+    }
+
+    #[test]
+    fn precise_arrangement() {
+        let mut s = MiniSequencer::default();
+        let (pid0, _, p0_duration) = s.populate_pattern(0);
+
+        assert!(s
+            .arrange_pattern(&pid0, MusicalTime::new_with_units(1234))
+            .is_ok());
+        assert_eq!(
+            s.e.final_event_time,
+            p0_duration + 1234,
+            "Absolute arrangement properly updates final event time"
+        );
+    }
+
+    #[test]
+    fn rearrangement() {
+        let mut s = MiniSequencer::default();
+        let (pid0, _, p0_duration) = s.populate_pattern(0);
+        let ap_uid0 = s.arrange_pattern_append(&pid0).unwrap();
+        assert_eq!(s.e.final_event_time, p0_duration);
+        assert!(s
+            .move_pattern(&ap_uid0, MusicalTime::new_with_units(10000))
+            .is_ok());
+        assert_eq!(s.e.final_event_time, p0_duration + 10000);
     }
 }
