@@ -34,6 +34,9 @@ pub struct Transport {
     current_time: MusicalTime,
 
     #[serde(skip)]
+    current_frame: usize,
+
+    #[serde(skip)]
     sample_rate: SampleRate,
 
     #[serde(skip)]
@@ -54,21 +57,16 @@ impl Transport {
     /// Advances the clock by the given number of frames. Returns the time range
     /// from the prior time to now.
     pub fn advance(&mut self, frames: usize) -> Range<MusicalTime> {
-        // Calculate the work time range. Note that we make sure the range is
-        // length > 0 (via the 1.max()), which can mean that a caller relying on
-        // us might get the same range twice if the sample rate is very high.
-        let start = self.current_time;
-        let units = 1.max(MusicalTime::frames_to_units(
-            self.tempo,
-            self.sample_rate,
-            frames,
-        ));
-        let length = MusicalTime::new_with_units(units);
-        let range = start..start + length;
+        // Calculate the work time range. Note that the range can be zero, which
+        // will happen if frames advance faster than MusicalTime units.
+        let new_frames = self.current_frame + frames;
+        let new_time = MusicalTime::new_with_frames(self.tempo, self.sample_rate, new_frames);
+        let length = new_time - self.current_time;
+        let range = self.current_time..self.current_time + length;
 
         // If we aren't performing, then we don't advance the clock, but we do
         // give devices the appearance of time moving forward by providing them
-        // a nonzero time range.
+        // a (usually) nonzero time range.
         //
         // This is another reason why devices will sometimes get the same time
         // range twice. It's also why very high sample rates will make
@@ -78,9 +76,12 @@ impl Transport {
         // and the user expects to hear the arp respond normally to MIDI
         // keyboard events). TODO: define a better way for these kinds of
         // devices; maybe they need a different clock that genuinely moves
-        // forward (except when the performance starts).
+        // forward (except when the performance starts). It should share the
+        // same origin as the real clock, but increases regardless of
+        // performance status.
         if self.is_performing() {
-            self.current_time += length;
+            self.current_frame = new_frames;
+            self.current_time = new_time;
         }
         range
     }
@@ -106,6 +107,12 @@ impl Transport {
                 RichText::new(format!("{}", self.current_time)).text_style(TextStyle::Monospace),
             ));
         });
+    }
+
+    /// The current sample rate.
+    // TODO: should this be part of the Configurable trait?
+    pub fn sample_rate(&self) -> SampleRate {
+        self.sample_rate
     }
 }
 impl Shows for Transport {}
@@ -134,6 +141,7 @@ impl Performs for Transport {
 
     fn skip_to_start(&mut self) {
         self.current_time = MusicalTime::default();
+        self.current_frame = Default::default();
     }
 
     fn is_performing(&self) -> bool {
@@ -157,5 +165,37 @@ impl Controls for Transport {
 
     fn is_finished(&self) -> bool {
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn advances_time_correctly_with_various_sample_rates() {
+        let mut transport = Transport::default();
+        transport.update_tempo(Tempo(60.0));
+
+        let vec = vec![100, 997, 22050, 44100, 48000, 88200, 98689, 100000, 262144];
+        for sample_rate in vec {
+            transport.play();
+            transport.update_sample_rate(SampleRate(sample_rate));
+
+            let mut time_range_covered = 0;
+            for _ in 0..transport.sample_rate().0 {
+                let range = transport.advance(1);
+                let delta_units = (range.end - range.start).total_units();
+                time_range_covered += delta_units;
+            }
+            assert_eq!(time_range_covered, MusicalTime::UNITS_IN_BEAT,
+            "Sample rate {} Hz: after advancing one second of frames at 60 BPM, we should have covered {} MusicalTime units",
+            sample_rate, MusicalTime::UNITS_IN_BEAT);
+
+            // We put this at the end of the loop rather than the start because
+            // we'd like to test that the initial post-new state is correct
+            // without first calling skip_to_start().
+            transport.skip_to_start();
+        }
     }
 }

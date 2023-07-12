@@ -628,7 +628,7 @@ impl Controls for MiniOrchestrator {
             self.dispatch_event(uid, event);
         }
         self.e.is_finished = self.calculate_is_finished();
-        if self.is_performing() && self.e.is_finished {
+        if self.is_performing() && self.is_finished() {
             self.stop();
         }
     }

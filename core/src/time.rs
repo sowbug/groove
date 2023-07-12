@@ -661,6 +661,10 @@ impl MusicalTime {
         Self { units }
     }
 
+    pub fn new_with_frames(tempo: Tempo, sample_rate: SampleRate, frames: usize) -> Self {
+        Self::new_with_units(Self::frames_to_units(tempo, sample_rate, frames))
+    }
+
     pub fn frames_to_units(tempo: Tempo, sample_rate: SampleRate, frames: usize) -> u64 {
         let elapsed_beats = (frames as f64 / sample_rate.value() as f64) * tempo.bps();
         let elapsed_fractional_units =
@@ -688,11 +692,13 @@ impl MusicalTime {
     }
 }
 impl Display for MusicalTime {
+    // Because MusicalTime doesn't know the time signature, it can't display the
+    // number of bars here.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{:5}.{:02}.{:05}",
-            self.total_beats(),
+            self.total_beats() + 1,
             self.parts(),
             self.units()
         )
@@ -723,6 +729,11 @@ impl AddAssign<Self> for MusicalTime {
         self.units += rhs.units;
     }
 }
+// impl AddAssign<Self> for MusicalTime {
+//     fn add_assign(&mut self, rhs: Self) {
+//         self.units += rhs.units;
+//     }
+// }
 impl Mul<u64> for MusicalTime {
     type Output = Self;
 

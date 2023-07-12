@@ -823,6 +823,9 @@ impl Performs for Track {
 }
 impl Serializable for Track {
     fn after_deser(&mut self) {
+        if let Some(sequencer) = self.sequencer.as_mut() {
+            sequencer.after_deser();
+        }
         self.thing_store.after_deser();
     }
 }
