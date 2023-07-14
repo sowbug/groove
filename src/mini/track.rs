@@ -37,6 +37,7 @@ pub enum TrackElementAction {
     RemoveDevice(usize),
 }
 
+#[allow(missing_docs)]
 #[derive(Debug)]
 pub enum TrackAction {
     Select(TrackIndex, bool),
@@ -122,6 +123,8 @@ impl Default for TrackTitle {
     }
 }
 
+/// A collection of instruments, effects, and controllers that combine to
+/// produce a single source of audio.
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Track {
     title: TrackTitle,
@@ -145,11 +148,13 @@ pub struct Track {
     buffer: TrackBuffer,
 }
 impl Track {
+    #[allow(missing_docs)]
     pub fn is_send(&self) -> bool {
         matches!(self.ty, TrackType::Send)
     }
 
     // TODO: for now the only way to add something new to a Track is to append it.
+    #[allow(missing_docs)]
     pub fn append_thing(&mut self, thing: Box<dyn Thing>) -> Uid {
         let uid = thing.uid();
         if thing.as_controller().is_some() {
@@ -168,6 +173,7 @@ impl Track {
         uid
     }
 
+    #[allow(missing_docs)]
     pub fn remove_thing(&mut self, uid: &Uid) -> Option<Box<dyn Thing>> {
         if let Some(thing) = self.thing_store.remove(uid) {
             if thing.as_controller().is_some() {
@@ -549,6 +555,7 @@ impl Track {
     }
 
     #[must_use]
+    #[allow(missing_docs)]
     pub fn show(&self, ui: &mut Ui, track_index: TrackIndex) -> (Response, Option<TrackAction>) {
         let mut action = None;
         (
@@ -598,20 +605,24 @@ impl Track {
         )
     }
 
+    #[allow(missing_docs)]
     pub fn remove_selected_patterns(&mut self) {
         if let Some(sequencer) = self.sequencer.as_mut() {
             sequencer.remove_selected_patterns();
         }
     }
 
+    #[allow(missing_docs)]
     pub fn selected(&self) -> bool {
         self.is_selected
     }
 
+    #[allow(missing_docs)]
     pub fn set_selected(&mut self, selected: bool) {
         self.is_selected = selected;
     }
 
+    #[allow(missing_docs)]
     pub fn route_midi_message(
         &mut self,
         channel: MidiChannel,
@@ -625,6 +636,7 @@ impl Track {
         }
     }
 
+    #[allow(missing_docs)]
     pub fn route_control_change(&mut self, uid: Uid, value: ControlValue) {
         if let Err(e) = self.control_router.route(
             &mut |target_uid, index, value| {
