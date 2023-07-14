@@ -14,21 +14,49 @@ use groove_core::{
     traits::{
         gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, Performs, Serializable,
     },
-    Uid,
+    IsUid, Uid,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, ops::Range};
+use std::{collections::HashMap, fmt::Display, ops::Range};
+
+/// Identifies a [MiniPattern].
+#[derive(
+    Copy, Clone, Debug, Serialize, Deserialize, Default, Eq, PartialEq, Ord, PartialOrd, Hash,
+)]
+pub struct PatternUid(pub usize);
+impl IsUid for PatternUid {
+    fn increment(&mut self) -> &Self {
+        self.0 += 1;
+        self
+    }
+}
+impl Display for PatternUid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}", self.0))
+    }
+}
 
 /// Identifies an arrangement of a [MiniPattern].
 #[derive(
     Copy, Clone, Debug, Serialize, Deserialize, Default, Eq, PartialEq, Ord, PartialOrd, Hash,
 )]
-pub struct ArrangedPatternUid(pub Uid);
+pub struct ArrangedPatternUid(pub usize);
+impl IsUid for ArrangedPatternUid {
+    fn increment(&mut self) -> &Self {
+        self.0 += 1;
+        self
+    }
+}
+impl Display for ArrangedPatternUid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}", self.0))
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ArrangedPattern {
-    pattern_uid: Uid,
+    pattern_uid: PatternUid,
     position: MusicalTime,
     is_selected: bool,
 }
@@ -244,6 +272,7 @@ impl MiniPattern {
         }
     }
 
+    #[allow(dead_code)]
     /// This pattern's duration in [MusicalTime].
     pub fn duration(&self) -> MusicalTime {
         self.duration
@@ -292,7 +321,7 @@ impl MiniPattern {
 #[derive(Debug)]
 pub enum MiniSequencerAction {
     CreatePattern,
-    ArrangePatternAppend(Uid),
+    ArrangePatternAppend(PatternUid),
     ToggleArrangedPatternSelection(ArrangedPatternUid),
 }
 
@@ -315,11 +344,11 @@ pub struct MiniSequencer {
     uid: Uid,
     midi_channel_out: MidiChannel,
 
-    uid_factory: UidFactory,
-    arranged_pattern_uid_factory: UidFactory,
+    uid_factory: UidFactory<PatternUid>,
+    arranged_pattern_uid_factory: UidFactory<ArrangedPatternUid>,
 
     // All the patterns the sequencer knows about. These are not arranged.
-    patterns: HashMap<Uid, MiniPattern>,
+    patterns: HashMap<PatternUid, MiniPattern>,
 
     arranged_patterns: HashMap<ArrangedPatternUid, ArrangedPattern>,
 
@@ -340,19 +369,23 @@ impl MiniSequencer {
         self.e.final_event_time
     }
 
-    fn add_pattern(&mut self, pattern: MiniPattern) -> Uid {
+    fn add_pattern(&mut self, pattern: MiniPattern) -> PatternUid {
         let uid = self.uid_factory.next();
         self.patterns.insert(uid, pattern);
         uid
     }
 
-    fn arrange_pattern_append(&mut self, uid: &Uid) -> Result<ArrangedPatternUid> {
+    fn arrange_pattern_append(&mut self, uid: &PatternUid) -> Result<ArrangedPatternUid> {
         self.arrange_pattern(uid, self.next_arrangement_position())
     }
 
-    fn arrange_pattern(&mut self, uid: &Uid, position: MusicalTime) -> Result<ArrangedPatternUid> {
+    fn arrange_pattern(
+        &mut self,
+        uid: &PatternUid,
+        position: MusicalTime,
+    ) -> Result<ArrangedPatternUid> {
         if self.patterns.get(uid).is_some() {
-            let arranged_pattern_uid = ArrangedPatternUid(self.arranged_pattern_uid_factory.next());
+            let arranged_pattern_uid = self.arranged_pattern_uid_factory.next();
             self.arranged_patterns.insert(
                 arranged_pattern_uid,
                 ArrangedPattern {
@@ -371,6 +404,7 @@ impl MiniSequencer {
         }
     }
 
+    #[allow(dead_code)]
     fn move_pattern(&mut self, uid: &ArrangedPatternUid, position: MusicalTime) -> Result<()> {
         if let Some(pattern) = self.arranged_patterns.get_mut(uid) {
             pattern.position = position;
@@ -490,7 +524,7 @@ impl Shows for MiniSequencer {
                     }
                 }
                 MiniSequencerAction::ToggleArrangedPatternSelection(uid) => {
-                    if let Some(mut pattern) = self.arranged_patterns.get_mut(&uid) {
+                    if let Some(pattern) = self.arranged_patterns.get_mut(&uid) {
                         pattern.is_selected = !pattern.is_selected;
                     }
                 }
@@ -575,7 +609,7 @@ mod tests {
 
     impl MiniSequencer {
         /// For testing only; adds simple patterns.
-        fn populate_pattern(&mut self, pattern_number: usize) -> (Uid, usize, MusicalTime) {
+        fn populate_pattern(&mut self, pattern_number: usize) -> (PatternUid, usize, MusicalTime) {
             let pattern = match pattern_number {
                 0 => MiniPattern::new_with(
                     Default::default(),

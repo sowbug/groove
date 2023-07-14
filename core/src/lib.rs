@@ -485,12 +485,16 @@ impl Mul<Self> for Normal {
     }
 }
 
+pub trait IsUid {
+    fn increment(&mut self) -> &Self;
+}
+
 /// A [Uid] is an identifier that's unique within the current project.
 #[derive(Copy, Clone, Debug, Default, Display, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Uid(pub usize);
-impl Uid {
-    pub fn increment(&mut self) -> &Self {
+impl IsUid for Uid {
+    fn increment(&mut self) -> &Self {
         self.0 += 1;
         self
     }

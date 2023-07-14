@@ -6,14 +6,13 @@ pub use entity_factory::{EntityFactory, Key};
 pub use orchestrator::MiniOrchestrator;
 pub use sequencer::{MiniSequencer, MiniSequencerParams};
 pub use track::{Track, TrackAction, TrackIndex};
-
 pub use transport::Transport;
 
 #[cfg(test)]
 pub use entities::register_test_factory_entities;
 
 use crossbeam_channel::{Receiver, Sender};
-use groove_core::Uid;
+use groove_core::IsUid;
 use serde::{Deserialize, Serialize};
 
 mod control_atlas;
@@ -30,12 +29,12 @@ mod transport;
 
 /// Generates unique [Uid]s. This factory is not threadsafe.
 #[derive(Debug, Default, Serialize, Deserialize)]
-pub struct UidFactory {
-    previous_uid: Uid,
+pub struct UidFactory<U: IsUid + Clone> {
+    previous_uid: U,
 }
-impl UidFactory {
+impl<U: IsUid + Clone> UidFactory<U> {
     /// Generates the next unique [Uid].
-    pub fn next(&mut self) -> Uid {
+    pub fn next(&mut self) -> U {
         self.previous_uid.increment().clone()
     }
 }
