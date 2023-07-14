@@ -16,6 +16,18 @@ use groove_proc_macros::{Control, IsController, Uid};
 use serde::{Deserialize, Serialize};
 use std::ops::Range;
 
+#[derive(Debug, Clone, Default)]
+pub struct TransportEphemerals {
+    /// The global time pointer within the song.
+    current_time: MusicalTime,
+
+    current_frame: usize,
+
+    sample_rate: SampleRate,
+
+    is_performing: bool,
+}
+
 /// [Transport] is the global clock. It knows where in the song we are, and how
 /// fast time should advance.
 #[derive(Serialize, Deserialize, Clone, Control, IsController, Debug, Default, Uid)]
@@ -29,18 +41,8 @@ pub struct Transport {
     #[control]
     tempo: Tempo,
 
-    /// The global time pointer within the song.
     #[serde(skip)]
-    current_time: MusicalTime,
-
-    #[serde(skip)]
-    current_frame: usize,
-
-    #[serde(skip)]
-    sample_rate: SampleRate,
-
-    #[serde(skip)]
-    is_performing: bool,
+    e: TransportEphemerals,
 }
 impl HandlesMidi for Transport {}
 impl Transport {
@@ -59,10 +61,10 @@ impl Transport {
     pub fn advance(&mut self, frames: usize) -> Range<MusicalTime> {
         // Calculate the work time range. Note that the range can be zero, which
         // will happen if frames advance faster than MusicalTime units.
-        let new_frames = self.current_frame + frames;
-        let new_time = MusicalTime::new_with_frames(self.tempo, self.sample_rate, new_frames);
-        let length = new_time - self.current_time;
-        let range = self.current_time..self.current_time + length;
+        let new_frames = self.e.current_frame + frames;
+        let new_time = MusicalTime::new_with_frames(self.tempo, self.e.sample_rate, new_frames);
+        let length = new_time - self.e.current_time;
+        let range = self.e.current_time..self.e.current_time + length;
 
         // If we aren't performing, then we don't advance the clock, but we do
         // give devices the appearance of time moving forward by providing them
@@ -80,15 +82,15 @@ impl Transport {
         // same origin as the real clock, but increases regardless of
         // performance status.
         if self.is_performing() {
-            self.current_frame = new_frames;
-            self.current_time = new_time;
+            self.e.current_frame = new_frames;
+            self.e.current_time = new_time;
         }
         range
     }
 
     #[allow(missing_docs)]
     pub fn current_time(&self) -> MusicalTime {
-        self.current_time
+        self.e.current_time
     }
 
     /// Renders the [Transport].
@@ -104,7 +106,7 @@ impl Transport {
         ui.allocate_ui(vec2(72.0, 20.0), |ui| {
             ui.set_min_width(128.0);
             ui.add(Label::new(
-                RichText::new(format!("{}", self.current_time)).text_style(TextStyle::Monospace),
+                RichText::new(format!("{}", self.e.current_time)).text_style(TextStyle::Monospace),
             ));
         });
     }
@@ -112,14 +114,14 @@ impl Transport {
     /// The current sample rate.
     // TODO: should this be part of the Configurable trait?
     pub fn sample_rate(&self) -> SampleRate {
-        self.sample_rate
+        self.e.sample_rate
     }
 }
 impl Shows for Transport {}
 impl Serializable for Transport {}
 impl Configurable for Transport {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
-        self.sample_rate = sample_rate;
+        self.e.sample_rate = sample_rate;
     }
 
     fn update_tempo(&mut self, tempo: Tempo) {
@@ -132,30 +134,30 @@ impl Configurable for Transport {
 }
 impl Performs for Transport {
     fn play(&mut self) {
-        self.is_performing = true;
+        self.e.is_performing = true;
     }
 
     fn stop(&mut self) {
-        self.is_performing = false;
+        self.e.is_performing = false;
     }
 
     fn skip_to_start(&mut self) {
-        self.current_time = MusicalTime::default();
-        self.current_frame = Default::default();
+        self.e.current_time = MusicalTime::default();
+        self.e.current_frame = Default::default();
     }
 
     fn is_performing(&self) -> bool {
-        self.is_performing
+        self.e.is_performing
     }
 }
 impl Controls for Transport {
     fn update_time(&mut self, range: &Range<MusicalTime>) {
         // Nothing - we calculated the range, so we don't need to do anything with it.
         debug_assert!(
-            self.current_time == range.end,
+            self.e.current_time == range.end,
             "Transport::update_time() was called with the range ..{} but current_time is {}",
             range.end,
-            self.current_time
+            self.e.current_time
         );
     }
 
@@ -191,6 +193,12 @@ mod tests {
             assert_eq!(time_range_covered, MusicalTime::UNITS_IN_BEAT,
             "Sample rate {} Hz: after advancing one second of frames at 60 BPM, we should have covered {} MusicalTime units",
             sample_rate, MusicalTime::UNITS_IN_BEAT);
+
+            assert_eq!(
+                transport.current_time(),
+                MusicalTime::new_with_beats(1),
+                "Transport should be exactly on the one-beat mark."
+            );
 
             // We put this at the end of the loop rather than the start because
             // we'd like to test that the initial post-new state is correct
