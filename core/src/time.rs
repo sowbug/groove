@@ -538,6 +538,8 @@ impl MusicalTime {
     pub const UNITS_IN_PART: u64 = 4096;
     pub const UNITS_IN_BEAT: u64 = Self::PARTS_IN_BEAT * Self::UNITS_IN_PART;
 
+    pub const DURATION_ZERO: MusicalTime = Self::START;
+    pub const DURATION_TWO_WHOLE: MusicalTime = Self::new_with_beats(2);
     pub const DURATION_WHOLE: MusicalTime = Self::new_with_beats(1);
     pub const DURATION_HALF: MusicalTime = Self::new_with_parts(8);
     pub const DURATION_QUARTER: MusicalTime = Self::new_with_parts(4);

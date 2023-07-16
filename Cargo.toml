@@ -18,6 +18,7 @@ atomic-counter = "1.0.1"
 btreemultimap = "0.1.1"
 clap = { version = "4.0", features = ["derive"] }
 crossbeam-channel = { version = "0.5", optional = true }
+derive_builder = "0.12"
 derive_more = "0.99"
 dipstick = { version = "0.9", optional = true }
 eframe = { version = "0.22", optional = true }

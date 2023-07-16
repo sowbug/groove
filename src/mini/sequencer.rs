@@ -1,8 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::UidFactory;
-use anyhow::{anyhow, Ok, Result};
+use anyhow::anyhow;
 use btreemultimap::BTreeMultiMap;
+use derive_builder::Builder;
 use eframe::{
     egui::{Frame, Response, Sense, Ui},
     emath::{self, RectTransform},
@@ -106,13 +107,37 @@ struct MiniNote {
     ui_state: MiniNoteUiState,
 }
 
-/// A [MiniPattern] contains a musical sequence. It is a series of [MiniNote]s
-/// and a [TimeSignature]. All the notes should fit into the pattern's duration.
-#[derive(Debug, Serialize, Deserialize)]
+/// A [MiniPattern] contains a musical sequence that is suitable for
+/// pattern-based composition. It is a series of [MiniNote]s and a
+/// [TimeSignature]. All the notes should fit into the pattern's duration, and
+/// the duration should be a round multiple of the length implied by the time
+/// signature.
+#[derive(Debug, Serialize, Deserialize, Builder)]
+#[builder(build_fn(private, name = "build_from_builder"))]
 struct MiniPattern {
+    #[builder(default)]
     time_signature: TimeSignature,
+
+    /// The duration is the amount of time from the start of the pattern to the
+    /// point when the next pattern should start. This does not necessarily mean
+    /// the time between the first note-on and the first note-off! For example,
+    /// an empty 4/4 pattern lasts for 4 beats.
+    #[builder(setter(skip))]
     duration: MusicalTime,
+
+    #[builder(default, setter(each(name = "note", into)))]
     notes: Vec<MiniNote>,
+}
+impl MiniPatternBuilder {
+    pub fn build(&self) -> Result<MiniPattern, MiniPatternBuilderError> {
+        match self.build_from_builder() {
+            Ok(mut s) => {
+                s.post_build();
+                Ok(s)
+            }
+            Err(e) => Err(e),
+        }
+    }
 }
 impl Default for MiniPattern {
     fn default() -> Self {
@@ -133,12 +158,28 @@ impl Shows for MiniPattern {
     }
 }
 impl MiniPattern {
-    pub fn add(&mut self, note: MiniNote) {
-        self.notes.push(note);
+    fn post_build(&mut self) {
+        self.calculate();
     }
 
-    pub fn remove(&mut self, note: &MiniNote) {
+    fn calculate(&mut self) {
+        let min_time = self.notes.iter().map(|n| n.range.start).min();
+        let max_time = self.notes.iter().map(|n| n.range.end).max();
+        self.duration = if min_time.is_some() && max_time.is_some() {
+            max_time.unwrap() - min_time.unwrap()
+        } else {
+            MusicalTime::TIME_ZERO
+        };
+    }
+
+    pub fn add_note(&mut self, note: MiniNote) {
+        self.notes.push(note);
+        self.calculate();
+    }
+
+    pub fn remove_note(&mut self, note: &MiniNote) {
         self.notes.retain(|v| v != note);
+        self.calculate();
     }
 
     #[allow(dead_code)]
@@ -227,10 +268,10 @@ impl MiniPattern {
                 let note =
                     self.note_for_position(&from_screen, steps_horiz, notes_vert, pointer_pos);
                 if let Some(hovered) = hovered_note {
-                    let _ = self.remove(&hovered);
+                    let _ = self.remove_note(&hovered);
                     hovered_note = None;
                 } else {
-                    let _ = self.add(note);
+                    let _ = self.add_note(note);
                 }
                 response.mark_changed();
             }
@@ -316,6 +357,28 @@ impl MiniPattern {
 
         response
     }
+
+    #[allow(dead_code)]
+    fn move_note(&mut self, note: &MiniNote, new_start: MusicalTime) {
+        self.notes.iter_mut().filter(|n| n == &note).for_each(|n| {
+            let n_length = n.range.end - n.range.start;
+            n.range = new_start..new_start + n_length;
+        });
+        self.calculate();
+    }
+
+    #[allow(dead_code)]
+    fn move_and_resize_note(
+        &mut self,
+        note: &MiniNote,
+        new_start: MusicalTime,
+        duration: MusicalTime,
+    ) {
+        self.notes.iter_mut().filter(|n| n == &note).for_each(|n| {
+            n.range = new_start..new_start + duration;
+        });
+        self.calculate();
+    }
 }
 
 #[derive(Debug)]
@@ -375,7 +438,7 @@ impl MiniSequencer {
         uid
     }
 
-    fn arrange_pattern_append(&mut self, uid: &PatternUid) -> Result<ArrangedPatternUid> {
+    fn arrange_pattern_append(&mut self, uid: &PatternUid) -> anyhow::Result<ArrangedPatternUid> {
         self.arrange_pattern(uid, self.next_arrangement_position())
     }
 
@@ -383,7 +446,7 @@ impl MiniSequencer {
         &mut self,
         uid: &PatternUid,
         position: MusicalTime,
-    ) -> Result<ArrangedPatternUid> {
+    ) -> anyhow::Result<ArrangedPatternUid> {
         if self.patterns.get(uid).is_some() {
             let arranged_pattern_uid = self.arranged_pattern_uid_factory.next();
             self.arranged_patterns.insert(
@@ -405,7 +468,11 @@ impl MiniSequencer {
     }
 
     #[allow(dead_code)]
-    fn move_pattern(&mut self, uid: &ArrangedPatternUid, position: MusicalTime) -> Result<()> {
+    fn move_pattern(
+        &mut self,
+        uid: &ArrangedPatternUid,
+        position: MusicalTime,
+    ) -> anyhow::Result<()> {
         if let Some(pattern) = self.arranged_patterns.get_mut(uid) {
             pattern.position = position;
             self.calculate_events()
@@ -486,7 +553,7 @@ impl MiniSequencer {
         self.arranged_patterns.retain(|_, p| !p.is_selected);
     }
 
-    fn calculate_events(&mut self) -> Result<()> {
+    fn calculate_events(&mut self) -> anyhow::Result<()> {
         self.e.events.clear();
         self.e.final_event_time = MusicalTime::default();
         for ap in self.arranged_patterns.values() {
@@ -516,7 +583,7 @@ impl Shows for MiniSequencer {
         if let Some(action) = self.ui_content(ui) {
             match action {
                 MiniSequencerAction::CreatePattern => {
-                    self.add_pattern(MiniPattern::default());
+                    self.add_pattern(MiniPatternBuilder::default().build().unwrap());
                 }
                 MiniSequencerAction::ArrangePatternAppend(uid) => {
                     if let Err(e) = self.arrange_pattern_append(&uid) {
@@ -581,6 +648,22 @@ mod tests {
     use groove_core::midi::MidiNote;
 
     impl MiniNote {
+        const TEST_C4: MiniNote = MiniNote {
+            key: MidiNote::C4 as u8,
+            range: MusicalTime::START..MusicalTime::DURATION_HALF,
+            ui_state: MiniNoteUiState::Normal,
+        };
+        const TEST_D4: MiniNote = MiniNote {
+            key: MidiNote::D4 as u8,
+            range: MusicalTime::START..MusicalTime::DURATION_WHOLE,
+            ui_state: MiniNoteUiState::Normal,
+        };
+        const TEST_E4: MiniNote = MiniNote {
+            key: MidiNote::E4 as u8,
+            range: MusicalTime::START..MusicalTime::DURATION_TWO_WHOLE,
+            ui_state: MiniNoteUiState::Normal,
+        };
+
         fn new_with(key: MidiNote, start: MusicalTime, duration: MusicalTime) -> Self {
             Self {
                 key: key as u8,
@@ -738,5 +821,126 @@ mod tests {
             .move_pattern(&ap_uid0, MusicalTime::new_with_units(10000))
             .is_ok());
         assert_eq!(s.e.final_event_time, p0_duration + 10000);
+    }
+
+    #[test]
+    fn default_pattern_builder() {
+        let p = MiniPatternBuilder::default().build().unwrap();
+        assert_eq!(
+            p.notes.len(),
+            0,
+            "Default MiniPatternBuilder yields empty pattern"
+        );
+        assert_eq!(
+            p.duration,
+            MusicalTime::DURATION_ZERO,
+            "Default MiniPatternBuilder yields empty pattern"
+        );
+    }
+
+    #[test]
+    fn ergonomic_patterns_1() {
+        let mut p = MiniPatternBuilder::default()
+            .note(MiniNote::TEST_C4.clone())
+            .note(MiniNote::TEST_D4.clone())
+            .build()
+            .unwrap();
+        assert_eq!(
+            p.notes.len(),
+            2,
+            "MiniPatternBuilder can add successive notes"
+        );
+        assert_eq!(
+            p.duration,
+            MiniNote::TEST_D4.range.end,
+            "MiniPatternBuilder correctly calculates duration"
+        );
+
+        p.add_note(MiniNote::TEST_C4.clone());
+        assert_eq!(
+            p.notes.len(),
+            3,
+            "MiniPattern can add duplicate notes. This is probably not desirable to allow."
+        );
+        assert_eq!(
+            p.duration,
+            MiniNote::TEST_D4.range.end,
+            "Adding a short note doesn't change pattern duration"
+        );
+
+        p.add_note(MiniNote::TEST_E4.clone());
+        assert_eq!(
+            p.duration,
+            MiniNote::TEST_E4.range.end,
+            "Adding a long note increases pattern duration"
+        );
+        p.remove_note(&MiniNote::TEST_E4);
+        assert_eq!(
+            p.duration,
+            MiniNote::TEST_D4.range.end,
+            "Removing a long note adjusts pattern duration"
+        );
+
+        p.remove_note(&MiniNote::TEST_D4);
+        assert_eq!(p.notes.len(), 2, "MiniPattern can remove notes");
+
+        p.remove_note(&MiniNote::TEST_C4);
+        assert!(p.notes.is_empty(), "MiniPattern removes duplicate notes");
+
+        assert_eq!(
+            p.duration,
+            MusicalTime::DURATION_ZERO,
+            "Removing all notes updates duration"
+        );
+    }
+
+    #[test]
+    fn move_note() {
+        let mut p = MiniPatternBuilder::default().build().unwrap();
+
+        p.add_note(MiniNote::TEST_C4.clone());
+        p.move_note(
+            &MiniNote::TEST_C4,
+            MusicalTime::START + MusicalTime::DURATION_SIXTEENTH,
+        );
+        assert_eq!(
+            p.notes[0].range.start,
+            MusicalTime::START + MusicalTime::DURATION_SIXTEENTH,
+            "moving a note works"
+        );
+        assert_eq!(
+            p.duration,
+            MusicalTime::DURATION_HALF,
+            "Moving a note updates duration"
+        );
+    }
+
+    #[test]
+    fn move_and_resize_note() {
+        let mut p = MiniPatternBuilder::default().build().unwrap();
+
+        p.add_note(MiniNote::TEST_C4.clone());
+        assert_eq!(
+            p.duration,
+            MusicalTime::DURATION_HALF,
+            "making sure we know length of TEST_C4"
+        );
+
+        p.move_and_resize_note(
+            &MiniNote::TEST_C4,
+            MusicalTime::START + MusicalTime::DURATION_EIGHTH,
+            MusicalTime::DURATION_WHOLE,
+        );
+        assert_eq!(
+            p.notes[0].range,
+            (MusicalTime::START + MusicalTime::DURATION_EIGHTH)
+                ..(MusicalTime::START + MusicalTime::DURATION_EIGHTH + MusicalTime::DURATION_WHOLE),
+            "moving/resizing a note works"
+        );
+        assert_eq!(
+            p.duration,
+            MusicalTime::DURATION_WHOLE,
+            "moving/resizing a note updates duration"
+        );
     }
 }
