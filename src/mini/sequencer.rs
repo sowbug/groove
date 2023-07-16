@@ -185,6 +185,7 @@ impl MiniPattern {
     #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.notes.clear();
+        self.calculate();
     }
 
     fn make_note_shapes(
@@ -673,30 +674,12 @@ mod tests {
         }
     }
 
-    impl MiniPattern {
-        fn new_with(time_signature: TimeSignature, notes: Vec<MiniNote>) -> Self {
-            let min_time = notes.iter().map(|n| n.range.start).min();
-            let max_time = notes.iter().map(|n| n.range.end).max();
-            let duration = if min_time.is_some() && max_time.is_some() {
-                max_time.unwrap() - min_time.unwrap()
-            } else {
-                MusicalTime::TIME_ZERO
-            };
-            Self {
-                time_signature,
-                duration,
-                notes,
-            }
-        }
-    }
-
     impl MiniSequencer {
         /// For testing only; adds simple patterns.
         fn populate_pattern(&mut self, pattern_number: usize) -> (PatternUid, usize, MusicalTime) {
             let pattern = match pattern_number {
-                0 => MiniPattern::new_with(
-                    Default::default(),
-                    vec![
+                0 => MiniPatternBuilder::default()
+                    .notes(vec![
                         MiniNote::new_with(
                             MidiNote::C4,
                             MusicalTime::TIME_ZERO,
@@ -712,11 +695,10 @@ mod tests {
                             MusicalTime::TIME_END_OF_FIRST_BEAT * 2,
                             MusicalTime::DURATION_WHOLE,
                         ),
-                    ],
-                ),
-                1 => MiniPattern::new_with(
-                    Default::default(),
-                    vec![
+                    ])
+                    .build(),
+                1 => MiniPatternBuilder::default()
+                    .notes(vec![
                         MiniNote::new_with(
                             MidiNote::C5,
                             MusicalTime::TIME_ZERO,
@@ -732,10 +714,11 @@ mod tests {
                             MusicalTime::TIME_END_OF_FIRST_BEAT * 2,
                             MusicalTime::DURATION_WHOLE,
                         ),
-                    ],
-                ),
+                    ])
+                    .build(),
                 _ => panic!(),
-            };
+            }
+            .unwrap();
             let note_count = pattern.notes.len();
             let duration = pattern.duration;
             (self.add_pattern(pattern), note_count, duration)
