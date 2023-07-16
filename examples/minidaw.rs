@@ -22,7 +22,10 @@ use groove::{
     },
     mini::{register_mini_factory_entities, DragDropManager, EntityFactory, Key, MiniOrchestrator},
 };
-use groove_core::{time::SampleRate, traits::gui::Shows};
+use groove_core::{
+    time::SampleRate,
+    traits::{gui::Shows, Configurable},
+};
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -466,7 +469,7 @@ impl MiniDaw {
     fn update_orchestrator_audio_interface_config(&mut self) {
         let sample_rate = self.settings_panel.audio_panel().sample_rate();
         if let Ok(mut o) = self.mini_orchestrator.lock() {
-            o.set_sample_rate(SampleRate::from(sample_rate));
+            o.update_sample_rate(SampleRate::from(sample_rate));
         }
     }
 
