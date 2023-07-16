@@ -5,7 +5,7 @@ use eframe::egui::Ui;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::Tempo,
-    traits::{HandlesMidi, Performs, Serializable},
+    traits::{Configurable, HandlesMidi, Performs, Serializable},
 };
 use std::{
     path::PathBuf,
@@ -184,7 +184,7 @@ impl OrchestratorPanel {
                             let _ = o.add_thing_by_key_to_selected_track(&key);
                         }
                         MiniOrchestratorInput::Tempo(tempo) => {
-                            o.set_tempo(tempo);
+                            o.update_tempo(tempo);
                             let _ = sender.send(MiniOrchestratorEvent::Tempo(tempo));
                         }
                     },

@@ -31,7 +31,6 @@ use std::{fmt::Debug, ops::Range, sync::Arc};
 /// all over the place.
 #[derive(Debug, Default)]
 pub struct OrchestratorEphemerals {
-    sample_rate: SampleRate,
     range: Range<MusicalTime>,
     events: Vec<(Uid, ThingEvent)>,
     is_finished: bool,
@@ -109,26 +108,12 @@ impl MiniOrchestrator {
     /// The current [SampleRate] used to render the current project. Typically
     /// something like 44.1KHz.
     pub fn sample_rate(&self) -> SampleRate {
-        self.e.sample_rate
-    }
-
-    /// Sets a new global [SampleRate] for the project.
-    pub fn set_sample_rate(&mut self, sample_rate: SampleRate) {
-        self.e.sample_rate = sample_rate;
-        for track in self.tracks.iter_mut() {
-            track.update_sample_rate(sample_rate);
-        }
+        self.transport.sample_rate()
     }
 
     /// Returns the current [Tempo].
     pub fn tempo(&self) -> Tempo {
         self.transport.tempo()
-    }
-
-    /// Sets a new [Tempo].
-    pub fn set_tempo(&mut self, tempo: Tempo) {
-        self.transport.set_tempo(tempo);
-        // TODO: how do we let the service know this changed?
     }
 
     /// Returns the number of channels in the audio stream. For now, this is
@@ -200,7 +185,7 @@ impl MiniOrchestrator {
     pub fn prepare_successor(&self, new: &mut MiniOrchestrator) {
         // Copy over the current sample rate, whose validity shouldn't change
         // because we loaded a new project.
-        new.set_sample_rate(self.sample_rate());
+        new.update_sample_rate(self.sample_rate());
 
         // [EntityFactory] needs its internal new-uid counter to be higher than
         // any existing [Uid] in the project, so that it doesn't mint duplicate
@@ -463,7 +448,7 @@ impl MiniOrchestrator {
     /// Adds the given thing, returning an assigned [Uid] if successful.
     /// [MiniOrchestrator] takes ownership.
     pub fn add_thing(&mut self, mut thing: Box<dyn Thing>, track: TrackIndex) -> Result<Uid> {
-        thing.update_sample_rate(self.e.sample_rate);
+        thing.update_sample_rate(self.sample_rate());
         let uid = thing.uid();
         self.tracks[track.0].append_thing(thing);
         Ok(uid)
@@ -562,7 +547,22 @@ impl Ticks for MiniOrchestrator {
         panic!()
     }
 }
-impl Configurable for MiniOrchestrator {}
+impl Configurable for MiniOrchestrator {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        for track in self.tracks.iter_mut() {
+            track.update_sample_rate(sample_rate);
+        }
+    }
+
+    fn update_tempo(&mut self, tempo: Tempo) {
+        self.transport.set_tempo(tempo);
+        // TODO: how do we let the service know this changed?
+    }
+
+    fn update_time_signature(&mut self, time_signature: groove_core::time::TimeSignature) {
+        self.transport.update_time_signature(time_signature);
+    }
+}
 impl Shows for MiniOrchestrator {
     fn show(&mut self, ui: &mut Ui) {
         ui.label("not used");
@@ -648,7 +648,7 @@ mod tests {
     use crate::mini::{orchestrator::MiniOrchestrator, TrackIndex};
     use groove_core::{
         time::{MusicalTime, SampleRate, Tempo},
-        traits::{Controls, Performs},
+        traits::{Configurable, Controls, Performs},
         StereoSample,
     };
     use groove_entities::controllers::{Timer, TimerParams};
@@ -662,7 +662,7 @@ mod tests {
             "Default sample rate should be reasonable"
         );
         let new_sample_rate = SampleRate(3);
-        o.set_sample_rate(new_sample_rate);
+        o.update_sample_rate(new_sample_rate);
         assert_eq!(
             o.sample_rate(),
             new_sample_rate,
@@ -674,7 +674,7 @@ mod tests {
             "Default tempo should be reasonable"
         );
         let new_tempo = Tempo(64.0);
-        o.set_tempo(new_tempo);
+        o.update_tempo(new_tempo);
         assert_eq!(o.tempo(), new_tempo, "Tempo should be settable");
     }
 
