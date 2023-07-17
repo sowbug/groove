@@ -1,7 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::{EntityFactory, Key, MiniSequencerParams};
-use crate::mini::MiniSequencer;
+use super::{sequencer::MiniSequencerBuilder, EntityFactory, Key};
 use groove_core::{generators::Waveform, midi::MidiChannel, FrequencyHz, Normal};
 use groove_entities::{
     controllers::{
@@ -26,10 +25,12 @@ pub fn register_mini_factory_entities(factory: &mut EntityFactory) {
         ))
     });
     factory.register_thing(Key::from("sequencer"), || {
-        Box::new(MiniSequencer::new_with(
-            &MiniSequencerParams::default(),
-            MidiChannel(0),
-        ))
+        Box::new(
+            MiniSequencerBuilder::default()
+                .midi_channel_out(MidiChannel(0))
+                .build()
+                .unwrap(),
+        )
     });
     factory.register_thing(Key::from("reverb"), || {
         Box::new(Reverb::new_with(&ReverbParams {

@@ -8,9 +8,8 @@ use super::{
     entity_factory::ThingStore,
     humidifier::Humidifier,
     midi_router::MidiRouter,
-    sequencer::{MiniSequencer, MiniSequencerAction},
+    sequencer::{MiniSequencer, MiniSequencerAction, MiniSequencerBuilder},
 };
-use crate::mini::sequencer::MiniSequencerParams;
 use eframe::{
     egui::{self, Frame, Layout, Margin, Response, Sense, Ui},
     emath::{self, Align},
@@ -90,10 +89,12 @@ impl TrackFactory {
             uid,
             title,
             ty: TrackType::Midi,
-            sequencer: Some(MiniSequencer::new_with(
-                &MiniSequencerParams::default(),
-                MidiChannel(0),
-            )),
+            sequencer: Some(
+                MiniSequencerBuilder::default()
+                    .midi_channel_out(MidiChannel(0))
+                    .build()
+                    .unwrap(),
+            ),
             ..Default::default()
         }
     }
