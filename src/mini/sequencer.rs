@@ -159,14 +159,22 @@ impl Shows for MiniPattern {
 }
 impl MiniPattern {
     fn post_build(&mut self) {
-        self.calculate();
+        self.refresh_internals();
     }
 
-    fn calculate(&mut self) {
+    fn calculate_duration(&mut self, min: MusicalTime, max: MusicalTime) -> MusicalTime {
+        let delta_time = max - min;
+        let delta_beats = delta_time.total_beats();
+        let top = self.time_signature.top as u64;
+        let rounded_up_bars = (delta_beats + top - 1) / top;
+        MusicalTime::new_with_bars(&self.time_signature, rounded_up_bars)
+    }
+
+    fn refresh_internals(&mut self) {
         let min_time = self.notes.iter().map(|n| n.range.start).min();
         let max_time = self.notes.iter().map(|n| n.range.end).max();
         self.duration = if min_time.is_some() && max_time.is_some() {
-            max_time.unwrap() - min_time.unwrap()
+            self.calculate_duration(min_time.unwrap(), max_time.unwrap())
         } else {
             MusicalTime::TIME_ZERO
         };
@@ -174,18 +182,18 @@ impl MiniPattern {
 
     pub fn add_note(&mut self, note: MiniNote) {
         self.notes.push(note);
-        self.calculate();
+        self.refresh_internals();
     }
 
     pub fn remove_note(&mut self, note: &MiniNote) {
         self.notes.retain(|v| v != note);
-        self.calculate();
+        self.refresh_internals();
     }
 
     #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.notes.clear();
-        self.calculate();
+        self.refresh_internals();
     }
 
     fn make_note_shapes(
@@ -226,7 +234,7 @@ impl MiniPattern {
 
     fn ui_content(&mut self, ui: &mut Ui) -> eframe::egui::Response {
         let notes_vert = 24.0;
-        let steps_horiz = 16.0;
+        let steps_horiz = self.time_signature.bottom * 4;
 
         let desired_size = ui.available_size_before_wrap();
         let desired_size = Vec2::new(desired_size.x, 256.0);
@@ -239,8 +247,8 @@ impl MiniPattern {
         let from_screen = to_screen.inverse();
 
         painter.rect_filled(response.rect, Rounding::default(), Color32::GRAY);
-        for i in 0..16 {
-            let x = i as f32 / steps_horiz;
+        for i in 0..steps_horiz {
+            let x = i as f32 / steps_horiz as f32;
             let lines = [to_screen * Pos2::new(x, 0.0), to_screen * Pos2::new(x, 1.0)];
             painter.line_segment(
                 lines,
@@ -296,13 +304,14 @@ impl MiniPattern {
     fn note_for_position(
         &self,
         from_screen: &RectTransform,
-        steps_horiz: f32,
+        steps_horiz: usize,
         notes_vert: f32,
         pointer_pos: Pos2,
     ) -> MiniNote {
         let canvas_pos = from_screen * pointer_pos;
         let key = (canvas_pos.y * notes_vert) as u8;
-        let when = MusicalTime::new_with_parts(((canvas_pos.x * steps_horiz).floor()) as u64);
+        let when =
+            MusicalTime::new_with_parts(((canvas_pos.x * steps_horiz as f32).floor()) as u64);
 
         MiniNote {
             key,
@@ -321,7 +330,7 @@ impl MiniPattern {
     }
 
     fn show_in_arrangement(&self, ui: &mut Ui, is_selected: bool) -> Response {
-        let steps_horiz = 16.0;
+        let steps_horiz = self.time_signature.bottom * 4;
 
         let desired_size = vec2((self.duration.total_beats() * 16) as f32, 64.0);
         let (response, painter) = ui.allocate_painter(desired_size, Sense::click());
@@ -337,8 +346,9 @@ impl MiniPattern {
             Rounding::none(),
             Stroke::new(if is_selected { 2.0 } else { 0.0 }, Color32::WHITE),
         );
-        for i in 0..16 {
-            let x = i as f32 / steps_horiz;
+        let steps_horiz_f32 = steps_horiz as f32;
+        for i in 0..steps_horiz {
+            let x = i as f32 / steps_horiz_f32;
             let lines = [to_screen * Pos2::new(x, 0.0), to_screen * Pos2::new(x, 1.0)];
             painter.line_segment(
                 lines,
@@ -365,7 +375,7 @@ impl MiniPattern {
             let n_length = n.range.end - n.range.start;
             n.range = new_start..new_start + n_length;
         });
-        self.calculate();
+        self.refresh_internals();
     }
 
     #[allow(dead_code)]
@@ -378,7 +388,7 @@ impl MiniPattern {
         self.notes.iter_mut().filter(|n| n == &note).for_each(|n| {
             n.range = new_start..new_start + duration;
         });
-        self.calculate();
+        self.refresh_internals();
     }
 }
 
