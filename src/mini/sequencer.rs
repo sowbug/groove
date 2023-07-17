@@ -460,6 +460,34 @@ impl MiniSequencer {
         self.e.arrangement_cursor
     }
 
+    fn pattern_by_uid(&self, uid: &PatternUid) -> Option<&MiniPattern> {
+        self.patterns.get(uid)
+    }
+
+    fn arranged_pattern_by_uid(&self, uid: &ArrangedPatternUid) -> Option<&ArrangedPattern> {
+        self.arranged_patterns.get(uid)
+    }
+
+    fn shift_pattern_left(&mut self, uid: &ArrangedPatternUid) -> anyhow::Result<()> {
+        if let Some(ap) = self.arranged_patterns.get_mut(uid) {
+            if ap.position >= MusicalTime::DURATION_WHOLE {
+                ap.position -= MusicalTime::DURATION_WHOLE;
+            }
+            Ok(())
+        } else {
+            Err(anyhow!("Couldn't find pattern {uid}"))
+        }
+    }
+
+    fn shift_pattern_right(&mut self, uid: &ArrangedPatternUid) -> anyhow::Result<()> {
+        if let Some(ap) = self.arranged_patterns.get_mut(uid) {
+            ap.position += MusicalTime::DURATION_WHOLE;
+            Ok(())
+        } else {
+            Err(anyhow!("Couldn't find pattern {uid}"))
+        }
+    }
+
     fn add_pattern(&mut self, pattern: MiniPattern) -> PatternUid {
         let uid = self.uid_factory.next();
         self.patterns.insert(uid, pattern);
@@ -1142,6 +1170,38 @@ mod tests {
             p.duration,
             MusicalTime::new_with_beats(8),
             "moving/resizing outside current pattern makes the pattern longer"
+        );
+    }
+
+    #[test]
+    fn shift_pattern() {
+        let mut s = MiniSequencerBuilder::default().build().unwrap();
+        let (puid, _, _) = s.populate_pattern(0);
+        let apuid = s.arrange_pattern(&puid, 0).unwrap();
+        assert_eq!(
+            s.arranged_pattern_by_uid(&apuid).unwrap().position,
+            MusicalTime::START
+        );
+
+        assert!(s.shift_pattern_right(&apuid).is_ok());
+        assert_eq!(
+            s.arranged_pattern_by_uid(&apuid).unwrap().position,
+            MusicalTime::DURATION_WHOLE,
+            "shift right works"
+        );
+
+        assert!(s.shift_pattern_left(&apuid).is_ok());
+        assert_eq!(
+            s.arranged_pattern_by_uid(&apuid).unwrap().position,
+            MusicalTime::START,
+            "nondegenerate shift left works"
+        );
+
+        assert!(s.shift_pattern_left(&apuid).is_ok());
+        assert_eq!(
+            s.arranged_pattern_by_uid(&apuid).unwrap().position,
+            MusicalTime::START,
+            "nondegenerate shift left is a no-op"
         );
     }
 }

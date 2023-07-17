@@ -11,7 +11,7 @@ use groove_proc_macros::{Control, Params, Uid};
 use std::{
     cmp::Ordering,
     fmt::Display,
-    ops::{Add, AddAssign, Mul, Range, Sub},
+    ops::{Add, AddAssign, Mul, Range, Sub, SubAssign},
 };
 use strum_macros::{FromRepr, IntoStaticStr};
 
@@ -740,11 +740,11 @@ impl AddAssign<Self> for MusicalTime {
         self.units += rhs.units;
     }
 }
-// impl AddAssign<Self> for MusicalTime {
-//     fn add_assign(&mut self, rhs: Self) {
-//         self.units += rhs.units;
-//     }
-// }
+impl SubAssign<Self> for MusicalTime {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.units -= rhs.units;
+    }
+}
 impl Mul<u64> for MusicalTime {
     type Output = Self;
 
