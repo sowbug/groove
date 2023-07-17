@@ -16,7 +16,7 @@ use groove_core::{
     midi::{MidiChannel, MidiMessage, MidiMessagesFn},
     time::{MusicalTime, SampleRate, Tempo},
     traits::{
-        gui::Shows, Configurable, ControlEventsFn, Controllable, Controls, Generates,
+        Configurable, ControlEventsFn, Controllable, Controls, Generates,
         GeneratesToInternalBuffer, HandlesMidi, HasUid, Performs, Serializable, Thing, ThingEvent,
         Ticks,
     },
@@ -566,11 +566,6 @@ impl Configurable for MiniOrchestrator {
 
     fn update_time_signature(&mut self, time_signature: groove_core::time::TimeSignature) {
         self.transport.update_time_signature(time_signature);
-    }
-}
-impl Shows for MiniOrchestrator {
-    fn show(&mut self, ui: &mut Ui) {
-        ui.label("not used");
     }
 }
 impl HandlesMidi for MiniOrchestrator {
