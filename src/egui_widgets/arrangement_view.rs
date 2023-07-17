@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::mini::{Track, TrackAction, TrackIndex};
+use crate::mini::{Track, TrackAction, TrackUid};
 use eframe::{
     egui::{Frame, Ui},
     emath::{self, Align2},
@@ -18,7 +18,13 @@ pub struct ArrangementView {
 }
 impl ArrangementView {
     /// Main entry point.
-    pub fn show(&self, ui: &mut Ui, tracks: &[Track]) -> Option<TrackAction> {
+    pub fn show<'a>(
+        &self,
+        ui: &mut Ui,
+        tracks: impl Iterator<Item = &'a Track>,
+        is_selected_fn: &dyn Fn(TrackUid) -> bool,
+        is_control_only_down: bool,
+    ) -> Option<TrackAction> {
         let mut action = None;
         Frame::canvas(ui.style())
             .stroke(Stroke {
@@ -74,18 +80,13 @@ impl ArrangementView {
                 ));
                 ui.painter().extend(shapes);
 
-                for (index, track) in tracks.iter().enumerate() {
-                    let index = TrackIndex(index);
-                    if !track.is_send() {
-                        let (response, a) = track.show(ui, index);
-                        if a.is_some() {
-                            action = a;
-                        }
-                        if response.clicked() {
-                            action = Some(TrackAction::Select(
-                                index, false, /*is_control_only_down*/
-                            ));
-                        }
+                for track in tracks {
+                    let (response, a) = track.show(ui, is_selected_fn(track.uid()));
+                    if a.is_some() {
+                        action = a;
+                    }
+                    if response.clicked() {
+                        action = Some(TrackAction::Select(track.uid(), is_control_only_down));
                     }
                 }
             });

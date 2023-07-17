@@ -1,4 +1,4 @@
-use crate::mini::{ChannelPair, DragDropManager, EntityFactory, Key, MiniOrchestrator, TrackIndex};
+use crate::mini::{ChannelPair, DragDropManager, EntityFactory, Key, MiniOrchestrator, TrackUid};
 use anyhow::{anyhow, Result};
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::Ui;
@@ -48,7 +48,7 @@ pub enum MiniOrchestratorInput {
     // TODO: these are waiting for the big refactor (which might never happen)
     /// Select the given track.
     #[allow(dead_code)]
-    TrackSelect(TrackIndex, bool), // (index, add to selection set)
+    TrackSelect(TrackUid, bool), // (track UID, add to selection set)
     /// Reset the selection set.
     #[allow(dead_code)]
     TrackSelectReset,
@@ -176,8 +176,8 @@ impl OrchestratorPanel {
                         MiniOrchestratorInput::TrackPatternRemoveSelected => {
                             o.remove_selected_patterns();
                         }
-                        MiniOrchestratorInput::TrackSelect(index, add_to_selection_set) => {
-                            o.select_track(index, add_to_selection_set);
+                        MiniOrchestratorInput::TrackSelect(uid, add_to_selection_set) => {
+                            o.select_track(&uid, add_to_selection_set);
                         }
                         MiniOrchestratorInput::TrackSelectReset => todo!(),
                         MiniOrchestratorInput::TrackAddThing(key) => {
@@ -294,7 +294,6 @@ impl OrchestratorPanel {
     /// Renders the panel.
     pub fn show(&mut self, ui: &mut Ui, is_control_only_down: bool) {
         if let Ok(mut o) = self.orchestrator.lock() {
-            o.update_track_selection_tracking();
             o.show_with(ui, is_control_only_down);
         }
     }

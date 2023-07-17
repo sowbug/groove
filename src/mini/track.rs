@@ -1,5 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use std::fmt::Display;
+
 use super::{
     control_atlas::ControlAtlas,
     control_router::ControlRouter,
@@ -12,7 +14,7 @@ use crate::mini::sequencer::MiniSequencerParams;
 use eframe::{
     egui::{self, Frame, Layout, Margin, Response, Sense, Ui},
     emath::{self, Align},
-    epaint::{pos2, vec2, Color32, Pos2, Rect, RectShape, Rounding, Shape, Stroke, Vec2},
+    epaint::{pos2, vec2, Color32, Pos2, Rect, Shape, Stroke, Vec2},
 };
 use groove_core::{
     control::ControlValue,
@@ -22,13 +24,29 @@ use groove_core::{
         gui::Shows, Configurable, ControlEventsFn, Controls, GeneratesToInternalBuffer, Performs,
         Serializable, Thing, Ticks,
     },
-    Normal, StereoSample, Uid,
+    IsUid, Normal, StereoSample, Uid,
 };
 use serde::{Deserialize, Serialize};
 
-/// An ephemeral identifier for a [Track] in the current project.
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct TrackIndex(pub usize);
+/// Identifies a [Track].
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct TrackUid(pub usize);
+impl Default for TrackUid {
+    fn default() -> Self {
+        Self(1)
+    }
+}
+impl IsUid for TrackUid {
+    fn increment(&mut self) -> &Self {
+        self.0 += 1;
+        self
+    }
+}
+impl Display for TrackUid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}", self.0))
+    }
+}
 
 #[derive(Debug)]
 pub enum TrackElementAction {
@@ -40,9 +58,9 @@ pub enum TrackElementAction {
 #[allow(missing_docs)]
 #[derive(Debug)]
 pub enum TrackAction {
-    Select(TrackIndex, bool),
+    Select(TrackUid, bool),
     SelectClear,
-    SetTitle(TrackIndex, TrackTitle),
+    SetTitle(TrackUid, TrackTitle),
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -53,26 +71,23 @@ pub enum TrackType {
     Send,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct TrackFactory {
-    next_midi: usize,
-    next_audio: usize,
-    next_send: usize,
-}
-impl Default for TrackFactory {
-    fn default() -> Self {
-        Self {
-            next_midi: 1,
-            next_audio: 1,
-            next_send: 1,
-        }
-    }
+    next_uid: TrackUid,
 }
 impl TrackFactory {
+    fn next_uid(&mut self) -> TrackUid {
+        let uid = self.next_uid;
+        self.next_uid.increment();
+        uid
+    }
+
     pub fn midi(&mut self) -> Track {
-        let title = TrackTitle(format!("MIDI {}", self.next_midi));
-        self.next_midi += 1;
+        let uid = self.next_uid();
+        let title = TrackTitle(format!("MIDI {}", uid));
+
         Track {
+            uid,
             title,
             ty: TrackType::Midi,
             sequencer: Some(MiniSequencer::new_with(
@@ -84,9 +99,10 @@ impl TrackFactory {
     }
 
     pub fn audio(&mut self) -> Track {
-        let title = TrackTitle(format!("Audio {}", self.next_audio));
-        self.next_audio += 1;
+        let uid = self.next_uid();
+        let title = TrackTitle(format!("Audio {}", uid));
         Track {
+            uid,
             title,
             ty: TrackType::Audio,
             ..Default::default()
@@ -94,16 +110,16 @@ impl TrackFactory {
     }
 
     pub fn send(&mut self) -> Track {
-        let title = TrackTitle(format!("Send {}", self.next_send));
-        self.next_send += 1;
+        let uid = self.next_uid();
+        let title = TrackTitle(format!("Send {}", uid));
         Track {
+            uid,
             title,
             ty: TrackType::Send,
             ..Default::default()
         }
     }
 }
-
 #[derive(Debug)]
 pub struct TrackBuffer(pub [StereoSample; Self::LEN]);
 impl TrackBuffer {
@@ -127,6 +143,7 @@ impl Default for TrackTitle {
 /// produce a single source of audio.
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Track {
+    uid: TrackUid,
     title: TrackTitle,
     ty: TrackType,
 
@@ -140,9 +157,6 @@ pub struct Track {
     midi_router: MidiRouter,
     control_router: ControlRouter,
     humidifier: Humidifier,
-
-    // Whether the track is selected in the UI.
-    is_selected: bool,
 
     #[serde(skip)]
     buffer: TrackBuffer,
@@ -189,140 +203,6 @@ impl Track {
         }
     }
 
-    // pub fn insert_thing(&mut self, index: usize, uid: Uid) -> Result<()> {
-    //     match
-    //     if index > self.things.len() {
-    //         return Err(anyhow!(
-    //             "can't insert at {} in {}-length vec",
-    //             index,
-    //             self.things.len()
-    //         ));
-    //     }
-    //     self.things.insert(index, uid);
-    //     Ok(())
-    // }
-
-    // pub fn insert_controller(&mut self, index: usize, e: Box<dyn NewIsController>) -> Result<()> {
-    //     if index > self.controllers.len() {
-    //         return Err(anyhow!(
-    //             "can't insert at {} in {}-length vec",
-    //             index,
-    //             self.controllers.len()        self.midi_router.connect(uid, MidiChannel(0));
-
-    //         ));
-    //     }
-    //     self.controllers.insert(index, e);
-    //     Ok(())
-    // }
-
-    // pub fn insert_effect(&mut self, index: usize, e: Box<dyn NewIsEffect>) -> Result<()> {
-    //     if index > self.effects.len() {
-    //         return Err(anyhow!(
-    //             "can't insert at {} in {}-length vec",
-    //             index,
-    //             self.effects.len()
-    //         ));
-    //     }
-    //     self.effects.insert(index, e);
-    //     Ok(())
-    // }
-
-    // pub fn insert_instrument(&mut self, index: usize, e: Box<dyn NewIsInstrument>) -> Result<()> {
-    //     if index > self.instruments.len() {
-    //         return Err(anyhow!(
-    //             "can't insert at {} in {}-length vec",
-    //             index,
-    //             self.instruments.len()
-    //         ));
-    //     }
-    //     self.instruments.insert(index, e);
-    //     Ok(())
-    // }
-
-    // fn shift_device_left(&mut self, index: usize) -> Result<()> {
-    //     if index >= self.things.len() {
-    //         return Err(anyhow!("Index {index} out of bounds."));
-    //     }
-    //     if index == 0 {
-    //         return Err(anyhow!("Can't move leftmost item farther left."));
-    //     }
-    //     let element = self.things.remove(index);
-    //     self.insert_thing(index - 1, element)
-    // }
-    // fn shift_device_right(&mut self, index: usize) -> Result<()> {
-    //     if index >= self.things.len() {
-    //         return Err(anyhow!("Index {index} out of bounds."));
-    //     }
-    //     if index == self.things.len() - 1 {
-    //         return Err(anyhow!("Can't move rightmost item farther right."));
-    //     }
-    //     let element = self.things.remove(index);
-    //     self.insert_thing(index + 1, element)
-    // }
-
-    // fn shift_controller_left(&mut self, index: usize) -> Result<()> {
-    //     if index >= self.controllers.len() {
-    //         return Err(anyhow!("Index {index} out of bounds."));
-    //     }
-    //     if index == 0 {
-    //         return Err(anyhow!("Can't move leftmost item farther left."));
-    //     }
-    //     let element = self.controllers.remove(index);
-    //     self.insert_controller(index - 1, element)
-    // }
-    // fn shift_controller_right(&mut self, index: usize) -> Result<()> {
-    //     if index >= self.controllers.len() {
-    //         return Err(anyhow!("Index {index} out of bounds."));
-    //     }
-    //     if index == self.controllers.len() - 1 {
-    //         return Err(anyhow!("Can't move rightmost item farther right."));
-    //     }
-    //     let element = self.controllers.remove(index);
-    //     self.insert_controller(index + 1, element)
-    // }
-
-    // fn shift_effect_left(&mut self, index: usize) -> Result<()> {
-    //     if index >= self.effects.len() {
-    //         return Err(anyhow!("Index {index} out of bounds."));
-    //     }
-    //     if index == 0 {
-    //         return Err(anyhow!("Can't move leftmost item farther left."));
-    //     }
-    //     let element = self.effects.remove(index);
-    //     self.insert_effect(index - 1, element)
-    // }
-    // fn shift_effect_right(&mut self, index: usize) -> Result<()> {
-    //     if index >= self.effects.len() {
-    //         return Err(anyhow!("Index {index} out of bounds."));
-    //     }
-    //     if index == self.effects.len() - 1 {
-    //         return Err(anyhow!("Can't move rightmost item farther right."));
-    //     }
-    //     let element = self.effects.remove(index);
-    //     self.insert_effect(index + 1, element)
-    // }
-
-    // fn shift_instrument_left(&mut self, index: usize) -> Result<()> {
-    //     if index >= self.instruments.len() {
-    //         return Err(anyhow!("Index {index} out of bounds."));
-    //     }
-    //     if index == 0 {
-    //         return Err(anyhow!("Can't move leftmost item farther left."));
-    //     }
-    //     let element = self.instruments.remove(index);
-    //     self.insert_instrument(index - 1, element)
-    // }
-    // fn shift_instrument_right(&mut self, index: usize) -> Result<()> {
-    //     if index >= self.instruments.len() {
-    //         return Err(anyhow!("Index {index} out of bounds."));
-    //     }
-    //     if index == self.instruments.len() - 1 {
-    //         return Err(anyhow!("Can't move rightmost item farther right."));
-    //     }
-    //     let element = self.instruments.remove(index);
-    //     self.insert_instrument(index + 1, element)
-    // }
-
     fn button_states(index: usize, len: usize) -> (bool, bool) {
         let left = index != 0;
         let right = len > 1 && index != len - 1;
@@ -348,13 +228,6 @@ impl Track {
         );
 
         let mut shapes = vec![];
-        if self.is_selected {
-            shapes.push(Shape::Rect(RectShape::filled(
-                painter.clip_rect(),
-                Rounding::none(),
-                Color32::DARK_BLUE,
-            )));
-        }
 
         for &mode in &[2, 3, 5] {
             let mode = mode as f64;
@@ -491,21 +364,6 @@ impl Track {
                             };
                         });
                     }
-
-                    // check action
-                    // if let Some(action) = action {
-                    // match action {
-                    //     TrackElementAction::MoveDeviceLeft(index) => {
-                    //         let _ = self.shift_device_left(index);
-                    //     }
-                    //     TrackElementAction::MoveDeviceRight(index) => {
-                    //         let _ = self.shift_device_right(index);
-                    //     }
-                    //     TrackElementAction::RemoveDevice(index) => {
-                    //         let _ = self.remove_thing(index);
-                    //     }
-                    // }
-                    // }
                 });
             },
         );
@@ -556,13 +414,13 @@ impl Track {
 
     #[must_use]
     #[allow(missing_docs)]
-    pub fn show(&self, ui: &mut Ui, track_index: TrackIndex) -> (Response, Option<TrackAction>) {
+    pub fn show(&self, ui: &mut Ui, is_selected: bool) -> (Response, Option<TrackAction>) {
         let mut action = None;
         (
             ui.allocate_ui(vec2(ui.available_width(), 64.0), |ui| {
                 Frame::default()
                     .stroke(Stroke {
-                        width: if self.is_selected { 2.0 } else { 0.0 },
+                        width: if is_selected { 2.0 } else { 0.0 },
                         color: Color32::YELLOW,
                     })
                     .show(ui, |ui| {
@@ -573,7 +431,7 @@ impl Track {
                                     let mut title = self.title.0.clone();
                                     if ui.text_edit_singleline(&mut title).changed() {
                                         action = Some(TrackAction::SetTitle(
-                                            track_index,
+                                            self.uid(),
                                             TrackTitle(title),
                                         ));
                                     };
@@ -613,16 +471,6 @@ impl Track {
     }
 
     #[allow(missing_docs)]
-    pub fn selected(&self) -> bool {
-        self.is_selected
-    }
-
-    #[allow(missing_docs)]
-    pub fn set_selected(&mut self, selected: bool) {
-        self.is_selected = selected;
-    }
-
-    #[allow(missing_docs)]
     pub fn route_midi_message(
         &mut self,
         channel: MidiChannel,
@@ -659,6 +507,11 @@ impl Track {
 
     pub(crate) fn set_title(&mut self, title: TrackTitle) {
         self.title = title;
+    }
+
+    #[allow(missing_docs)]
+    pub fn uid(&self) -> TrackUid {
+        self.uid
     }
 }
 impl GeneratesToInternalBuffer<StereoSample> for Track {

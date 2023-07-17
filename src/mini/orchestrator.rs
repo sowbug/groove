@@ -3,7 +3,7 @@
 use super::{
     control_router::ControlRouter,
     entity_factory::EntityFactory,
-    track::{Track, TrackAction, TrackFactory, TrackIndex, TrackTitle},
+    track::{Track, TrackAction, TrackFactory, TrackTitle, TrackUid},
     transport::Transport,
     Key,
 };
@@ -24,7 +24,12 @@ use groove_core::{
 };
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, ops::Range, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+    ops::Range,
+    sync::Arc,
+};
 
 /// A grouping mechanism to declare parts of [MiniOrchestrator] that Serde
 /// shouldn't be serializing. Exists so we don't have to spray #[serde(skip)]
@@ -47,9 +52,9 @@ pub struct MiniOrchestrator {
     control_router: ControlRouter,
 
     track_factory: TrackFactory,
-    tracks: Vec<Track>,
-    // If one track is selected, then this is set.
-    single_track_selection: Option<TrackIndex>,
+    tracks: HashMap<TrackUid, Track>,
+    ordered_track_uids: Vec<TrackUid>,
+    selected_track_uids: HashSet<TrackUid>,
 
     //////////////////////////////////////////////////////
     // Nothing below this comment should be serialized. //
@@ -65,18 +70,26 @@ pub struct MiniOrchestrator {
 impl Default for MiniOrchestrator {
     fn default() -> Self {
         let mut track_factory = TrackFactory::default();
+        let track_vec = vec![
+            track_factory.midi(),
+            track_factory.midi(),
+            track_factory.send(),
+        ];
+        let mut ordered_track_uids = Vec::default();
+        let tracks = track_vec.into_iter().fold(HashMap::default(), |mut v, t| {
+            ordered_track_uids.push(t.uid());
+            v.insert(t.uid(), t);
+            v
+        });
         Self {
             title: None,
             transport: Default::default(),
             control_router: Default::default(),
 
-            tracks: vec![
-                track_factory.midi(),
-                track_factory.midi(),
-                track_factory.send(),
-            ],
             track_factory,
-            single_track_selection: None,
+            tracks,
+            ordered_track_uids,
+            selected_track_uids: Default::default(),
 
             arrangement_view: Default::default(),
 
@@ -198,124 +211,84 @@ impl MiniOrchestrator {
 
     /// Returns the maximum known Uid in use among all tracks.
     fn max_uid(&self) -> Uid {
-        if let Some(max_uid) = self.tracks.iter().map(|t| t.max_uid()).max() {
+        if let Some(max_uid) = self.tracks.values().map(|t| t.max_uid()).max() {
             max_uid
         } else {
             Uid(0)
         }
     }
 
-    // #[allow(dead_code)]
-    // fn move_controller(
-    //     &mut self,
-    //     old_track_index: usize,
-    //     old_item_index: usize,
-    //     new_track_index: usize,
-    //     new_item_index: usize,
-    // ) -> Result<()> {
-    //     if let Some(e) = self.tracks[old_track_index].remove_controller(old_item_index) {
-    //         self.tracks[new_track_index].insert_controller(new_item_index, e)
-    //     } else {
-    //         Err(anyhow!("controller not found"))
+    // fn show_tracks(&mut self, ui: &mut Ui, is_control_only_down: bool) -> Option<TrackAction> {
+    //     let mut action = None;
+
+    //     // Non-send tracks are first, then send tracks
+    //     let uids = &self.ordered_track_uids.clone();
+    //     let uids: Vec<&TrackUid> = uids
+    //         .iter()
+    //         .filter(|uid| !self.tracks.get(uid).unwrap().is_send())
+    //         .chain(
+    //             self.ordered_track_uids
+    //                 .iter()
+    //                 .filter(|uid| self.tracks.get(uid).unwrap().is_send()),
+    //         )
+    //         .collect();
+
+    //     for uid in uids {
+    //         if let Some(track) = self.tracks.get_mut(uid) {
+    //             let (response, a) = track.show(ui, self.selected_track_uids.contains(&uid));
+    //             if a.is_some() {
+    //                 action = a;
+    //             }
+    //             if response.clicked() {
+    //                 action = Some(TrackAction::Select(*uid, is_control_only_down));
+    //             }
+    //         }
     //     }
+    //     action
     // }
-
-    // #[allow(dead_code)]
-    // fn move_effect(
-    //     &mut self,
-    //     old_track_index: usize,
-    //     old_item_index: usize,
-    //     new_track_index: usize,
-    //     new_item_index: usize,
-    // ) -> Result<()> {
-    //     if let Some(e) = self.tracks[old_track_index].remove_effect(old_item_index) {
-    //         self.tracks[new_track_index].insert_effect(new_item_index, e)
-    //     } else {
-    //         Err(anyhow!("effect not found"))
-    //     }
-    // }
-
-    // #[allow(dead_code)]
-    // fn move_instrument(
-    //     &mut self,
-    //     old_track_index: usize,
-    //     old_item_index: usize,
-    //     new_track_index: usize,
-    //     new_item_index: usize,
-    // ) -> Result<()> {
-    //     if let Some(e) = self.tracks[old_track_index].remove_instrument(old_item_index) {
-    //         self.tracks[new_track_index].insert_instrument(new_item_index, e)
-    //     } else {
-    //         Err(anyhow!("instrument not found"))
-    //     }
-    // }
-
-    fn show_tracks(&mut self, ui: &mut Ui, is_control_only_down: bool) -> Option<TrackAction> {
-        let mut action = None;
-
-        // Non-send tracks are first
-        for (index, track) in self.tracks.iter_mut().enumerate() {
-            let index = TrackIndex(index);
-            if !track.is_send() {
-                let (response, a) = track.show(ui, index);
-                if a.is_some() {
-                    action = a;
-                }
-                if response.clicked() {
-                    action = Some(TrackAction::Select(index, is_control_only_down));
-                }
-            }
-        }
-
-        // Send tracks are last
-        for (index, track) in self.tracks.iter_mut().enumerate() {
-            let index = TrackIndex(index);
-            if track.is_send() {
-                let (response, a) = track.show(ui, index);
-                if a.is_some() {
-                    action = a;
-                }
-                if response.clicked() {
-                    action = Some(TrackAction::Select(index, is_control_only_down));
-                }
-            }
-        }
-        action
-    }
 
     /// Renders the project's GUI.
     pub fn show_with(&mut self, ui: &mut Ui, is_control_only_down: bool) {
-        //self.arrangement_view.set_time_signature(time_signature)
         self.arrangement_view.set_viewable_time_range(
             MusicalTime::new_with_beats(0)..MusicalTime::new_with_beats(128),
         );
-        self.arrangement_view.show(ui, &self.tracks);
-        if let Some(action) = self.show_tracks(ui, is_control_only_down) {
+
+        // TODO: this displays tracks in random order. see commented-out
+        // show_tracks() above
+
+        let tracks = self
+            .tracks
+            .values()
+            .filter(|t| !t.is_send())
+            .chain(self.tracks.values().filter(|t| t.is_send()));
+
+        if let Some(action) = self.arrangement_view.show(
+            ui,
+            tracks,
+            &|uid| self.is_track_selected(&uid),
+            is_control_only_down,
+        ) {
             self.handle_track_action(action);
         }
-        if let Some(selected) = self.single_track_selection {
-            let bottom = egui::TopBottomPanel::bottom("orchestrator-bottom-panel").resizable(true);
-            bottom.show_inside(ui, |ui| {
-                if let Some(action) = self.tracks[selected.0].show_detail(ui) {
-                    self.handle_track_action(action);
-                }
-            });
+
+        if let Some(track_uid) = self.get_single_selected_uid() {
+            let mut action = None;
+            if let Some(track) = self.tracks.get_mut(&track_uid) {
+                let bottom =
+                    egui::TopBottomPanel::bottom("orchestrator-bottom-panel").resizable(true);
+                bottom.show_inside(ui, |_ui| {});
+                action = track.show_detail(ui);
+            }
+            if let Some(action) = action {
+                self.handle_track_action(action);
+            }
         }
     }
 
     fn handle_track_action(&mut self, action: TrackAction) {
         match action {
-            // TrackAction::NewController(track, key) => {
-            //     let _ = self.add_controller_by_key(&key, track);
-            // }
-            // TrackAction::NewEffect(track, key) => {
-            //     let _ = self.add_effect_by_key(&key, track);
-            // }
-            // TrackAction::NewInstrument(track, key) => {
-            //     let _ = self.add_instrument_by_key(&key, track);
-            // }
-            TrackAction::Select(index, add_to_selections) => {
-                self.select_track(index, add_to_selections);
+            TrackAction::Select(uid, add_to_selections) => {
+                self.select_track(&uid, add_to_selections);
             }
             TrackAction::SelectClear => {
                 self.clear_track_selections();
@@ -324,52 +297,69 @@ impl MiniOrchestrator {
         }
     }
 
+    fn new_track(&mut self, track: Track) {
+        let uid = track.uid();
+        self.ordered_track_uids.push(uid);
+        self.tracks.insert(uid, track);
+    }
+
     #[allow(missing_docs)]
     pub fn new_midi_track(&mut self) {
-        self.tracks.push(self.track_factory.midi());
+        let track = self.track_factory.midi();
+        self.new_track(track)
     }
 
     #[allow(missing_docs)]
     pub fn new_audio_track(&mut self) {
-        self.tracks.push(self.track_factory.audio());
+        let track = self.track_factory.audio();
+        self.new_track(track)
     }
 
     #[allow(missing_docs)]
     pub fn new_send_track(&mut self) {
-        self.tracks.push(self.track_factory.send());
-    }
-
-    #[allow(missing_docs)]
-    pub fn tracks(&self) -> &[Track] {
-        &self.tracks
+        let track = self.track_factory.send();
+        self.new_track(track)
     }
 
     #[allow(missing_docs)]
     #[allow(dead_code)]
-    pub fn delete_track(&mut self, index: usize) {
-        self.tracks.remove(index);
+    pub fn delete_track(&mut self, uid: &TrackUid) {
+        self.tracks.remove(uid);
+        self.ordered_track_uids.retain(|u| u != uid);
     }
 
     #[allow(missing_docs)]
     pub fn delete_selected_tracks(&mut self) {
-        self.tracks.retain(|t| !t.selected());
+        self.selected_track_uids
+            .clone()
+            .iter()
+            .for_each(|uid| self.delete_track(uid));
+        self.selected_track_uids.clear();
     }
 
     /// Adds the given track to the selection set, or else replaces the set with
     /// this single item.
-    pub fn select_track(&mut self, track: TrackIndex, add_to_selections: bool) {
-        let existing = self.tracks[track.0].selected();
+    pub fn select_track(&mut self, uid: &TrackUid, add_to_selections: bool) {
+        self.selected_track_uids.insert(*uid);
+        let existing = self.is_track_selected(uid);
         if !add_to_selections {
-            self.clear_track_selections();
+            self.selected_track_uids.clear();
         }
-        self.tracks[track.0].set_selected(!existing);
+        if existing {
+            self.selected_track_uids.insert(*uid);
+        } else {
+            self.selected_track_uids.remove(&uid);
+        }
     }
 
     #[allow(missing_docs)]
+    // TODO: this doesn't make sense. Should restrict to operating on a single
+    // track.
     pub fn remove_selected_patterns(&mut self) {
-        self.tracks.iter_mut().for_each(|t| {
-            if t.selected() {
-                t.remove_selected_patterns();
+        let selected_uids = self.selected_track_uids.clone();
+        selected_uids.iter().for_each(|uid| {
+            if let Some(track) = self.get_track_mut(uid) {
+                track.remove_selected_patterns();
             }
         });
     }
@@ -385,58 +375,48 @@ impl MiniOrchestrator {
         self.title = title;
     }
 
-    /// Does housekeeping whenever the track selection changes.
-    //
-    // It's important for this to run at either the start or the end of the
-    // update block. It tells the UI whether exactly one track is selected.
-    //
-    // TODO: this should actually be tied to selection changes. I originally
-    // tied it to GUI updates when I was trying to figure out the design. I
-    // think I was concerned about calculating it too often. But that was never
-    // going to be an issue if it were driven by the GUI, because there are no
-    // batch changes there.
-    pub fn update_track_selection_tracking(&mut self) {
-        let count = self.tracks.iter().filter(|t| t.selected()).count();
-        self.single_track_selection = if count == 1 {
-            Some(TrackIndex(
-                self.tracks.iter().position(|t| t.selected()).unwrap(),
-            ))
-        } else {
-            None
-        };
-    }
-
-    /// If a single track is selected, returns its [TrackIndex]. Otherwise returns `None`.
-    pub fn single_track_selection(&self) -> Option<TrackIndex> {
-        self.single_track_selection
-    }
-
     fn clear_track_selections(&mut self) {
-        self.tracks.iter_mut().for_each(|t| {
-            t.set_selected(false);
-        });
-    }
-
-    #[allow(missing_docs)]
-    pub fn is_any_track_selected(&self) -> bool {
-        self.tracks.iter().any(|t| t.selected())
+        self.selected_track_uids.clear()
     }
 
     /// Adds a new thing with the specified [Key] to the currently selected
     /// single track. Fails if anything but exactly one track is selected.
     pub fn add_thing_by_key_to_selected_track(&mut self, key: &Key) -> Result<Uid> {
-        if let Some(track) = self.single_track_selection() {
-            self.add_thing_by_key_to_track(key, track)
+        if let Some(track_uid) = self.get_single_selected_uid() {
+            self.add_thing_by_key_to_track(key, &track_uid)
         } else {
             Err(anyhow!("A single track was not selected"))
         }
     }
 
-    /// Adds a new thing with the specified [Key] to the track with the specified [TrackIndex].
-    pub fn add_thing_by_key_to_track(&mut self, key: &Key, track: TrackIndex) -> Result<Uid> {
+    /// If exactly one track is selected, returns its [TrackUid]. Otherwise
+    /// returns `None`.
+    pub fn get_single_selected_uid(&self) -> Option<TrackUid> {
+        // TODO: this is icky. Is there a better way to get a single value out of a HashSet?
+        if self.is_one_track_selected() {
+            if let Some(uid) = self.selected_track_uids.iter().next() {
+                return Some(uid.clone());
+            }
+        }
+        None
+    }
+
+    #[allow(missing_docs)]
+    pub fn is_any_track_selected(&self) -> bool {
+        !self.selected_track_uids.is_empty()
+    }
+
+    #[allow(missing_docs)]
+    pub fn is_one_track_selected(&self) -> bool {
+        self.selected_track_uids.len() == 1
+    }
+
+    /// Adds a new thing with the specified [Key] to the track with the
+    /// specified [TrackIndex].
+    pub fn add_thing_by_key_to_track(&mut self, key: &Key, track_uid: &TrackUid) -> Result<Uid> {
         if let Some(factory) = &self.entity_factory {
             if let Some(e) = factory.new_thing(key) {
-                self.add_thing(e, track)
+                self.add_thing(e, track_uid)
             } else {
                 Err(anyhow!("key {key} not found"))
             }
@@ -447,15 +427,19 @@ impl MiniOrchestrator {
 
     /// Adds the given thing, returning an assigned [Uid] if successful.
     /// [MiniOrchestrator] takes ownership.
-    pub fn add_thing(&mut self, mut thing: Box<dyn Thing>, track: TrackIndex) -> Result<Uid> {
+    pub fn add_thing(&mut self, mut thing: Box<dyn Thing>, track_uid: &TrackUid) -> Result<Uid> {
         thing.update_sample_rate(self.sample_rate());
         let uid = thing.uid();
-        self.tracks[track.0].append_thing(thing);
-        Ok(uid)
+        if let Some(track) = self.tracks.get_mut(track_uid) {
+            track.append_thing(thing);
+            Ok(uid)
+        } else {
+            Err(anyhow!("Track UID {track_uid} not found"))
+        }
     }
 
     fn calculate_is_finished(&self) -> bool {
-        self.tracks.iter().all(|t| t.is_finished())
+        self.tracks.values().all(|t| t.is_finished())
     }
 
     fn dispatch_event(&mut self, uid: Uid, event: ThingEvent) {
@@ -476,7 +460,7 @@ impl MiniOrchestrator {
     }
 
     fn route_midi_message(&mut self, channel: MidiChannel, message: MidiMessage) {
-        for t in self.tracks.iter_mut() {
+        for t in self.tracks.values_mut() {
             t.route_midi_message(channel, message);
         }
     }
@@ -491,7 +475,7 @@ impl MiniOrchestrator {
             source_uid,
             value,
         );
-        for t in self.tracks.iter_mut() {
+        for t in self.tracks.values_mut() {
             t.route_control_change(source_uid, value);
         }
     }
@@ -506,8 +490,28 @@ impl MiniOrchestrator {
         &mut self.transport
     }
 
-    fn set_track_title(&mut self, index: TrackIndex, title: TrackTitle) {
-        self.tracks[index.0].set_title(title);
+    fn set_track_title(&mut self, uid: TrackUid, title: TrackTitle) {
+        if let Some(track) = self.get_track_mut(&uid) {
+            track.set_title(title);
+        }
+    }
+
+    fn is_track_selected(&self, uid: &TrackUid) -> bool {
+        self.selected_track_uids.contains(uid)
+    }
+
+    #[allow(dead_code)]
+    fn get_track(&self, uid: &TrackUid) -> Option<&Track> {
+        self.tracks.get(uid)
+    }
+
+    fn get_track_mut(&mut self, uid: &TrackUid) -> Option<&mut Track> {
+        self.tracks.get_mut(uid)
+    }
+
+    #[allow(missing_docs)]
+    pub fn ordered_track_uids(&self) -> &[TrackUid] {
+        self.ordered_track_uids.as_ref()
     }
 }
 impl Generates<StereoSample> for MiniOrchestrator {
@@ -519,7 +523,7 @@ impl Generates<StereoSample> for MiniOrchestrator {
     // its results, rather than overwriting.
     fn generate_batch_values(&mut self, values: &mut [StereoSample]) {
         let len = values.len();
-        self.tracks.par_iter_mut().for_each(|track| {
+        self.tracks.par_iter_mut().for_each(|(_uid, track)| {
             track.generate_batch_values(len);
         });
 
@@ -533,7 +537,7 @@ impl Generates<StereoSample> for MiniOrchestrator {
         // get back to the original Generates model of the caller providing the
         // buffer. And then hmmmm, once we know how things are laid out in
         // memory, maybe we can even sic some fast matrix code on it.
-        self.tracks.iter().for_each(|track| {
+        self.tracks.values().for_each(|track| {
             let generator_values = track.values();
             let copy_len = len.min(generator_values.len());
             for i in 0..copy_len {
@@ -549,7 +553,8 @@ impl Ticks for MiniOrchestrator {
 }
 impl Configurable for MiniOrchestrator {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
-        for track in self.tracks.iter_mut() {
+        self.transport.update_sample_rate(sample_rate);
+        for track in self.tracks.values_mut() {
             track.update_sample_rate(sample_rate);
         }
     }
@@ -586,7 +591,7 @@ impl Performs for MiniOrchestrator {
     fn play(&mut self) {
         self.e.is_performing = true;
         self.transport.play();
-        self.tracks.iter_mut().for_each(|t| t.play());
+        self.tracks.values_mut().for_each(|t| t.play());
     }
 
     fn stop(&mut self) {
@@ -598,12 +603,12 @@ impl Performs for MiniOrchestrator {
             self.skip_to_start();
         }
         self.transport.stop();
-        self.tracks.iter_mut().for_each(|t| t.stop());
+        self.tracks.values_mut().for_each(|t| t.stop());
     }
 
     fn skip_to_start(&mut self) {
         self.transport.skip_to_start();
-        self.tracks.iter_mut().for_each(|t| t.skip_to_start());
+        self.tracks.values_mut().for_each(|t| t.skip_to_start());
     }
 
     fn is_performing(&self) -> bool {
@@ -614,14 +619,14 @@ impl Controls for MiniOrchestrator {
     fn update_time(&mut self, range: &Range<MusicalTime>) {
         self.e.range = range.clone();
 
-        for track in self.tracks.iter_mut() {
+        for track in self.tracks.values_mut() {
             track.update_time(&self.e.range);
         }
     }
 
     fn work(&mut self, _: &mut ControlEventsFn) {
         self.transport.work(&mut |u, m| self.e.events.push((u, m)));
-        for track in self.tracks.iter_mut() {
+        for track in self.tracks.values_mut() {
             track.work(&mut |u, m| self.e.events.push((u, m)));
         }
         while let Some((uid, event)) = self.e.events.pop() {
@@ -639,13 +644,13 @@ impl Controls for MiniOrchestrator {
 }
 impl Serializable for MiniOrchestrator {
     fn after_deser(&mut self) {
-        self.tracks.iter_mut().for_each(|t| t.after_deser());
+        self.tracks.values_mut().for_each(|t| t.after_deser());
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::mini::{orchestrator::MiniOrchestrator, TrackIndex};
+    use crate::mini::orchestrator::MiniOrchestrator;
     use groove_core::{
         time::{MusicalTime, SampleRate, Tempo},
         traits::{Configurable, Controls, Performs},
@@ -684,13 +689,14 @@ mod tests {
 
         // TODO: worst ergonomics ever.
         const TIMER_DURATION: MusicalTime = MusicalTime::new_with_beats(1);
+        let track_uid = o.ordered_track_uids()[0];
         let _ = o.add_thing(
             Box::new(Timer::new_with(&TimerParams {
                 duration: groove_core::time::MusicalTimeParams {
                     units: TIMER_DURATION.total_units(),
                 },
             })),
-            TrackIndex(0),
+            &track_uid,
         );
 
         o.play();
