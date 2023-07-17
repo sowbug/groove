@@ -470,6 +470,14 @@ pub struct TimeSignature {
     pub bottom: usize,
 }
 impl TimeSignature {
+    /// C time = common time = 4/4
+    /// https://en.wikipedia.org/wiki/Time_signature
+    pub const COMMON_TIME: Self = TimeSignature { top: 4, bottom: 4 };
+
+    /// 𝄵 time = cut common time = alla breve = 2/2
+    /// https://en.wikipedia.org/wiki/Time_signature
+    pub const CUT_TIME: Self = TimeSignature { top: 2, bottom: 2 };
+
     pub fn new(params: &TimeSignatureParams) -> anyhow::Result<Self, Error> {
         Self::new_with(params.top, params.bottom)
     }
@@ -538,13 +546,14 @@ impl MusicalTime {
     pub const UNITS_IN_PART: u64 = 4096;
     pub const UNITS_IN_BEAT: u64 = Self::PARTS_IN_BEAT * Self::UNITS_IN_PART;
 
-    pub const DURATION_ZERO: MusicalTime = Self::START;
-    pub const DURATION_TWO_WHOLE: MusicalTime = Self::new_with_beats(2);
+    /// A breve is also called a "double whole note"
+    pub const DURATION_BREVE: MusicalTime = Self::new_with_beats(2);
     pub const DURATION_WHOLE: MusicalTime = Self::new_with_beats(1);
     pub const DURATION_HALF: MusicalTime = Self::new_with_parts(8);
     pub const DURATION_QUARTER: MusicalTime = Self::new_with_parts(4);
     pub const DURATION_EIGHTH: MusicalTime = Self::new_with_parts(2);
     pub const DURATION_SIXTEENTH: MusicalTime = Self::new_with_parts(1);
+    pub const DURATION_ZERO: MusicalTime = Self::START;
     pub const TIME_ZERO: MusicalTime = Self::new_with_units(0);
     pub const TIME_END_OF_FIRST_BEAT: MusicalTime = Self::new_with_beats(1);
     pub const TIME_MAX: MusicalTime = Self::new_with_units(u64::MAX);
