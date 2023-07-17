@@ -58,7 +58,7 @@ pub enum TrackElementAction {
 #[allow(missing_docs)]
 #[derive(Debug)]
 pub enum TrackAction {
-    Select(TrackUid, bool),
+    Select(TrackUid),
     SelectClear,
     SetTitle(TrackUid, TrackTitle),
 }
@@ -414,53 +414,38 @@ impl Track {
 
     #[must_use]
     #[allow(missing_docs)]
-    pub fn show(&self, ui: &mut Ui, is_selected: bool) -> (Response, Option<TrackAction>) {
+    pub fn show(&self, ui: &mut Ui) -> (Response, Option<TrackAction>) {
         let mut action = None;
-        (
-            ui.allocate_ui(vec2(ui.available_width(), 64.0), |ui| {
-                Frame::default()
-                    .stroke(Stroke {
-                        width: if is_selected { 2.0 } else { 0.0 },
-                        color: Color32::YELLOW,
-                    })
-                    .show(ui, |ui| {
-                        let response = Frame::default()
-                            .fill(Color32::GRAY)
-                            .show(ui, |ui| {
-                                ui.horizontal(|ui| {
-                                    let mut title = self.title.0.clone();
-                                    if ui.text_edit_singleline(&mut title).changed() {
-                                        action = Some(TrackAction::SetTitle(
-                                            self.uid(),
-                                            TrackTitle(title),
-                                        ));
-                                    };
-                                    ui.allocate_response(
-                                        ui.available_size_before_wrap(),
-                                        Sense::click(),
-                                    )
-                                })
-                                .inner
-                            })
-                            .inner;
-                        match self.ty {
-                            TrackType::Midi => {
-                                self.show_midi(ui);
-                            }
-                            TrackType::Audio => {
-                                self.show_audio(ui);
-                            }
-                            TrackType::Send => {
-                                // For now, the title bar is enough for a send track, which holds only effects.
-                            }
-                        }
-                        response
-                    })
-                    .inner
+
+        let response = Frame::default()
+            .fill(Color32::GRAY)
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    let mut title = self.title.0.clone();
+                    if ui.text_edit_singleline(&mut title).changed() {
+                        action = Some(TrackAction::SetTitle(self.uid(), TrackTitle(title)));
+                    };
+
+                    // This is the thing that senses a plain click and returns
+                    // the Response that tells the caller whether to select this
+                    // track.
+                    ui.allocate_response(ui.available_size_before_wrap(), Sense::click())
+                })
+                .inner
             })
-            .inner,
-            action,
-        )
+            .inner;
+        match self.ty {
+            TrackType::Midi => {
+                self.show_midi(ui);
+            }
+            TrackType::Audio => {
+                self.show_audio(ui);
+            }
+            TrackType::Send => {
+                // For now, the title bar is enough for a send track, which holds only effects.
+            }
+        }
+        (response, action)
     }
 
     #[allow(missing_docs)]

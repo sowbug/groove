@@ -218,7 +218,7 @@ impl MiniOrchestrator {
         }
     }
 
-    // fn show_tracks(&mut self, ui: &mut Ui, is_control_only_down: bool) -> Option<TrackAction> {
+    // fn show_tracks(&mut self, ui: &mut Ui) -> Option<TrackAction> {
     //     let mut action = None;
 
     //     // Non-send tracks are first, then send tracks
@@ -240,7 +240,7 @@ impl MiniOrchestrator {
     //                 action = a;
     //             }
     //             if response.clicked() {
-    //                 action = Some(TrackAction::Select(*uid, is_control_only_down));
+    //                 action = Some(TrackAction::Select(*uid));
     //             }
     //         }
     //     }
@@ -262,13 +262,11 @@ impl MiniOrchestrator {
             .filter(|t| !t.is_send())
             .chain(self.tracks.values().filter(|t| t.is_send()));
 
-        if let Some(action) = self.arrangement_view.show(
-            ui,
-            tracks,
-            &|uid| self.is_track_selected(&uid),
-            is_control_only_down,
-        ) {
-            self.handle_track_action(action);
+        if let Some(action) = self
+            .arrangement_view
+            .show(ui, tracks, &|uid| self.is_track_selected(&uid))
+        {
+            self.handle_track_action(action, is_control_only_down);
         }
 
         if let Some(track_uid) = self.get_single_selected_uid() {
@@ -280,15 +278,15 @@ impl MiniOrchestrator {
                 action = track.show_detail(ui);
             }
             if let Some(action) = action {
-                self.handle_track_action(action);
+                self.handle_track_action(action, is_control_only_down);
             }
         }
     }
 
-    fn handle_track_action(&mut self, action: TrackAction) {
+    fn handle_track_action(&mut self, action: TrackAction, is_control_only_down: bool) {
         match action {
-            TrackAction::Select(uid, add_to_selections) => {
-                self.select_track(&uid, add_to_selections);
+            TrackAction::Select(uid) => {
+                self.select_track(&uid, is_control_only_down);
             }
             TrackAction::SelectClear => {
                 self.clear_track_selections();
