@@ -269,7 +269,7 @@ impl MiniOrchestrator {
             self.handle_track_action(action, is_control_only_down);
         }
 
-        if let Some(track_uid) = self.get_single_selected_uid() {
+        if let Some(track_uid) = self.get_single_selected_track_uid() {
             let mut action = None;
             if let Some(track) = self.tracks.get_mut(&track_uid) {
                 let bottom =
@@ -380,7 +380,7 @@ impl MiniOrchestrator {
     /// Adds a new thing with the specified [Key] to the currently selected
     /// single track. Fails if anything but exactly one track is selected.
     pub fn add_thing_by_key_to_selected_track(&mut self, key: &Key) -> Result<Uid> {
-        if let Some(track_uid) = self.get_single_selected_uid() {
+        if let Some(track_uid) = self.get_single_selected_track_uid() {
             self.add_thing_by_key_to_track(key, &track_uid)
         } else {
             Err(anyhow!("A single track was not selected"))
@@ -389,7 +389,7 @@ impl MiniOrchestrator {
 
     /// If exactly one track is selected, returns its [TrackUid]. Otherwise
     /// returns `None`.
-    pub fn get_single_selected_uid(&self) -> Option<TrackUid> {
+    pub fn get_single_selected_track_uid(&self) -> Option<TrackUid> {
         // TODO: this is icky. Is there a better way to get a single value out of a HashSet?
         if self.is_one_track_selected() {
             if let Some(uid) = self.selected_track_uids.iter().next() {

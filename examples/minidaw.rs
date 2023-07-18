@@ -538,7 +538,7 @@ impl MiniDaw {
         if let Ok(mut o) = self.mini_orchestrator.lock() {
             match action {
                 PaletteAction::NewThing(key) => {
-                    if let Some(track) = o.get_single_selected_uid() {
+                    if let Some(track) = o.get_single_selected_track_uid() {
                         //                        let _ = o.add_thing_by_key(&key, track);
                     }
                 }
