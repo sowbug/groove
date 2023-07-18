@@ -452,7 +452,7 @@ impl Track {
     #[allow(missing_docs)]
     pub fn remove_selected_patterns(&mut self) {
         if let Some(sequencer) = self.sequencer.as_mut() {
-            sequencer.remove_selected_patterns();
+            sequencer.remove_selected_arranged_patterns();
         }
     }
 

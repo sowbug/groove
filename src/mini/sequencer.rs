@@ -7,7 +7,7 @@ use derive_builder::Builder;
 use eframe::{
     egui::{Frame, Response, Sense, Ui},
     emath::{self, RectTransform},
-    epaint::{vec2, Color32, Pos2, Rect, Rounding, Shape, Stroke, Vec2},
+    epaint::{ahash::HashSet, vec2, Color32, Pos2, Rect, Rounding, Shape, Stroke, Vec2},
 };
 use groove_core::{
     midi::{new_note_off, new_note_on, MidiChannel, MidiMessage},
@@ -59,31 +59,51 @@ impl Display for ArrangedPatternUid {
 struct ArrangedPattern {
     pattern_uid: PatternUid,
     position: MusicalTime,
-    is_selected: bool,
-}
-impl Shows for ArrangedPattern {
-    fn show(&mut self, ui: &mut Ui) {
-        Frame::canvas(ui.style()).show(ui, |ui| {
-            self.ui_content(ui);
-        });
-    }
 }
 impl ArrangedPattern {
-    fn ui_content(&mut self, ui: &mut Ui) {
-        Frame::default()
-            .stroke(Stroke::new(
-                1.0,
-                if self.is_selected {
-                    Color32::YELLOW
-                } else {
-                    Color32::BLUE
-                },
-            ))
-            .show(ui, |ui| ui.label(format!("{}", self.pattern_uid)));
-    }
+    fn show_in_arrangement(
+        &self,
+        ui: &mut Ui,
+        pattern: &MiniPattern,
+        is_selected: bool,
+    ) -> Response {
+        let steps_horiz = pattern.time_signature.bottom * 4;
 
-    fn show_in_arrangement(&self, ui: &mut Ui, pattern: &MiniPattern) -> Response {
-        pattern.show_in_arrangement(ui, self.is_selected)
+        let desired_size = vec2((pattern.duration.total_beats() * 16) as f32, 64.0);
+        let (response, painter) = ui.allocate_painter(desired_size, Sense::click());
+
+        let to_screen = emath::RectTransform::from_to(
+            Rect::from_min_size(Pos2::ZERO, Vec2::splat(1.0)),
+            response.rect,
+        );
+
+        painter.rect_filled(response.rect, Rounding::default(), Color32::DARK_GRAY);
+        painter.rect_stroke(
+            response.rect,
+            Rounding::none(),
+            Stroke::new(if is_selected { 2.0 } else { 0.0 }, Color32::WHITE),
+        );
+        let steps_horiz_f32 = steps_horiz as f32;
+        for i in 0..steps_horiz {
+            let x = i as f32 / steps_horiz_f32;
+            let lines = [to_screen * Pos2::new(x, 0.0), to_screen * Pos2::new(x, 1.0)];
+            painter.line_segment(
+                lines,
+                Stroke {
+                    width: 1.0,
+                    color: Color32::DARK_GRAY,
+                },
+            );
+        }
+
+        let shapes = pattern.notes.iter().fold(Vec::default(), |mut v, note| {
+            v.extend(pattern.make_note_shapes(note, &to_screen, false));
+            v
+        });
+
+        painter.extend(shapes);
+
+        response
     }
 }
 
@@ -163,6 +183,7 @@ impl MiniPattern {
     }
 
     /// Returns the number of notes in the pattern.
+    #[allow(dead_code)]
     pub fn note_count(&self) -> usize {
         self.notes.len()
     }
@@ -339,46 +360,6 @@ impl MiniPattern {
         self.duration
     }
 
-    fn show_in_arrangement(&self, ui: &mut Ui, is_selected: bool) -> Response {
-        let steps_horiz = self.time_signature.bottom * 4;
-
-        let desired_size = vec2((self.duration.total_beats() * 16) as f32, 64.0);
-        let (response, painter) = ui.allocate_painter(desired_size, Sense::click());
-
-        let to_screen = emath::RectTransform::from_to(
-            Rect::from_min_size(Pos2::ZERO, Vec2::splat(1.0)),
-            response.rect,
-        );
-
-        painter.rect_filled(response.rect, Rounding::default(), Color32::DARK_GRAY);
-        painter.rect_stroke(
-            response.rect,
-            Rounding::none(),
-            Stroke::new(if is_selected { 2.0 } else { 0.0 }, Color32::WHITE),
-        );
-        let steps_horiz_f32 = steps_horiz as f32;
-        for i in 0..steps_horiz {
-            let x = i as f32 / steps_horiz_f32;
-            let lines = [to_screen * Pos2::new(x, 0.0), to_screen * Pos2::new(x, 1.0)];
-            painter.line_segment(
-                lines,
-                Stroke {
-                    width: 1.0,
-                    color: Color32::DARK_GRAY,
-                },
-            );
-        }
-
-        let shapes = self.notes.iter().fold(Vec::default(), |mut v, note| {
-            v.extend(self.make_note_shapes(note, &to_screen, false));
-            v
-        });
-
-        painter.extend(shapes);
-
-        response
-    }
-
     #[allow(dead_code)]
     fn move_note(&mut self, note: &MiniNote, new_start: MusicalTime) {
         self.notes.iter_mut().filter(|n| n == &note).for_each(|n| {
@@ -401,6 +382,7 @@ impl MiniPattern {
         self.refresh_internals();
     }
 
+    #[allow(dead_code)]
     fn time_signature(&self) -> TimeSignature {
         self.time_signature
     }
@@ -451,6 +433,9 @@ pub struct MiniSequencer {
     #[builder(setter(skip))]
     arranged_patterns: HashMap<ArrangedPatternUid, ArrangedPattern>,
 
+    #[builder(setter(skip))]
+    selected_arranged_pattern_uids: HashSet<ArrangedPatternUid>,
+
     #[serde(skip)]
     #[builder(setter(skip))]
     e: MiniSequencerEphemerals,
@@ -460,15 +445,18 @@ impl MiniSequencer {
         self.e.arrangement_cursor
     }
 
+    #[allow(dead_code)]
     fn pattern_by_uid(&self, uid: &PatternUid) -> Option<&MiniPattern> {
         self.patterns.get(uid)
     }
 
+    #[allow(dead_code)]
     fn arranged_pattern_by_uid(&self, uid: &ArrangedPatternUid) -> Option<&ArrangedPattern> {
         self.arranged_patterns.get(uid)
     }
 
-    fn shift_pattern_left(&mut self, uid: &ArrangedPatternUid) -> anyhow::Result<()> {
+    #[allow(dead_code)]
+    fn shift_arranged_pattern_left(&mut self, uid: &ArrangedPatternUid) -> anyhow::Result<()> {
         if let Some(ap) = self.arranged_patterns.get_mut(uid) {
             if ap.position >= MusicalTime::DURATION_WHOLE {
                 ap.position -= MusicalTime::DURATION_WHOLE;
@@ -479,7 +467,8 @@ impl MiniSequencer {
         }
     }
 
-    fn shift_pattern_right(&mut self, uid: &ArrangedPatternUid) -> anyhow::Result<()> {
+    #[allow(dead_code)]
+    fn shift_arranged_pattern_right(&mut self, uid: &ArrangedPatternUid) -> anyhow::Result<()> {
         if let Some(ap) = self.arranged_patterns.get_mut(uid) {
             ap.position += MusicalTime::DURATION_WHOLE;
             Ok(())
@@ -514,7 +503,6 @@ impl MiniSequencer {
                 ArrangedPattern {
                     pattern_uid: *uid,
                     position,
-                    is_selected: false,
                 },
             );
             if let Err(r) = self.calculate_events() {
@@ -593,7 +581,10 @@ impl MiniSequencer {
                 ui.horizontal_top(|ui| {
                     for (arranged_pattern_uid, arranged_pattern) in self.arranged_patterns.iter() {
                         if let Some(pattern) = self.patterns.get(&arranged_pattern.pattern_uid) {
-                            if arranged_pattern.show_in_arrangement(ui, pattern).clicked() {
+                            if arranged_pattern
+                                .show_in_arrangement(ui, pattern, false /* todo */)
+                                .clicked()
+                            {
                                 // TODO: handle shift/control
                                 action = Some(MiniSequencerAction::ToggleArrangedPatternSelection(
                                     *arranged_pattern_uid,
@@ -610,8 +601,10 @@ impl MiniSequencer {
     }
 
     /// Removes all selected arranged patterns.
-    pub fn remove_selected_patterns(&mut self) {
-        self.arranged_patterns.retain(|_, p| !p.is_selected);
+    pub fn remove_selected_arranged_patterns(&mut self) {
+        self.arranged_patterns
+            .retain(|uid, ap| !self.selected_arranged_pattern_uids.contains(uid));
+        self.selected_arranged_pattern_uids.clear();
     }
 
     fn calculate_events(&mut self) -> anyhow::Result<()> {
@@ -638,6 +631,38 @@ impl MiniSequencer {
         }
         Ok(())
     }
+
+    fn toggle_arranged_pattern_selection(&mut self, uid: &ArrangedPatternUid) {
+        if self.selected_arranged_pattern_uids.contains(uid) {
+            self.selected_arranged_pattern_uids.remove(uid);
+        } else {
+            self.selected_arranged_pattern_uids.insert(*uid);
+        }
+    }
+
+    fn select_arranged_pattern(
+        &mut self,
+        uid: &ArrangedPatternUid,
+        selected: bool,
+        preserve_selection_set: bool,
+    ) {
+        if !preserve_selection_set {
+            self.selected_arranged_pattern_uids.clear();
+        }
+        if selected {
+            self.selected_arranged_pattern_uids.insert(*uid);
+        } else {
+            self.selected_arranged_pattern_uids.remove(uid);
+        }
+    }
+
+    fn is_arranged_pattern_selected(&self, uid: &ArrangedPatternUid) -> bool {
+        self.selected_arranged_pattern_uids.contains(uid)
+    }
+
+    fn remove_arranged_pattern(&mut self, uid: &ArrangedPatternUid) {
+        self.arranged_patterns.remove(uid);
+    }
 }
 impl Shows for MiniSequencer {
     fn show(&mut self, ui: &mut Ui) {
@@ -652,9 +677,7 @@ impl Shows for MiniSequencer {
                     }
                 }
                 MiniSequencerAction::ToggleArrangedPatternSelection(uid) => {
-                    if let Some(pattern) = self.arranged_patterns.get_mut(&uid) {
-                        pattern.is_selected = !pattern.is_selected;
-                    }
+                    self.toggle_arranged_pattern_selection(&uid);
                 }
             }
         }
@@ -1183,25 +1206,85 @@ mod tests {
             MusicalTime::START
         );
 
-        assert!(s.shift_pattern_right(&apuid).is_ok());
+        assert!(s.shift_arranged_pattern_right(&apuid).is_ok());
         assert_eq!(
             s.arranged_pattern_by_uid(&apuid).unwrap().position,
             MusicalTime::DURATION_WHOLE,
             "shift right works"
         );
 
-        assert!(s.shift_pattern_left(&apuid).is_ok());
+        assert!(s.shift_arranged_pattern_left(&apuid).is_ok());
         assert_eq!(
             s.arranged_pattern_by_uid(&apuid).unwrap().position,
             MusicalTime::START,
             "nondegenerate shift left works"
         );
 
-        assert!(s.shift_pattern_left(&apuid).is_ok());
+        assert!(s.shift_arranged_pattern_left(&apuid).is_ok());
         assert_eq!(
             s.arranged_pattern_by_uid(&apuid).unwrap().position,
             MusicalTime::START,
-            "nondegenerate shift left is a no-op"
+            "degenerate shift left is a no-op"
         );
+    }
+
+    #[test]
+    fn removing_arranged_pattern_works() {
+        let mut s = MiniSequencerBuilder::default().build().unwrap();
+        let (puid0, _, _) = s.populate_pattern(0);
+
+        let uid0 = s.arrange_pattern(&puid0, 0).unwrap();
+        assert_eq!(s.arranged_patterns.len(), 1);
+
+        s.remove_arranged_pattern(&uid0);
+        assert!(s.arranged_patterns.is_empty());
+
+        let (puid1, _, _) = s.populate_pattern(1);
+
+        let uid1 = s.arrange_pattern(&puid1, 0).unwrap();
+        let uid0 = s.arrange_pattern(&puid0, 1).unwrap();
+        assert_eq!(s.arranged_patterns.len(), 2);
+
+        s.select_arranged_pattern(&uid1, true, false);
+        s.remove_selected_arranged_patterns();
+        assert_eq!(s.arranged_patterns.len(), 1);
+
+        s.select_arranged_pattern(&uid0, true, false);
+        s.remove_selected_arranged_patterns();
+        assert!(s.arranged_patterns.is_empty());
+    }
+
+    #[test]
+    fn arranged_pattern_selection_works() {
+        let mut s = MiniSequencerBuilder::default().build().unwrap();
+        assert!(s.selected_arranged_pattern_uids.is_empty());
+
+        let (puid0, _, _) = s.populate_pattern(0);
+        let (puid1, _, _) = s.populate_pattern(1);
+
+        let uid0 = s.arrange_pattern(&puid0, 0).unwrap();
+        let uid1 = s.arrange_pattern(&puid1, 1).unwrap();
+
+        assert!(s.selected_arranged_pattern_uids.is_empty());
+
+        s.select_arranged_pattern(&uid0, true, false);
+        assert_eq!(s.selected_arranged_pattern_uids.len(), 1);
+        assert!(s.is_arranged_pattern_selected(&uid0));
+        assert!(!s.is_arranged_pattern_selected(&uid1));
+
+        s.select_arranged_pattern(&uid1, true, true);
+        assert_eq!(s.selected_arranged_pattern_uids.len(), 2);
+        assert!(s.is_arranged_pattern_selected(&uid0));
+        assert!(s.is_arranged_pattern_selected(&uid1));
+
+        s.select_arranged_pattern(&uid1, false, true);
+        assert_eq!(s.selected_arranged_pattern_uids.len(), 1);
+        assert!(s.is_arranged_pattern_selected(&uid0));
+        assert!(!s.is_arranged_pattern_selected(&uid1));
+
+        s.select_arranged_pattern(&uid1, true, false);
+        assert_eq!(s.selected_arranged_pattern_uids.len(), 1);
+        assert!(!s.is_arranged_pattern_selected(&uid0));
+        assert!(s.is_arranged_pattern_selected(&uid1));
     }
 }
