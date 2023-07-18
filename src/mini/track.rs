@@ -293,7 +293,7 @@ impl Track {
                     let mut action = None;
 
                     if let Some(sequencer) = self.sequencer.as_mut() {
-                        if let Some(a) = Self::add_track_element(ui, 0, false, false, true, |ui| {
+                        if let Some(a) = Self::add_track_element(ui, 0, false, false, false, |ui| {
                             ui.allocate_ui(vec2(256.0, ui.available_height()), |ui| {
                                 sequencer.show(ui);
                             });
