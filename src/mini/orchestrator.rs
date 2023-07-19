@@ -7,9 +7,12 @@ use super::{
     transport::Transport,
     Key,
 };
-use crate::egui_widgets::ArrangementView;
 use anyhow::{anyhow, Result};
-use eframe::egui::{self, Ui};
+use eframe::{
+    egui::{self, Frame, Ui},
+    emath::{self, Align2},
+    epaint::{pos2, vec2, Color32, FontId, Rect, Shape, Stroke},
+};
 use groove_audio::AudioQueue;
 use groove_core::{
     control::ControlValue,
@@ -40,6 +43,7 @@ pub struct OrchestratorEphemerals {
     events: Vec<(Uid, ThingEvent)>,
     is_finished: bool,
     is_performing: bool,
+    entity_factory: Option<Arc<EntityFactory>>,
 }
 
 /// Owns all entities (instruments, controllers, and effects), and manages the
@@ -62,10 +66,6 @@ pub struct MiniOrchestrator {
     //
     #[serde(skip)]
     e: OrchestratorEphemerals,
-    #[serde(skip)]
-    entity_factory: Option<Arc<EntityFactory>>,
-    #[serde(skip)]
-    arrangement_view: ArrangementView,
 }
 impl Default for MiniOrchestrator {
     fn default() -> Self {
@@ -91,10 +91,7 @@ impl Default for MiniOrchestrator {
             ordered_track_uids,
             selected_track_uids: Default::default(),
 
-            arrangement_view: Default::default(),
-
             e: Default::default(),
-            entity_factory: None,
         }
     }
 }
@@ -111,9 +108,9 @@ impl MiniOrchestrator {
     pub fn new_with(entity_factory: Arc<EntityFactory>) -> Self {
         let transport_uid = entity_factory.mint_uid();
         let mut r = Self {
-            entity_factory: Some(entity_factory),
             ..Default::default()
         };
+        r.e.entity_factory = Some(entity_factory);
         r.transport.set_uid(transport_uid);
         r
     }
@@ -203,9 +200,9 @@ impl MiniOrchestrator {
         // [EntityFactory] needs its internal new-uid counter to be higher than
         // any existing [Uid] in the project, so that it doesn't mint duplicate
         // [Uid]s. This is a bit cumbersome.
-        if let Some(factory) = &self.entity_factory {
+        if let Some(factory) = &self.e.entity_factory {
             factory.set_next_uid_expensively(&new.max_uid());
-            new.entity_factory = Some(Arc::clone(factory));
+            new.e.entity_factory = Some(Arc::clone(factory));
         }
     }
 
@@ -218,54 +215,13 @@ impl MiniOrchestrator {
         }
     }
 
-    // fn show_tracks(&mut self, ui: &mut Ui) -> Option<TrackAction> {
-    //     let mut action = None;
-
-    //     // Non-send tracks are first, then send tracks
-    //     let uids = &self.ordered_track_uids.clone();
-    //     let uids: Vec<&TrackUid> = uids
-    //         .iter()
-    //         .filter(|uid| !self.tracks.get(uid).unwrap().is_send())
-    //         .chain(
-    //             self.ordered_track_uids
-    //                 .iter()
-    //                 .filter(|uid| self.tracks.get(uid).unwrap().is_send()),
-    //         )
-    //         .collect();
-
-    //     for uid in uids {
-    //         if let Some(track) = self.tracks.get_mut(uid) {
-    //             let (response, a) = track.show(ui, self.selected_track_uids.contains(&uid));
-    //             if a.is_some() {
-    //                 action = a;
-    //             }
-    //             if response.clicked() {
-    //                 action = Some(TrackAction::Select(*uid));
-    //             }
-    //         }
-    //     }
-    //     action
-    // }
-
     /// Renders the project's GUI.
     pub fn show_with(&mut self, ui: &mut Ui, is_control_only_down: bool) {
-        self.arrangement_view.set_viewable_time_range(
+        let action = self.ui_arrangement(
+            ui,
             MusicalTime::new_with_beats(0)..MusicalTime::new_with_beats(128),
         );
-
-        // TODO: this displays tracks in random order. see commented-out
-        // show_tracks() above
-
-        let tracks = self
-            .tracks
-            .values()
-            .filter(|t| !t.is_send())
-            .chain(self.tracks.values().filter(|t| t.is_send()));
-
-        if let Some(action) = self
-            .arrangement_view
-            .show(ui, tracks, &|uid| self.is_track_selected(&uid))
-        {
+        if let Some(action) = action {
             self.handle_track_action(action, is_control_only_down);
         }
 
@@ -281,6 +237,104 @@ impl MiniOrchestrator {
                 self.handle_track_action(action, is_control_only_down);
             }
         }
+    }
+
+    fn ui_arrangement<'a>(
+        &mut self,
+        ui: &mut Ui,
+        viewable_time_range: Range<MusicalTime>,
+    ) -> Option<TrackAction> {
+        let mut action = None;
+
+        Frame::canvas(ui.style()).show(ui, |ui| {
+            const LEGEND_HEIGHT: f32 = 16.0;
+            let (_id, rect) = ui.allocate_space(vec2(ui.available_width(), LEGEND_HEIGHT));
+            let to_screen =
+                emath::RectTransform::from_to(Rect::from_x_y_ranges(0.0..=1.0, 0.0..=1.0), rect);
+
+            let font_id = FontId::proportional(12.0);
+            let beat_count = (viewable_time_range.end.total_beats()
+                - viewable_time_range.start.total_beats()) as usize;
+            let skip = if beat_count > 100 {
+                10
+            } else if beat_count > 10 {
+                2
+            } else {
+                1
+            };
+            for (i, beat) in (viewable_time_range.start.total_beats()
+                ..viewable_time_range.end.total_beats())
+                .enumerate()
+            {
+                if i != 0 && i != beat_count - 1 && i % skip != 0 {
+                    continue;
+                }
+                let percentage = i as f32 / beat_count as f32;
+                let beat_plus_one = beat + 1;
+                let pos = to_screen * pos2(percentage, 0.0);
+                let pos = pos2(pos.x, rect.bottom() - 1.0);
+                ui.painter().text(
+                    pos,
+                    Align2::CENTER_BOTTOM,
+                    format!("{beat_plus_one}"),
+                    font_id.clone(),
+                    Color32::YELLOW,
+                );
+            }
+            let mut shapes = vec![];
+
+            let left_x = (to_screen * pos2(0.0, 0.0)).x;
+            let right_x = (to_screen * pos2(1.0, 0.0)).x;
+            let line_points = [
+                pos2(left_x, rect.bottom() - 1.0),
+                pos2(right_x, rect.bottom() - 1.0),
+            ];
+
+            shapes.push(Shape::line_segment(
+                line_points,
+                Stroke {
+                    color: Color32::YELLOW,
+                    width: 1.0,
+                },
+            ));
+            ui.painter().extend(shapes);
+
+            // Non-send tracks are first, then send tracks
+            let uids: Vec<&TrackUid> = self
+                .ordered_track_uids
+                .iter()
+                .filter(|uid| !self.tracks.get(uid).unwrap().is_send())
+                .chain(
+                    self.ordered_track_uids
+                        .iter()
+                        .filter(|uid| self.tracks.get(uid).unwrap().is_send()),
+                )
+                .collect();
+            let uids: Vec<TrackUid> = uids.iter().map(|u| (*u).clone()).collect();
+
+            for uid in uids {
+                let is_selected = self.is_track_selected(&uid);
+                if let Some(track) = self.get_track_mut(&uid) {
+                    ui.allocate_ui(vec2(ui.available_width(), 64.0), |ui| {
+                        Frame::default()
+                            .stroke(Stroke {
+                                width: if is_selected { 2.0 } else { 0.0 },
+                                color: Color32::YELLOW,
+                            })
+                            .show(ui, |ui| {
+                                let (response, a) = track.show(ui);
+                                if let Some(a) = a {
+                                    action = Some(a);
+                                }
+                                if response.clicked() {
+                                    action = Some(TrackAction::Select(track.uid()));
+                                };
+                            })
+                    });
+                }
+            }
+        });
+        action
     }
 
     fn handle_track_action(&mut self, action: TrackAction, is_control_only_down: bool) {
@@ -412,7 +466,7 @@ impl MiniOrchestrator {
     /// Adds a new thing with the specified [Key] to the track with the
     /// specified [TrackIndex].
     pub fn add_thing_by_key_to_track(&mut self, key: &Key, track_uid: &TrackUid) -> Result<Uid> {
-        if let Some(factory) = &self.entity_factory {
+        if let Some(factory) = &self.e.entity_factory {
             if let Some(e) = factory.new_thing(key) {
                 self.add_thing(e, track_uid)
             } else {
