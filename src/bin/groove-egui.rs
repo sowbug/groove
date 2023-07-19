@@ -176,8 +176,10 @@ impl GrooveApp {
 
         let (sender, receiver) = crossbeam_channel::unbounded();
 
-        let mut clock_params = ClockParams::default();
-        clock_params.time_signature = TimeSignatureParams { top: 4, bottom: 4 };
+        let mut clock_params = ClockParams {
+            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
+            ..Default::default()
+        };
         let orchestrator = Arc::new(Mutex::new(Orchestrator::new_with(&clock_params)));
 
         let paths = Paths::default();
