@@ -61,12 +61,7 @@ struct ArrangedPattern {
     position: MusicalTime,
 }
 impl ArrangedPattern {
-    fn show_in_arrangement(
-        &self,
-        ui: &mut Ui,
-        pattern: &MiniPattern,
-        is_selected: bool,
-    ) -> Response {
+    fn ui_arrangement(&self, ui: &mut Ui, pattern: &MiniPattern, is_selected: bool) -> Response {
         let steps_horiz = pattern.time_signature.bottom * 4;
 
         let desired_size = vec2((pattern.duration.total_beats() * 16) as f32, 64.0);
@@ -553,8 +548,8 @@ impl MiniSequencer {
 
     /// Renders the arrangement view.
     #[must_use]
-    pub fn show_arrangement(&self, ui: &mut Ui) -> (Response, Option<MiniSequencerAction>) {
-        let mut action = None;
+    pub fn show_arrangement(&mut self, ui: &mut Ui) -> (Response, Option<MiniSequencerAction>) {
+        let action = None;
         let desired_size = vec2(ui.available_width(), 64.0);
         let (_id, rect) = ui.allocate_space(desired_size);
         let painter = ui.painter_at(rect);
@@ -579,18 +574,24 @@ impl MiniSequencer {
             ui.allocate_ui_at_rect(rect, |ui| {
                 ui.style_mut().spacing.item_spacing = Vec2::ZERO;
                 ui.horizontal_top(|ui| {
+                    let mut uid_to_toggle = None;
                     for (arranged_pattern_uid, arranged_pattern) in self.arranged_patterns.iter() {
                         if let Some(pattern) = self.patterns.get(&arranged_pattern.pattern_uid) {
                             if arranged_pattern
-                                .show_in_arrangement(ui, pattern, false /* todo */)
+                                .ui_arrangement(
+                                    ui,
+                                    pattern,
+                                    self.is_arranged_pattern_selected(arranged_pattern_uid),
+                                )
                                 .clicked()
                             {
                                 // TODO: handle shift/control
-                                action = Some(MiniSequencerAction::ToggleArrangedPatternSelection(
-                                    *arranged_pattern_uid,
-                                ));
+                                uid_to_toggle = Some(*arranged_pattern_uid);
                             }
                         }
+                    }
+                    if let Some(uid) = uid_to_toggle {
+                        self.toggle_arranged_pattern_selection(&uid);
                     }
                 })
                 .response

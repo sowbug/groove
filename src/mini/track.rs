@@ -258,8 +258,8 @@ impl Track {
         response
     }
 
-    fn show_midi(&self, ui: &mut Ui) -> (Response, Option<MiniSequencerAction>) {
-        if let Some(sequencer) = &self.sequencer {
+    fn show_midi(&mut self, ui: &mut Ui) -> (Response, Option<MiniSequencerAction>) {
+        if let Some(sequencer) = self.sequencer.as_mut() {
             sequencer.show_arrangement(ui)
         } else {
             eprintln!("Hmmm, no sequencer in a MIDI track?");
@@ -415,7 +415,7 @@ impl Track {
 
     #[must_use]
     #[allow(missing_docs)]
-    pub fn show(&self, ui: &mut Ui) -> (Response, Option<TrackAction>) {
+    pub fn show(&mut self, ui: &mut Ui) -> (Response, Option<TrackAction>) {
         let mut action = None;
 
         let response = Frame::default()
