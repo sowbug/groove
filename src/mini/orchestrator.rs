@@ -46,15 +46,15 @@ pub struct OrchestratorEphemerals {
 /// use groove::prelude::*;
 /// use groove_toys::ToySynth;
 ///
-/// let mut orchestrator = MiniOrchestrator::default();
+/// let mut orchestrator = Orchestrator::default();
 /// let track_uid = orchestrator.new_midi_track().unwrap();
 /// let uid = orchestrator.add_thing(Box::new(ToySynth::default()), &track_uid);
 ///
-/// let mut samples = [StereoSample::SILENCE; MiniOrchestrator::SAMPLE_BUFFER_SIZE];
+/// let mut samples = [StereoSample::SILENCE; Orchestrator::SAMPLE_BUFFER_SIZE];
 /// orchestrator.render(&mut samples);
 /// ```
 #[derive(Serialize, Deserialize, Debug)]
-pub struct MiniOrchestrator {
+pub struct Orchestrator {
     /// The user-supplied name of this project.
     title: Option<String>,
     transport: Transport,
@@ -80,7 +80,7 @@ pub struct MiniOrchestrator {
     #[serde(skip)]
     e: OrchestratorEphemerals,
 }
-impl Default for MiniOrchestrator {
+impl Default for Orchestrator {
     fn default() -> Self {
         Self {
             title: None,
@@ -98,7 +98,7 @@ impl Default for MiniOrchestrator {
         }
     }
 }
-impl MiniOrchestrator {
+impl Orchestrator {
     /// The expected size of any buffer provided for samples.
     //
     // TODO: how hard would it be to make this dynamic? Does adjustability
@@ -237,7 +237,7 @@ impl MiniOrchestrator {
 
     /// After loading a new Self from disk, we want to copy all the appropriate
     /// ephemeral state from this one to the next one.
-    pub fn prepare_successor(&self, new: &mut MiniOrchestrator) {
+    pub fn prepare_successor(&self, new: &mut Orchestrator) {
         // Copy over the current sample rate, whose validity shouldn't change
         // because we loaded a new project.
         new.update_sample_rate(self.sample_rate());
@@ -489,7 +489,7 @@ impl MiniOrchestrator {
         self.max_entity_uid
     }
 }
-impl HasUid for MiniOrchestrator {
+impl HasUid for Orchestrator {
     fn uid(&self) -> Uid {
         Self::UID
     }
@@ -502,7 +502,7 @@ impl HasUid for MiniOrchestrator {
         "Orchestrator"
     }
 }
-impl Generates<StereoSample> for MiniOrchestrator {
+impl Generates<StereoSample> for Orchestrator {
     fn value(&self) -> StereoSample {
         StereoSample::SILENCE
     }
@@ -534,12 +534,12 @@ impl Generates<StereoSample> for MiniOrchestrator {
         });
     }
 }
-impl Ticks for MiniOrchestrator {
+impl Ticks for Orchestrator {
     fn tick(&mut self, _tick_count: usize) {
         panic!()
     }
 }
-impl Configurable for MiniOrchestrator {
+impl Configurable for Orchestrator {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.transport.update_sample_rate(sample_rate);
         for track in self.tracks.values_mut() {
@@ -556,7 +556,7 @@ impl Configurable for MiniOrchestrator {
         self.transport.update_time_signature(time_signature);
     }
 }
-impl HandlesMidi for MiniOrchestrator {
+impl HandlesMidi for Orchestrator {
     /// Accepts a [MidiMessage] and handles it, usually by forwarding it to
     /// controllers and instruments on the given [MidiChannel]. We implement
     /// this trait only for external messages; for ones generated internally, we
@@ -570,7 +570,7 @@ impl HandlesMidi for MiniOrchestrator {
         self.route_midi_message(channel, message);
     }
 }
-impl Performs for MiniOrchestrator {
+impl Performs for Orchestrator {
     fn play(&mut self) {
         self.e.is_performing = true;
         self.transport.play();
@@ -598,7 +598,7 @@ impl Performs for MiniOrchestrator {
         self.e.is_performing
     }
 }
-impl Controls for MiniOrchestrator {
+impl Controls for Orchestrator {
     fn update_time(&mut self, range: &Range<MusicalTime>) {
         self.e.range = range.clone();
 
@@ -625,7 +625,7 @@ impl Controls for MiniOrchestrator {
         self.e.is_finished
     }
 }
-impl Serializable for MiniOrchestrator {
+impl Serializable for Orchestrator {
     fn after_deser(&mut self) {
         self.tracks.values_mut().for_each(|t| t.after_deser());
     }
@@ -633,7 +633,7 @@ impl Serializable for MiniOrchestrator {
 
 #[cfg(test)]
 mod tests {
-    use crate::mini::orchestrator::MiniOrchestrator;
+    use crate::mini::orchestrator::Orchestrator;
     use groove_core::{
         time::{MusicalTime, SampleRate, Tempo},
         traits::{Configurable, Controls, HasUid, Performs},
@@ -644,7 +644,7 @@ mod tests {
 
     #[test]
     fn basic_operations() {
-        let mut o = MiniOrchestrator::default();
+        let mut o = Orchestrator::default();
 
         assert!(
             o.sample_rate().value() != 0,
@@ -669,7 +669,7 @@ mod tests {
 
     #[test]
     fn exposes_traits_ergonomically() {
-        let mut o = MiniOrchestrator::default();
+        let mut o = Orchestrator::default();
         let tuid = o.new_midi_track().unwrap();
 
         // TODO: worst ergonomics ever.
@@ -699,7 +699,7 @@ mod tests {
 
     #[test]
     fn starter_tracks() {
-        let mut o = MiniOrchestrator::default();
+        let mut o = Orchestrator::default();
         assert!(o.track_uids.is_empty());
         assert!(o.create_starter_tracks().is_ok());
         assert!(!o.track_uids.is_empty());
@@ -711,7 +711,7 @@ mod tests {
 
     #[test]
     fn track_discovery() {
-        let mut o = MiniOrchestrator::default();
+        let mut o = Orchestrator::default();
         assert!(o.create_starter_tracks().is_ok());
         let track_count = o.track_uids().len();
 
@@ -732,7 +732,7 @@ mod tests {
 
     #[test]
     fn disallow_duplicate_uids() {
-        let mut o = MiniOrchestrator::default();
+        let mut o = Orchestrator::default();
         let track_uid = o.new_midi_track().unwrap();
 
         let mut one = Box::new(ToySynth::default());

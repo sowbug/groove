@@ -3,7 +3,7 @@
 pub use drag_drop::{DragDropManager, DragDropSource};
 pub use entities::register_mini_factory_entities;
 pub use entity_factory::{EntityFactory, Key};
-pub use orchestrator::MiniOrchestrator;
+pub use orchestrator::Orchestrator;
 pub use selection_set::SelectionSet;
 pub use sequencer::{MiniSequencer, MiniSequencerParams};
 pub use track::{Track, TrackAction, TrackTitle, TrackUid};

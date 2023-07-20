@@ -7,7 +7,7 @@
 //! An audio engine designed to support a DAW (digital audio workstation).
 //!
 //! ```
-//! # use groove::{Entity, Orchestrator};
+//! # use groove::{Entity, OldOrchestrator};
 //! # use groove_core::{
 //! #     generators::{EnvelopeParams, Waveform},
 //! #     midi::{MidiChannel, new_note_off, new_note_on},
@@ -60,7 +60,7 @@
 //! // Orchestrator understands the relationships among the
 //! // instruments, controllers, and effects, and uses them to
 //! // produce a song.
-//! let mut orchestrator = Orchestrator::new_with(&ClockParams {
+//! let mut orchestrator = OldOrchestrator::new_with(&ClockParams {
 //!     bpm: 128.0,
 //!     midi_ticks_per_second: 960,
 //!     time_signature: TimeSignatureParams { top: 4, bottom: 4 },
@@ -94,10 +94,10 @@
 //! ```
 
 #[deprecated]
-pub use groove_orchestration::{Entity, Orchestrator};
+pub use groove_orchestration::{Entity, Orchestrator as OldOrchestrator};
 
 pub use mini::EntityFactory;
-pub use mini::MiniOrchestrator;
+pub use mini::Orchestrator;
 
 /// Widgets for egui
 pub mod egui_widgets;
@@ -107,7 +107,7 @@ pub mod mini;
 
 /// Recommended imports for first-time users.
 pub mod prelude {
-    pub use super::mini::MiniOrchestrator;
+    pub use super::mini::Orchestrator;
     pub use groove_core::StereoSample;
 }
 

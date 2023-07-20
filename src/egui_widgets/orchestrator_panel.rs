@@ -1,6 +1,5 @@
 use crate::mini::{
-    ChannelPair, EntityFactory, Key, MiniOrchestrator, SelectionSet, TrackAction, TrackTitle,
-    TrackUid,
+    ChannelPair, EntityFactory, Key, Orchestrator, SelectionSet, TrackAction, TrackTitle, TrackUid,
 };
 use anyhow::{anyhow, Result};
 use crossbeam_channel::{Receiver, Sender};
@@ -89,7 +88,7 @@ pub enum MiniOrchestratorEvent {
 /// An egui panel that renders a [MiniOrchestrator].
 #[derive(Debug, Default)]
 pub struct OrchestratorPanel {
-    orchestrator: Arc<Mutex<MiniOrchestrator>>,
+    orchestrator: Arc<Mutex<Orchestrator>>,
     factory: Arc<EntityFactory>,
     track_selection_set: Arc<Mutex<SelectionSet<TrackUid>>>,
     input_channel_pair: ChannelPair<MiniOrchestratorInput>,
@@ -98,7 +97,7 @@ pub struct OrchestratorPanel {
 impl OrchestratorPanel {
     /// Creates a new panel.
     pub fn new_with(factory: Arc<EntityFactory>) -> Self {
-        let mut o = MiniOrchestrator::default();
+        let mut o = Orchestrator::default();
         let _ = o.create_starter_tracks();
         let mut r = Self {
             orchestrator: Arc::new(Mutex::new(o)),
@@ -127,7 +126,7 @@ impl OrchestratorPanel {
                         MiniOrchestratorInput::ProjectPlay => o.play(),
                         MiniOrchestratorInput::ProjectStop => o.stop(),
                         MiniOrchestratorInput::ProjectNew => {
-                            let mut mo = MiniOrchestrator::default();
+                            let mut mo = Orchestrator::default();
                             o.prepare_successor(&mut mo);
                             *o = mo;
                             let _ = sender.send(MiniOrchestratorEvent::New);
@@ -249,21 +248,21 @@ impl OrchestratorPanel {
     }
 
     /// The [MiniOrchestrator] contained in this panel.
-    pub fn orchestrator(&self) -> &Arc<Mutex<MiniOrchestrator>> {
+    pub fn orchestrator(&self) -> &Arc<Mutex<Orchestrator>> {
         &self.orchestrator
     }
 
     fn handle_input_midi(
-        o: &mut MutexGuard<MiniOrchestrator>,
+        o: &mut MutexGuard<Orchestrator>,
         channel: MidiChannel,
         message: MidiMessage,
     ) {
         o.handle_midi_message(channel, message, &mut |_, _| {});
     }
 
-    fn handle_input_load(path: &PathBuf) -> Result<MiniOrchestrator> {
+    fn handle_input_load(path: &PathBuf) -> Result<Orchestrator> {
         match std::fs::read_to_string(path) {
-            Ok(project_string) => match serde_json::from_str::<MiniOrchestrator>(&project_string) {
+            Ok(project_string) => match serde_json::from_str::<Orchestrator>(&project_string) {
                 Ok(mut mo) => {
                     mo.after_deser();
                     return anyhow::Ok(mo);
@@ -278,8 +277,8 @@ impl OrchestratorPanel {
         }
     }
 
-    fn handle_input_save(o: &MutexGuard<MiniOrchestrator>, path: &PathBuf) -> Result<()> {
-        let o: &MiniOrchestrator = &o;
+    fn handle_input_save(o: &MutexGuard<Orchestrator>, path: &PathBuf) -> Result<()> {
+        let o: &Orchestrator = &o;
         match serde_json::to_string_pretty(o)
             .map_err(|_| anyhow::format_err!("Unable to serialize prefs JSON"))
         {

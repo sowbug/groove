@@ -20,7 +20,7 @@ use groove::{
         MiniOrchestratorInput, NeedsAudioFn, OrchestratorPanel, PaletteAction, PalettePanel,
         SettingsPanel,
     },
-    mini::{register_mini_factory_entities, DragDropManager, EntityFactory, Key, MiniOrchestrator},
+    mini::{register_mini_factory_entities, DragDropManager, EntityFactory, Key, Orchestrator},
 };
 use groove_core::{
     time::SampleRate,
@@ -204,7 +204,7 @@ impl MenuBar {
 }
 
 struct MiniDaw {
-    mini_orchestrator: Arc<Mutex<MiniOrchestrator>>,
+    mini_orchestrator: Arc<Mutex<Orchestrator>>,
 
     menu_bar: MenuBar,
     control_panel: ControlPanel,

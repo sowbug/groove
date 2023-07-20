@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use clap::Parser;
-use groove::mini::MiniOrchestrator;
+use groove::mini::Orchestrator;
 use groove_core::{
     traits::{Controls, Performs},
     StereoSample,
@@ -10,7 +10,7 @@ use regex::Regex;
 use std::{fs::File, io::BufReader, path::PathBuf};
 
 fn write_performance_to_file(
-    orchestrator: &mut MiniOrchestrator,
+    orchestrator: &mut Orchestrator,
     path: &PathBuf,
 ) -> anyhow::Result<()> {
     let spec = hound::WavSpec {
@@ -71,7 +71,7 @@ fn main() -> anyhow::Result<()> {
 
     for input_filename in args.input {
         match File::open(input_filename.clone()) {
-            Ok(f) => match serde_json::from_reader::<_, MiniOrchestrator>(BufReader::new(f)) {
+            Ok(f) => match serde_json::from_reader::<_, Orchestrator>(BufReader::new(f)) {
                 Ok(mut o) => {
                     if args.wav {
                         let re = Regex::new(r"\.json$").unwrap();
