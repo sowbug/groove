@@ -1,9 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use std::collections::HashMap;
-
 use groove_core::{Normal, Sample, StereoSample, Uid};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Controls the wet/dry mix of arranged effects.
 #[derive(Serialize, Deserialize, Debug, Default)]
