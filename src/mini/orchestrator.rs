@@ -19,7 +19,8 @@ use groove_core::{
     time::{MusicalTime, SampleRate, Tempo},
     traits::{
         Configurable, ControlEventsFn, Controllable, Controls, Generates,
-        GeneratesToInternalBuffer, HandlesMidi, Performs, Serializable, Thing, ThingEvent, Ticks,
+        GeneratesToInternalBuffer, HandlesMidi, HasUid, Performs, Serializable, Thing, ThingEvent,
+        Ticks,
     },
     Sample, StereoSample, Uid,
 };
@@ -54,7 +55,6 @@ pub struct OrchestratorEphemerals {
 /// ```
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MiniOrchestrator {
-    uid: Uid,
     /// The user-supplied name of this project.
     title: Option<String>,
     transport: Transport,
@@ -75,7 +75,6 @@ pub struct MiniOrchestrator {
 impl Default for MiniOrchestrator {
     fn default() -> Self {
         Self {
-            uid: Self::UID,
             title: None,
             transport: TransportBuilder::default()
                 .uid(Self::TRANSPORT_UID)
@@ -471,6 +470,19 @@ impl MiniOrchestrator {
         for t in self.tracks.values_mut() {
             t.route_control_change(source_uid, value);
         }
+    }
+}
+impl HasUid for MiniOrchestrator {
+    fn uid(&self) -> Uid {
+        Self::UID
+    }
+
+    fn set_uid(&mut self, uid: Uid) {
+        panic!("Orchestrator's UID is reserved and should never change.")
+    }
+
+    fn name(&self) -> &'static str {
+        "Orchestrator"
     }
 }
 impl Generates<StereoSample> for MiniOrchestrator {
