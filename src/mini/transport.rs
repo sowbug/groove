@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use derive_builder::Builder;
 use eframe::{
     egui::{Label, Layout, RichText, TextStyle, Ui},
     emath::Align,
@@ -30,18 +31,21 @@ pub struct TransportEphemerals {
 
 /// [Transport] is the global clock. It knows where in the song we are, and how
 /// fast time should advance.
-#[derive(Serialize, Deserialize, Clone, Control, IsController, Debug, Default, Uid)]
+#[derive(Serialize, Deserialize, Clone, Control, IsController, Debug, Default, Uid, Builder)]
 pub struct Transport {
     uid: Uid,
 
     /// The current global time signature.
+    #[builder(default)]
     time_signature: TimeSignature,
 
     /// The current beats per minute.
     #[control]
+    #[builder(default)]
     tempo: Tempo,
 
     #[serde(skip)]
+    #[builder(setter(skip))]
     e: TransportEphemerals,
 }
 impl HandlesMidi for Transport {}
