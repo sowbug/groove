@@ -96,6 +96,7 @@
 #[deprecated]
 pub use groove_orchestration::{Entity, Orchestrator};
 
+pub use mini::EntityFactory;
 pub use mini::MiniOrchestrator;
 
 /// Widgets for egui
@@ -103,6 +104,11 @@ pub mod egui_widgets;
 
 /// Temp home for minidaw research results
 pub mod mini;
+
+pub mod prelude {
+    pub use super::mini::MiniOrchestrator;
+    pub use groove_core::StereoSample;
+}
 
 use groove_core::ParameterType;
 

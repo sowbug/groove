@@ -22,7 +22,7 @@ fn write_performance_to_file(
     let mut writer = hound::WavWriter::create(path, spec).unwrap();
 
     let mut buffer = [StereoSample::SILENCE; 64];
-    orchestrator.generate_next_debug_samples(&mut buffer);
+    orchestrator.render_debug(&mut buffer);
 
     let mut batches_processed = 0;
     orchestrator.play();
@@ -30,7 +30,7 @@ fn write_performance_to_file(
         if orchestrator.is_finished() {
             break;
         }
-        orchestrator.generate_next_samples(&mut buffer);
+        orchestrator.render(&mut buffer);
         for sample in buffer {
             let (left, right) = sample.into_i16();
             let _ = writer.write_sample(left);

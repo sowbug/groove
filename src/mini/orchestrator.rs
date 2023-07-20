@@ -40,8 +40,21 @@ pub struct OrchestratorEphemerals {
 
 /// Owns all entities (instruments, controllers, and effects), and manages the
 /// relationships among them to create an audio performance.
+///
+/// ```
+/// use groove::prelude::*;
+/// use groove_toys::ToySynth;
+///
+/// let mut orchestrator = MiniOrchestrator::default();
+/// let track_uid = orchestrator.new_midi_track().unwrap();
+/// let uid = orchestrator.add_thing(Box::new(ToySynth::default()), &track_uid);
+///
+/// let mut samples = [StereoSample::SILENCE; MiniOrchestrator::SAMPLE_BUFFER_SIZE];
+/// orchestrator.render(&mut samples);
+/// ```
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MiniOrchestrator {
+    uid: Uid,
     /// The user-supplied name of this project.
     title: Option<String>,
     transport: Transport,
@@ -49,7 +62,8 @@ pub struct MiniOrchestrator {
 
     track_factory: TrackFactory,
     tracks: HashMap<TrackUid, Track>,
-    ordered_track_uids: Vec<TrackUid>,
+    /// Track uids in the order they appear in the UI.
+    track_uids: Vec<TrackUid>,
 
     //////////////////////////////////////////////////////
     // Nothing below this comment should be serialized. //
@@ -60,29 +74,17 @@ pub struct MiniOrchestrator {
 }
 impl Default for MiniOrchestrator {
     fn default() -> Self {
-        let mut track_factory = TrackFactory::default();
-        let track_vec = vec![
-            track_factory.midi(),
-            track_factory.midi(),
-            track_factory.send(),
-        ];
-        let mut ordered_track_uids = Vec::default();
-        let tracks = track_vec.into_iter().fold(HashMap::default(), |mut v, t| {
-            ordered_track_uids.push(t.uid());
-            v.insert(t.uid(), t);
-            v
-        });
         Self {
+            uid: Self::UID,
             title: None,
             transport: TransportBuilder::default()
                 .uid(Self::TRANSPORT_UID)
                 .build()
                 .unwrap(),
             control_router: Default::default(),
-
-            track_factory,
-            tracks,
-            ordered_track_uids,
+            track_factory: Default::default(),
+            tracks: Default::default(),
+            track_uids: Default::default(),
 
             e: Default::default(),
         }
@@ -95,19 +97,177 @@ impl MiniOrchestrator {
     // matter?
     pub const SAMPLE_BUFFER_SIZE: usize = 64;
 
-    const TRANSPORT_UID: Uid = Uid(1);
+    /// The fixed [Uid] for the orchestrator itself.
+    const UID: Uid = Uid(1);
+    /// The fixed [Uid] for the global transport.
+    const TRANSPORT_UID: Uid = Uid(2);
 
     /// Adds the given [Thing] (instrument, controller, or entity), returning an
     /// assigned [Uid] if successful. [MiniOrchestrator] takes ownership.
+    ///
+    /// It is recommended to use [EntityFactory](crate::EntityFactory) to create
+    /// new [Thing]s.
     pub fn add_thing(&mut self, mut thing: Box<dyn Thing>, track_uid: &TrackUid) -> Result<Uid> {
         thing.update_sample_rate(self.sample_rate());
         let uid = thing.uid();
+        if self.tracks.values().any(|t| t.thing(&uid).is_some()) {
+            return Err(anyhow!("Thing Uid {uid} already exists"));
+        }
         if let Some(track) = self.tracks.get_mut(track_uid) {
             track.append_thing(thing);
             Ok(uid)
         } else {
             Err(anyhow!("Track UID {track_uid} not found"))
         }
+    }
+
+    /// Adds a new MIDI track, which can contain controllers, instruments, and
+    /// effects. Returns the new track's [TrackUid] if successful.
+    pub fn new_midi_track(&mut self) -> anyhow::Result<TrackUid> {
+        let track = self.track_factory.midi();
+        self.new_track(track)
+    }
+
+    /// Adds a new audio track, which can contain audio clips and effects.
+    /// Returns the new track's [TrackUid] if successful.
+    pub fn new_audio_track(&mut self) -> anyhow::Result<TrackUid> {
+        let track = self.track_factory.audio();
+        self.new_track(track)
+    }
+
+    /// Adds a new send track, which contains only effects, and which receives
+    /// its input audio from other tracks. Returns the new track's [TrackUid] if
+    /// successful.
+    pub fn new_send_track(&mut self) -> anyhow::Result<TrackUid> {
+        let track = self.track_factory.send();
+        self.new_track(track)
+    }
+
+    /// Adds a set of tracks that make sense for a new project.
+    pub fn create_starter_tracks(&mut self) -> anyhow::Result<()> {
+        if !self.track_uids.is_empty() {
+            return Err(anyhow!("Must be invoked on an empty orchestrator."));
+        }
+        self.new_midi_track()?;
+        self.new_midi_track()?;
+        self.new_audio_track()?;
+        self.new_send_track()?;
+        Ok(())
+    }
+
+    /// Deletes the specified track.
+    pub fn delete_track(&mut self, uid: &TrackUid) {
+        self.tracks.remove(uid);
+        self.track_uids.retain(|u| u != uid);
+    }
+
+    /// Sets a new title for the track.
+    pub fn set_track_title(&mut self, uid: TrackUid, title: TrackTitle) {
+        if let Some(track) = self.get_track_mut(&uid) {
+            track.set_title(title);
+        }
+    }
+
+    /// Renders the next set of samples into the provided buffer. This is the
+    /// main event loop.
+    pub fn render(&mut self, samples: &mut [StereoSample]) {
+        // Note that advance() can return the same range twice, depending on
+        // sample rate. TODO: we should decide whose responsibility it is to
+        // handle that -- either we skip calling work() if the time range is the
+        // same as prior, or everyone who gets called needs to detect the case
+        // or be idempotent.
+        let range = self.transport.advance(samples.len());
+        self.update_time(&range);
+        self.work(&mut |_, _| panic!("work() was supposed to handle all events"));
+        self.generate_batch_values(samples);
+    }
+
+    /// Renders part of the project to audio, creating at least the requested
+    /// number of [StereoSample]s and inserting them in the given [AudioQueue].
+    /// Exceptions: the method operates only in [Self::SAMPLE_BUFFER_SIZE]
+    /// chunks, and it won't generate a chunk unless there is enough room in the
+    /// queue for it.
+    ///
+    /// This method expects to be called continuously, even when the project
+    /// isn't actively playing. In such cases, it will provide a stream of
+    /// silent samples.
+    //
+    // TODO: I don't think there's any reason why this must be limited to an
+    // `AudioQueue` rather than a more general `Vec`-like interface.
+    pub fn render_and_enqueue(&mut self, samples_requested: usize, queue: &AudioQueue) {
+        // Round up
+        let buffers_requested =
+            (samples_requested + Self::SAMPLE_BUFFER_SIZE - 1) / Self::SAMPLE_BUFFER_SIZE;
+        for _ in 0..buffers_requested {
+            // Generate a buffer only if there's enough room in the queue for it.
+            if queue.capacity() - queue.len() >= Self::SAMPLE_BUFFER_SIZE {
+                let mut samples = [StereoSample::SILENCE; Self::SAMPLE_BUFFER_SIZE];
+                if false {
+                    self.render_debug(&mut samples);
+                } else {
+                    self.render(&mut samples);
+                }
+                // No need to do the Arc deref each time through the loop.
+                // TODO: is there a queue type that allows pushing a batch?
+                let queue = queue.as_ref();
+                for sample in samples {
+                    let _ = queue.push(sample);
+                }
+            }
+        }
+    }
+
+    /// Fills in the given sample buffer with something simple and audible.
+    pub fn render_debug(&mut self, samples: &mut [StereoSample]) {
+        let len = samples.len() as f64;
+        for (i, s) in samples.iter_mut().enumerate() {
+            s.0 = Sample::from(i as f64 / len);
+            s.1 = Sample::from(i as f64 / -len);
+        }
+    }
+
+    /// After loading a new Self from disk, we want to copy all the appropriate
+    /// ephemeral state from this one to the next one.
+    pub fn prepare_successor(&self, new: &mut MiniOrchestrator) {
+        // Copy over the current sample rate, whose validity shouldn't change
+        // because we loaded a new project.
+        new.update_sample_rate(self.sample_rate());
+    }
+
+    /// Returns all [Track] uids in UI order.
+    pub fn track_uids(&self) -> &[TrackUid] {
+        self.track_uids.as_ref()
+    }
+
+    /// Returns an iterator of all [Track]s in arbitrary order.
+    pub fn track_iter(&self) -> impl Iterator<Item = &Track> {
+        self.tracks.values()
+    }
+
+    /// Returns an iterator of all [Track]s in arbitrary order. Mutable version.
+    pub fn track_iter_mut(&mut self) -> impl Iterator<Item = &mut Track> {
+        self.tracks.values_mut()
+    }
+
+    /// Returns the specified [Track].
+    #[allow(dead_code)]
+    fn get_track(&self, uid: &TrackUid) -> Option<&Track> {
+        self.tracks.get(uid)
+    }
+
+    /// Returns the specified mutable [Track].
+    fn get_track_mut(&mut self, uid: &TrackUid) -> Option<&mut Track> {
+        self.tracks.get_mut(uid)
+    }
+
+    /// Returns the global [Transport].
+    pub fn transport(&self) -> &Transport {
+        &self.transport
+    }
+
+    #[allow(missing_docs)]
+    pub fn transport_mut(&mut self) -> &mut Transport {
+        &mut self.transport
     }
 
     /// The current [SampleRate] used to render the current project. Typically
@@ -127,70 +287,14 @@ impl MiniOrchestrator {
         2
     }
 
-    /// Renders part of the project to audio, creating at least the requested
-    /// number of [StereoSample]s and inserting them in the given [AudioQueue].
-    /// Exceptions: the method operates only in [Self::SAMPLE_BUFFER_SIZE]
-    /// chunks, and it won't generate a chunk unless there is enough room in the
-    /// queue for it.
-    ///
-    /// This method expects to be called continuously, even when the project
-    /// isn't actively playing. In such cases, it will provide a stream of
-    /// silent samples.
-    //
-    // TODO: I don't think there's any reason why this must be limited to an
-    // `AudioQueue` rather than a more general `Vec`-like interface.
-    pub fn enqueue_next_samples(&mut self, queue: &AudioQueue, samples_requested: usize) {
-        // Round up
-        let buffers_requested =
-            (samples_requested + Self::SAMPLE_BUFFER_SIZE - 1) / Self::SAMPLE_BUFFER_SIZE;
-        for _ in 0..buffers_requested {
-            // Generate a buffer only if there's enough room in the queue for it.
-            if queue.capacity() - queue.len() >= Self::SAMPLE_BUFFER_SIZE {
-                let mut samples = [StereoSample::SILENCE; Self::SAMPLE_BUFFER_SIZE];
-                if false {
-                    self.generate_next_debug_samples(&mut samples);
-                } else {
-                    self.generate_next_samples(&mut samples);
-                }
-                // No need to do the Arc deref each time through the loop.
-                // TODO: is there a queue type that allows pushing a batch?
-                let queue = queue.as_ref();
-                for sample in samples {
-                    let _ = queue.push(sample);
-                }
-            }
-        }
+    /// Returns the name of the project.
+    pub fn title(&self) -> Option<&String> {
+        self.title.as_ref()
     }
 
-    /// Fills in the given sample buffer with something simple and audible.
-    pub fn generate_next_debug_samples(&mut self, samples: &mut [StereoSample]) {
-        let len = samples.len() as f64;
-        for (i, s) in samples.iter_mut().enumerate() {
-            s.0 = Sample::from(i as f64 / len);
-            s.1 = Sample::from(i as f64 / -len);
-        }
-    }
-
-    /// Renders the next set of samples into the provided buffer. This is the
-    /// main event loop.
-    pub fn generate_next_samples(&mut self, samples: &mut [StereoSample]) {
-        // Note that advance() can return the same range twice, depending on
-        // sample rate. TODO: we should decide whose responsibility it is to
-        // handle that -- either we skip calling work() if the time range is the
-        // same as prior, or everyone who gets called needs to detect the case
-        // or be idempotent.
-        let range = self.transport.advance(samples.len());
-        self.update_time(&range);
-        self.work(&mut |_, _| panic!("work() was supposed to handle all events"));
-        self.generate_batch_values(samples);
-    }
-
-    /// After loading a new Self from disk, we want to copy all the appropriate
-    /// ephemeral state from this one to the next one.
-    pub fn prepare_successor(&self, new: &mut MiniOrchestrator) {
-        // Copy over the current sample rate, whose validity shouldn't change
-        // because we loaded a new project.
-        new.update_sample_rate(self.sample_rate());
+    /// Sets the name of the project.
+    pub fn set_title(&mut self, title: Option<String>) {
+        self.title = title;
     }
 
     /// Renders the project's GUI.
@@ -284,11 +388,11 @@ impl MiniOrchestrator {
 
             // Non-send tracks are first, then send tracks
             let uids: Vec<&TrackUid> = self
-                .ordered_track_uids
+                .track_uids
                 .iter()
                 .filter(|uid| !self.tracks.get(uid).unwrap().is_send())
                 .chain(
-                    self.ordered_track_uids
+                    self.track_uids
                         .iter()
                         .filter(|uid| self.tracks.get(uid).unwrap().is_send()),
                 )
@@ -320,66 +424,11 @@ impl MiniOrchestrator {
         action
     }
 
-    /// Adds a new MIDI track, which can contain controllers, instruments, and
-    /// effects. Returns the new track's [TrackUid] if successful.
-    pub fn new_midi_track(&mut self) -> anyhow::Result<TrackUid> {
-        let track = self.track_factory.midi();
-        self.new_track(track)
-    }
-
-    /// Adds a new audio track, which can contain audio clips and effects.
-    /// Returns the new track's [TrackUid] if successful.
-    pub fn new_audio_track(&mut self) -> anyhow::Result<TrackUid> {
-        let track = self.track_factory.audio();
-        self.new_track(track)
-    }
-
-    /// Adds a new send track, which contains only effects, and which receives
-    /// its input audio from other tracks. Returns the new track's [TrackUid] if
-    /// successful.
-    pub fn new_send_track(&mut self) -> anyhow::Result<TrackUid> {
-        let track = self.track_factory.send();
-        self.new_track(track)
-    }
-
     fn new_track(&mut self, track: Track) -> anyhow::Result<TrackUid> {
         let uid = track.uid();
-        self.ordered_track_uids.push(uid);
+        self.track_uids.push(uid);
         self.tracks.insert(uid, track);
         Ok(uid)
-    }
-
-    /// Deletes the specified track.
-    pub fn delete_track(&mut self, uid: &TrackUid) {
-        self.tracks.remove(uid);
-        self.ordered_track_uids.retain(|u| u != uid);
-    }
-
-    /// Sets a new title for the track.
-    pub fn set_track_title(&mut self, uid: TrackUid, title: TrackTitle) {
-        if let Some(track) = self.get_track_mut(&uid) {
-            track.set_title(title);
-        }
-    }
-
-    // #[allow(missing_docs)]
-    // pub fn delete_selected_tracks(&mut self) {
-    //     self.track_selection_set
-    //         .clone()
-    //         .iter()
-    //         .for_each(|uid| self.delete_track(uid));
-    //     self.track_selection_set.clear();
-    // }
-
-    /// Returns the name of the project.
-    pub fn title(&self) -> Option<&String> {
-        self.title.as_ref()
-    }
-
-    #[allow(missing_docs)]
-    #[allow(dead_code)]
-    pub fn set_title(&mut self, title: Option<String>) {
-        self.title = title;
     }
 
     fn calculate_is_finished(&self) -> bool {
@@ -422,30 +471,6 @@ impl MiniOrchestrator {
         for t in self.tracks.values_mut() {
             t.route_control_change(source_uid, value);
         }
-    }
-
-    #[allow(missing_docs)]
-    pub fn transport(&self) -> &Transport {
-        &self.transport
-    }
-
-    #[allow(missing_docs)]
-    pub fn transport_mut(&mut self) -> &mut Transport {
-        &mut self.transport
-    }
-
-    #[allow(dead_code)]
-    fn get_track(&self, uid: &TrackUid) -> Option<&Track> {
-        self.tracks.get(uid)
-    }
-
-    fn get_track_mut(&mut self, uid: &TrackUid) -> Option<&mut Track> {
-        self.tracks.get_mut(uid)
-    }
-
-    #[allow(missing_docs)]
-    pub fn ordered_track_uids(&self) -> &[TrackUid] {
-        self.ordered_track_uids.as_ref()
     }
 }
 impl Generates<StereoSample> for MiniOrchestrator {
@@ -582,10 +607,11 @@ mod tests {
     use crate::mini::orchestrator::MiniOrchestrator;
     use groove_core::{
         time::{MusicalTime, SampleRate, Tempo},
-        traits::{Configurable, Controls, Performs},
-        StereoSample,
+        traits::{Configurable, Controls, HasUid, Performs},
+        StereoSample, Uid,
     };
     use groove_entities::controllers::{Timer, TimerParams};
+    use groove_toys::ToySynth;
 
     #[test]
     fn basic_operations() {
@@ -615,17 +641,17 @@ mod tests {
     #[test]
     fn exposes_traits_ergonomically() {
         let mut o = MiniOrchestrator::default();
+        let tuid = o.new_midi_track().unwrap();
 
         // TODO: worst ergonomics ever.
         const TIMER_DURATION: MusicalTime = MusicalTime::new_with_beats(1);
-        let track_uid = o.ordered_track_uids()[0];
         let _ = o.add_thing(
             Box::new(Timer::new_with(&TimerParams {
                 duration: groove_core::time::MusicalTimeParams {
                     units: TIMER_DURATION.total_units(),
                 },
             })),
-            &track_uid,
+            &tuid,
         );
 
         o.play();
@@ -636,9 +662,62 @@ mod tests {
             }
             prior_start_time = o.transport().current_time();
             let mut samples = [StereoSample::SILENCE; 1];
-            o.generate_next_samples(&mut samples);
+            o.render(&mut samples);
         }
         let prior_range = prior_start_time..o.transport().current_time();
         assert!(prior_range.contains(&TIMER_DURATION));
+    }
+
+    #[test]
+    fn starter_tracks() {
+        let mut o = MiniOrchestrator::default();
+        assert!(o.track_uids.is_empty());
+        assert!(o.create_starter_tracks().is_ok());
+        assert!(!o.track_uids.is_empty());
+        assert!(o.create_starter_tracks().is_err());
+
+        assert_eq!(o.track_uids().len(), 4,
+            "we should have two MIDI tracks, one audio track, and one send track after create_starter_tracks().");
+    }
+
+    #[test]
+    fn track_discovery() {
+        let mut o = MiniOrchestrator::default();
+        assert!(o.create_starter_tracks().is_ok());
+        let track_count = o.track_uids().len();
+
+        assert_eq!(
+            o.track_iter().count(),
+            track_count,
+            "Track iterator count should match number of track UIDs."
+        );
+
+        // Make sure we can call this and that nothing explodes.
+        let mut count = 0;
+        o.track_iter_mut().for_each(|t| {
+            t.play();
+            count += 1;
+        });
+        assert_eq!(count, 4);
+    }
+
+    #[test]
+    fn disallow_duplicate_uids() {
+        let mut o = MiniOrchestrator::default();
+        let track_uid = o.new_midi_track().unwrap();
+
+        let mut one = Box::new(ToySynth::default());
+        one.set_uid(Uid(9999));
+        assert!(
+            o.add_thing(one, &track_uid).is_ok(),
+            "adding a unique UID should succeed"
+        );
+
+        let mut two = Box::new(ToySynth::default());
+        two.set_uid(Uid(9999));
+        assert!(
+            o.add_thing(two, &track_uid).is_err(),
+            "adding a duplicate UID should fail"
+        );
     }
 }

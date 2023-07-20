@@ -336,7 +336,7 @@ impl DebugSynth {
     }
 }
 
-#[derive(Debug, Control, IsInstrument, Params, Uid)]
+#[derive(Debug, Default, Control, IsInstrument, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToySynth {
     uid: groove_core::Uid,

@@ -31,8 +31,8 @@ impl From<&str> for Key {
 
 type ThingFactoryFn = fn() -> Box<dyn Thing>;
 
-/// [EntityFactory] creates instruments, controllers, and effects when given a
-/// [Key]. It makes sure every entity has a proper [Uid].
+/// [EntityFactory] accepts [Key]s and creates instruments, controllers, and
+/// effects. It makes sure every entity has a proper [Uid].
 //
 // TODO: I'm not sure how Serde will handle EntityFactory's Uids. When it
 // deserializes a saved thing, EntityFactory won't know about it, so it seems

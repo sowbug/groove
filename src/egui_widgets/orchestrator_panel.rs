@@ -98,8 +98,10 @@ pub struct OrchestratorPanel {
 impl OrchestratorPanel {
     /// Creates a new panel.
     pub fn new_with(factory: Arc<EntityFactory>) -> Self {
+        let mut o = MiniOrchestrator::default();
+        let _ = o.create_starter_tracks();
         let mut r = Self {
-            orchestrator: Arc::new(Mutex::new(MiniOrchestrator::default())),
+            orchestrator: Arc::new(Mutex::new(o)),
             factory,
             ..Default::default()
         };

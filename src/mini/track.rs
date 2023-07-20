@@ -204,6 +204,16 @@ impl Track {
         }
     }
 
+    /// Returns the [Thing] having the given [Uid], if it exists.
+    pub fn thing(&self, uid: &Uid) -> Option<&Box<dyn Thing>> {
+        self.thing_store.get(uid)
+    }
+
+    /// Returns the mutable [Thing] having the given [Uid], if it exists.
+    pub fn thing_mut(&mut self, uid: &Uid) -> Option<&mut Box<dyn Thing>> {
+        self.thing_store.get_mut(uid)
+    }
+
     fn button_states(index: usize, len: usize) -> (bool, bool) {
         let left = index != 0;
         let right = len > 1 && index != len - 1;
