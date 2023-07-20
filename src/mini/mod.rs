@@ -5,7 +5,7 @@ pub use entities::register_mini_factory_entities;
 pub use entity_factory::{EntityFactory, Key};
 pub use orchestrator::Orchestrator;
 pub use selection_set::SelectionSet;
-pub use sequencer::{MiniSequencer, MiniSequencerParams};
+pub use sequencer::{Sequencer, SequencerParams};
 pub use track::{Track, TrackAction, TrackTitle, TrackUid};
 pub use transport::Transport;
 

@@ -1,12 +1,12 @@
 use eframe::egui::Ui;
 use groove_core::traits::gui::Shows;
 
-use super::{MidiPanel, MiniAudioPanel, NeedsAudioFn};
+use super::{AudioPanel, MidiPanel, NeedsAudioFn};
 
 /// [SettingsPanel] displays preferences/settings.
 #[derive(Debug)]
 pub struct SettingsPanel {
-    audio_panel: MiniAudioPanel,
+    audio_panel: AudioPanel,
     midi_panel: MidiPanel,
 
     is_open: bool,
@@ -15,7 +15,7 @@ impl SettingsPanel {
     /// Creates a new [SettingsPanel].
     pub fn new_with(needs_audio_fn: NeedsAudioFn) -> Self {
         Self {
-            audio_panel: MiniAudioPanel::new_with(needs_audio_fn),
+            audio_panel: AudioPanel::new_with(needs_audio_fn),
             midi_panel: Default::default(),
             is_open: Default::default(),
         }
@@ -31,12 +31,12 @@ impl SettingsPanel {
         self.is_open = !self.is_open;
     }
 
-    /// The owned [MiniAudioPanel]
-    pub fn audio_panel(&self) -> &MiniAudioPanel {
+    /// The owned [AudioPanel].
+    pub fn audio_panel(&self) -> &AudioPanel {
         &self.audio_panel
     }
 
-    /// The owned [MidiPanel]
+    /// The owned [MidiPanel].
     pub fn midi_panel(&self) -> &MidiPanel {
         &self.midi_panel
     }

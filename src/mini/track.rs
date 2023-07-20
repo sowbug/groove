@@ -8,7 +8,7 @@ use super::{
     entity_factory::ThingStore,
     humidifier::Humidifier,
     midi_router::MidiRouter,
-    sequencer::{MiniSequencer, MiniSequencerAction, MiniSequencerBuilder},
+    sequencer::{Sequencer, SequencerAction, SequencerBuilder},
 };
 use eframe::{
     egui::{self, Frame, Layout, Margin, Response, Sense, Ui},
@@ -89,7 +89,7 @@ impl TrackFactory {
             title,
             ty: TrackType::Midi,
             sequencer: Some(
-                MiniSequencerBuilder::default()
+                SequencerBuilder::default()
                     .midi_channel_out(MidiChannel(0))
                     .build()
                     .unwrap(),
@@ -148,7 +148,7 @@ pub struct Track {
     title: TrackTitle,
     ty: TrackType,
 
-    sequencer: Option<MiniSequencer>,
+    sequencer: Option<Sequencer>,
     control_atlas: Option<ControlAtlas>,
     thing_store: ThingStore,
     controllers: Vec<Uid>,
@@ -268,7 +268,7 @@ impl Track {
         response
     }
 
-    fn show_midi(&mut self, ui: &mut Ui) -> (Response, Option<MiniSequencerAction>) {
+    fn show_midi(&mut self, ui: &mut Ui) -> (Response, Option<SequencerAction>) {
         if let Some(sequencer) = self.sequencer.as_mut() {
             sequencer.show_arrangement(ui)
         } else {

@@ -1,11 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-pub use audio_panel::{AudioPanel, AudioPanelEvent, MiniAudioPanel, NeedsAudioFn};
+pub use audio_panel::{AudioPanel, AudioPanelEvent, NeedsAudioFn, OldAudioPanel};
 pub use control_panel::{ControlBar, ControlPanel, ControlPanelAction};
 pub use legacy::preferences::Preferences;
 pub use legacy::thing_browser::{ThingBrowser, ThingBrowserEvent, ThingBrowserNode};
 pub use midi_panel::{MidiPanel, MidiPanelEvent};
-pub use orchestrator_panel::{MiniOrchestratorEvent, MiniOrchestratorInput, OrchestratorPanel};
+pub use orchestrator_panel::{OrchestratorEvent, OrchestratorInput, OrchestratorPanel};
 pub use palette_panel::{PaletteAction, PalettePanel};
 pub use settings_panel::SettingsPanel;
 

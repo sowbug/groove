@@ -33,9 +33,9 @@ impl AudioInterfaceConfig {
     }
 }
 
-/// [AudioPanel] manages the audio interface.
+/// [OldAudioPanel] manages the audio interface.
 #[derive(Debug)]
-pub struct AudioPanel {
+pub struct OldAudioPanel {
     sender: Sender<AudioInterfaceInput>,
     app_receiver: Receiver<AudioPanelEvent>, // to give to the app to receive what we sent
     app_sender: Sender<AudioPanelEvent>,     // for us to send to the app
@@ -43,7 +43,7 @@ pub struct AudioPanel {
 
     config: Arc<Mutex<Option<AudioInterfaceConfig>>>,
 }
-impl AudioPanel {
+impl OldAudioPanel {
     /// Construct a new [AudioPanel].
     pub fn new_with(orchestrator: Arc<Mutex<Orchestrator>>) -> Self {
         let audio_stream_service = AudioStreamService::default();
@@ -161,7 +161,7 @@ impl AudioPanel {
         0
     }
 }
-impl Shows for AudioPanel {
+impl Shows for OldAudioPanel {
     fn show(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("Audio")
             .default_open(true)
@@ -181,9 +181,9 @@ impl<F> NeedsAudioFnT for F where F: FnMut(&AudioQueue, usize) + Sync + Send {}
 /// [StereoSample]s that the audio interface has requested.
 pub type NeedsAudioFn = Box<dyn NeedsAudioFnT>;
 
-/// [AudioPanel2] manages the audio interface.
+/// [AudioPanel] manages the audio interface.
 #[derive(Debug)]
-pub struct MiniAudioPanel {
+pub struct AudioPanel {
     #[allow(dead_code)]
     sender: Sender<AudioInterfaceInput>,
     app_receiver: Receiver<AudioPanelEvent>, // to give to the app to receive what we sent
@@ -191,8 +191,8 @@ pub struct MiniAudioPanel {
 
     config: Arc<Mutex<Option<AudioInterfaceConfig>>>,
 }
-impl MiniAudioPanel {
-    /// Construct a new [MiniAudioPanel].
+impl AudioPanel {
+    /// Construct a new [AudioPanel].
     pub fn new_with(needs_audio_fn: NeedsAudioFn) -> Self {
         let audio_stream_service = AudioStreamService::default();
         let sender = audio_stream_service.sender().clone();
@@ -279,7 +279,7 @@ impl MiniAudioPanel {
         eprintln!("Audio Panel acks the quit... TODO");
     }
 }
-impl Shows for MiniAudioPanel {
+impl Shows for AudioPanel {
     fn show(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("Audio")
             .default_open(true)

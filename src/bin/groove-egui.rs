@@ -18,7 +18,7 @@ use egui_toast::{Toast, ToastOptions, Toasts};
 use groove::{
     app_version,
     egui_widgets::{
-        AudioPanel, ControlBar, MidiPanel, Preferences, ThingBrowser, ThingBrowserEvent,
+        ControlBar, MidiPanel, OldAudioPanel, Preferences, ThingBrowser, ThingBrowserEvent,
     },
 };
 use groove_core::{
@@ -59,7 +59,7 @@ struct GrooveApp {
     orchestrator: Arc<Mutex<Orchestrator>>,
 
     control_bar: ControlBar,
-    audio_panel: AudioPanel,
+    audio_panel: OldAudioPanel,
     midi_panel: MidiPanel,
     thing_browser: ThingBrowser,
     toasts: Toasts,
@@ -200,7 +200,7 @@ impl GrooveApp {
 
             control_bar: ControlBar::default(),
             midi_panel: MidiPanel::default(),
-            audio_panel: AudioPanel::new_with(Arc::clone(&orchestrator)),
+            audio_panel: OldAudioPanel::new_with(Arc::clone(&orchestrator)),
             preferences,
             thing_browser: ThingBrowser::scan_everything(&paths, extra_paths),
             toasts: Toasts::new()

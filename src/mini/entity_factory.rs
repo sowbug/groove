@@ -97,7 +97,7 @@ impl EntityFactory {
     /// Returns a [Uid] that is guaranteed to be unique among all [Uid]s minted
     /// by this factory. This method is exposed if someone wants to create an
     /// entity outside this factory, but still refer to it by [Uid]. An example
-    /// is [super::Transport], which is an entity that [super::MiniOrchestrator]
+    /// is [super::Transport], which is an entity that [super::Orchestrator]
     /// treats specially.
     pub fn mint_uid(&self) -> Uid {
         Uid(self.next_uid.inc())

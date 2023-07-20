@@ -28,7 +28,7 @@ use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Debug, ops::Range};
 
-/// A grouping mechanism to declare parts of [MiniOrchestrator] that Serde
+/// A grouping mechanism to declare parts of [Orchestrator] that Serde
 /// shouldn't be serializing. Exists so we don't have to spray #[serde(skip)]
 /// all over the place.
 #[derive(Debug, Default)]
@@ -111,7 +111,7 @@ impl Orchestrator {
     const TRANSPORT_UID: Uid = Uid(2);
 
     /// Adds the given [Thing] (instrument, controller, or entity), returning an
-    /// assigned [Uid] if successful. [MiniOrchestrator] takes ownership.
+    /// assigned [Uid] if successful. [Orchestrator] takes ownership.
     ///
     /// It is recommended to use [EntityFactory](crate::EntityFactory) to create
     /// new [Thing]s.

@@ -16,8 +16,8 @@ use egui_toast::{Toast, ToastOptions, Toasts};
 use groove::{
     app_version,
     egui_widgets::{
-        AudioPanelEvent, ControlPanel, ControlPanelAction, MidiPanelEvent, MiniOrchestratorEvent,
-        MiniOrchestratorInput, NeedsAudioFn, OrchestratorPanel, PaletteAction, PalettePanel,
+        AudioPanelEvent, ControlPanel, ControlPanelAction, MidiPanelEvent, NeedsAudioFn,
+        OrchestratorEvent, OrchestratorInput, OrchestratorPanel, PaletteAction, PalettePanel,
         SettingsPanel,
     },
     mini::{register_mini_factory_entities, DragDropManager, EntityFactory, Key, Orchestrator},
@@ -346,7 +346,7 @@ impl MiniDaw {
             match m {
                 MidiPanelEvent::Midi(channel, message) => {
                     self.orchestrator_panel
-                        .send_to_service(MiniOrchestratorInput::Midi(channel, message));
+                        .send_to_service(OrchestratorInput::Midi(channel, message));
                 }
                 MidiPanelEvent::SelectInput(_) => {
                     // TODO: save selection in prefs
@@ -380,15 +380,15 @@ impl MiniDaw {
     fn handle_mini_orchestrator_channel(&mut self) -> bool {
         if let Ok(m) = self.orchestrator_panel.receiver().try_recv() {
             match m {
-                MiniOrchestratorEvent::Tempo(_tempo) => {
+                OrchestratorEvent::Tempo(_tempo) => {
                     // This is (usually) an acknowledgement that Orchestrator
                     // got our request to change, so we don't need to do
                     // anything.
                 }
-                MiniOrchestratorEvent::Quit => {
-                    eprintln!("MiniOrchestratorEvent::Quit")
+                OrchestratorEvent::Quit => {
+                    eprintln!("OrchestratorEvent::Quit")
                 }
-                MiniOrchestratorEvent::Loaded(path, title) => {
+                OrchestratorEvent::Loaded(path, title) => {
                     self.orchestrator_panel.update_entity_factory_uid();
                     self.toasts.add(Toast {
                         kind: egui_toast::ToastKind::Success,
@@ -407,14 +407,14 @@ impl MiniDaw {
                             .show_progress(false),
                     });
                 }
-                MiniOrchestratorEvent::LoadError(path, error) => {
+                OrchestratorEvent::LoadError(path, error) => {
                     self.toasts.add(Toast {
                         kind: egui_toast::ToastKind::Error,
                         text: format!("Error loading {}: {}", path.display(), error).into(),
                         options: ToastOptions::default().duration_in_seconds(5.0),
                     });
                 }
-                MiniOrchestratorEvent::Saved(path) => {
+                OrchestratorEvent::Saved(path) => {
                     // TODO: this should happen only if the save operation was
                     // explicit. Autosaves should be invisible.
                     self.toasts.add(Toast {
@@ -425,14 +425,14 @@ impl MiniDaw {
                             .show_progress(false),
                     });
                 }
-                MiniOrchestratorEvent::SaveError(path, error) => {
+                OrchestratorEvent::SaveError(path, error) => {
                     self.toasts.add(Toast {
                         kind: egui_toast::ToastKind::Error,
                         text: format!("Error saving {}: {}", path.display(), error).into(),
                         options: ToastOptions::default().duration_in_seconds(5.0),
                     });
                 }
-                MiniOrchestratorEvent::New => {
+                OrchestratorEvent::New => {
                     // No special UI needed for this.
                 }
             }
@@ -475,11 +475,11 @@ impl MiniDaw {
 
     fn handle_control_panel_action(&mut self, action: ControlPanelAction) {
         let input = match action {
-            ControlPanelAction::Play => Some(MiniOrchestratorInput::ProjectPlay),
-            ControlPanelAction::Stop => Some(MiniOrchestratorInput::ProjectStop),
-            ControlPanelAction::New => Some(MiniOrchestratorInput::ProjectNew),
-            ControlPanelAction::Open(path) => Some(MiniOrchestratorInput::ProjectOpen(path)),
-            ControlPanelAction::Save(path) => Some(MiniOrchestratorInput::ProjectSave(path)),
+            ControlPanelAction::Play => Some(OrchestratorInput::ProjectPlay),
+            ControlPanelAction::Stop => Some(OrchestratorInput::ProjectStop),
+            ControlPanelAction::New => Some(OrchestratorInput::ProjectNew),
+            ControlPanelAction::Open(path) => Some(OrchestratorInput::ProjectOpen(path)),
+            ControlPanelAction::Save(path) => Some(OrchestratorInput::ProjectSave(path)),
             ControlPanelAction::ToggleSettings => {
                 self.settings_panel.toggle();
                 None
@@ -494,15 +494,15 @@ impl MiniDaw {
         let mut input = None;
         match action {
             MenuBarAction::Quit => self.exit_requested = true,
-            MenuBarAction::TrackNewMidi => input = Some(MiniOrchestratorInput::TrackNewMidi),
-            MenuBarAction::TrackNewAudio => input = Some(MiniOrchestratorInput::TrackNewAudio),
-            MenuBarAction::TrackNewSend => input = Some(MiniOrchestratorInput::TrackNewSend),
-            MenuBarAction::TrackDelete => input = Some(MiniOrchestratorInput::TrackDeleteSelected),
+            MenuBarAction::TrackNewMidi => input = Some(OrchestratorInput::TrackNewMidi),
+            MenuBarAction::TrackNewAudio => input = Some(OrchestratorInput::TrackNewAudio),
+            MenuBarAction::TrackNewSend => input = Some(OrchestratorInput::TrackNewSend),
+            MenuBarAction::TrackDelete => input = Some(OrchestratorInput::TrackDeleteSelected),
             MenuBarAction::TrackDuplicate => {
-                input = Some(MiniOrchestratorInput::TrackDuplicateSelected)
+                input = Some(OrchestratorInput::TrackDuplicateSelected)
             }
             MenuBarAction::TrackRemoveSelectedPatterns => {
-                input = Some(MiniOrchestratorInput::TrackPatternRemoveSelected)
+                input = Some(OrchestratorInput::TrackPatternRemoveSelected)
             }
             MenuBarAction::ComingSoon => {
                 self.toasts.add(Toast {
@@ -511,19 +511,19 @@ impl MiniDaw {
                     options: ToastOptions::default(),
                 });
             }
-            MenuBarAction::ProjectNew => input = Some(MiniOrchestratorInput::ProjectNew),
+            MenuBarAction::ProjectNew => input = Some(OrchestratorInput::ProjectNew),
             MenuBarAction::ProjectOpen => {
-                input = Some(MiniOrchestratorInput::ProjectOpen(PathBuf::from(
+                input = Some(OrchestratorInput::ProjectOpen(PathBuf::from(
                     "minidaw.json",
                 )))
             }
             MenuBarAction::ProjectSave => {
-                input = Some(MiniOrchestratorInput::ProjectSave(PathBuf::from(
+                input = Some(OrchestratorInput::ProjectSave(PathBuf::from(
                     "minidaw.json",
                 )))
             }
             MenuBarAction::TrackAddThing(key) => {
-                input = Some(MiniOrchestratorInput::TrackAddThing(key))
+                input = Some(OrchestratorInput::TrackAddThing(key))
             }
         }
         if let Some(input) = input {
