@@ -105,6 +105,7 @@ pub mod egui_widgets;
 /// Temp home for minidaw research results
 pub mod mini;
 
+/// Recommended imports for first-time users.
 pub mod prelude {
     pub use super::mini::MiniOrchestrator;
     pub use groove_core::StereoSample;

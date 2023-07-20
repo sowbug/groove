@@ -33,22 +33,16 @@ type ThingFactoryFn = fn() -> Box<dyn Thing>;
 
 /// [EntityFactory] accepts [Key]s and creates instruments, controllers, and
 /// effects. It makes sure every entity has a proper [Uid].
-//
-// TODO: I'm not sure how Serde will handle EntityFactory's Uids. When it
-// deserializes a saved thing, EntityFactory won't know about it, so it seems
-// that the next time it creates an entity, the Uid will overwrite it. Do we
-// need a special step to refresh the unique Uid trackers?
 #[derive(Debug)]
 pub struct EntityFactory {
-    next_id: RelaxedCounter,
-
+    next_uid: RelaxedCounter,
     things: HashMap<Key, ThingFactoryFn>,
     keys: HashSet<Key>,
 }
 impl Default for EntityFactory {
     fn default() -> Self {
         Self {
-            next_id: RelaxedCounter::new(Self::MAX_RESERVED_UID),
+            next_uid: RelaxedCounter::new(Self::MAX_RESERVED_UID + 1),
             things: Default::default(),
             keys: Default::default(),
         }
@@ -56,6 +50,19 @@ impl Default for EntityFactory {
 }
 impl EntityFactory {
     pub(crate) const MAX_RESERVED_UID: usize = 1023;
+
+    /// Set the next [Uid]. This is needed if we're deserializing a project and
+    /// need to reset the [EntityFactory] to mint unique [Uid]s.
+    ///
+    /// Note that the specified [Uid] is not necessarily the next one that will
+    /// be issued; we guarantee only that subsequent [Uid]s won't be lower than
+    /// it. This is because we're using [RelaxedCounter] under the hood to allow
+    /// entirely immutable usage of this factory after creation and
+    /// configuration.
+    pub fn set_next_uid(&self, next_uid_value: usize) {
+        self.next_uid.reset();
+        self.next_uid.add(next_uid_value);
+    }
 
     /// Registers a new type for the given [Key] using the given closure.
     pub fn register_thing(&mut self, key: Key, f: ThingFactoryFn) {
@@ -65,6 +72,7 @@ impl EntityFactory {
             panic!("register_thing({}): duplicate key. Exiting.", key);
         }
     }
+
     /// Creates a new thing of the type corresponding to the given [Key].
     pub fn new_thing(&self, key: &Key) -> Option<Box<dyn Thing>> {
         if let Some(f) = self.things.get(key) {
@@ -92,16 +100,7 @@ impl EntityFactory {
     /// is [super::Transport], which is an entity that [super::MiniOrchestrator]
     /// treats specially.
     pub fn mint_uid(&self) -> Uid {
-        Uid(self.next_id.inc())
-    }
-
-    /// Naively increments the RelaxedCounter until it is higher than or equal to
-    /// the provided [Uid].
-    pub fn set_next_uid_expensively(&self, uid: &Uid) {
-        self.next_id.reset();
-        if self.next_id.get() < uid.0 {
-            while self.next_id.inc() <= uid.0 {}
-        }
+        Uid(self.next_uid.inc())
     }
 }
 
@@ -279,5 +278,21 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn entity_factory_uid_uniqueness() {
+        let ef = EntityFactory::default();
+        let uid = ef.mint_uid();
+
+        let ef = EntityFactory::default();
+        let uid2 = ef.mint_uid();
+
+        assert_eq!(uid, uid2);
+
+        let ef = EntityFactory::default();
+        ef.set_next_uid(uid.0 + 1);
+        let uid2 = ef.mint_uid();
+        assert_ne!(uid, uid2);
     }
 }

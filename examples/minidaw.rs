@@ -389,6 +389,7 @@ impl MiniDaw {
                     eprintln!("MiniOrchestratorEvent::Quit")
                 }
                 MiniOrchestratorEvent::Loaded(path, title) => {
+                    self.orchestrator_panel.update_entity_factory_uid();
                     self.toasts.add(Toast {
                         kind: egui_toast::ToastKind::Success,
                         text: format!(

@@ -334,4 +334,11 @@ impl OrchestratorPanel {
             }
         }
     }
+
+    /// Lets the [EntityFactory] know of the highest [Uid] that the current
+    /// Orchestrator has seen, so that it won't generate duplicates.
+    pub fn update_entity_factory_uid(&self) {
+        self.factory
+            .set_next_uid(self.orchestrator.lock().unwrap().max_entity_uid().0 + 1);
+    }
 }

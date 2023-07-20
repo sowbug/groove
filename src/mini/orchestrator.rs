@@ -65,6 +65,14 @@ pub struct MiniOrchestrator {
     /// Track uids in the order they appear in the UI.
     track_uids: Vec<TrackUid>,
 
+    /// The highest [Uid] that has been added. This is serialized along with the
+    /// rest of the project, so anyone generating [Uid]s, such as
+    /// [crate::EntityFactory], can stay out of the range of consumed [Uid]s.
+    ///
+    /// This isn't threadsafe. I don't think this matters. If it does, the
+    /// failure mode is the user has to add a device again. TODO
+    max_entity_uid: Uid,
+
     //////////////////////////////////////////////////////
     // Nothing below this comment should be serialized. //
     //////////////////////////////////////////////////////
@@ -84,6 +92,7 @@ impl Default for MiniOrchestrator {
             track_factory: Default::default(),
             tracks: Default::default(),
             track_uids: Default::default(),
+            max_entity_uid: Default::default(),
 
             e: Default::default(),
         }
@@ -112,6 +121,7 @@ impl MiniOrchestrator {
         if self.tracks.values().any(|t| t.thing(&uid).is_some()) {
             return Err(anyhow!("Thing Uid {uid} already exists"));
         }
+        self.max_entity_uid = self.max_entity_uid.max(uid);
         if let Some(track) = self.tracks.get_mut(track_uid) {
             track.append_thing(thing);
             Ok(uid)
@@ -471,13 +481,20 @@ impl MiniOrchestrator {
             t.route_control_change(source_uid, value);
         }
     }
+
+    /// The highest [Thing] [Uid] that this orchestrator has seen. This is
+    /// needed so that generators of new [Uid]s (such as [crate::EntityFactory])
+    /// can keep generating unique ones.
+    pub fn max_entity_uid(&self) -> Uid {
+        self.max_entity_uid
+    }
 }
 impl HasUid for MiniOrchestrator {
     fn uid(&self) -> Uid {
         Self::UID
     }
 
-    fn set_uid(&mut self, uid: Uid) {
+    fn set_uid(&mut self, _: Uid) {
         panic!("Orchestrator's UID is reserved and should never change.")
     }
 
@@ -724,6 +741,7 @@ mod tests {
             o.add_thing(one, &track_uid).is_ok(),
             "adding a unique UID should succeed"
         );
+        assert_eq!(o.max_entity_uid, Uid(9999));
 
         let mut two = Box::new(ToySynth::default());
         two.set_uid(Uid(9999));
@@ -731,5 +749,13 @@ mod tests {
             o.add_thing(two, &track_uid).is_err(),
             "adding a duplicate UID should fail"
         );
+
+        let mut two = Box::new(ToySynth::default());
+        two.set_uid(Uid(o.max_entity_uid.0 + 1));
+        assert!(
+            o.add_thing(two, &track_uid).is_ok(),
+            "using Orchestrator's max_entity_uid as a guide should work."
+        );
+        assert_eq!(o.max_entity_uid, Uid(10000));
     }
 }
