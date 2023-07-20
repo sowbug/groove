@@ -605,7 +605,7 @@ impl MiniSequencer {
     /// Removes all selected arranged patterns.
     pub fn remove_selected_arranged_patterns(&mut self) {
         self.arranged_patterns
-            .retain(|uid, ap| !self.arranged_pattern_selection_set.contains(uid));
+            .retain(|uid, _ap| !self.arranged_pattern_selection_set.contains(uid));
         self.arranged_pattern_selection_set.clear();
     }
 
@@ -642,6 +642,7 @@ impl MiniSequencer {
         }
     }
 
+    #[allow(dead_code)]
     fn remove_arranged_pattern(&mut self, uid: &ArrangedPatternUid) {
         self.arranged_patterns.remove(uid);
     }

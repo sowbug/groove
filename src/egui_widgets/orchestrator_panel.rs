@@ -1,4 +1,7 @@
-use crate::mini::{ChannelPair, DragDropManager, EntityFactory, Key, MiniOrchestrator, TrackUid};
+use crate::mini::{
+    ChannelPair, EntityFactory, Key, MiniOrchestrator, SelectionSet, TrackAction, TrackTitle,
+    TrackUid,
+};
 use anyhow::{anyhow, Result};
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::Ui;
@@ -42,6 +45,8 @@ pub enum MiniOrchestratorInput {
     TrackPatternRemoveSelected,
     /// Add a new entity to the selected track.
     TrackAddThing(Key),
+    /// Sets a new title for the track.
+    TrackSetTitle(TrackUid, TrackTitle),
     /// Sets the tempo.
     Tempo(Tempo),
 
@@ -82,26 +87,21 @@ pub enum MiniOrchestratorEvent {
 }
 
 /// An egui panel that renders a [MiniOrchestrator].
+#[derive(Debug, Default)]
 pub struct OrchestratorPanel {
-    #[allow(dead_code)]
-    drag_drop_manager: Arc<Mutex<DragDropManager>>,
     orchestrator: Arc<Mutex<MiniOrchestrator>>,
     factory: Arc<EntityFactory>,
+    track_selection_set: Arc<Mutex<SelectionSet<TrackUid>>>,
     input_channel_pair: ChannelPair<MiniOrchestratorInput>,
     event_channel_pair: ChannelPair<MiniOrchestratorEvent>,
 }
 impl OrchestratorPanel {
     /// Creates a new panel.
-    pub fn new_with(
-        factory: Arc<EntityFactory>,
-        drag_drop_manager: Arc<Mutex<DragDropManager>>,
-    ) -> Self {
+    pub fn new_with(factory: Arc<EntityFactory>) -> Self {
         let mut r = Self {
-            drag_drop_manager,
             orchestrator: Arc::new(Mutex::new(MiniOrchestrator::default())),
             factory,
-            input_channel_pair: Default::default(),
-            event_channel_pair: Default::default(),
+            ..Default::default()
         };
         r.start_thread();
         r
@@ -113,6 +113,7 @@ impl OrchestratorPanel {
         self.introduce();
         let orchestrator = Arc::clone(&self.orchestrator);
         let factory = Arc::clone(&self.factory);
+        let track_selection_set = Arc::clone(&self.track_selection_set);
         std::thread::spawn(move || loop {
             let recv = receiver.recv();
             if let Ok(mut o) = orchestrator.lock() {
@@ -162,37 +163,50 @@ impl OrchestratorPanel {
                             break;
                         }
                         MiniOrchestratorInput::TrackNewMidi => {
-                            o.new_midi_track();
+                            let _ = o.new_midi_track();
                         }
                         MiniOrchestratorInput::TrackNewAudio => {
-                            o.new_audio_track();
+                            let _ = o.new_audio_track();
+                        }
+                        MiniOrchestratorInput::TrackNewSend => {
+                            let _ = o.new_send_track();
                         }
                         MiniOrchestratorInput::TrackDeleteSelected => {
-                            o.delete_selected_tracks();
+                            if let Ok(track_selection_set) = track_selection_set.lock() {
+                                track_selection_set
+                                    .iter()
+                                    .for_each(|uid| o.delete_track(uid));
+                            }
                         }
                         MiniOrchestratorInput::TrackDuplicateSelected => {
                             todo!("duplicate selected tracks");
                         }
-                        MiniOrchestratorInput::TrackNewSend => {
-                            o.new_send_track();
-                        }
                         MiniOrchestratorInput::TrackPatternRemoveSelected => {
-                            o.remove_selected_patterns();
-                        }
-                        MiniOrchestratorInput::TrackSelect(uid, add_to_selection_set) => {
-                            o.select_track(&uid, add_to_selection_set);
+                            unimplemented!()
+                            //                            o.remove_selected_patterns();
                         }
                         MiniOrchestratorInput::TrackSelectReset => todo!(),
                         MiniOrchestratorInput::TrackAddThing(key) => {
-                            if let Some(track_uid) = o.get_single_selected_track_uid() {
-                                if let Some(e) = factory.new_thing(&key) {
-                                    let _ = o.add_thing(e, &track_uid);
-                                }
+                            // TODO: this is weird because it acts on all selected tracks. Figure out how to better restrict in the GUI.
+                            if let Ok(track_selection_set) = track_selection_set.lock() {
+                                track_selection_set.iter().for_each(|track_uid| {
+                                    if let Some(e) = factory.new_thing(&key) {
+                                        let _ = o.add_thing(e, track_uid);
+                                    }
+                                });
                             }
                         }
                         MiniOrchestratorInput::Tempo(tempo) => {
                             o.update_tempo(tempo);
                             let _ = sender.send(MiniOrchestratorEvent::Tempo(tempo));
+                        }
+                        MiniOrchestratorInput::TrackSetTitle(track_uid, title) => {
+                            o.set_track_title(track_uid, title);
+                        }
+                        MiniOrchestratorInput::TrackSelect(track_uid, add_to_selection_set) => {
+                            if let Ok(mut track_selection_set) = track_selection_set.lock() {
+                                track_selection_set.click(track_uid, add_to_selection_set);
+                            }
                         }
                     },
                     Err(err) => {
@@ -291,8 +305,8 @@ impl OrchestratorPanel {
 
     /// Whether one or more tracks are currently selected.
     pub fn is_any_track_selected(&self) -> bool {
-        if let Ok(o) = self.orchestrator.lock() {
-            o.is_track_selection_empty()
+        if let Ok(tss) = self.track_selection_set.lock() {
+            !tss.is_empty()
         } else {
             false
         }
@@ -301,7 +315,21 @@ impl OrchestratorPanel {
     /// Renders the panel.
     pub fn show(&mut self, ui: &mut Ui, is_control_only_down: bool) {
         if let Ok(mut o) = self.orchestrator.lock() {
-            o.show_with(ui, is_control_only_down);
+            let tss = if let Ok(tss) = self.track_selection_set.lock() {
+                tss.clone()
+            } else {
+                panic!()
+            };
+            if let Some(action) = o.show_with(ui, &tss) {
+                match action {
+                    TrackAction::Click(track_uid) => self.send_to_service(
+                        MiniOrchestratorInput::TrackSelect(track_uid, is_control_only_down),
+                    ),
+                    TrackAction::SetTitle(track_uid, title) => {
+                        self.send_to_service(MiniOrchestratorInput::TrackSetTitle(track_uid, title))
+                    }
+                }
+            }
         }
     }
 }

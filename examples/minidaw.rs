@@ -233,8 +233,7 @@ impl MiniDaw {
         let factory = Arc::new(entity_factory);
 
         let drag_drop_manager = Arc::new(Mutex::new(DragDropManager::default()));
-        let orchestrator_panel =
-            OrchestratorPanel::new_with(Arc::clone(&factory), Arc::clone(&drag_drop_manager));
+        let orchestrator_panel = OrchestratorPanel::new_with(Arc::clone(&factory));
         let mini_orchestrator = Arc::clone(orchestrator_panel.orchestrator());
 
         let mini_orchestrator_for_fn = Arc::clone(&mini_orchestrator);
@@ -537,10 +536,10 @@ impl MiniDaw {
     fn handle_palette_action(&mut self, action: PaletteAction) {
         if let Ok(mut o) = self.mini_orchestrator.lock() {
             match action {
-                PaletteAction::NewThing(key) => {
-                    if let Some(track) = o.get_single_selected_track_uid() {
-                        //                        let _ = o.add_thing_by_key(&key, track);
-                    }
+                PaletteAction::NewThing(_key) => {
+                    // if let Some(track) = o.get_single_selected_track_uid() {
+                    //     //                        let _ = o.add_thing_by_key(&key, track);
+                    // }
                 }
             }
         }

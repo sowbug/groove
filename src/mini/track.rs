@@ -57,8 +57,7 @@ pub enum TrackElementAction {
 #[allow(missing_docs)]
 #[derive(Debug)]
 pub enum TrackAction {
-    Select(TrackUid),
-    SelectClear,
+    Click(TrackUid),
     SetTitle(TrackUid, TrackTitle),
 }
 
@@ -132,7 +131,8 @@ impl Default for TrackBuffer {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+/// Newtype for track title string.
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TrackTitle(pub String);
 impl Default for TrackTitle {
     fn default() -> Self {
