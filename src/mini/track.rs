@@ -487,10 +487,6 @@ impl Track {
         }
     }
 
-    pub(crate) fn max_uid(&self) -> Uid {
-        self.thing_store.max_uid()
-    }
-
     pub(crate) fn set_title(&mut self, title: TrackTitle) {
         self.title = title;
     }

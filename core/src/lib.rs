@@ -6,6 +6,7 @@ use derive_more::Display;
 use groove_proc_macros::{Control, Params};
 use std::{
     fmt::Display,
+    hash::Hash,
     iter::Sum,
     ops::{Add, AddAssign, Div, Mul, Neg, RangeInclusive, Sub},
 };
@@ -485,7 +486,7 @@ impl Mul<Self> for Normal {
     }
 }
 
-pub trait IsUid {
+pub trait IsUid: Eq + Hash + Clone {
     fn increment(&mut self) -> &Self;
 }
 

@@ -2,10 +2,9 @@
 
 use super::{
     control_router::ControlRouter,
-    entity_factory::EntityFactory,
+    selection_set::SelectionSet,
     track::{Track, TrackAction, TrackFactory, TrackTitle, TrackUid},
-    transport::Transport,
-    Key,
+    transport::{Transport, TransportBuilder},
 };
 use anyhow::{anyhow, Result};
 use eframe::{
@@ -20,19 +19,13 @@ use groove_core::{
     time::{MusicalTime, SampleRate, Tempo},
     traits::{
         Configurable, ControlEventsFn, Controllable, Controls, Generates,
-        GeneratesToInternalBuffer, HandlesMidi, HasUid, Performs, Serializable, Thing, ThingEvent,
-        Ticks,
+        GeneratesToInternalBuffer, HandlesMidi, Performs, Serializable, Thing, ThingEvent, Ticks,
     },
     Sample, StereoSample, Uid,
 };
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::{HashMap, HashSet},
-    fmt::Debug,
-    ops::Range,
-    sync::Arc,
-};
+use std::{collections::HashMap, fmt::Debug, ops::Range};
 
 /// A grouping mechanism to declare parts of [MiniOrchestrator] that Serde
 /// shouldn't be serializing. Exists so we don't have to spray #[serde(skip)]
@@ -43,7 +36,6 @@ pub struct OrchestratorEphemerals {
     events: Vec<(Uid, ThingEvent)>,
     is_finished: bool,
     is_performing: bool,
-    entity_factory: Option<Arc<EntityFactory>>,
 }
 
 /// Owns all entities (instruments, controllers, and effects), and manages the
@@ -58,7 +50,7 @@ pub struct MiniOrchestrator {
     track_factory: TrackFactory,
     tracks: HashMap<TrackUid, Track>,
     ordered_track_uids: Vec<TrackUid>,
-    selected_track_uids: HashSet<TrackUid>,
+    track_selection_set: SelectionSet<TrackUid>,
 
     //////////////////////////////////////////////////////
     // Nothing below this comment should be serialized. //
@@ -83,13 +75,16 @@ impl Default for MiniOrchestrator {
         });
         Self {
             title: None,
-            transport: Default::default(),
+            transport: TransportBuilder::default()
+                .uid(Self::TRANSPORT_UID)
+                .build()
+                .unwrap(),
             control_router: Default::default(),
 
             track_factory,
             tracks,
             ordered_track_uids,
-            selected_track_uids: Default::default(),
+            track_selection_set: Default::default(),
 
             e: Default::default(),
         }
@@ -102,18 +97,7 @@ impl MiniOrchestrator {
     // matter?
     pub const SAMPLE_BUFFER_SIZE: usize = 64;
 
-    /// Creates a new [MiniOrchestrator] with an [EntityFactory]. Note that an
-    /// [Arc] wraps the factory, which implies that the factory must be fully
-    /// equipped by the time it's given to the orchestrator.
-    pub fn new_with(entity_factory: Arc<EntityFactory>) -> Self {
-        let transport_uid = entity_factory.mint_uid();
-        let mut r = Self {
-            ..Default::default()
-        };
-        r.e.entity_factory = Some(entity_factory);
-        r.transport.set_uid(transport_uid);
-        r
-    }
+    const TRANSPORT_UID: Uid = Uid(1);
 
     /// The current [SampleRate] used to render the current project. Typically
     /// something like 44.1KHz.
@@ -196,23 +180,6 @@ impl MiniOrchestrator {
         // Copy over the current sample rate, whose validity shouldn't change
         // because we loaded a new project.
         new.update_sample_rate(self.sample_rate());
-
-        // [EntityFactory] needs its internal new-uid counter to be higher than
-        // any existing [Uid] in the project, so that it doesn't mint duplicate
-        // [Uid]s. This is a bit cumbersome.
-        if let Some(factory) = &self.e.entity_factory {
-            factory.set_next_uid_expensively(&new.max_uid());
-            new.e.entity_factory = Some(Arc::clone(factory));
-        }
-    }
-
-    /// Returns the maximum known Uid in use among all tracks.
-    fn max_uid(&self) -> Uid {
-        if let Some(max_uid) = self.tracks.values().map(|t| t.max_uid()).max() {
-            max_uid
-        } else {
-            Uid(0)
-        }
     }
 
     /// Renders the project's GUI.
@@ -313,7 +280,7 @@ impl MiniOrchestrator {
             let uids: Vec<TrackUid> = uids.iter().map(|u| (*u).clone()).collect();
 
             for uid in uids {
-                let is_selected = self.is_track_selected(&uid);
+                let is_selected = self.track_selection_set.contains(&uid);
                 if let Some(track) = self.get_track_mut(&uid) {
                     ui.allocate_ui(vec2(ui.available_width(), 64.0), |ui| {
                         Frame::default()
@@ -343,7 +310,7 @@ impl MiniOrchestrator {
                 self.select_track(&uid, is_control_only_down);
             }
             TrackAction::SelectClear => {
-                self.clear_track_selections();
+                self.track_selection_set.clear();
             }
             TrackAction::SetTitle(index, title) => self.set_track_title(index, title),
         }
@@ -382,34 +349,24 @@ impl MiniOrchestrator {
 
     #[allow(missing_docs)]
     pub fn delete_selected_tracks(&mut self) {
-        self.selected_track_uids
+        self.track_selection_set
             .clone()
             .iter()
             .for_each(|uid| self.delete_track(uid));
-        self.selected_track_uids.clear();
+        self.track_selection_set.clear();
     }
 
     /// Adds the given track to the selection set, or else replaces the set with
     /// this single item.
     pub fn select_track(&mut self, uid: &TrackUid, add_to_selections: bool) {
-        self.selected_track_uids.insert(*uid);
-        let existing = self.is_track_selected(uid);
-        if !add_to_selections {
-            self.selected_track_uids.clear();
-        }
-        if existing {
-            self.selected_track_uids.insert(*uid);
-        } else {
-            self.selected_track_uids.remove(&uid);
-        }
+        self.track_selection_set.click(*uid, add_to_selections);
     }
 
     #[allow(missing_docs)]
     // TODO: this doesn't make sense. Should restrict to operating on a single
     // track.
     pub fn remove_selected_patterns(&mut self) {
-        let selected_uids = self.selected_track_uids.clone();
-        selected_uids.iter().for_each(|uid| {
+        self.track_selection_set.clone().iter().for_each(|uid| {
             if let Some(track) = self.get_track_mut(uid) {
                 track.remove_selected_patterns();
             }
@@ -427,26 +384,12 @@ impl MiniOrchestrator {
         self.title = title;
     }
 
-    fn clear_track_selections(&mut self) {
-        self.selected_track_uids.clear()
-    }
-
-    /// Adds a new thing with the specified [Key] to the currently selected
-    /// single track. Fails if anything but exactly one track is selected.
-    pub fn add_thing_by_key_to_selected_track(&mut self, key: &Key) -> Result<Uid> {
-        if let Some(track_uid) = self.get_single_selected_track_uid() {
-            self.add_thing_by_key_to_track(key, &track_uid)
-        } else {
-            Err(anyhow!("A single track was not selected"))
-        }
-    }
-
     /// If exactly one track is selected, returns its [TrackUid]. Otherwise
     /// returns `None`.
     pub fn get_single_selected_track_uid(&self) -> Option<TrackUid> {
         // TODO: this is icky. Is there a better way to get a single value out of a HashSet?
         if self.is_one_track_selected() {
-            if let Some(uid) = self.selected_track_uids.iter().next() {
+            if let Some(uid) = self.track_selection_set.iter().next() {
                 return Some(uid.clone());
             }
         }
@@ -454,27 +397,13 @@ impl MiniOrchestrator {
     }
 
     #[allow(missing_docs)]
-    pub fn is_any_track_selected(&self) -> bool {
-        !self.selected_track_uids.is_empty()
+    pub fn is_track_selection_empty(&self) -> bool {
+        !self.track_selection_set.is_empty()
     }
 
     #[allow(missing_docs)]
     pub fn is_one_track_selected(&self) -> bool {
-        self.selected_track_uids.len() == 1
-    }
-
-    /// Adds a new thing with the specified [Key] to the track with the
-    /// specified [TrackIndex].
-    pub fn add_thing_by_key_to_track(&mut self, key: &Key, track_uid: &TrackUid) -> Result<Uid> {
-        if let Some(factory) = &self.e.entity_factory {
-            if let Some(e) = factory.new_thing(key) {
-                self.add_thing(e, track_uid)
-            } else {
-                Err(anyhow!("key {key} not found"))
-            }
-        } else {
-            Err(anyhow!("there is no entity factory"))
-        }
+        self.track_selection_set.len() == 1
     }
 
     /// Adds the given thing, returning an assigned [Uid] if successful.
@@ -520,7 +449,7 @@ impl MiniOrchestrator {
     fn route_control_change(&mut self, source_uid: Uid, value: ControlValue) {
         let _ = self.control_router.route(
             &mut |target_uid, index, value| {
-                if target_uid == &self.transport.uid() {
+                if target_uid == &Self::TRANSPORT_UID {
                     self.transport.control_set_param_by_index(index, value);
                 }
             },
@@ -546,10 +475,6 @@ impl MiniOrchestrator {
         if let Some(track) = self.get_track_mut(&uid) {
             track.set_title(title);
         }
-    }
-
-    fn is_track_selected(&self, uid: &TrackUid) -> bool {
-        self.selected_track_uids.contains(uid)
     }
 
     #[allow(dead_code)]

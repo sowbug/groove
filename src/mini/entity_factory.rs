@@ -48,13 +48,15 @@ pub struct EntityFactory {
 impl Default for EntityFactory {
     fn default() -> Self {
         Self {
-            next_id: RelaxedCounter::new(1),
+            next_id: RelaxedCounter::new(Self::MAX_RESERVED_UID),
             things: Default::default(),
             keys: Default::default(),
         }
     }
 }
 impl EntityFactory {
+    pub(crate) const MAX_RESERVED_UID: usize = 1023;
+
     /// Registers a new type for the given [Key] using the given closure.
     pub fn register_thing(&mut self, key: Key, f: ThingFactoryFn) {
         if self.keys.insert(key.clone()) {
@@ -132,14 +134,6 @@ impl ThingStore {
     }
     pub fn iter_mut(&mut self) -> hash_map::ValuesMut<'_, Uid, Box<dyn Thing>> {
         self.things.values_mut()
-    }
-
-    pub(crate) fn max_uid(&self) -> Uid {
-        if let Some(max) = self.things.keys().map(|uid| *uid).max() {
-            max
-        } else {
-            Uid(0)
-        }
     }
 }
 impl Ticks for ThingStore {

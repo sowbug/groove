@@ -1,13 +1,13 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::UidFactory;
+use super::{selection_set::SelectionSet, UidFactory};
 use anyhow::anyhow;
 use btreemultimap::BTreeMultiMap;
 use derive_builder::Builder;
 use eframe::{
     egui::{Frame, Response, Sense, Ui},
     emath::{self, RectTransform},
-    epaint::{ahash::HashSet, vec2, Color32, Pos2, Rect, Rounding, Shape, Stroke, Vec2},
+    epaint::{vec2, Color32, Pos2, Rect, Rounding, Shape, Stroke, Vec2},
 };
 use groove_core::{
     midi::{new_note_off, new_note_on, MidiChannel, MidiMessage},
@@ -429,7 +429,7 @@ pub struct MiniSequencer {
     arranged_patterns: HashMap<ArrangedPatternUid, ArrangedPattern>,
 
     #[builder(setter(skip))]
-    selected_arranged_pattern_uids: HashSet<ArrangedPatternUid>,
+    arranged_pattern_selection_set: SelectionSet<ArrangedPatternUid>,
 
     #[serde(skip)]
     #[builder(setter(skip))]
@@ -581,7 +581,8 @@ impl MiniSequencer {
                                 .ui_arrangement(
                                     ui,
                                     pattern,
-                                    self.is_arranged_pattern_selected(arranged_pattern_uid),
+                                    self.arranged_pattern_selection_set
+                                        .contains(arranged_pattern_uid),
                                 )
                                 .clicked()
                             {
@@ -604,8 +605,8 @@ impl MiniSequencer {
     /// Removes all selected arranged patterns.
     pub fn remove_selected_arranged_patterns(&mut self) {
         self.arranged_patterns
-            .retain(|uid, ap| !self.selected_arranged_pattern_uids.contains(uid));
-        self.selected_arranged_pattern_uids.clear();
+            .retain(|uid, ap| !self.arranged_pattern_selection_set.contains(uid));
+        self.arranged_pattern_selection_set.clear();
     }
 
     fn calculate_events(&mut self) -> anyhow::Result<()> {
@@ -634,31 +635,11 @@ impl MiniSequencer {
     }
 
     fn toggle_arranged_pattern_selection(&mut self, uid: &ArrangedPatternUid) {
-        if self.selected_arranged_pattern_uids.contains(uid) {
-            self.selected_arranged_pattern_uids.remove(uid);
+        if self.arranged_pattern_selection_set.contains(uid) {
+            self.arranged_pattern_selection_set.remove(uid);
         } else {
-            self.selected_arranged_pattern_uids.insert(*uid);
+            self.arranged_pattern_selection_set.insert(*uid);
         }
-    }
-
-    fn select_arranged_pattern(
-        &mut self,
-        uid: &ArrangedPatternUid,
-        selected: bool,
-        preserve_selection_set: bool,
-    ) {
-        if !preserve_selection_set {
-            self.selected_arranged_pattern_uids.clear();
-        }
-        if selected {
-            self.selected_arranged_pattern_uids.insert(*uid);
-        } else {
-            self.selected_arranged_pattern_uids.remove(uid);
-        }
-    }
-
-    fn is_arranged_pattern_selected(&self, uid: &ArrangedPatternUid) -> bool {
-        self.selected_arranged_pattern_uids.contains(uid)
     }
 
     fn remove_arranged_pattern(&mut self, uid: &ArrangedPatternUid) {
@@ -1246,11 +1227,11 @@ mod tests {
         let uid0 = s.arrange_pattern(&puid0, 1).unwrap();
         assert_eq!(s.arranged_patterns.len(), 2);
 
-        s.select_arranged_pattern(&uid1, true, false);
+        s.arranged_pattern_selection_set.click(uid1, false);
         s.remove_selected_arranged_patterns();
         assert_eq!(s.arranged_patterns.len(), 1);
 
-        s.select_arranged_pattern(&uid0, true, false);
+        s.arranged_pattern_selection_set.click(uid0, false);
         s.remove_selected_arranged_patterns();
         assert!(s.arranged_patterns.is_empty());
     }
@@ -1258,7 +1239,7 @@ mod tests {
     #[test]
     fn arranged_pattern_selection_works() {
         let mut s = MiniSequencerBuilder::default().build().unwrap();
-        assert!(s.selected_arranged_pattern_uids.is_empty());
+        assert!(s.arranged_pattern_selection_set.is_empty());
 
         let (puid0, _, _) = s.populate_pattern(0);
         let (puid1, _, _) = s.populate_pattern(1);
@@ -1266,26 +1247,26 @@ mod tests {
         let uid0 = s.arrange_pattern(&puid0, 0).unwrap();
         let uid1 = s.arrange_pattern(&puid1, 1).unwrap();
 
-        assert!(s.selected_arranged_pattern_uids.is_empty());
+        assert!(s.arranged_pattern_selection_set.is_empty());
 
-        s.select_arranged_pattern(&uid0, true, false);
-        assert_eq!(s.selected_arranged_pattern_uids.len(), 1);
-        assert!(s.is_arranged_pattern_selected(&uid0));
-        assert!(!s.is_arranged_pattern_selected(&uid1));
+        s.arranged_pattern_selection_set.click(uid0, false);
+        assert_eq!(s.arranged_pattern_selection_set.len(), 1);
+        assert!(s.arranged_pattern_selection_set.contains(&uid0));
+        assert!(!s.arranged_pattern_selection_set.contains(&uid1));
 
-        s.select_arranged_pattern(&uid1, true, true);
-        assert_eq!(s.selected_arranged_pattern_uids.len(), 2);
-        assert!(s.is_arranged_pattern_selected(&uid0));
-        assert!(s.is_arranged_pattern_selected(&uid1));
+        s.arranged_pattern_selection_set.click(uid1, true);
+        assert_eq!(s.arranged_pattern_selection_set.len(), 2);
+        assert!(s.arranged_pattern_selection_set.contains(&uid0));
+        assert!(s.arranged_pattern_selection_set.contains(&uid1));
 
-        s.select_arranged_pattern(&uid1, false, true);
-        assert_eq!(s.selected_arranged_pattern_uids.len(), 1);
-        assert!(s.is_arranged_pattern_selected(&uid0));
-        assert!(!s.is_arranged_pattern_selected(&uid1));
+        s.arranged_pattern_selection_set.click(uid1, true);
+        assert_eq!(s.arranged_pattern_selection_set.len(), 1);
+        assert!(s.arranged_pattern_selection_set.contains(&uid0));
+        assert!(!s.arranged_pattern_selection_set.contains(&uid1));
 
-        s.select_arranged_pattern(&uid1, true, false);
-        assert_eq!(s.selected_arranged_pattern_uids.len(), 1);
-        assert!(!s.is_arranged_pattern_selected(&uid0));
-        assert!(s.is_arranged_pattern_selected(&uid1));
+        s.arranged_pattern_selection_set.click(uid1, false);
+        assert_eq!(s.arranged_pattern_selection_set.len(), 1);
+        assert!(!s.arranged_pattern_selection_set.contains(&uid0));
+        assert!(s.arranged_pattern_selection_set.contains(&uid1));
     }
 }

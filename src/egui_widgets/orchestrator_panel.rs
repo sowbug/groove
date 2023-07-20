@@ -86,6 +86,7 @@ pub struct OrchestratorPanel {
     #[allow(dead_code)]
     drag_drop_manager: Arc<Mutex<DragDropManager>>,
     orchestrator: Arc<Mutex<MiniOrchestrator>>,
+    factory: Arc<EntityFactory>,
     input_channel_pair: ChannelPair<MiniOrchestratorInput>,
     event_channel_pair: ChannelPair<MiniOrchestratorEvent>,
 }
@@ -97,7 +98,8 @@ impl OrchestratorPanel {
     ) -> Self {
         let mut r = Self {
             drag_drop_manager,
-            orchestrator: Arc::new(Mutex::new(MiniOrchestrator::new_with(factory))),
+            orchestrator: Arc::new(Mutex::new(MiniOrchestrator::default())),
+            factory,
             input_channel_pair: Default::default(),
             event_channel_pair: Default::default(),
         };
@@ -110,6 +112,7 @@ impl OrchestratorPanel {
         let sender = self.event_channel_pair.sender.clone();
         self.introduce();
         let orchestrator = Arc::clone(&self.orchestrator);
+        let factory = Arc::clone(&self.factory);
         std::thread::spawn(move || loop {
             let recv = receiver.recv();
             if let Ok(mut o) = orchestrator.lock() {
@@ -181,7 +184,11 @@ impl OrchestratorPanel {
                         }
                         MiniOrchestratorInput::TrackSelectReset => todo!(),
                         MiniOrchestratorInput::TrackAddThing(key) => {
-                            let _ = o.add_thing_by_key_to_selected_track(&key);
+                            if let Some(track_uid) = o.get_single_selected_track_uid() {
+                                if let Some(e) = factory.new_thing(&key) {
+                                    let _ = o.add_thing(e, &track_uid);
+                                }
+                            }
                         }
                         MiniOrchestratorInput::Tempo(tempo) => {
                             o.update_tempo(tempo);
@@ -285,7 +292,7 @@ impl OrchestratorPanel {
     /// Whether one or more tracks are currently selected.
     pub fn is_any_track_selected(&self) -> bool {
         if let Ok(o) = self.orchestrator.lock() {
-            o.is_any_track_selected()
+            o.is_track_selection_empty()
         } else {
             false
         }

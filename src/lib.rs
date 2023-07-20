@@ -93,7 +93,10 @@
 //! }
 //! ```
 
+#[deprecated]
 pub use groove_orchestration::{Entity, Orchestrator};
+
+pub use mini::MiniOrchestrator;
 
 /// Widgets for egui
 pub mod egui_widgets;

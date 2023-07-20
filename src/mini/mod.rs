@@ -23,6 +23,7 @@ mod entity_factory;
 mod humidifier;
 mod midi_router;
 mod orchestrator;
+mod selection_set;
 mod sequencer;
 mod track;
 mod transport;
