@@ -309,19 +309,17 @@ impl OrchestratorPanel {
     /// Renders the panel.
     pub fn show(&mut self, ui: &mut Ui, is_control_only_down: bool) {
         if let Ok(mut o) = self.orchestrator.lock() {
-            let tss = if let Ok(tss) = self.track_selection_set.lock() {
-                tss.clone()
-            } else {
-                panic!()
-            };
-            if let Some(action) = o.show_with(ui, &tss) {
-                match action {
-                    TrackAction::Click(track_uid) => self.send_to_service(
-                        OrchestratorInput::TrackSelect(track_uid, is_control_only_down),
-                    ),
+            if let Some(action) = o.show_with(ui, &self.track_selection_set.lock().unwrap()) {
+                if let Some(input) = match action {
+                    TrackAction::Click(track_uid) => Some(OrchestratorInput::TrackSelect(
+                        track_uid,
+                        is_control_only_down,
+                    )),
                     TrackAction::SetTitle(track_uid, title) => {
-                        self.send_to_service(OrchestratorInput::TrackSetTitle(track_uid, title))
+                        Some(OrchestratorInput::TrackSetTitle(track_uid, title))
                     }
+                } {
+                    self.send_to_service(input);
                 }
             }
         }
