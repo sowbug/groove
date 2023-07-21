@@ -26,7 +26,7 @@ use groove_core::{
 };
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Debug, ops::Range};
+use std::{collections::HashMap, fmt::Debug, ops::Range, vec::Vec};
 
 /// Actions that [Orchestrator]'s UI might need the parent to perform.
 #[derive(Debug)]
@@ -329,7 +329,7 @@ impl Orchestrator {
     ) -> Option<OrchestratorAction> {
         let action = self.ui_arrangement(
             ui,
-            MusicalTime::new_with_beats(0)..MusicalTime::new_with_beats(128),
+            &(MusicalTime::new_with_beats(0)..MusicalTime::new_with_beats(128)),
             track_selection_set,
         );
 
@@ -343,7 +343,7 @@ impl Orchestrator {
     fn ui_arrangement<'a>(
         &mut self,
         ui: &mut Ui,
-        viewable_time_range: Range<MusicalTime>,
+        viewable_time_range: &Range<MusicalTime>,
         track_selection_set: &SelectionSet<TrackUid>,
     ) -> Option<OrchestratorAction> {
         let mut action = None;
@@ -351,54 +351,19 @@ impl Orchestrator {
         Frame::canvas(ui.style()).show(ui, |ui| {
             const LEGEND_HEIGHT: f32 = 16.0;
             let (_id, rect) = ui.allocate_space(vec2(ui.available_width(), LEGEND_HEIGHT));
-            let to_screen =
-                emath::RectTransform::from_to(Rect::from_x_y_ranges(0.0..=1.0, 0.0..=1.0), rect);
+            let to_screen_beats = emath::RectTransform::from_to(
+                Rect::from_x_y_ranges(
+                    viewable_time_range.start.total_beats() as f32
+                        ..=viewable_time_range.end.total_beats() as f32,
+                    0.0..=1.0,
+                ),
+                rect,
+            );
+            let text_bottom = rect.bottom() - 1.0;
 
-            let font_id = FontId::proportional(12.0);
-            let beat_count = (viewable_time_range.end.total_beats()
-                - viewable_time_range.start.total_beats()) as usize;
-            let skip = if beat_count > 100 {
-                10
-            } else if beat_count > 10 {
-                2
-            } else {
-                1
-            };
-            for (i, beat) in (viewable_time_range.start.total_beats()
-                ..viewable_time_range.end.total_beats())
-                .enumerate()
-            {
-                if i != 0 && i != beat_count - 1 && i % skip != 0 {
-                    continue;
-                }
-                let percentage = i as f32 / beat_count as f32;
-                let beat_plus_one = beat + 1;
-                let pos = to_screen * pos2(percentage, 0.0);
-                let pos = pos2(pos.x, rect.bottom() - 1.0);
-                ui.painter().text(
-                    pos,
-                    Align2::CENTER_BOTTOM,
-                    format!("{beat_plus_one}"),
-                    font_id.clone(),
-                    Color32::YELLOW,
-                );
-            }
-            let mut shapes = vec![];
-
-            let left_x = (to_screen * pos2(0.0, 0.0)).x;
-            let right_x = (to_screen * pos2(1.0, 0.0)).x;
-            let line_points = [
-                pos2(left_x, rect.bottom() - 1.0),
-                pos2(right_x, rect.bottom() - 1.0),
-            ];
-
-            shapes.push(Shape::line_segment(
-                line_points,
-                Stroke {
-                    color: Color32::YELLOW,
-                    width: 1.0,
-                },
-            ));
+            // Add labels at top
+            let shapes =
+                self.ui_arrangement_labels(ui, to_screen_beats, text_bottom, viewable_time_range);
             ui.painter().extend(shapes);
 
             // Non-send tracks are first, then send tracks
@@ -425,7 +390,7 @@ impl Orchestrator {
                                 color: Color32::YELLOW,
                             })
                             .show(ui, |ui| {
-                                let (response, a) = track.show(ui);
+                                let (response, a) = track.show(ui, viewable_time_range);
                                 if let Some(a) = a {
                                     track_action = Some(a);
                                 }
@@ -443,6 +408,57 @@ impl Orchestrator {
             }
         });
         action
+    }
+
+    fn ui_arrangement_labels(
+        &self,
+        ui: &mut Ui,
+        to_screen_beats: emath::RectTransform,
+        text_bottom: f32,
+        viewable_time_range: &Range<MusicalTime>,
+    ) -> Vec<Shape> {
+        let mut shapes = vec![];
+        let start_beat = viewable_time_range.start.total_beats();
+        let end_beat = viewable_time_range.end.total_beats();
+
+        let font_id = FontId::proportional(12.0);
+        let beat_count = (end_beat - start_beat) as usize;
+        let skip = if beat_count > 100 {
+            10
+        } else if beat_count > 10 {
+            2
+        } else {
+            1
+        };
+        for (i, beat) in (start_beat..end_beat).enumerate() {
+            if i != 0 && i != beat_count - 1 && i % skip != 0 {
+                continue;
+            }
+            let beat_plus_one = beat + 1;
+            let pos = to_screen_beats * pos2(beat as f32, 0.0);
+            let pos = pos2(pos.x, text_bottom);
+            ui.painter().text(
+                pos,
+                Align2::CENTER_BOTTOM,
+                format!("{beat_plus_one}"),
+                font_id.clone(),
+                Color32::YELLOW,
+            );
+        }
+
+        let left_x = (to_screen_beats * pos2(start_beat as f32, 0.0)).x;
+        let right_x = (to_screen_beats * pos2(end_beat as f32, 0.0)).x;
+        let line_points = [pos2(left_x, text_bottom), pos2(right_x, text_bottom)];
+
+        shapes.push(Shape::line_segment(
+            line_points,
+            Stroke {
+                color: Color32::YELLOW,
+                width: 1.0,
+            },
+        ));
+
+        shapes
     }
 
     fn ui_detail(&mut self, ui: &mut Ui, track_uid: &TrackUid) {

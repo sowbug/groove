@@ -7,7 +7,7 @@ use derive_builder::Builder;
 use eframe::{
     egui::{Frame, Response, Sense, Ui},
     emath::{self, RectTransform},
-    epaint::{vec2, Color32, Pos2, Rect, Rounding, Shape, Stroke, Vec2},
+    epaint::{pos2, vec2, Color32, Pos2, Rect, Rounding, Shape, Stroke, Vec2},
 };
 use groove_core::{
     midi::{new_note_off, new_note_on, MidiChannel, MidiMessage},
@@ -61,7 +61,7 @@ struct ArrangedPattern {
     position: MusicalTime,
 }
 impl ArrangedPattern {
-    fn ui_arrangement(&self, ui: &mut Ui, pattern: &Pattern, is_selected: bool) -> Response {
+    fn ui_content(&self, ui: &mut Ui, pattern: &Pattern, is_selected: bool) -> Response {
         let steps_horiz = pattern.time_signature.bottom * 4;
 
         let desired_size = vec2((pattern.duration.total_beats() * 16) as f32, 64.0);
@@ -474,10 +474,17 @@ impl Sequencer {
     }
 
     fn arrange_pattern_append(&mut self, uid: &PatternUid) -> anyhow::Result<ArrangedPatternUid> {
-        self.arrange_pattern(
+        if let Ok(apuid) = self.arrange_pattern(
             uid,
             self.next_arrangement_position().bars(&self.time_signature) as usize,
-        )
+        ) {
+            if let Some(pattern) = self.patterns.get(uid) {
+                self.e.arrangement_cursor += pattern.duration;
+            }
+            Ok(apuid)
+        } else {
+            Err(anyhow!("something went wrong"))
+        }
     }
 
     fn arrange_pattern(
@@ -541,6 +548,44 @@ impl Sequencer {
         action
     }
 
+    /// Renders the track's arrangement view.
+    #[must_use]
+    pub fn ui_arrangement(
+        &mut self,
+        ui: &mut Ui,
+        viewable_time_range: &Range<MusicalTime>,
+    ) -> (Response, Option<SequencerAction>) {
+        let desired_size = vec2(ui.available_width(), 64.0);
+        let (_id, rect) = ui.allocate_space(desired_size);
+        let painter = ui.painter_at(rect);
+
+        let start_beat = viewable_time_range.start.total_beats();
+        let end_beat = viewable_time_range.end.total_beats();
+        let to_screen = emath::RectTransform::from_to(
+            Rect::from_x_y_ranges(start_beat as f32..=end_beat as f32, 0.0..=1.0),
+            rect,
+        );
+
+        painter.rect_filled(rect, Rounding::default(), Color32::GRAY);
+
+        for (_arranged_pattern_uid, arranged_pattern) in self.arranged_patterns.iter() {
+            if let Some(pattern) = self.patterns.get(&arranged_pattern.pattern_uid) {
+                let start = arranged_pattern.position;
+                let end = start + pattern.duration;
+                let start_beats = start.total_beats();
+                let end_beats = end.total_beats();
+
+                let ap_rect = Rect::from_two_pos(
+                    to_screen * pos2(start_beats as f32, 0.0),
+                    to_screen * pos2(end_beats as f32, 1.0),
+                );
+                painter.rect_filled(ap_rect, Rounding::default(), Color32::YELLOW);
+            }
+        }
+
+        (ui.allocate_ui_at_rect(rect, |ui| {}).response, None)
+    }
+
     /// Renders the arrangement view.
     #[must_use]
     pub fn show_arrangement(&mut self, ui: &mut Ui) -> (Response, Option<SequencerAction>) {
@@ -573,7 +618,7 @@ impl Sequencer {
                     for (arranged_pattern_uid, arranged_pattern) in self.arranged_patterns.iter() {
                         if let Some(pattern) = self.patterns.get(&arranged_pattern.pattern_uid) {
                             if arranged_pattern
-                                .ui_arrangement(
+                                .ui_content(
                                     ui,
                                     pattern,
                                     self.arranged_pattern_selection_set

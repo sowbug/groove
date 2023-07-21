@@ -1,7 +1,5 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use std::fmt::Display;
-
 use super::{
     control_atlas::ControlAtlas,
     control_router::ControlRouter,
@@ -18,7 +16,7 @@ use eframe::{
 use groove_core::{
     control::ControlValue,
     midi::MidiChannel,
-    time::{SampleRate, Tempo, TimeSignature},
+    time::{MusicalTime, SampleRate, Tempo, TimeSignature},
     traits::{
         gui::Shows, Configurable, ControlEventsFn, Controls, GeneratesToInternalBuffer, Performs,
         Serializable, Thing, Ticks,
@@ -26,6 +24,7 @@ use groove_core::{
     IsUid, Normal, StereoSample, Uid,
 };
 use serde::{Deserialize, Serialize};
+use std::{fmt::Display, ops::Range};
 
 /// Identifies a [Track].
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -270,16 +269,17 @@ impl Track {
         response
     }
 
-    fn show_midi(&mut self, ui: &mut Ui) -> (Response, Option<SequencerAction>) {
-        if let Some(sequencer) = self.sequencer.as_mut() {
-            sequencer.show_arrangement(ui)
-        } else {
-            eprintln!("Hmmm, no sequencer in a MIDI track?");
-            (ui.allocate_ui(ui.available_size(), |_ui| {}).response, None)
-        }
+    fn show_midi(
+        &mut self,
+        ui: &mut Ui,
+        viewable_time_range: &Range<MusicalTime>,
+    ) -> (Response, Option<SequencerAction>) {
+        let sequencer = self.sequencer.as_mut().unwrap();
+
+        sequencer.ui_arrangement(ui, viewable_time_range)
     }
 
-    fn show_audio(&self, ui: &mut Ui) -> Response {
+    fn show_audio(&self, ui: &mut Ui, _viewable_time_range: &Range<MusicalTime>) -> Response {
         self.draw_temp_squiggles(ui)
     }
 
@@ -427,7 +427,11 @@ impl Track {
 
     #[must_use]
     #[allow(missing_docs)]
-    pub fn show(&mut self, ui: &mut Ui) -> (Response, Option<TrackAction>) {
+    pub fn show(
+        &mut self,
+        ui: &mut Ui,
+        viewable_time_range: &Range<MusicalTime>,
+    ) -> (Response, Option<TrackAction>) {
         let mut action = None;
 
         let response = Frame::default()
@@ -449,10 +453,10 @@ impl Track {
             .inner;
         match self.ty {
             TrackType::Midi => {
-                self.show_midi(ui);
+                self.show_midi(ui, viewable_time_range);
             }
             TrackType::Audio => {
-                self.show_audio(ui);
+                self.show_audio(ui, viewable_time_range);
             }
             TrackType::Send => {
                 // For now, the title bar is enough for a send track, which holds only effects.
