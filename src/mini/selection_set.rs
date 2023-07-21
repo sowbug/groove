@@ -83,6 +83,15 @@ impl<T: IsUid> SelectionSet<T> {
             self.insert(uid);
         }
     }
+
+    /// If a single item is selected, returns it. Otherwise returns None.
+    pub fn single_selection(&self) -> Option<&T> {
+        if self.selected_uids.len() == 1 {
+            self.selected_uids.iter().next()
+        } else {
+            None
+        }
+    }
 }
 
 #[cfg(test)]
@@ -123,5 +132,11 @@ mod tests {
 
         st.click(uid2048, true);
         assert!(st.is_empty());
+
+        assert!(st.single_selection().is_none());
+        st.set_selected(uid2048, true);
+        assert_eq!(st.single_selection().unwrap(), &uid2048);
+        st.set_selected(uid2049, true);
+        assert!(st.single_selection().is_none());
     }
 }

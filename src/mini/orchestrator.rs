@@ -322,7 +322,7 @@ impl Orchestrator {
 
     /// Renders the project's GUI.
     #[must_use]
-    pub fn show_with(
+    pub fn show(
         &mut self,
         ui: &mut Ui,
         track_selection_set: &SelectionSet<TrackUid>,
@@ -333,18 +333,10 @@ impl Orchestrator {
             track_selection_set,
         );
 
-        if track_selection_set.len() == 1 {
-            let bottom = egui::TopBottomPanel::bottom("orchestrator-bottom-panel").resizable(true);
-            bottom.show_inside(ui, |ui| {
-                for track_uid in track_selection_set.iter() {
-                    if let Some(track) = self.tracks.get_mut(&track_uid) {
-                        if let Some(_) = track.ui_detail(ui) {
-                            panic!("there are currently no TrackDetailActions");
-                        }
-                    }
-                }
-            });
+        if let Some(track_uid) = track_selection_set.single_selection() {
+            self.ui_detail(ui, track_uid);
         }
+
         action
     }
 
@@ -451,6 +443,17 @@ impl Orchestrator {
             }
         });
         action
+    }
+
+    fn ui_detail(&mut self, ui: &mut Ui, track_uid: &TrackUid) {
+        let bottom = egui::TopBottomPanel::bottom("orchestrator-bottom-panel").resizable(true);
+        bottom.show_inside(ui, |ui| {
+            if let Some(track) = self.tracks.get_mut(&track_uid) {
+                if let Some(_) = track.ui_detail(ui) {
+                    panic!("there are currently no TrackDetailActions");
+                }
+            }
+        });
     }
 
     fn new_track(&mut self, track: Track) -> anyhow::Result<TrackUid> {

@@ -288,7 +288,7 @@ impl OrchestratorPanel {
     pub fn show(&mut self, ui: &mut Ui, is_control_only_down: bool) {
         let mut o = self.orchestrator.lock().unwrap();
         let tss = self.track_selection_set.lock().unwrap().clone();
-        if let Some(action) = o.show_with(ui, &tss) {
+        if let Some(action) = o.show(ui, &tss) {
             match action {
                 crate::mini::OrchestratorAction::ClickTrack(track_uid) => {
                     self.track_selection_set
