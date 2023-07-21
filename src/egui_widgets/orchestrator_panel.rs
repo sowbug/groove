@@ -158,9 +158,8 @@ impl OrchestratorPanel {
                         }
                         OrchestratorInput::TrackDeleteSelected => {
                             if let Ok(track_selection_set) = track_selection_set.lock() {
-                                track_selection_set
-                                    .iter()
-                                    .for_each(|uid| o.delete_track(uid));
+                                let uids = Vec::from_iter(track_selection_set.iter().copied());
+                                o.delete_tracks(&uids);
                             }
                         }
                         OrchestratorInput::TrackDuplicateSelected => {

@@ -177,6 +177,13 @@ impl Orchestrator {
         self.track_uids.retain(|u| u != uid);
     }
 
+    /// Deletes the specified tracks.
+    pub fn delete_tracks(&mut self, uids: &[TrackUid]) {
+        uids.iter().for_each(|uid| {
+            self.delete_track(uid);
+        });
+    }
+
     /// Sets a new title for the track.
     pub fn set_track_title(&mut self, uid: TrackUid, title: TrackTitle) {
         if let Some(track) = self.get_track_mut(&uid) {
@@ -646,7 +653,7 @@ impl Serializable for Orchestrator {
 
 #[cfg(test)]
 mod tests {
-    use crate::mini::orchestrator::Orchestrator;
+    use crate::mini::{orchestrator::Orchestrator, TrackUid};
     use groove_core::{
         time::{MusicalTime, SampleRate, Tempo},
         traits::{Configurable, Controls, HasUid, Performs},
@@ -654,6 +661,7 @@ mod tests {
     };
     use groove_entities::controllers::{Timer, TimerParams};
     use groove_toys::ToySynth;
+    use std::collections::HashSet;
 
     #[test]
     fn basic_operations() {
@@ -770,5 +778,40 @@ mod tests {
             "using Orchestrator's max_entity_uid as a guide should work."
         );
         assert_eq!(o.max_entity_uid, Uid(10000));
+    }
+
+    #[test]
+    fn track_crud() {
+        let mut o = Orchestrator::default();
+        assert_eq!(o.track_uids().len(), 0);
+        let track_uid = o.new_midi_track().unwrap();
+        assert_eq!(o.track_uids().len(), 1);
+
+        assert!(o.track_uids()[0] == track_uid);
+
+        o.delete_track(&track_uid);
+        assert!(o.track_uids().is_empty());
+
+        // Do it one way
+        {
+            assert!(o.create_starter_tracks().is_ok());
+            assert!(!o.track_uids().is_empty());
+
+            o.delete_tracks(&Vec::from(o.track_uids()));
+            assert!(o.track_uids().is_empty());
+        }
+
+        // Do it another way
+        {
+            assert!(o.create_starter_tracks().is_ok());
+            assert!(!o.track_uids().is_empty());
+
+            let mut selection_set: HashSet<TrackUid> = HashSet::default();
+            for uid in o.track_uids() {
+                selection_set.insert(*uid);
+            }
+            o.delete_tracks(&Vec::from_iter(selection_set.iter().copied()));
+            assert!(o.track_uids().is_empty());
+        }
     }
 }
