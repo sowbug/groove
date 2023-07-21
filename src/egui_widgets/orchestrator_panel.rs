@@ -1,6 +1,4 @@
-use crate::mini::{
-    ChannelPair, EntityFactory, Key, Orchestrator, SelectionSet, TrackAction, TrackTitle, TrackUid,
-};
+use crate::mini::{ChannelPair, EntityFactory, Key, Orchestrator, SelectionSet, TrackUid};
 use anyhow::{anyhow, Result};
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::Ui;
@@ -44,18 +42,8 @@ pub enum OrchestratorInput {
     TrackPatternRemoveSelected,
     /// Add a new entity to the selected track.
     TrackAddThing(Key),
-    /// Sets a new title for the track.
-    TrackSetTitle(TrackUid, TrackTitle),
     /// Sets the tempo.
     Tempo(Tempo),
-
-    // TODO: these are waiting for the big refactor (which might never happen)
-    /// Select the given track.
-    #[allow(dead_code)]
-    TrackSelect(TrackUid, bool), // (track UID, add to selection set)
-    /// Reset the selection set.
-    #[allow(dead_code)]
-    TrackSelectReset,
 
     /// Quit the thread.
     Quit,
@@ -182,7 +170,6 @@ impl OrchestratorPanel {
                             unimplemented!()
                             //                            o.remove_selected_patterns();
                         }
-                        OrchestratorInput::TrackSelectReset => todo!(),
                         OrchestratorInput::TrackAddThing(key) => {
                             // TODO: this is weird because it acts on all selected tracks. Figure out how to better restrict in the GUI.
                             if let Ok(track_selection_set) = track_selection_set.lock() {
@@ -196,14 +183,6 @@ impl OrchestratorPanel {
                         OrchestratorInput::Tempo(tempo) => {
                             o.update_tempo(tempo);
                             let _ = sender.send(OrchestratorEvent::Tempo(tempo));
-                        }
-                        OrchestratorInput::TrackSetTitle(track_uid, title) => {
-                            o.set_track_title(track_uid, title);
-                        }
-                        OrchestratorInput::TrackSelect(track_uid, add_to_selection_set) => {
-                            if let Ok(mut track_selection_set) = track_selection_set.lock() {
-                                track_selection_set.click(track_uid, add_to_selection_set);
-                            }
                         }
                     },
                     Err(err) => {
@@ -308,18 +287,15 @@ impl OrchestratorPanel {
 
     /// Renders the panel.
     pub fn show(&mut self, ui: &mut Ui, is_control_only_down: bool) {
-        if let Ok(mut o) = self.orchestrator.lock() {
-            if let Some(action) = o.show_with(ui, &self.track_selection_set.lock().unwrap()) {
-                if let Some(input) = match action {
-                    TrackAction::Click(track_uid) => Some(OrchestratorInput::TrackSelect(
-                        track_uid,
-                        is_control_only_down,
-                    )),
-                    TrackAction::SetTitle(track_uid, title) => {
-                        Some(OrchestratorInput::TrackSetTitle(track_uid, title))
-                    }
-                } {
-                    self.send_to_service(input);
+        let mut o = self.orchestrator.lock().unwrap();
+        let tss = self.track_selection_set.lock().unwrap().clone();
+        if let Some(action) = o.show_with(ui, &tss) {
+            match action {
+                crate::mini::OrchestratorAction::ClickTrack(track_uid) => {
+                    self.track_selection_set
+                        .lock()
+                        .unwrap()
+                        .click(track_uid, is_control_only_down);
                 }
             }
         }

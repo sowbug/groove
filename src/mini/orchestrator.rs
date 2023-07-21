@@ -28,6 +28,13 @@ use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Debug, ops::Range};
 
+/// Actions that [Orchestrator]'s UI might need the parent to perform.
+#[derive(Debug)]
+pub enum OrchestratorAction {
+    /// A [Track] was clicked in the UI.
+    ClickTrack(TrackUid),
+}
+
 /// A grouping mechanism to declare parts of [Orchestrator] that Serde
 /// shouldn't be serializing. Exists so we don't have to spray #[serde(skip)]
 /// all over the place.
@@ -312,24 +319,24 @@ impl Orchestrator {
         &mut self,
         ui: &mut Ui,
         track_selection_set: &SelectionSet<TrackUid>,
-    ) -> Option<TrackAction> {
-        let mut action = self.ui_arrangement(
+    ) -> Option<OrchestratorAction> {
+        let action = self.ui_arrangement(
             ui,
             MusicalTime::new_with_beats(0)..MusicalTime::new_with_beats(128),
             track_selection_set,
         );
 
         if track_selection_set.len() == 1 {
-            for track_uid in track_selection_set.iter() {
-                if let Some(track) = self.tracks.get_mut(&track_uid) {
-                    let bottom =
-                        egui::TopBottomPanel::bottom("orchestrator-bottom-panel").resizable(true);
-                    bottom.show_inside(ui, |_ui| {});
-                    if let Some(a) = track.show_detail(ui) {
-                        action = Some(a);
+            let bottom = egui::TopBottomPanel::bottom("orchestrator-bottom-panel").resizable(true);
+            bottom.show_inside(ui, |ui| {
+                for track_uid in track_selection_set.iter() {
+                    if let Some(track) = self.tracks.get_mut(&track_uid) {
+                        if let Some(_) = track.ui_detail(ui) {
+                            panic!("there are currently no TrackDetailActions");
+                        }
                     }
                 }
-            }
+            });
         }
         action
     }
@@ -339,7 +346,7 @@ impl Orchestrator {
         ui: &mut Ui,
         viewable_time_range: Range<MusicalTime>,
         track_selection_set: &SelectionSet<TrackUid>,
-    ) -> Option<TrackAction> {
+    ) -> Option<OrchestratorAction> {
         let mut action = None;
 
         Frame::canvas(ui.style()).show(ui, |ui| {
@@ -408,6 +415,7 @@ impl Orchestrator {
                 .collect();
             let uids: Vec<TrackUid> = uids.iter().map(|u| (*u).clone()).collect();
 
+            let mut track_action = None;
             for uid in uids {
                 let is_selected = track_selection_set.contains(&uid);
                 if let Some(track) = self.get_track_mut(&uid) {
@@ -420,13 +428,18 @@ impl Orchestrator {
                             .show(ui, |ui| {
                                 let (response, a) = track.show(ui);
                                 if let Some(a) = a {
-                                    action = Some(a);
+                                    track_action = Some(a);
                                 }
                                 if response.clicked() {
-                                    action = Some(TrackAction::Click(track.uid()))
+                                    action = Some(OrchestratorAction::ClickTrack(track.uid()))
                                 };
                             })
                     });
+                }
+            }
+            if let Some(track_action) = track_action {
+                match track_action {
+                    TrackAction::SetTitle(uid, title) => self.set_track_title(uid, title),
                 }
             }
         });

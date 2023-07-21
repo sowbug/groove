@@ -54,10 +54,12 @@ pub enum TrackElementAction {
     RemoveDevice(usize),
 }
 
+#[derive(Debug)]
+pub enum TrackDetailAction {}
+
 #[allow(missing_docs)]
 #[derive(Debug)]
 pub enum TrackAction {
-    Click(TrackUid),
     SetTitle(TrackUid, TrackTitle),
 }
 
@@ -286,7 +288,7 @@ impl Track {
     // those groups, the user can reorder as desired (but instrument order
     // doesn't matter because they're all simultaneous)
     #[must_use]
-    pub fn show_detail(&mut self, ui: &mut Ui) -> Option<TrackAction> {
+    pub fn ui_detail(&mut self, ui: &mut Ui) -> Option<TrackDetailAction> {
         let style = ui.visuals().widgets.inactive;
         let action = None;
 
