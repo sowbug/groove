@@ -159,7 +159,7 @@ impl Arpeggiator {
         let scale_notes = [0, 2, 4, 5, 7, 9, 11];
         for (index, offset) in scale_notes.iter().enumerate() {
             // TODO - more examples of needing wider range for smaller parts
-            let when = start_beat + MusicalTime::new_with_parts(4 * index as u64);
+            let when = start_beat + MusicalTime::new_with_parts(4 * index);
             self.insert_one_note(&when, &duration, key + offset, vel);
         }
     }

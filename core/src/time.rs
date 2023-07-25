@@ -496,7 +496,7 @@ impl TimeSignature {
     /// this time signature. Note that [MusicalTime] requires a [Tempo] to
     /// calculate wall-clock time.
     pub fn duration(&self) -> MusicalTime {
-        MusicalTime::new_with_beats(self.top() as u64)
+        MusicalTime::new_with_beats(self.top())
     }
 
     pub fn beat_value(&self) -> BeatValue {
@@ -532,7 +532,7 @@ impl Default for TimeSignature {
 pub struct MusicalTime {
     /// A unit is 1/65536 of a beat.
     #[params]
-    units: u64,
+    units: usize,
 }
 impl Default for MusicalTime {
     fn default() -> Self {
@@ -542,9 +542,9 @@ impl Default for MusicalTime {
     }
 }
 impl MusicalTime {
-    pub const PARTS_IN_BEAT: u64 = 16;
-    pub const UNITS_IN_PART: u64 = 4096;
-    pub const UNITS_IN_BEAT: u64 = Self::PARTS_IN_BEAT * Self::UNITS_IN_PART;
+    pub const PARTS_IN_BEAT: usize = 16;
+    pub const UNITS_IN_PART: usize = 4096;
+    pub const UNITS_IN_BEAT: usize = Self::PARTS_IN_BEAT * Self::UNITS_IN_PART;
 
     /// A breve is also called a "double whole note"
     pub const DURATION_BREVE: MusicalTime = Self::new_with_beats(2);
@@ -556,16 +556,16 @@ impl MusicalTime {
     pub const DURATION_ZERO: MusicalTime = Self::START;
     pub const TIME_ZERO: MusicalTime = Self::new_with_units(0);
     pub const TIME_END_OF_FIRST_BEAT: MusicalTime = Self::new_with_beats(1);
-    pub const TIME_MAX: MusicalTime = Self::new_with_units(u64::MAX);
+    pub const TIME_MAX: MusicalTime = Self::new_with_units(usize::MAX);
 
     pub const START: MusicalTime = MusicalTime { units: 0 };
 
     pub fn new(
         time_signature: &TimeSignature,
-        bars: u64,
-        beats: u64,
-        parts: u64,
-        units: u64,
+        bars: usize,
+        beats: usize,
+        parts: usize,
+        units: usize,
     ) -> Self {
         Self {
             units: Self::bars_to_units(time_signature, bars)
@@ -578,12 +578,12 @@ impl MusicalTime {
     // The entire number expressed in bars. This is provided for uniformity;
     // it's the highest unit in the struct, so total_bars() is always the same
     // as bars().
-    pub fn total_bars(&self, time_signature: &TimeSignature) -> u64 {
+    pub fn total_bars(&self, time_signature: &TimeSignature) -> usize {
         self.bars(time_signature)
     }
 
-    pub fn bars(&self, time_signature: &TimeSignature) -> u64 {
-        self.total_beats() / time_signature.top as u64
+    pub fn bars(&self, time_signature: &TimeSignature) -> usize {
+        self.total_beats() / time_signature.top
     }
 
     #[allow(unused_variables)]
@@ -592,12 +592,12 @@ impl MusicalTime {
     }
 
     // The entire number expressed in beats.
-    pub fn total_beats(&self) -> u64 {
+    pub fn total_beats(&self) -> usize {
         self.units / Self::UNITS_IN_BEAT
     }
 
-    pub fn beats(&self, time_signature: &TimeSignature) -> u64 {
-        self.total_beats() % time_signature.top as u64
+    pub fn beats(&self, time_signature: &TimeSignature) -> usize {
+        self.total_beats() % time_signature.top
     }
 
     #[allow(unused_variables)]
@@ -606,11 +606,11 @@ impl MusicalTime {
     }
 
     // The entire number expressed in parts.
-    pub fn total_parts(&self) -> u64 {
+    pub fn total_parts(&self) -> usize {
         self.units / Self::UNITS_IN_PART
     }
 
-    pub fn parts(&self) -> u64 {
+    pub fn parts(&self) -> usize {
         self.total_parts() % Self::PARTS_IN_BEAT
     }
 
@@ -620,16 +620,16 @@ impl MusicalTime {
     }
 
     // The entire number expressed in units.
-    pub fn total_units(&self) -> u64 {
+    pub fn total_units(&self) -> usize {
         self.units
     }
 
-    pub fn units(&self) -> u64 {
+    pub fn units(&self) -> usize {
         self.units % Self::UNITS_IN_PART
     }
 
     #[allow(unused_variables)]
-    pub fn set_units(&mut self, units: u64) {
+    pub fn set_units(&mut self, units: usize) {
         panic!()
     }
 
@@ -637,15 +637,15 @@ impl MusicalTime {
         self.units = Default::default();
     }
 
-    pub const fn bars_to_units(time_signature: &TimeSignature, bars: u64) -> u64 {
-        Self::beats_to_units(time_signature.top as u64 * bars)
+    pub const fn bars_to_units(time_signature: &TimeSignature, bars: usize) -> usize {
+        Self::beats_to_units(time_signature.top as usize * bars)
     }
 
-    pub const fn beats_to_units(beats: u64) -> u64 {
+    pub const fn beats_to_units(beats: usize) -> usize {
         beats * Self::UNITS_IN_BEAT
     }
 
-    pub const fn parts_to_units(parts: u64) -> u64 {
+    pub const fn parts_to_units(parts: usize) -> usize {
         parts * (Self::UNITS_IN_PART)
     }
 
@@ -656,19 +656,23 @@ impl MusicalTime {
         }
     }
 
-    pub const fn new_with_bars(time_signature: &TimeSignature, bars: u64) -> Self {
-        Self::new_with_beats(time_signature.top as u64 * bars)
+    pub const fn new_with_bars(time_signature: &TimeSignature, bars: usize) -> Self {
+        Self::new_with_beats(time_signature.top as usize * bars)
     }
 
-    pub const fn new_with_beats(beats: u64) -> Self {
+    pub const fn new_with_beats(beats: usize) -> Self {
         Self::new_with_units(beats * Self::UNITS_IN_BEAT)
     }
 
-    pub const fn new_with_parts(parts: u64) -> Self {
+    pub fn new_with_fractional_beats(beats: f64) -> Self {
+        Self::new_with_units((beats * Self::UNITS_IN_BEAT as f64) as usize)
+    }
+
+    pub const fn new_with_parts(parts: usize) -> Self {
         Self::new_with_units(parts * Self::UNITS_IN_PART)
     }
 
-    pub const fn new_with_units(units: u64) -> Self {
+    pub const fn new_with_units(units: usize) -> Self {
         Self { units }
     }
 
@@ -676,14 +680,14 @@ impl MusicalTime {
         Self::new_with_units(Self::frames_to_units(tempo, sample_rate, frames))
     }
 
-    pub fn frames_to_units(tempo: Tempo, sample_rate: SampleRate, frames: usize) -> u64 {
+    pub fn frames_to_units(tempo: Tempo, sample_rate: SampleRate, frames: usize) -> usize {
         let elapsed_beats = (frames as f64 / sample_rate.value() as f64) * tempo.bps();
         let elapsed_fractional_units =
-            (elapsed_beats.fract() * Self::UNITS_IN_BEAT as f64 + 0.5) as u64;
-        Self::beats_to_units(elapsed_beats.floor() as u64) + elapsed_fractional_units
+            (elapsed_beats.fract() * Self::UNITS_IN_BEAT as f64 + 0.5) as usize;
+        Self::beats_to_units(elapsed_beats.floor() as usize) + elapsed_fractional_units
     }
 
-    pub fn units_to_frames(tempo: Tempo, sample_rate: SampleRate, units: u64) -> usize {
+    pub fn units_to_frames(tempo: Tempo, sample_rate: SampleRate, units: usize) -> usize {
         let frames_per_second: f64 = sample_rate.into();
         let seconds_per_beat = 1.0 / tempo.bps();
         let frames_per_beat = seconds_per_beat * frames_per_second;
@@ -726,10 +730,10 @@ impl Add<Self> for MusicalTime {
         }
     }
 }
-impl Add<u64> for MusicalTime {
+impl Add<usize> for MusicalTime {
     type Output = Self;
 
-    fn add(self, rhs: u64) -> Self::Output {
+    fn add(self, rhs: usize) -> Self::Output {
         Self {
             units: self.units + rhs,
         }
@@ -745,10 +749,10 @@ impl SubAssign<Self> for MusicalTime {
         self.units -= rhs.units;
     }
 }
-impl Mul<u64> for MusicalTime {
+impl Mul<usize> for MusicalTime {
     type Output = Self;
 
-    fn mul(self, rhs: u64) -> Self::Output {
+    fn mul(self, rhs: usize) -> Self::Output {
         Self {
             units: self.units * rhs,
         }
@@ -768,7 +772,7 @@ impl From<PerfectTimeUnit> for MusicalTime {
         // TODO: this is not exactly right, but we need it just long enough to
         // complete the refactor that kills PerfectTimeUnit completely.
         Self {
-            units: (value.0 * 65536.0) as u64,
+            units: (value.0 * 65536.0) as usize,
         }
     }
 }
@@ -1145,7 +1149,7 @@ mod tests {
         let sample_rate = SampleRate::from(32768);
 
         for bars in 0..4 {
-            for beats in 0..ts.top() as u64 {
+            for beats in 0..ts.top() as usize {
                 for parts in 0..MusicalTime::PARTS_IN_BEAT {
                     // If we stick to just a part-level division of MusicalTime, then we expect time ->
                     // frames -> time to be exact, because frames is
@@ -1180,7 +1184,7 @@ mod tests {
         let mut t = MusicalTime::default();
         t += MusicalTime::new_with_beats(1);
         assert_eq!(t.beats(&ts), 1);
-        let mut t = MusicalTime::new(&ts, 0, (ts.top - 1) as u64, 0, 0);
+        let mut t = MusicalTime::new(&ts, 0, (ts.top - 1) as usize, 0, 0);
         t += MusicalTime::new_with_beats(1);
         assert_eq!(t.beats(&ts), 0);
         assert_eq!(t.bars(&ts), 1);
@@ -1303,7 +1307,7 @@ mod tests {
         let time = MusicalTime::new(
             &ts,
             0,
-            (ts.top - 1) as u64,
+            (ts.top - 1) as usize,
             MusicalTime::PARTS_IN_BEAT - 1,
             MusicalTime::UNITS_IN_PART - 1,
         );

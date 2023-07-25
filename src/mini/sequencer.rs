@@ -153,6 +153,42 @@ impl PatternBuilder {
             Err(e) => Err(e),
         }
     }
+
+    /// Given a sequence of MIDI note numbers and an optional grid value that
+    /// overrides the one implied by the time signature, adds [Note]s one after
+    /// another into the pattern. The value 255 is reserved for rest (no note,
+    /// or silence).
+    ///
+    /// The optional grid_value is similar to the time signature's bottom value
+    /// (1 is a whole note, 2 is a half note, etc.). For example, for a 4/4
+    /// pattern, None means each note number produces a quarter note, and we
+    /// would provide sixteen note numbers to fill the pattern with 4 beats of
+    /// four quarter-notes each. For a 4/4 pattern, Some(8) means each note
+    /// number should produce an eighth note., and 4 x 8 = 32 note numbers would
+    /// fill the pattern.
+    ///
+    /// If midi_note_numbers contains fewer than the maximum number of note
+    /// numbers for the grid value, then the rest of the pattern is silent.
+    pub fn note_sequence(
+        &mut self,
+        midi_note_numbers: Vec<u8>,
+        grid_value: Option<usize>,
+    ) -> &mut Self {
+        let grid_value = grid_value.unwrap_or(self.time_signature.unwrap_or_default().bottom);
+        let mut position = MusicalTime::START;
+        let position_delta = MusicalTime::new_with_fractional_beats(1.0 / grid_value as f64);
+        for note in midi_note_numbers {
+            if note != 255 {
+                self.note(Note {
+                    key: note,
+                    range: position..position + position_delta,
+                    ui_state: Default::default(),
+                });
+            }
+            position += position_delta;
+        }
+        self
+    }
 }
 impl Default for Pattern {
     fn default() -> Self {
@@ -183,6 +219,17 @@ impl Pattern {
         self.notes.len()
     }
 
+    /// Returns the pattern grid's number of subdivisions, which is calculated
+    /// from the time signature. The number is simply the time signature's top x
+    /// bottom. For example, a 3/4 pattern will have 12 subdivisions (three
+    /// beats per measure, each beat divided into four quarter notes).
+    ///
+    /// This is just a UI default and doesn't affect the actual granularity of a
+    /// note position.
+    pub fn default_grid_value(&self) -> usize {
+        self.time_signature.top * self.time_signature.bottom
+    }
+
     fn refresh_internals(&mut self) {
         let final_event_time = self
             .notes
@@ -201,7 +248,7 @@ impl Pattern {
             final_event_time - MusicalTime::new_with_units(1)
         };
         let beats = final_event_time.total_beats();
-        let top = self.time_signature.top as u64;
+        let top = self.time_signature.top;
         let rounded_up_bars = (beats + top) / top;
         self.duration = MusicalTime::new_with_bars(&self.time_signature, rounded_up_bars);
     }
@@ -237,6 +284,16 @@ impl Pattern {
             Color32::WHITE
         } else {
             Color32::DARK_BLUE
+        };
+        let rect = if rect.right() == rect.left() {
+            Rect::from_two_pos(rect.left_top(), pos2(rect.left() + 1.0, rect.bottom()))
+        } else {
+            rect
+        };
+        let rect = if rect.bottom() == rect.top() {
+            Rect::from_two_pos(rect.left_top(), pos2(rect.right(), rect.top() + 1.0))
+        } else {
+            rect
         };
         vec![
             Shape::rect_stroke(rect, Rounding::default(), Stroke { width: 2.0, color }),
@@ -337,7 +394,7 @@ impl Pattern {
         let canvas_pos = from_screen * pointer_pos;
         let key = (canvas_pos.y * notes_vert) as u8;
         let when =
-            MusicalTime::new_with_parts(((canvas_pos.x * steps_horiz as f32).floor()) as u64);
+            MusicalTime::new_with_parts(((canvas_pos.x * steps_horiz as f32).floor()) as usize);
 
         Note {
             key,
@@ -492,7 +549,7 @@ impl Sequencer {
         uid: &PatternUid,
         position_in_bars: usize,
     ) -> anyhow::Result<ArrangedPatternUid> {
-        let position = MusicalTime::new_with_bars(&self.time_signature, position_in_bars as u64);
+        let position = MusicalTime::new_with_bars(&self.time_signature, position_in_bars);
         if self.patterns.get(uid).is_some() {
             let arranged_pattern_uid = self.arranged_pattern_uid_factory.next();
             self.arranged_patterns.insert(
@@ -518,7 +575,7 @@ impl Sequencer {
         uid: &ArrangedPatternUid,
         position_in_bars: usize,
     ) -> anyhow::Result<()> {
-        let position = MusicalTime::new_with_bars(&self.time_signature, position_in_bars as u64);
+        let position = MusicalTime::new_with_bars(&self.time_signature, position_in_bars);
         if let Some(pattern) = self.arranged_patterns.get_mut(uid) {
             pattern.position = position;
             self.calculate_events()
@@ -568,7 +625,7 @@ impl Sequencer {
 
         painter.rect_filled(rect, Rounding::default(), Color32::GRAY);
 
-        for (_arranged_pattern_uid, arranged_pattern) in self.arranged_patterns.iter() {
+        for (arranged_pattern_uid, arranged_pattern) in self.arranged_patterns.iter() {
             if let Some(pattern) = self.patterns.get(&arranged_pattern.pattern_uid) {
                 let start = arranged_pattern.position;
                 let end = start + pattern.duration;
@@ -579,7 +636,31 @@ impl Sequencer {
                     to_screen * pos2(start_beats as f32, 0.0),
                     to_screen * pos2(end_beats as f32, 1.0),
                 );
+                let to_screen_ap = emath::RectTransform::from_to(
+                    Rect::from_x_y_ranges(0.0..=1.0, 0.0..=1.0),
+                    ap_rect,
+                );
                 painter.rect_filled(ap_rect, Rounding::default(), Color32::YELLOW);
+
+                let shapes = pattern.notes.iter().fold(Vec::default(), |mut v, note| {
+                    v.extend(pattern.make_note_shapes(note, &to_screen_ap, false));
+                    v
+                });
+
+                painter.extend(shapes);
+
+                // if arranged_pattern
+                //     .ui_content(
+                //         ui,
+                //         pattern,
+                //         self.arranged_pattern_selection_set
+                //             .contains(arranged_pattern_uid),
+                //     )
+                //     .clicked()
+                // {
+                //     // TODO: handle shift/control
+                //     uid_to_toggle = Some(*arranged_pattern_uid);
+                // }
             }
         }
 
@@ -1305,5 +1386,143 @@ mod tests {
         assert_eq!(s.arranged_pattern_selection_set.len(), 1);
         assert!(!s.arranged_pattern_selection_set.contains(&uid0));
         assert!(s.arranged_pattern_selection_set.contains(&uid1));
+    }
+
+    #[test]
+    fn pattern_dimensions_are_valid() {
+        let p = Pattern::default();
+        assert_eq!(
+            p.time_signature,
+            TimeSignature::COMMON_TIME,
+            "default pattern should have sensible time signature"
+        );
+
+        for ts in vec![
+            TimeSignature::COMMON_TIME,
+            TimeSignature::CUT_TIME,
+            TimeSignature::new_with(7, 64).unwrap(),
+        ] {
+            let p = PatternBuilder::default()
+                .time_signature(ts)
+                .build()
+                .unwrap();
+            assert_eq!(
+                p.duration,
+                MusicalTime::new_with_beats(ts.top),
+                "Pattern's beat count matches its time signature"
+            );
+
+            // A typical 4/4 pattern has 16 subdivisions, which is a common
+            // pattern resolution in other pattern-based sequencers and piano
+            // rolls.
+            assert_eq!(p.default_grid_value(), ts.bottom * ts.top,
+                "Pattern's default grid value should be the time signature's beat count times its note value");
+        }
+    }
+
+    #[test]
+    fn pattern_note_insertion_is_easy() {
+        let sixteen_notes = vec![
+            60, 61, 62, 63, 64, 65, 66, 67, 60, 61, 62, 63, 64, 65, 66, 67,
+        ];
+        let len_16 = sixteen_notes.len();
+        let p = PatternBuilder::default()
+            .note_sequence(sixteen_notes, None)
+            .build()
+            .unwrap();
+        assert_eq!(p.note_count(), len_16, "sixteen quarter notes");
+        assert_eq!(p.notes[15].key, 67);
+        assert_eq!(
+            p.notes[15].range,
+            MusicalTime::DURATION_QUARTER * 15..MusicalTime::DURATION_WHOLE * p.time_signature.top
+        );
+        assert_eq!(
+            p.duration,
+            MusicalTime::DURATION_WHOLE * p.time_signature.top
+        );
+
+        let seventeen_notes = vec![
+            60, 61, 62, 63, 64, 65, 66, 67, 60, 61, 62, 63, 64, 65, 66, 67, 68,
+        ];
+        let p = PatternBuilder::default()
+            .note_sequence(seventeen_notes, None)
+            .build()
+            .unwrap();
+        assert_eq!(
+            p.duration,
+            MusicalTime::DURATION_WHOLE * p.time_signature.top * 2,
+            "17 notes in 4/4 pattern produces two bars"
+        );
+
+        let four_notes = vec![60, 61, 62, 63];
+        let len_4 = four_notes.len();
+        let p = PatternBuilder::default()
+            .note_sequence(four_notes, Some(4))
+            .build()
+            .unwrap();
+        assert_eq!(p.note_count(), len_4, "four quarter notes");
+        assert_eq!(
+            p.duration,
+            MusicalTime::DURATION_WHOLE * p.time_signature.top
+        );
+
+        let three_notes_and_silence = vec![60, 0, 62, 63];
+        let len_3_1 = three_notes_and_silence.len();
+        let p = PatternBuilder::default()
+            .note_sequence(three_notes_and_silence, Some(4))
+            .build()
+            .unwrap();
+        assert_eq!(p.note_count(), len_3_1, "three quarter notes with one rest");
+        assert_eq!(
+            p.duration,
+            MusicalTime::DURATION_WHOLE * p.time_signature.top
+        );
+
+        let eight_notes = vec![60, 61, 62, 63, 64, 65, 66, 67];
+        let len_8 = eight_notes.len();
+        let p = PatternBuilder::default()
+            .time_signature(TimeSignature::CUT_TIME)
+            .note_sequence(eight_notes, None)
+            .build()
+            .unwrap();
+        assert_eq!(
+            p.note_count(),
+            len_8,
+            "eight eighth notes in 2/2 time is two bars long"
+        );
+        assert_eq!(
+            p.duration,
+            MusicalTime::DURATION_WHOLE * p.time_signature.top * 2
+        );
+
+        let one_note = vec![60];
+        let len_1 = one_note.len();
+        let p = PatternBuilder::default()
+            .note_sequence(one_note, None)
+            .build()
+            .unwrap();
+        assert_eq!(
+            p.note_count(),
+            len_1,
+            "one quarter note, and the rest is silence"
+        );
+        assert_eq!(p.notes[0].key, 60);
+        assert_eq!(
+            p.notes[0].range,
+            MusicalTime::START..MusicalTime::DURATION_QUARTER
+        );
+        assert_eq!(
+            p.duration,
+            MusicalTime::DURATION_WHOLE * p.time_signature.top
+        );
+    }
+
+    #[test]
+    fn cut_time_duration() {
+        let p = PatternBuilder::default()
+            .time_signature(TimeSignature::CUT_TIME)
+            .build()
+            .unwrap();
+        assert_eq!(p.duration, MusicalTime::new_with_beats(2));
     }
 }

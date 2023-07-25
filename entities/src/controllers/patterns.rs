@@ -588,7 +588,7 @@ impl PatternProgrammer {
                     // This is an empty slot in the pattern. Don't do anything.
                     continue;
                 }
-                let i = MusicalTime::new(&self.time_signature, 0, 0, i as u64 * 4, 0);
+                let i = MusicalTime::new(&self.time_signature, 0, 0, i * 4, 0);
                 let note_start = self.cursor + i;
                 sequencer.insert(
                     &note_start,
@@ -619,7 +619,7 @@ impl PatternProgrammer {
         let top = self.time_signature.top as f64;
         let rounded_max_pattern_len =
             (max_track_len as f64 * pattern_multiplier / top).ceil() * top;
-        self.cursor = self.cursor + MusicalTime::new_with_beats(rounded_max_pattern_len as u64);
+        self.cursor = self.cursor + MusicalTime::new_with_beats(rounded_max_pattern_len as usize);
         sequencer.set_min_end_time(&self.cursor);
     }
 
