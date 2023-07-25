@@ -285,16 +285,17 @@ impl Pattern {
         } else {
             Color32::DARK_BLUE
         };
-        let rect = if rect.right() == rect.left() {
+        let rect = if (rect.right() - rect.left()).abs() < 1.0 {
             Rect::from_two_pos(rect.left_top(), pos2(rect.left() + 1.0, rect.bottom()))
         } else {
             rect
         };
-        let rect = if rect.bottom() == rect.top() {
+        let rect = if (rect.bottom() - rect.top()).abs() < 1.0 {
             Rect::from_two_pos(rect.left_top(), pos2(rect.right(), rect.top() + 1.0))
         } else {
             rect
         };
+        debug_assert!(rect.area() > 0.0);
         vec![
             Shape::rect_stroke(rect, Rounding::default(), Stroke { width: 2.0, color }),
             Shape::rect_filled(rect.shrink(2.0), Rounding::default(), Color32::LIGHT_BLUE),
@@ -625,6 +626,39 @@ impl Sequencer {
 
         painter.rect_filled(rect, Rounding::default(), Color32::GRAY);
 
+        // This is a near copy of the label code in
+        // Orchestrator::ui_arrangement_labels(). TODO refactor
+        let start_beat = viewable_time_range.start.total_beats();
+        let end_beat = viewable_time_range.end.total_beats();
+        let beat_count = (end_beat - start_beat) as usize;
+        let to_screen_beats = emath::RectTransform::from_to(
+            Rect::from_x_y_ranges(
+                viewable_time_range.start.total_beats() as f32
+                    ..=viewable_time_range.end.total_beats() as f32,
+                0.0..=1.0,
+            ),
+            rect,
+        );
+
+        let skip = self.time_signature.top;
+        let mut shapes = Vec::default();
+        for (i, beat) in (start_beat..end_beat).enumerate() {
+            if i != 0 && i != beat_count - 1 && i % skip != 0 {
+                continue;
+            }
+            shapes.push(Shape::LineSegment {
+                points: [
+                    to_screen_beats * pos2(beat as f32, 0.0),
+                    to_screen_beats * pos2(beat as f32, 1.0),
+                ],
+                stroke: Stroke {
+                    width: 1.0,
+                    color: Color32::DARK_GRAY,
+                },
+            });
+        }
+        painter.extend(shapes);
+
         for (arranged_pattern_uid, arranged_pattern) in self.arranged_patterns.iter() {
             if let Some(pattern) = self.patterns.get(&arranged_pattern.pattern_uid) {
                 let start = arranged_pattern.position;
@@ -640,7 +674,7 @@ impl Sequencer {
                     Rect::from_x_y_ranges(0.0..=1.0, 0.0..=1.0),
                     ap_rect,
                 );
-                painter.rect_filled(ap_rect, Rounding::default(), Color32::YELLOW);
+                painter.rect_filled(ap_rect, Rounding::default(), Color32::LIGHT_BLUE);
 
                 let shapes = pattern.notes.iter().fold(Vec::default(), |mut v, note| {
                     v.extend(pattern.make_note_shapes(note, &to_screen_ap, false));
