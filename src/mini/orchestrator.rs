@@ -3,7 +3,7 @@
 use super::{
     control_router::ControlRouter,
     selection_set::SelectionSet,
-    track::{Track, TrackAction, TrackFactory, TrackTitle, TrackUid},
+    track::{Track, TrackAction, TrackFactory, TrackTitle, TrackUiState, TrackUid},
     transport::{Transport, TransportBuilder},
 };
 use anyhow::{anyhow, Result};
@@ -33,6 +33,8 @@ use std::{collections::HashMap, fmt::Debug, ops::Range, vec::Vec};
 pub enum OrchestratorAction {
     /// A [Track] was clicked in the UI.
     ClickTrack(TrackUid),
+    /// A [Track] was double-clicked in the UI.
+    DoubleClickTrack(TrackUid),
 }
 
 /// A grouping mechanism to declare parts of [Orchestrator] that Serde
@@ -71,6 +73,7 @@ pub struct Orchestrator {
     tracks: HashMap<TrackUid, Track>,
     /// Track uids in the order they appear in the UI.
     track_uids: Vec<TrackUid>,
+    track_ui_states: HashMap<TrackUid, TrackUiState>,
 
     /// The highest [Uid] that has been added. This is serialized along with the
     /// rest of the project, so anyone generating [Uid]s, such as
@@ -99,6 +102,7 @@ impl Default for Orchestrator {
             track_factory: Default::default(),
             tracks: Default::default(),
             track_uids: Default::default(),
+            track_ui_states: Default::default(),
             max_entity_uid: Default::default(),
 
             e: Default::default(),
@@ -340,6 +344,70 @@ impl Orchestrator {
         action
     }
 
+    #[allow(missing_docs)]
+    pub fn show_2(
+        &mut self,
+        ui: &mut Ui,
+        track_selection_set: &SelectionSet<TrackUid>,
+    ) -> Option<OrchestratorAction> {
+        let viewable_time_range = MusicalTime::new_with_beats(0)..MusicalTime::new_with_beats(128);
+        let mut action = None;
+        for track_uid in self.track_uids.iter() {
+            if let Some(track) = self.tracks.get_mut(track_uid) {
+                let track_ui_state = self
+                    .track_ui_states
+                    .get(track_uid)
+                    .cloned()
+                    .unwrap_or_default();
+                let height = match track_ui_state {
+                    TrackUiState::Collapsed => 64.0,
+                    TrackUiState::Expanded => 128.0,
+                };
+                let desired_size = vec2(ui.available_width(), height);
+                ui.allocate_ui(desired_size, |ui| {
+                    ui.set_min_size(desired_size);
+                    let (response, action_opt) = track.show_2(
+                        ui,
+                        &viewable_time_range,
+                        track_ui_state,
+                        track_selection_set.contains(track_uid),
+                    );
+                    if let Some(a) = action_opt {
+                        match a {
+                            TrackAction::SetTitle(u, t) => {
+                                track.set_title(t);
+                            }
+                            TrackAction::ToggleDisclosure => {
+                                action = Some(OrchestratorAction::DoubleClickTrack(*track_uid));
+                            }
+                        }
+                    }
+                    if response.double_clicked() {
+                        action = Some(OrchestratorAction::DoubleClickTrack(*track_uid));
+                    } else if response.clicked() {
+                        action = Some(OrchestratorAction::ClickTrack(*track_uid));
+                    }
+                });
+            }
+        }
+        action
+    }
+
+    pub fn toggle_track_ui_state(&mut self, track_uid: &TrackUid) {
+        let new_state = self
+            .track_ui_states
+            .get(track_uid)
+            .cloned()
+            .unwrap_or_default();
+        self.track_ui_states.insert(
+            *track_uid,
+            match new_state {
+                TrackUiState::Collapsed => TrackUiState::Expanded,
+                TrackUiState::Expanded => TrackUiState::Collapsed,
+            },
+        );
+    }
+
     fn ui_arrangement<'a>(
         &mut self,
         ui: &mut Ui,
@@ -404,6 +472,7 @@ impl Orchestrator {
             if let Some(track_action) = track_action {
                 match track_action {
                     TrackAction::SetTitle(uid, title) => self.set_track_title(uid, title),
+                    TrackAction::ToggleDisclosure => todo!(),
                 }
             }
         });

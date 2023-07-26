@@ -134,6 +134,9 @@ impl ThingStore {
     pub fn iter_mut(&mut self) -> hash_map::ValuesMut<'_, Uid, Box<dyn Thing>> {
         self.things.values_mut()
     }
+    pub fn is_empty(&self) -> bool {
+        self.things.is_empty()
+    }
 }
 impl Ticks for ThingStore {
     fn tick(&mut self, tick_count: usize) {

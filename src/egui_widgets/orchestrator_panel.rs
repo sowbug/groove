@@ -1,4 +1,6 @@
-use crate::mini::{ChannelPair, EntityFactory, Key, Orchestrator, SelectionSet, TrackUid};
+use crate::mini::{
+    ChannelPair, EntityFactory, Key, Orchestrator, OrchestratorAction, SelectionSet, TrackUid,
+};
 use anyhow::{anyhow, Result};
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::Ui;
@@ -288,13 +290,16 @@ impl OrchestratorPanel {
     pub fn show(&mut self, ui: &mut Ui, is_control_only_down: bool) {
         let mut o = self.orchestrator.lock().unwrap();
         let tss = self.track_selection_set.lock().unwrap().clone();
-        if let Some(action) = o.show(ui, &tss) {
+        if let Some(action) = o.show_2(ui, &tss) {
             match action {
-                crate::mini::OrchestratorAction::ClickTrack(track_uid) => {
+                OrchestratorAction::ClickTrack(track_uid) => {
                     self.track_selection_set
                         .lock()
                         .unwrap()
                         .click(track_uid, is_control_only_down);
+                }
+                OrchestratorAction::DoubleClickTrack(track_uid) => {
+                    o.toggle_track_ui_state(&track_uid);
                 }
             }
         }

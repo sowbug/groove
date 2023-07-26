@@ -9,9 +9,9 @@ use super::{
     sequencer::{Sequencer, SequencerAction, SequencerBuilder},
 };
 use eframe::{
-    egui::{self, Frame, Layout, Margin, Response, Sense, Ui},
+    egui::{self, Frame, Layout, Margin, Response, Sense, TextFormat, Ui},
     emath::{self, Align},
-    epaint::{pos2, vec2, Color32, Pos2, Rect, Shape, Stroke, Vec2},
+    epaint::{pos2, text::LayoutJob, vec2, Color32, Pos2, Rect, Shape, Stroke, TextShape, Vec2},
 };
 use groove_core::{
     control::ControlValue,
@@ -24,7 +24,7 @@ use groove_core::{
     IsUid, Normal, StereoSample, Uid,
 };
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, ops::Range};
+use std::{f32::consts::PI, fmt::Display, ops::Range};
 
 /// Identifies a [Track].
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -60,6 +60,7 @@ pub enum TrackDetailAction {}
 #[derive(Debug)]
 pub enum TrackAction {
     SetTitle(TrackUid, TrackTitle),
+    ToggleDisclosure,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -139,6 +140,13 @@ impl Default for TrackTitle {
     fn default() -> Self {
         Self("Untitled".to_string())
     }
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Copy)]
+pub enum TrackUiState {
+    #[default]
+    Collapsed,
+    Expanded,
 }
 
 /// A collection of instruments, effects, and controllers that combine to
@@ -463,6 +471,119 @@ impl Track {
             }
         }
         (response, action)
+    }
+
+    #[must_use]
+    #[allow(missing_docs)]
+    pub fn show_2(
+        &mut self,
+        ui: &mut Ui,
+        viewable_time_range: &Range<MusicalTime>,
+        ui_state: TrackUiState,
+        is_selected: bool,
+    ) -> (Response, Option<TrackAction>) {
+        let mut action = None;
+        let response = ui
+            .horizontal(|ui| {
+                let response = self.ui_title(ui, vec2(16.0, Self::ui_contents_height(ui_state)));
+                self.ui_contents(ui, ui_state, is_selected);
+                response
+            })
+            .inner;
+        (response, action)
+    }
+
+    fn ui_title(&mut self, ui: &mut Ui, title_bar_size: Vec2) -> Response {
+        ui.allocate_ui(title_bar_size, |ui| {
+            let mut job = LayoutJob::default();
+            job.append(
+                self.title.0.as_str(),
+                0.0,
+                TextFormat {
+                    color: Color32::YELLOW,
+                    ..Default::default()
+                },
+            );
+            let galley = ui.ctx().fonts(|f| f.layout_job(job));
+            let (response, painter) = ui.allocate_painter(title_bar_size, Sense::click());
+            let t = Shape::Text(TextShape {
+                pos: response.rect.left_bottom(),
+                galley,
+                underline: Stroke::default(),
+                override_text_color: None,
+                angle: 2.0 * PI * 0.75,
+            });
+            painter.add(t);
+            response
+        })
+        .inner
+    }
+
+    fn ui_contents_height(ui_state: TrackUiState) -> f32 {
+        Self::ui_arrangement_height(ui_state) + Self::ui_detail_view_height(ui_state)
+    }
+
+    const fn ui_arrangement_height(_ui_state: TrackUiState) -> f32 {
+        64.0
+    }
+
+    const fn ui_detail_view_height(ui_state: TrackUiState) -> f32 {
+        match ui_state {
+            TrackUiState::Collapsed => 32.0,
+            TrackUiState::Expanded => 96.0,
+        }
+    }
+
+    fn ui_contents(&mut self, ui: &mut Ui, ui_state: TrackUiState, is_selected: bool) {
+        let av_si = ui.available_size();
+        Frame::default()
+            .stroke(Stroke {
+                width: 2.0,
+                color: if is_selected {
+                    Color32::YELLOW
+                } else {
+                    Color32::DARK_GRAY
+                },
+            })
+            .show(ui, |ui| {
+                ui.set_min_size(av_si);
+                ui.vertical(|ui| {
+                    self.ui_arrangement(ui, ui_state);
+                    self.ui_device_view(ui, ui_state);
+                });
+            });
+    }
+
+    fn ui_arrangement(&mut self, ui: &mut Ui, ui_state: TrackUiState) {
+        let desired_size = vec2(ui.available_width(), Self::ui_arrangement_height(ui_state));
+        ui.allocate_ui(desired_size, |ui| {
+            ui.set_min_size(desired_size);
+            ui.label("hi, I'm the arrangement");
+        });
+    }
+
+    fn ui_device_view(&mut self, ui: &mut Ui, ui_state: TrackUiState) {
+        ui.horizontal(|ui| {
+            let desired_size = vec2(128.0, Self::ui_detail_view_height(ui_state));
+            if self.thing_store.is_empty() {
+                ui.allocate_ui(desired_size, |ui| ui.label("Drag things here"));
+            } else {
+                for thing in self.thing_store.iter_mut() {
+                    ui.allocate_ui(desired_size, |ui| {
+                        ui.set_min_size(desired_size);
+                        Frame::default()
+                            .stroke(Stroke {
+                                width: 0.5,
+                                color: Color32::DARK_GRAY,
+                            })
+                            .show(ui, |ui| match ui_state {
+                                TrackUiState::Collapsed => thing.ui_small(ui),
+                                TrackUiState::Expanded => thing.ui_large(ui),
+                            });
+                    });
+                }
+            }
+        });
     }
 
     #[allow(missing_docs)]

@@ -53,5 +53,12 @@ impl Shows for SettingsPanel {
         self.audio_panel.show(ui);
         ui.label("MIDI");
         self.midi_panel.show(ui);
+
+        {
+            let mut debug_on_hover = ui.ctx().debug_on_hover();
+            ui.checkbox(&mut debug_on_hover, "🐛 Debug on hover")
+                .on_hover_text("Show structure of the ui when you hover with the mouse");
+            ui.ctx().set_debug_on_hover(debug_on_hover);
+        }
     }
 }
