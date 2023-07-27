@@ -176,7 +176,7 @@ impl GrooveApp {
 
         let (sender, receiver) = crossbeam_channel::unbounded();
 
-        let mut clock_params = ClockParams {
+        let clock_params = ClockParams {
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
             ..Default::default()
         };
