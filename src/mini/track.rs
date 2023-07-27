@@ -11,7 +11,9 @@ use super::{
 use eframe::{
     egui::{self, Frame, Layout, Margin, Response, Sense, TextFormat, Ui},
     emath::{self, Align},
-    epaint::{pos2, text::LayoutJob, vec2, Color32, Pos2, Rect, Shape, Stroke, TextShape, Vec2},
+    epaint::{
+        pos2, text::LayoutJob, vec2, Color32, FontId, Pos2, Rect, Shape, Stroke, TextShape, Vec2,
+    },
 };
 use groove_core::{
     control::ControlValue,
@@ -503,11 +505,12 @@ impl Track {
             })
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
+                    ui.set_min_height(Self::ui_contents_height(self.ty, ui_state));
+
                     // The `Response` is based on the title bar, so
                     // clicking/dragging on the title bar affects the `Track` as a
                     // whole.
-                    let response =
-                        self.ui_title(ui, vec2(16.0, Self::ui_contents_height(self.ty, ui_state)));
+                    let response = self.ui_title(ui);
 
                     // Take up all the space we're given, even if we can't fill
                     // it with widget content.
@@ -520,6 +523,10 @@ impl Track {
                     ui.vertical(|ui| {
                         // Only MIDI/audio tracks have content.
                         if !matches!(self.ty, TrackType::Send) {
+                            // Reserve space for the device view.
+                            ui.set_max_height(Self::ui_arrangement_height(ui_state));
+
+                            // Draw the arrangement view.
                             Frame::default()
                                 .inner_margin(Margin::same(0.5))
                                 .outer_margin(Margin::same(0.5))
@@ -527,17 +534,20 @@ impl Track {
                                     width: 1.0,
                                     color: Color32::DARK_GRAY,
                                 })
-                                .show(ui, |ui| match self.ty {
-                                    TrackType::Midi => self.ui_contents_midi(
-                                        ui,
-                                        viewable_time_range,
-                                        ui_state,
-                                        is_selected,
-                                    ),
-                                    TrackType::Audio => {
-                                        self.ui_contents_audio(ui, ui_state, is_selected)
+                                .show(ui, |ui| {
+                                    ui.set_min_size(ui.available_size());
+                                    match self.ty {
+                                        TrackType::Midi => self.ui_contents_midi(
+                                            ui,
+                                            viewable_time_range,
+                                            ui_state,
+                                            is_selected,
+                                        ),
+                                        TrackType::Audio => {
+                                            self.ui_contents_audio(ui, ui_state, is_selected)
+                                        }
+                                        _ => panic!(),
                                     }
-                                    _ => panic!(),
                                 });
                         }
 
@@ -565,24 +575,28 @@ impl Track {
         (response, action)
     }
 
-    fn ui_title(&mut self, ui: &mut Ui, title_bar_size: Vec2) -> Response {
+    fn ui_title(&mut self, ui: &mut Ui) -> Response {
+        let available_size = vec2(16.0, ui.available_height());
+        ui.set_min_size(available_size);
         Frame::default()
             .outer_margin(Margin::same(1.0))
             .inner_margin(Margin::same(0.0))
             .fill(Color32::DARK_GRAY)
             .show(ui, |ui| {
-                ui.allocate_ui(title_bar_size, |ui| {
+                ui.allocate_ui(available_size, |ui| {
                     let mut job = LayoutJob::default();
                     job.append(
                         self.title.0.as_str(),
-                        0.0,
+                        1.0,
                         TextFormat {
                             color: Color32::YELLOW,
+                            font_id: FontId::proportional(12.0),
+                            valign: Align::Center,
                             ..Default::default()
                         },
                     );
                     let galley = ui.ctx().fonts(|f| f.layout_job(job));
-                    let (response, painter) = ui.allocate_painter(title_bar_size, Sense::click());
+                    let (response, painter) = ui.allocate_painter(available_size, Sense::click());
                     let t = Shape::Text(TextShape {
                         pos: response.rect.left_bottom(),
                         galley,
@@ -598,7 +612,7 @@ impl Track {
             .inner
     }
 
-    fn ui_contents_height(track_type: TrackType, ui_state: TrackUiState) -> f32 {
+    pub(crate) fn ui_contents_height(track_type: TrackType, ui_state: TrackUiState) -> f32 {
         if matches!(track_type, TrackType::Send) {
             Self::ui_detail_view_height(ui_state)
         } else {
@@ -633,20 +647,25 @@ impl Track {
     /// Renders an audio [Track]'s arrangement view, which is an overview of some or
     /// all of the track's project timeline.
     fn ui_contents_audio(&mut self, ui: &mut Ui, ui_state: TrackUiState, is_selected: bool) {
-        ui.set_min_size(ui.available_size());
-        ui.label("hi, I'm going to be the audio arrangement");
+        ui.allocate_ui_with_layout(
+            ui.available_size(),
+            Layout::centered_and_justified(egui::Direction::LeftToRight),
+            |ui| {
+                //                ui.label("Hi! I'm going to be the audio arrangement.");
+            },
+        );
     }
 
     fn ui_device_view(&mut self, ui: &mut Ui, ui_state: TrackUiState) {
-        ui.horizontal(|ui| {
-            if self.thing_store.is_empty() {
-                let desired_size =
-                    vec2(ui.available_width(), Self::ui_detail_view_height(ui_state));
-                ui.allocate_ui(desired_size, |ui| {
-                    ui.set_min_size(ui.available_size());
-                    ui.label("Drag things here");
-                });
-            } else {
+        if self.thing_store.is_empty() {
+            let desired_size = vec2(ui.available_width(), Self::ui_detail_view_height(ui_state));
+            ui.allocate_ui_with_layout(
+                desired_size,
+                Layout::centered_and_justified(egui::Direction::LeftToRight),
+                |ui| ui.label("Drag things here"),
+            );
+        } else {
+            ui.horizontal(|ui| {
                 let desired_size = vec2(128.0, Self::ui_detail_view_height(ui_state));
                 for thing in self.thing_store.iter_mut() {
                     ui.allocate_ui(desired_size, |ui| {
@@ -662,8 +681,8 @@ impl Track {
                             });
                     });
                 }
-            }
-        });
+            });
+        }
     }
 
     #[allow(missing_docs)]
@@ -711,6 +730,10 @@ impl Track {
     #[allow(missing_docs)]
     pub fn uid(&self) -> TrackUid {
         self.uid
+    }
+
+    pub(crate) fn ty(&self) -> TrackType {
+        self.ty
     }
 }
 impl GeneratesToInternalBuffer<StereoSample> for Track {

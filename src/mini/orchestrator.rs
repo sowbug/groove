@@ -359,10 +359,7 @@ impl Orchestrator {
                     .get(track_uid)
                     .cloned()
                     .unwrap_or_default();
-                let height = match track_ui_state {
-                    TrackUiState::Collapsed => 64.0,
-                    TrackUiState::Expanded => 128.0,
-                };
+                let height = Track::ui_contents_height(track.ty(), track_ui_state);
                 let desired_size = vec2(ui.available_width(), height);
                 ui.allocate_ui(desired_size, |ui| {
                     ui.set_min_size(desired_size);

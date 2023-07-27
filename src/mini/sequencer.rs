@@ -613,7 +613,7 @@ impl Sequencer {
         ui: &mut Ui,
         viewable_time_range: &Range<MusicalTime>,
     ) -> (Response, Option<SequencerAction>) {
-        let desired_size = vec2(ui.available_width(), 64.0);
+        let desired_size = ui.available_size();
         let (_id, rect) = ui.allocate_space(desired_size);
         let painter = ui.painter_at(rect);
 
