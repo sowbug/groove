@@ -344,7 +344,7 @@ impl Orchestrator {
         action
     }
 
-    #[allow(missing_docs)]
+    /// Main entry point for egui rendering.
     pub fn show_2(
         &mut self,
         ui: &mut Ui,
@@ -393,6 +393,7 @@ impl Orchestrator {
         action
     }
 
+    /// Changes a [Track]'s UI state from collapsed to expanded.
     pub fn toggle_track_ui_state(&mut self, track_uid: &TrackUid) {
         let new_state = self
             .track_ui_states
@@ -408,6 +409,7 @@ impl Orchestrator {
         );
     }
 
+    #[deprecated]
     fn ui_arrangement<'a>(
         &mut self,
         ui: &mut Ui,

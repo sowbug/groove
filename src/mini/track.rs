@@ -63,7 +63,7 @@ pub enum TrackAction {
     ToggleDisclosure,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub enum TrackType {
     #[default]
     Midi,
@@ -473,6 +473,9 @@ impl Track {
         (response, action)
     }
 
+    /// Main entry point for egui rendering. Returns a [Response] and an
+    /// optional [TrackAction] for cases where the [Response] can't represent
+    /// what happened.
     #[must_use]
     #[allow(missing_docs)]
     pub fn show_2(
@@ -483,44 +486,124 @@ impl Track {
         is_selected: bool,
     ) -> (Response, Option<TrackAction>) {
         let mut action = None;
-        let response = ui
-            .horizontal(|ui| {
-                let response = self.ui_title(ui, vec2(16.0, Self::ui_contents_height(ui_state)));
-                self.ui_contents(ui, ui_state, is_selected);
-                response
+
+        // The inner_margin() should be half of the Frame stroke width to leave
+        // room for it. Thanks vikrinox on the egui Discord.
+        let response = Frame::default()
+            .inner_margin(Margin::same(0.5))
+            .stroke(Stroke {
+                width: 1.0,
+                color: {
+                    if is_selected {
+                        Color32::YELLOW
+                    } else {
+                        Color32::DARK_GRAY
+                    }
+                },
+            })
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    // The `Response` is based on the title bar, so
+                    // clicking/dragging on the title bar affects the `Track` as a
+                    // whole.
+                    let response =
+                        self.ui_title(ui, vec2(16.0, Self::ui_contents_height(self.ty, ui_state)));
+
+                    // Take up all the space we're given, even if we can't fill
+                    // it with widget content.
+                    ui.set_min_size(ui.available_size());
+
+                    // The frames shouldn't have space between them.
+                    ui.style_mut().spacing.item_spacing = Vec2::ZERO;
+
+                    // Build the track content with the device view beneath it.
+                    ui.vertical(|ui| {
+                        // Only MIDI/audio tracks have content.
+                        if !matches!(self.ty, TrackType::Send) {
+                            Frame::default()
+                                .inner_margin(Margin::same(0.5))
+                                .outer_margin(Margin::same(0.5))
+                                .stroke(Stroke {
+                                    width: 1.0,
+                                    color: Color32::DARK_GRAY,
+                                })
+                                .show(ui, |ui| match self.ty {
+                                    TrackType::Midi => self.ui_contents_midi(
+                                        ui,
+                                        viewable_time_range,
+                                        ui_state,
+                                        is_selected,
+                                    ),
+                                    TrackType::Audio => {
+                                        self.ui_contents_audio(ui, ui_state, is_selected)
+                                    }
+                                    _ => panic!(),
+                                });
+                        }
+
+                        // Now the device view.
+                        Frame::default()
+                            .inner_margin(Margin::same(0.5))
+                            .outer_margin(Margin::same(0.5))
+                            .stroke(Stroke {
+                                width: 1.0,
+                                color: Color32::DARK_GRAY,
+                            })
+                            .show(ui, |ui| {
+                                Frame::default()
+                                    .fill(Color32::from_gray(16))
+                                    .show(ui, |ui| {
+                                        self.ui_device_view(ui, ui_state);
+                                    });
+                            });
+                    });
+                    response
+                })
+                .inner
             })
             .inner;
         (response, action)
     }
 
     fn ui_title(&mut self, ui: &mut Ui, title_bar_size: Vec2) -> Response {
-        ui.allocate_ui(title_bar_size, |ui| {
-            let mut job = LayoutJob::default();
-            job.append(
-                self.title.0.as_str(),
-                0.0,
-                TextFormat {
-                    color: Color32::YELLOW,
-                    ..Default::default()
-                },
-            );
-            let galley = ui.ctx().fonts(|f| f.layout_job(job));
-            let (response, painter) = ui.allocate_painter(title_bar_size, Sense::click());
-            let t = Shape::Text(TextShape {
-                pos: response.rect.left_bottom(),
-                galley,
-                underline: Stroke::default(),
-                override_text_color: None,
-                angle: 2.0 * PI * 0.75,
-            });
-            painter.add(t);
-            response
-        })
-        .inner
+        Frame::default()
+            .outer_margin(Margin::same(1.0))
+            .inner_margin(Margin::same(0.0))
+            .fill(Color32::DARK_GRAY)
+            .show(ui, |ui| {
+                ui.allocate_ui(title_bar_size, |ui| {
+                    let mut job = LayoutJob::default();
+                    job.append(
+                        self.title.0.as_str(),
+                        0.0,
+                        TextFormat {
+                            color: Color32::YELLOW,
+                            ..Default::default()
+                        },
+                    );
+                    let galley = ui.ctx().fonts(|f| f.layout_job(job));
+                    let (response, painter) = ui.allocate_painter(title_bar_size, Sense::click());
+                    let t = Shape::Text(TextShape {
+                        pos: response.rect.left_bottom(),
+                        galley,
+                        underline: Stroke::default(),
+                        override_text_color: None,
+                        angle: 2.0 * PI * 0.75,
+                    });
+                    painter.add(t);
+                    response
+                })
+                .inner
+            })
+            .inner
     }
 
-    fn ui_contents_height(ui_state: TrackUiState) -> f32 {
-        Self::ui_arrangement_height(ui_state) + Self::ui_detail_view_height(ui_state)
+    fn ui_contents_height(track_type: TrackType, ui_state: TrackUiState) -> f32 {
+        if matches!(track_type, TrackType::Send) {
+            Self::ui_detail_view_height(ui_state)
+        } else {
+            Self::ui_arrangement_height(ui_state) + Self::ui_detail_view_height(ui_state)
+        }
     }
 
     const fn ui_arrangement_height(_ui_state: TrackUiState) -> f32 {
@@ -534,40 +617,37 @@ impl Track {
         }
     }
 
-    fn ui_contents(&mut self, ui: &mut Ui, ui_state: TrackUiState, is_selected: bool) {
-        let av_si = ui.available_size();
-        Frame::default()
-            .stroke(Stroke {
-                width: 2.0,
-                color: if is_selected {
-                    Color32::YELLOW
-                } else {
-                    Color32::DARK_GRAY
-                },
-            })
-            .show(ui, |ui| {
-                ui.set_min_size(av_si);
-                ui.vertical(|ui| {
-                    self.ui_arrangement(ui, ui_state);
-                    self.ui_device_view(ui, ui_state);
-                });
-            });
+    /// Renders a MIDI [Track]'s arrangement view, which is an overview of some or
+    /// all of the track's project timeline.
+    fn ui_contents_midi(
+        &mut self,
+        ui: &mut Ui,
+        viewable_time_range: &Range<MusicalTime>,
+        ui_state: TrackUiState,
+        is_selected: bool,
+    ) {
+        let sequencer = self.sequencer.as_mut().unwrap();
+        sequencer.ui_arrangement(ui, viewable_time_range);
     }
 
-    fn ui_arrangement(&mut self, ui: &mut Ui, ui_state: TrackUiState) {
-        let desired_size = vec2(ui.available_width(), Self::ui_arrangement_height(ui_state));
-        ui.allocate_ui(desired_size, |ui| {
-            ui.set_min_size(desired_size);
-            ui.label("hi, I'm the arrangement");
-        });
+    /// Renders an audio [Track]'s arrangement view, which is an overview of some or
+    /// all of the track's project timeline.
+    fn ui_contents_audio(&mut self, ui: &mut Ui, ui_state: TrackUiState, is_selected: bool) {
+        ui.set_min_size(ui.available_size());
+        ui.label("hi, I'm going to be the audio arrangement");
     }
 
     fn ui_device_view(&mut self, ui: &mut Ui, ui_state: TrackUiState) {
         ui.horizontal(|ui| {
-            let desired_size = vec2(128.0, Self::ui_detail_view_height(ui_state));
             if self.thing_store.is_empty() {
-                ui.allocate_ui(desired_size, |ui| ui.label("Drag things here"));
+                let desired_size =
+                    vec2(ui.available_width(), Self::ui_detail_view_height(ui_state));
+                ui.allocate_ui(desired_size, |ui| {
+                    ui.set_min_size(ui.available_size());
+                    ui.label("Drag things here");
+                });
             } else {
+                let desired_size = vec2(128.0, Self::ui_detail_view_height(ui_state));
                 for thing in self.thing_store.iter_mut() {
                     ui.allocate_ui(desired_size, |ui| {
                         ui.set_min_size(desired_size);
