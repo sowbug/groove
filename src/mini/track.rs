@@ -7,6 +7,7 @@ use super::{
     humidifier::Humidifier,
     midi_router::MidiRouter,
     sequencer::{Sequencer, SequencerAction, SequencerBuilder},
+    DragDropManager, DragDropSource, Key,
 };
 use eframe::{
     egui::{self, Frame, Layout, Margin, Response, Sense, TextFormat, Ui},
@@ -26,7 +27,12 @@ use groove_core::{
     IsUid, Normal, StereoSample, Uid,
 };
 use serde::{Deserialize, Serialize};
-use std::{f32::consts::PI, fmt::Display, ops::Range};
+use std::{
+    f32::consts::PI,
+    fmt::Display,
+    ops::Range,
+    sync::{Arc, Mutex},
+};
 
 /// Identifies a [Track].
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -61,8 +67,9 @@ pub enum TrackDetailAction {}
 #[allow(missing_docs)]
 #[derive(Debug)]
 pub enum TrackAction {
-    SetTitle(TrackUid, TrackTitle),
+    SetTitle(TrackTitle),
     ToggleDisclosure,
+    NewDevice(TrackUid, Key),
 }
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
@@ -450,7 +457,7 @@ impl Track {
                 ui.horizontal(|ui| {
                     let mut title = self.title.0.clone();
                     if ui.text_edit_singleline(&mut title).changed() {
-                        action = Some(TrackAction::SetTitle(self.uid(), TrackTitle(title)));
+                        action = Some(TrackAction::SetTitle(TrackTitle(title)));
                     };
 
                     // This is the thing that senses a plain click and returns
@@ -483,6 +490,7 @@ impl Track {
     pub fn show_2(
         &mut self,
         ui: &mut Ui,
+        drag_drop_manager: Arc<Mutex<DragDropManager>>,
         viewable_time_range: &Range<MusicalTime>,
         ui_state: TrackUiState,
         is_selected: bool,
@@ -505,7 +513,7 @@ impl Track {
             })
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.set_min_height(Self::ui_contents_height(self.ty, ui_state));
+                    ui.set_min_height(Self::track_view_height(self.ty, ui_state));
 
                     // The `Response` is based on the title bar, so
                     // clicking/dragging on the title bar affects the `Track` as a
@@ -524,7 +532,7 @@ impl Track {
                         // Only MIDI/audio tracks have content.
                         if !matches!(self.ty, TrackType::Send) {
                             // Reserve space for the device view.
-                            ui.set_max_height(Self::ui_arrangement_height(ui_state));
+                            ui.set_max_height(Self::arrangement_view_height(ui_state));
 
                             // Draw the arrangement view.
                             Frame::default()
@@ -563,7 +571,11 @@ impl Track {
                                 Frame::default()
                                     .fill(Color32::from_gray(16))
                                     .show(ui, |ui| {
-                                        self.ui_device_view(ui, ui_state);
+                                        if let Some(track_action) =
+                                            self.ui_device_view(ui, ui_state, drag_drop_manager)
+                                        {
+                                            action = Some(track_action);
+                                        }
                                     });
                             });
                     });
@@ -612,19 +624,19 @@ impl Track {
             .inner
     }
 
-    pub(crate) fn ui_contents_height(track_type: TrackType, ui_state: TrackUiState) -> f32 {
+    pub(crate) fn track_view_height(track_type: TrackType, ui_state: TrackUiState) -> f32 {
         if matches!(track_type, TrackType::Send) {
-            Self::ui_detail_view_height(ui_state)
+            Self::device_view_height(ui_state)
         } else {
-            Self::ui_arrangement_height(ui_state) + Self::ui_detail_view_height(ui_state)
+            Self::arrangement_view_height(ui_state) + Self::device_view_height(ui_state)
         }
     }
 
-    const fn ui_arrangement_height(_ui_state: TrackUiState) -> f32 {
+    const fn arrangement_view_height(_ui_state: TrackUiState) -> f32 {
         64.0
     }
 
-    const fn ui_detail_view_height(ui_state: TrackUiState) -> f32 {
+    const fn device_view_height(ui_state: TrackUiState) -> f32 {
         match ui_state {
             TrackUiState::Collapsed => 32.0,
             TrackUiState::Expanded => 96.0,
@@ -637,52 +649,104 @@ impl Track {
         &mut self,
         ui: &mut Ui,
         viewable_time_range: &Range<MusicalTime>,
-        ui_state: TrackUiState,
-        is_selected: bool,
+        _ui_state: TrackUiState,
+        _is_selected: bool,
     ) {
         let sequencer = self.sequencer.as_mut().unwrap();
-        sequencer.ui_arrangement(ui, viewable_time_range);
+        let _ = sequencer.ui_arrangement(ui, viewable_time_range);
     }
 
     /// Renders an audio [Track]'s arrangement view, which is an overview of some or
     /// all of the track's project timeline.
-    fn ui_contents_audio(&mut self, ui: &mut Ui, ui_state: TrackUiState, is_selected: bool) {
+    fn ui_contents_audio(&mut self, ui: &mut Ui, _ui_state: TrackUiState, _is_selected: bool) {
         ui.allocate_ui_with_layout(
             ui.available_size(),
             Layout::centered_and_justified(egui::Direction::LeftToRight),
             |ui| {
-                //                ui.label("Hi! I'm going to be the audio arrangement.");
+                self.draw_temp_squiggles(ui);
             },
         );
     }
 
-    fn ui_device_view(&mut self, ui: &mut Ui, ui_state: TrackUiState) {
-        if self.thing_store.is_empty() {
-            let desired_size = vec2(ui.available_width(), Self::ui_detail_view_height(ui_state));
-            ui.allocate_ui_with_layout(
-                desired_size,
-                Layout::centered_and_justified(egui::Direction::LeftToRight),
-                |ui| ui.label("Drag things here"),
-            );
-        } else {
+    #[must_use]
+    fn ui_device_view(
+        &mut self,
+        ui: &mut Ui,
+        ui_state: TrackUiState,
+        drag_drop_manager: Arc<Mutex<DragDropManager>>,
+    ) -> Option<TrackAction> {
+        let mut action = None;
+        let mut drag_and_drop_action = None;
+        let mut hovered = false;
+        let desired_size = vec2(128.0, Self::device_view_height(ui_state));
+        {
             ui.horizontal(|ui| {
-                let desired_size = vec2(128.0, Self::ui_detail_view_height(ui_state));
                 for thing in self.thing_store.iter_mut() {
                     ui.allocate_ui(desired_size, |ui| {
                         ui.set_min_size(desired_size);
+                        ui.set_max_size(desired_size);
                         Frame::default()
                             .stroke(Stroke {
                                 width: 0.5,
                                 color: Color32::DARK_GRAY,
                             })
-                            .show(ui, |ui| match ui_state {
-                                TrackUiState::Collapsed => thing.ui_small(ui),
-                                TrackUiState::Expanded => thing.ui_large(ui),
+                            .show(ui, |ui| {
+                                match ui_state {
+                                    TrackUiState::Collapsed => thing.ui_small(ui),
+                                    TrackUiState::Expanded => thing.show(ui), // thing.ui_large(ui),
+                                };
                             });
                     });
                 }
+
+                if let Ok(mut ddm) = drag_drop_manager.lock() {
+                    let r = ddm
+                        .drop_target(ui, true, |ui, source| {
+                            ui.allocate_ui_with_layout(
+                                desired_size,
+                                Layout::centered_and_justified(egui::Direction::LeftToRight),
+                                |ui| {
+                                    ui.label(if self.thing_store.is_empty() {
+                                        "Drag things here"
+                                    } else {
+                                        "+"
+                                    })
+                                },
+                            );
+                            if let Some(source) = source {
+                                match source {
+                                    DragDropSource::NewDevice(key) => {
+                                        drag_and_drop_action =
+                                            Some(DragDropSource::NewDevice(key.clone()));
+                                    }
+                                }
+                            }
+                        })
+                        .response;
+                    if r.hovered() {
+                        hovered = true;
+                    }
+                }
             });
         }
+
+        if hovered {
+            if let Some(dd_action) = drag_and_drop_action {
+                if ui.input(|i| i.pointer.any_released()) {
+                    match dd_action {
+                        DragDropSource::NewDevice(key) => {
+                            action = Some(TrackAction::NewDevice(self.uid, key));
+
+                            // This is important to let the manager know that
+                            // you've handled the drop.
+                            drag_drop_manager.lock().unwrap().reset();
+                        }
+                    }
+                }
+            }
+        }
+
+        action
     }
 
     #[allow(missing_docs)]

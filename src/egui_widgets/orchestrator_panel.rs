@@ -1,5 +1,6 @@
 use crate::mini::{
-    ChannelPair, EntityFactory, Key, Orchestrator, OrchestratorAction, SelectionSet, TrackUid,
+    ChannelPair, DragDropManager, EntityFactory, Key, Orchestrator, OrchestratorAction,
+    OrchestratorBuilder, SelectionSet, TrackUid,
 };
 use anyhow::{anyhow, Result};
 use crossbeam_channel::{Receiver, Sender};
@@ -86,8 +87,14 @@ pub struct OrchestratorPanel {
 }
 impl OrchestratorPanel {
     /// Creates a new panel.
-    pub fn new_with(factory: Arc<EntityFactory>) -> Self {
-        let mut o = Orchestrator::default();
+    pub fn new_with(
+        factory: Arc<EntityFactory>,
+        drag_drop_manager: Arc<Mutex<DragDropManager>>,
+    ) -> Self {
+        let mut o = OrchestratorBuilder::default()
+            .drag_drop_manager(drag_drop_manager)
+            .build()
+            .unwrap();
         let _ = o.create_starter_tracks();
         let mut r = Self {
             orchestrator: Arc::new(Mutex::new(o)),
@@ -300,6 +307,11 @@ impl OrchestratorPanel {
                 }
                 OrchestratorAction::DoubleClickTrack(track_uid) => {
                     o.toggle_track_ui_state(&track_uid);
+                }
+                OrchestratorAction::NewDeviceForTrack(track_uid, key) => {
+                    if let Some(thing) = self.factory.new_thing(&key) {
+                        let _ = o.add_thing(thing, &track_uid);
+                    }
                 }
             }
         }

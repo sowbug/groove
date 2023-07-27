@@ -40,17 +40,15 @@ impl PalettePanel {
 
     /// Draws the panel.
     pub fn show_with_action(&mut self, ui: &mut Ui) -> Option<PaletteAction> {
-        let mut action = None;
+        let action = None;
         if let Ok(mut dnd) = self.drag_drop_manager.lock() {
-            for key in self.factory.keys().iter() {
+            for key in self.factory.sorted_keys() {
                 dnd.drag_source(
                     ui,
                     EguiId::new(key),
-                    DragDropSource::NewController(key.clone()),
+                    DragDropSource::NewDevice(key.clone()),
                     |ui| {
-                        if ui.button(key.to_string()).clicked() {
-                            action = Some(PaletteAction::NewThing(key.clone()));
-                        }
+                        ui.label(key.to_string());
                     },
                 );
             }

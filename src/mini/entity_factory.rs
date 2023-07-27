@@ -16,7 +16,7 @@ use std::{
 
 /// A globally unique identifier for a kind of thing, such as an arpeggiator
 /// controller, an FM synthesizer, or a reverb effect.
-#[derive(Clone, Debug, Display, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Display, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub struct Key(String);
 impl From<&String> for Key {
     fn from(value: &String) -> Self {
@@ -38,6 +38,9 @@ pub struct EntityFactory {
     next_uid: RelaxedCounter,
     things: HashMap<Key, ThingFactoryFn>,
     keys: HashSet<Key>,
+
+    is_registration_complete: bool,
+    sorted_keys: Vec<Key>,
 }
 impl Default for EntityFactory {
     fn default() -> Self {
@@ -45,6 +48,8 @@ impl Default for EntityFactory {
             next_uid: RelaxedCounter::new(Self::MAX_RESERVED_UID + 1),
             things: Default::default(),
             keys: Default::default(),
+            is_registration_complete: Default::default(),
+            sorted_keys: Default::default(),
         }
     }
 }
@@ -66,11 +71,22 @@ impl EntityFactory {
 
     /// Registers a new type for the given [Key] using the given closure.
     pub fn register_thing(&mut self, key: Key, f: ThingFactoryFn) {
+        if self.is_registration_complete {
+            panic!("attempt to register another thing after registration completed");
+        }
         if self.keys.insert(key.clone()) {
             self.things.insert(key, f);
         } else {
             panic!("register_thing({}): duplicate key. Exiting.", key);
         }
+    }
+
+    /// Tells the factory that we won't be registering any more things, allowing
+    /// it to do some final housekeeping.
+    pub fn complete_registration(&mut self) {
+        self.is_registration_complete = true;
+        self.sorted_keys = self.keys().iter().map(|k| k.clone()).collect();
+        self.sorted_keys.sort();
     }
 
     /// Creates a new thing of the type corresponding to the given [Key].
@@ -101,6 +117,14 @@ impl EntityFactory {
     /// treats specially.
     pub fn mint_uid(&self) -> Uid {
         Uid(self.next_uid.inc())
+    }
+
+    /// Returns all the [Key]s in sorted order for consistent display in the UI.
+    pub fn sorted_keys(&self) -> &[Key] {
+        if !self.is_registration_complete {
+            panic!("sorted_keys() can be called only after registration is complete.")
+        }
+        &self.sorted_keys
     }
 }
 

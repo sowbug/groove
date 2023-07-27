@@ -5,8 +5,10 @@ use super::{
     selection_set::SelectionSet,
     track::{Track, TrackAction, TrackFactory, TrackTitle, TrackUiState, TrackUid},
     transport::{Transport, TransportBuilder},
+    DragDropManager, Key,
 };
 use anyhow::{anyhow, Result};
+use derive_builder::Builder;
 use eframe::{
     egui::{self, Frame, Ui},
     emath::{self, Align2},
@@ -26,7 +28,13 @@ use groove_core::{
 };
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Debug, ops::Range, vec::Vec};
+use std::{
+    collections::HashMap,
+    fmt::Debug,
+    ops::Range,
+    sync::{Arc, Mutex},
+    vec::Vec,
+};
 
 /// Actions that [Orchestrator]'s UI might need the parent to perform.
 #[derive(Debug)]
@@ -35,6 +43,8 @@ pub enum OrchestratorAction {
     ClickTrack(TrackUid),
     /// A [Track] was double-clicked in the UI.
     DoubleClickTrack(TrackUid),
+    /// A [Track] wants a new device of type [Key].
+    NewDeviceForTrack(TrackUid, Key),
 }
 
 /// A grouping mechanism to declare parts of [Orchestrator] that Serde
@@ -62,10 +72,13 @@ pub struct OrchestratorEphemerals {
 /// let mut samples = [StereoSample::SILENCE; Orchestrator::SAMPLE_BUFFER_SIZE];
 /// orchestrator.render(&mut samples);
 /// ```
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Builder)]
+#[builder(setter(skip))]
 pub struct Orchestrator {
     /// The user-supplied name of this project.
+    #[builder(setter, default)]
     title: Option<String>,
+
     transport: Transport,
     control_router: ControlRouter,
 
@@ -89,6 +102,10 @@ pub struct Orchestrator {
     //
     #[serde(skip)]
     e: OrchestratorEphemerals,
+
+    #[serde(skip)]
+    #[builder(setter)]
+    drag_drop_manager: Arc<Mutex<DragDropManager>>,
 }
 impl Default for Orchestrator {
     fn default() -> Self {
@@ -106,6 +123,7 @@ impl Default for Orchestrator {
             max_entity_uid: Default::default(),
 
             e: Default::default(),
+            drag_drop_manager: Default::default(),
         }
     }
 }
@@ -276,6 +294,11 @@ impl Orchestrator {
         self.tracks.values_mut()
     }
 
+    /// Gives the Orchestrator a clone of a DragDropManager.
+    pub fn set_drag_drop_manager(&mut self, drag_drop_manager: Arc<Mutex<DragDropManager>>) {
+        self.drag_drop_manager = drag_drop_manager;
+    }
+
     /// Returns the specified [Track].
     #[allow(dead_code)]
     fn get_track(&self, uid: &TrackUid) -> Option<&Track> {
@@ -326,6 +349,7 @@ impl Orchestrator {
 
     /// Renders the project's GUI.
     #[must_use]
+    #[deprecated]
     pub fn show(
         &mut self,
         ui: &mut Ui,
@@ -359,29 +383,35 @@ impl Orchestrator {
                     .get(track_uid)
                     .cloned()
                     .unwrap_or_default();
-                let height = Track::ui_contents_height(track.ty(), track_ui_state);
+                let height = Track::track_view_height(track.ty(), track_ui_state);
                 let desired_size = vec2(ui.available_width(), height);
                 ui.allocate_ui(desired_size, |ui| {
                     ui.set_min_size(desired_size);
+                    let ddm = Arc::clone(&self.drag_drop_manager);
                     let (response, action_opt) = track.show_2(
                         ui,
+                        ddm,
                         &viewable_time_range,
                         track_ui_state,
                         track_selection_set.contains(track_uid),
                     );
                     if let Some(a) = action_opt {
                         match a {
-                            TrackAction::SetTitle(u, t) => {
+                            TrackAction::SetTitle(t) => {
                                 track.set_title(t);
                             }
                             TrackAction::ToggleDisclosure => {
                                 action = Some(OrchestratorAction::DoubleClickTrack(*track_uid));
+                            }
+                            TrackAction::NewDevice(track_uid, key) => {
+                                action = Some(OrchestratorAction::NewDeviceForTrack(track_uid, key))
                             }
                         }
                     }
                     if response.double_clicked() {
                         action = Some(OrchestratorAction::DoubleClickTrack(*track_uid));
                     } else if response.clicked() {
+                        eprintln!("clicked {}", track_uid);
                         action = Some(OrchestratorAction::ClickTrack(*track_uid));
                     }
                 });
@@ -470,8 +500,9 @@ impl Orchestrator {
             }
             if let Some(track_action) = track_action {
                 match track_action {
-                    TrackAction::SetTitle(uid, title) => self.set_track_title(uid, title),
+                    TrackAction::SetTitle(_title) => panic!(), //self.set_track_title(uid, title),
                     TrackAction::ToggleDisclosure => todo!(),
+                    TrackAction::NewDevice(_track_uid, _key) => todo!(),
                 }
             }
         });

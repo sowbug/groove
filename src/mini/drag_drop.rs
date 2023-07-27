@@ -5,18 +5,12 @@ use eframe::{
     egui::{CursorIcon, Id as EguiId, InnerResponse, LayerId, Order, Sense, Ui},
     epaint::{self, Rect, Shape, Vec2},
 };
-use groove_core::Uid;
+use strum_macros::Display;
 
 #[allow(missing_docs)]
-#[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Display)]
 pub enum DragDropSource {
-    ControllerInTrack(usize, Uid),
-    EffectInTrack(usize, Uid),
-    InstrumentInTrack(usize, Uid),
-    NewController(Key),
-    NewEffect(Key),
-    NewInstrument(Key),
+    NewDevice(Key),
 }
 
 // TODO: a way to express rules about what can and can't be dropped
@@ -60,12 +54,11 @@ impl DragDropManager {
         }
     }
 
-    #[allow(dead_code)]
     pub fn drop_target<R>(
         &mut self,
         ui: &mut Ui,
         can_accept_what_is_being_dragged: bool,
-        body: impl FnOnce(&mut Ui) -> R,
+        body: impl FnOnce(&mut Ui, &Option<DragDropSource>) -> R,
     ) -> InnerResponse<R> {
         let is_being_dragged = ui.memory(|mem| mem.is_anything_being_dragged());
 
@@ -75,7 +68,7 @@ impl DragDropManager {
         let inner_rect = outer_rect_bounds.shrink2(margin);
         let where_to_put_background = ui.painter().add(Shape::Noop);
         let mut content_ui = ui.child_ui(inner_rect, *ui.layout());
-        let ret = body(&mut content_ui);
+        let ret = body(&mut content_ui, &self.source);
         let outer_rect =
             Rect::from_min_max(outer_rect_bounds.min, content_ui.min_rect().max + margin);
         let (rect, response) = ui.allocate_at_least(outer_rect.size(), Sense::hover());

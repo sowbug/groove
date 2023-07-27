@@ -233,7 +233,8 @@ impl MiniDaw {
         let factory = Arc::new(entity_factory);
 
         let drag_drop_manager = Arc::new(Mutex::new(DragDropManager::default()));
-        let orchestrator_panel = OrchestratorPanel::new_with(Arc::clone(&factory));
+        let orchestrator_panel =
+            OrchestratorPanel::new_with(Arc::clone(&factory), Arc::clone(&drag_drop_manager));
         let mini_orchestrator = Arc::clone(orchestrator_panel.orchestrator());
 
         let mini_orchestrator_for_fn = Arc::clone(&mini_orchestrator);

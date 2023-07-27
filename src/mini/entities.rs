@@ -67,6 +67,8 @@ pub fn register_mini_factory_entities(factory: &mut EntityFactory) {
             waveform: Waveform::Sawtooth,
         }))
     });
+
+    factory.complete_registration();
 }
 
 #[cfg(test)]
@@ -90,4 +92,6 @@ pub fn register_test_factory_entities(factory: &mut EntityFactory) {
     factory.register_thing(Key::from("effect"), || {
         Box::new(ToyEffect::new_with(&ToyEffectParams::default()))
     });
+
+    factory.complete_registration();
 }
