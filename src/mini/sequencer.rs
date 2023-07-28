@@ -659,7 +659,7 @@ impl Sequencer {
         }
         painter.extend(shapes);
 
-        for (arranged_pattern_uid, arranged_pattern) in self.arranged_patterns.iter() {
+        for (_arranged_pattern_uid, arranged_pattern) in self.arranged_patterns.iter() {
             if let Some(pattern) = self.patterns.get(&arranged_pattern.pattern_uid) {
                 let start = arranged_pattern.position;
                 let end = start + pattern.duration;
@@ -698,7 +698,7 @@ impl Sequencer {
             }
         }
 
-        (ui.allocate_ui_at_rect(rect, |ui| {}).response, None)
+        (ui.allocate_ui_at_rect(rect, |_ui| {}).response, None)
     }
 
     /// Renders the arrangement view.
