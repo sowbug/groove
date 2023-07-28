@@ -414,7 +414,6 @@ impl Orchestrator {
                     if response.double_clicked() {
                         action = Some(OrchestratorAction::DoubleClickTrack(*track_uid));
                     } else if response.clicked() {
-                        eprintln!("clicked {}", track_uid);
                         action = Some(OrchestratorAction::ClickTrack(*track_uid));
                     }
                 });
