@@ -74,6 +74,7 @@ pub struct OrchestratorEphemerals {
 /// ```
 #[derive(Serialize, Deserialize, Debug, Builder)]
 #[builder(setter(skip))]
+#[builder_struct_attr(allow(missing_docs))]
 pub struct Orchestrator {
     /// The user-supplied name of this project.
     #[builder(setter, default)]
@@ -103,6 +104,8 @@ pub struct Orchestrator {
     #[serde(skip)]
     e: OrchestratorEphemerals,
 
+    /// Placeholder doc to work around
+    /// https://github.com/colin-kiegel/rust-derive-builder/issues/283
     #[serde(skip)]
     #[builder(setter)]
     drag_drop_manager: Arc<Mutex<DragDropManager>>,
