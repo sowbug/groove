@@ -381,60 +381,12 @@ pub trait Shows {}
 
 #[cfg(feature = "egui-framework")]
 pub mod gui {
-    use eframe::{
-        egui::{Sense, Ui},
-        emath::{self, Align2},
-        epaint::{pos2, Color32, FontId, Rect, Stroke},
-    };
+    use eframe::egui::Ui;
 
     /// Implements egui content inside a Window or SidePanel.
     pub trait Shows {
         fn show(&mut self, ui: &mut Ui) {
             ui.label("Coming soon!");
-        }
-
-        fn ui_small(&mut self, ui: &mut Ui) {
-            let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click());
-            let to_screen = emath::RectTransform::from_to(
-                Rect::from_x_y_ranges(0.0..=1.0, 0.0..=1.0),
-                response.rect,
-            );
-            painter.line_segment(
-                [to_screen * pos2(0.0, 0.0), to_screen * pos2(1.0, 1.0)],
-                Stroke {
-                    width: 1.0,
-                    color: Color32::LIGHT_GRAY,
-                },
-            );
-            painter.text(
-                to_screen * pos2(1.0, 0.0),
-                Align2::RIGHT_TOP,
-                "Small!",
-                FontId::proportional(12.0),
-                Color32::LIGHT_GRAY,
-            );
-        }
-
-        fn ui_large(&mut self, ui: &mut Ui) {
-            let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click());
-            let to_screen = emath::RectTransform::from_to(
-                Rect::from_x_y_ranges(0.0..=1.0, 0.0..=1.0),
-                response.rect,
-            );
-            painter.line_segment(
-                [to_screen * pos2(0.0, 0.0), to_screen * pos2(1.0, 1.0)],
-                Stroke {
-                    width: 1.0,
-                    color: Color32::LIGHT_GRAY,
-                },
-            );
-            painter.text(
-                to_screen * pos2(1.0, 0.0),
-                Align2::RIGHT_TOP,
-                "Large!",
-                FontId::proportional(14.0),
-                Color32::LIGHT_GRAY,
-            );
         }
     }
 }
