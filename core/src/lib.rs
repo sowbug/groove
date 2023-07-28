@@ -8,7 +8,7 @@ use std::{
     fmt::Display,
     hash::Hash,
     iter::Sum,
-    ops::{Add, AddAssign, Div, Mul, Neg, RangeInclusive, Sub},
+    ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, RangeInclusive, Sub},
 };
 
 #[cfg(feature = "serialization")]
@@ -268,7 +268,7 @@ impl Mul<f64> for StereoSample {
 /// prefer f64 sourced from [RangedF64] rather than [RangedF64] itself.
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct RangedF64<const LOWER: i8, const UPPER: i8>(f64);
+pub struct RangedF64<const LOWER: i8, const UPPER: i8>(pub f64);
 impl<const LOWER: i8, const UPPER: i8> RangedF64<LOWER, UPPER> {
     pub const MAX: f64 = UPPER as f64;
     pub const MIN: f64 = LOWER as f64;
@@ -368,7 +368,16 @@ impl<const LOWER: i8, const UPPER: i8> From<f32> for RangedF64<LOWER, UPPER> {
         Self(value.clamp(Self::MIN as f32, Self::MAX as f32) as f64)
     }
 }
-
+impl<const LOWER: i8, const UPPER: i8> MulAssign for RangedF64<LOWER, UPPER> {
+    fn mul_assign(&mut self, rhs: Self) {
+        self.0 = self.0 * rhs.0;
+    }
+}
+impl<const LOWER: i8, const UPPER: i8> MulAssign<f64> for RangedF64<LOWER, UPPER> {
+    fn mul_assign(&mut self, rhs: f64) {
+        self.0 = self.0 * rhs;
+    }
+}
 /// A Normal is a [RangedF64] whose range is [0.0, 1.0].
 pub type Normal = RangedF64<0, 1>;
 impl Normal {
