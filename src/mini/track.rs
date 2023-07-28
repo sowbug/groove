@@ -179,6 +179,9 @@ pub struct Track {
 
     #[serde(skip)]
     buffer: TrackBuffer,
+
+    #[serde(skip)]
+    is_sequencer_open: bool,
 }
 impl Track {
     #[allow(missing_docs)]
@@ -286,6 +289,7 @@ impl Track {
         response
     }
 
+    #[deprecated]
     fn show_midi(
         &mut self,
         ui: &mut Ui,
@@ -444,6 +448,7 @@ impl Track {
 
     #[must_use]
     #[allow(missing_docs)]
+    #[deprecated]
     pub fn show(
         &mut self,
         ui: &mut Ui,
@@ -653,7 +658,7 @@ impl Track {
         _is_selected: bool,
     ) {
         let sequencer = self.sequencer.as_mut().unwrap();
-        let _ = sequencer.ui_arrangement(ui, viewable_time_range);
+        let (_response, _action) = sequencer.ui_arrangement(ui, viewable_time_range);
     }
 
     /// Renders an audio [Track]'s arrangement view, which is an overview of some or
@@ -681,19 +686,22 @@ impl Track {
         let desired_size = vec2(128.0, Self::device_view_height(ui_state));
         {
             ui.horizontal(|ui| {
-                for thing in self.thing_store.iter_mut() {
-                    ui.allocate_ui(desired_size, |ui| {
-                        ui.set_min_size(desired_size);
-                        ui.set_max_size(desired_size);
-                        Frame::default()
-                            .stroke(Stroke {
-                                width: 0.5,
-                                color: Color32::DARK_GRAY,
-                            })
-                            .show(ui, |ui| {
-                                thing.show(ui);
+                if let Some(sequencer) = self.sequencer.as_mut() {
+                    if self.is_sequencer_open {
+                        egui::Window::new("Sequencer")
+                            .open(&mut self.is_sequencer_open)
+                            .show(ui.ctx(), |ui| {
+                                sequencer.show(ui);
                             });
-                    });
+                    } else {
+                        Self::ui_device(ui, sequencer, desired_size);
+                        if ui.button("open").clicked() {
+                            self.is_sequencer_open = !self.is_sequencer_open;
+                        }
+                    }
+                }
+                for thing in self.thing_store.iter_mut() {
+                    Self::ui_device(ui, thing.as_mut(), desired_size);
                 }
 
                 if let Ok(mut ddm) = drag_drop_manager.lock() {
@@ -744,6 +752,22 @@ impl Track {
         }
 
         action
+    }
+
+    fn ui_device(ui: &mut Ui, thing: &mut dyn Thing, desired_size: Vec2) {
+        ui.allocate_ui(desired_size, |ui| {
+            ui.set_min_size(desired_size);
+            ui.set_max_size(desired_size);
+            Frame::default()
+                .stroke(Stroke {
+                    width: 0.5,
+                    color: Color32::DARK_GRAY,
+                })
+                .inner_margin(2.0)
+                .show(ui, |ui| {
+                    thing.show(ui);
+                });
+        });
     }
 
     #[allow(missing_docs)]

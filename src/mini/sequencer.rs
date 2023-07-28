@@ -5,9 +5,9 @@ use anyhow::anyhow;
 use btreemultimap::BTreeMultiMap;
 use derive_builder::Builder;
 use eframe::{
-    egui::{Frame, Response, Sense, Ui},
+    egui::{Frame, Response, ScrollArea, Sense, Ui},
     emath::{self, RectTransform},
-    epaint::{pos2, vec2, Color32, Pos2, Rect, Rounding, Shape, Stroke, Vec2},
+    epaint::{pos2, vec2, Color32, Pos2, Rect, RectShape, Rounding, Shape, Stroke, Vec2},
 };
 use groove_core::{
     midi::{new_note_off, new_note_on, MidiChannel, MidiMessage},
@@ -295,7 +295,7 @@ impl Pattern {
         } else {
             rect
         };
-        debug_assert!(rect.area() > 0.0);
+        debug_assert!(rect.area() != 0.0);
         vec![
             Shape::rect_stroke(rect, Rounding::default(), Stroke { width: 2.0, color }),
             Shape::rect_filled(rect.shrink(2.0), Rounding::default(), Color32::LIGHT_BLUE),
@@ -587,21 +587,23 @@ impl Sequencer {
 
     fn ui_content(&mut self, ui: &mut Ui) -> Option<SequencerAction> {
         let mut action = None;
-        ui.allocate_ui(vec2(384.0, 128.0), |ui| {
-            let patterns = &mut self.patterns;
-            if ui.button("Add pattern").clicked() {
-                action = Some(SequencerAction::CreatePattern)
-            }
-            if patterns.is_empty() {
-                ui.label("Add a pattern and start editing it");
-            } else {
-                patterns.iter_mut().for_each(|(uid, p)| {
-                    if ui.button("Add to track").clicked() {
-                        action = Some(SequencerAction::ArrangePatternAppend(*uid))
-                    }
-                    p.show(ui);
-                });
-            }
+        ui.allocate_ui(ui.available_size_before_wrap(), |ui| {
+            ScrollArea::vertical().show(ui, |ui| {
+                let patterns = &mut self.patterns;
+                if ui.button("Add pattern").clicked() {
+                    action = Some(SequencerAction::CreatePattern)
+                }
+                if patterns.is_empty() {
+                    ui.label("Add a pattern and start editing it");
+                } else {
+                    patterns.iter_mut().for_each(|(uid, p)| {
+                        if ui.button("Add to track").clicked() {
+                            action = Some(SequencerAction::ArrangePatternAppend(*uid))
+                        }
+                        p.show(ui);
+                    });
+                }
+            });
         });
         action
     }
@@ -614,8 +616,10 @@ impl Sequencer {
         viewable_time_range: &Range<MusicalTime>,
     ) -> (Response, Option<SequencerAction>) {
         let desired_size = ui.available_size();
-        let (_id, rect) = ui.allocate_space(desired_size);
+        let (id, rect) = ui.allocate_space(desired_size);
         let painter = ui.painter_at(rect);
+
+        let response = ui.interact(rect, id, Sense::click_and_drag());
 
         let start_beat = viewable_time_range.start.total_beats();
         let end_beat = viewable_time_range.end.total_beats();
@@ -642,20 +646,38 @@ impl Sequencer {
 
         let skip = self.time_signature.top;
         let mut shapes = Vec::default();
+        let mut last_segment = [
+            to_screen_beats * pos2(start_beat as f32, 0.0),
+            to_screen_beats * pos2(start_beat as f32, 1.0),
+        ];
         for (i, beat) in (start_beat..end_beat).enumerate() {
             if i != 0 && i != beat_count - 1 && i % skip != 0 {
                 continue;
             }
+            let this_segment = [
+                to_screen_beats * pos2(beat as f32, 0.0),
+                to_screen_beats * pos2(beat as f32, 1.0),
+            ];
             shapes.push(Shape::LineSegment {
-                points: [
-                    to_screen_beats * pos2(beat as f32, 0.0),
-                    to_screen_beats * pos2(beat as f32, 1.0),
-                ],
+                points: this_segment,
                 stroke: Stroke {
                     width: 1.0,
                     color: Color32::DARK_GRAY,
                 },
             });
+            let hover_rect = Rect::from_two_pos(last_segment[0], this_segment[1]);
+            if ui.interact(hover_rect, id, Sense::hover()).hovered() {
+                shapes.push(Shape::Rect(RectShape {
+                    rect: hover_rect,
+                    rounding: Rounding::none(),
+                    fill: Color32::DARK_GRAY,
+                    stroke: Stroke {
+                        width: 2.0,
+                        color: Color32::YELLOW,
+                    },
+                }));
+            }
+            last_segment = this_segment;
         }
         painter.extend(shapes);
 
@@ -698,7 +720,7 @@ impl Sequencer {
             }
         }
 
-        (ui.allocate_ui_at_rect(rect, |_ui| {}).response, None)
+        (response, None)
     }
 
     /// Renders the arrangement view.
@@ -801,9 +823,12 @@ impl Sequencer {
     fn remove_arranged_pattern(&mut self, uid: &ArrangedPatternUid) {
         self.arranged_patterns.remove(uid);
     }
-}
-impl Shows for Sequencer {
-    fn show(&mut self, ui: &mut Ui) {
+
+    fn show_small(&mut self, ui: &mut Ui) {
+        ui.label("Sequencer");
+    }
+
+    fn show_medium(&mut self, ui: &mut Ui) {
         if let Some(action) = self.ui_content(ui) {
             match action {
                 SequencerAction::CreatePattern => {
@@ -818,6 +843,24 @@ impl Shows for Sequencer {
                     self.toggle_arranged_pattern_selection(&uid);
                 }
             }
+        }
+    }
+
+    fn show_full(&mut self, ui: &mut Ui) {
+        ui.label("Sequencer FULL");
+    }
+}
+impl Shows for Sequencer {
+    fn show(&mut self, ui: &mut Ui) {
+        let height = ui.available_height();
+        ui.set_min_size(ui.available_size());
+        ui.set_max_size(ui.available_size());
+        if height <= 32.0 {
+            self.show_small(ui);
+        } else if height <= 128.0 {
+            self.show_medium(ui);
+        } else {
+            self.show_medium(ui);
         }
     }
 }
