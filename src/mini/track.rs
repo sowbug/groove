@@ -691,10 +691,7 @@ impl Track {
                                 color: Color32::DARK_GRAY,
                             })
                             .show(ui, |ui| {
-                                match ui_state {
-                                    TrackUiState::Collapsed => thing.ui_small(ui),
-                                    TrackUiState::Expanded => thing.show(ui), // thing.ui_large(ui),
-                                };
+                                thing.show(ui);
                             });
                     });
                 }
