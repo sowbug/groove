@@ -125,6 +125,7 @@ impl OrchestratorPanel {
                         OrchestratorInput::ProjectNew => {
                             let mut mo = Orchestrator::default();
                             o.prepare_successor(&mut mo);
+                            let _ = mo.create_starter_tracks(); // TODO: DRY this
                             *o = mo;
                             let _ = sender.send(OrchestratorEvent::New);
                         }

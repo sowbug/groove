@@ -280,6 +280,7 @@ impl Orchestrator {
         // Copy over the current sample rate, whose validity shouldn't change
         // because we loaded a new project.
         new.update_sample_rate(self.sample_rate());
+        new.set_drag_drop_manager(Arc::clone(&self.drag_drop_manager));
     }
 
     /// Returns all [Track] uids in UI order.
