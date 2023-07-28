@@ -24,6 +24,7 @@ mod entity_factory;
 mod humidifier;
 mod midi_router;
 mod orchestrator;
+mod piano_roll;
 mod selection_set;
 mod sequencer;
 mod track;

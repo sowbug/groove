@@ -2,6 +2,7 @@
 
 use super::{
     control_router::ControlRouter,
+    piano_roll::PianoRoll,
     selection_set::SelectionSet,
     track::{Track, TrackAction, TrackFactory, TrackTitle, TrackUiState, TrackUid},
     transport::{Transport, TransportBuilder},
@@ -10,7 +11,7 @@ use super::{
 use anyhow::{anyhow, Result};
 use derive_builder::Builder;
 use eframe::{
-    egui::{self, Frame, Ui},
+    egui::{self, Frame, ScrollArea, Ui},
     emath::{self, Align2},
     epaint::{pos2, vec2, Color32, FontId, Rect, Shape, Stroke},
 };
@@ -20,7 +21,7 @@ use groove_core::{
     midi::{MidiChannel, MidiMessage, MidiMessagesFn},
     time::{MusicalTime, SampleRate, Tempo},
     traits::{
-        Configurable, ControlEventsFn, Controllable, Controls, Generates,
+        gui::Shows, Configurable, ControlEventsFn, Controllable, Controls, Generates,
         GeneratesToInternalBuffer, HandlesMidi, HasUid, Performs, Serializable, Thing, ThingEvent,
         Ticks,
     },
@@ -89,6 +90,8 @@ pub struct Orchestrator {
     track_uids: Vec<TrackUid>,
     track_ui_states: HashMap<TrackUid, TrackUiState>,
 
+    piano_roll: PianoRoll,
+
     /// The highest [Uid] that has been added. This is serialized along with the
     /// rest of the project, so anyone generating [Uid]s, such as
     /// [crate::EntityFactory], can stay out of the range of consumed [Uid]s.
@@ -123,6 +126,7 @@ impl Default for Orchestrator {
             tracks: Default::default(),
             track_uids: Default::default(),
             track_ui_states: Default::default(),
+            piano_roll: Default::default(),
             max_entity_uid: Default::default(),
 
             e: Default::default(),
@@ -378,48 +382,68 @@ impl Orchestrator {
         ui: &mut Ui,
         track_selection_set: &SelectionSet<TrackUid>,
     ) -> Option<OrchestratorAction> {
-        let viewable_time_range = MusicalTime::new_with_beats(0)..MusicalTime::new_with_beats(128);
         let mut action = None;
-        for track_uid in self.track_uids.iter() {
-            if let Some(track) = self.tracks.get_mut(track_uid) {
-                let track_ui_state = self
-                    .track_ui_states
-                    .get(track_uid)
-                    .cloned()
-                    .unwrap_or_default();
-                let height = Track::track_view_height(track.ty(), track_ui_state);
-                let desired_size = vec2(ui.available_width(), height);
-                ui.allocate_ui(desired_size, |ui| {
-                    ui.set_min_size(desired_size);
-                    let ddm = Arc::clone(&self.drag_drop_manager);
-                    let (response, action_opt) = track.show_2(
-                        ui,
-                        ddm,
-                        &viewable_time_range,
-                        track_ui_state,
-                        track_selection_set.contains(track_uid),
-                    );
-                    if let Some(a) = action_opt {
-                        match a {
-                            TrackAction::SetTitle(t) => {
-                                track.set_title(t);
-                            }
-                            TrackAction::ToggleDisclosure => {
-                                action = Some(OrchestratorAction::DoubleClickTrack(*track_uid));
-                            }
-                            TrackAction::NewDevice(track_uid, key) => {
-                                action = Some(OrchestratorAction::NewDeviceForTrack(track_uid, key))
-                            }
+        let viewable_time_range = MusicalTime::new_with_beats(0)..MusicalTime::new_with_beats(128);
+        let total_height = ui.available_height();
+
+        egui::TopBottomPanel::bottom("orchestrator-piano-roll")
+            .resizable(true)
+            .max_height(total_height / 2.0)
+            .show(ui.ctx(), |ui| {
+                self.piano_roll.show(ui);
+            });
+
+        egui::CentralPanel::default().show(ui.ctx(), |ui| {
+            ScrollArea::vertical()
+                .id_source("orchestrator-scroller")
+                .show(ui, |ui| {
+                    for track_uid in self.track_uids.iter() {
+                        if let Some(track) = self.tracks.get_mut(track_uid) {
+                            let track_ui_state = self
+                                .track_ui_states
+                                .get(track_uid)
+                                .cloned()
+                                .unwrap_or_default();
+                            let height = Track::track_view_height(track.ty(), track_ui_state);
+                            let desired_size = vec2(ui.available_width(), height);
+                            ui.allocate_ui(desired_size, |ui| {
+                                ui.set_min_size(desired_size);
+                                let ddm = Arc::clone(&self.drag_drop_manager);
+                                let (response, action_opt) = track.show_2(
+                                    ui,
+                                    ddm,
+                                    &viewable_time_range,
+                                    track_ui_state,
+                                    track_selection_set.contains(track_uid),
+                                );
+                                if let Some(a) = action_opt {
+                                    match a {
+                                        TrackAction::SetTitle(t) => {
+                                            track.set_title(t);
+                                        }
+                                        TrackAction::ToggleDisclosure => {
+                                            action = Some(OrchestratorAction::DoubleClickTrack(
+                                                *track_uid,
+                                            ));
+                                        }
+                                        TrackAction::NewDevice(track_uid, key) => {
+                                            action = Some(OrchestratorAction::NewDeviceForTrack(
+                                                track_uid, key,
+                                            ))
+                                        }
+                                    }
+                                }
+                                if response.double_clicked() {
+                                    action = Some(OrchestratorAction::DoubleClickTrack(*track_uid));
+                                } else if response.clicked() {
+                                    action = Some(OrchestratorAction::ClickTrack(*track_uid));
+                                }
+                            });
                         }
                     }
-                    if response.double_clicked() {
-                        action = Some(OrchestratorAction::DoubleClickTrack(*track_uid));
-                    } else if response.clicked() {
-                        action = Some(OrchestratorAction::ClickTrack(*track_uid));
-                    }
                 });
-            }
-        }
+        });
+
         action
     }
 
