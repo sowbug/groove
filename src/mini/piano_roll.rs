@@ -37,14 +37,6 @@ impl Display for PatternUid {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum NoteUiState {
-    #[default]
-    Normal,
-    Hovered,
-    Selected,
-}
-
 /// A [Note] is a single played note. It knows which key it's playing (which
 /// is more or less assumed to be a MIDI key value), and when (start/end) it's
 /// supposed to play, relative to time zero.
@@ -141,9 +133,7 @@ impl Default for Pattern {
 }
 impl Shows for Pattern {
     fn show(&mut self, ui: &mut Ui) {
-        Frame::canvas(ui.style()).show(ui, |ui| {
-            self.ui_content(ui);
-        });
+        self.ui_content(ui);
     }
 }
 impl Pattern {
