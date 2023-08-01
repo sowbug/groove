@@ -3,7 +3,7 @@
 use super::{
     piano_roll::{Pattern, PatternUid, PianoRoll},
     selection_set::SelectionSet,
-    UidFactory,
+    DragDropManager, UidFactory,
 };
 use anyhow::anyhow;
 use btreemultimap::BTreeMultiMap;
@@ -258,6 +258,7 @@ impl Sequencer {
     pub fn ui_arrangement(
         &mut self,
         ui: &mut Ui,
+        ddm: &mut DragDropManager,
         viewable_time_range: &Range<MusicalTime>,
     ) -> (Response, Option<SequencerAction>) {
         let desired_size = ui.available_size();

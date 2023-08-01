@@ -297,7 +297,8 @@ impl Track {
     ) -> (Response, Option<SequencerAction>) {
         let sequencer = self.sequencer.as_mut().unwrap();
 
-        sequencer.ui_arrangement(ui, viewable_time_range)
+        //sequencer.ui_arrangement(ui, viewable_time_range)
+        panic!()
     }
 
     fn show_audio(&self, ui: &mut Ui, _viewable_time_range: &Range<MusicalTime>) -> Response {
@@ -495,7 +496,7 @@ impl Track {
     pub fn show_2(
         &mut self,
         ui: &mut Ui,
-        drag_drop_manager: Arc<Mutex<DragDropManager>>,
+        ddm: &mut DragDropManager,
         viewable_time_range: &Range<MusicalTime>,
         ui_state: TrackUiState,
         is_selected: bool,
@@ -552,6 +553,7 @@ impl Track {
                                     match self.ty {
                                         TrackType::Midi => self.ui_contents_midi(
                                             ui,
+                                            ddm,
                                             viewable_time_range,
                                             ui_state,
                                             is_selected,
@@ -577,7 +579,7 @@ impl Track {
                                     .fill(Color32::from_gray(16))
                                     .show(ui, |ui| {
                                         if let Some(track_action) =
-                                            self.ui_device_view(ui, ui_state, drag_drop_manager)
+                                            self.ui_device_view(ui, ui_state, ddm)
                                         {
                                             action = Some(track_action);
                                         }
@@ -653,12 +655,13 @@ impl Track {
     fn ui_contents_midi(
         &mut self,
         ui: &mut Ui,
+        ddm: &mut DragDropManager,
         viewable_time_range: &Range<MusicalTime>,
         _ui_state: TrackUiState,
         _is_selected: bool,
     ) {
         let sequencer = self.sequencer.as_mut().unwrap();
-        let (_response, _action) = sequencer.ui_arrangement(ui, viewable_time_range);
+        let (_response, _action) = sequencer.ui_arrangement(ui, ddm, viewable_time_range);
     }
 
     /// Renders an audio [Track]'s arrangement view, which is an overview of some or
@@ -678,7 +681,7 @@ impl Track {
         &mut self,
         ui: &mut Ui,
         ui_state: TrackUiState,
-        drag_drop_manager: Arc<Mutex<DragDropManager>>,
+        ddm: &mut DragDropManager,
     ) -> Option<TrackAction> {
         let mut action = None;
         let mut drag_and_drop_action = None;
@@ -704,33 +707,31 @@ impl Track {
                     Self::ui_device(ui, thing.as_mut(), desired_size);
                 }
 
-                if let Ok(mut ddm) = drag_drop_manager.lock() {
-                    let r = ddm
-                        .drop_target(ui, true, |ui, source| {
-                            ui.allocate_ui_with_layout(
-                                desired_size,
-                                Layout::centered_and_justified(egui::Direction::LeftToRight),
-                                |ui| {
-                                    ui.label(if self.thing_store.is_empty() {
-                                        "Drag things here"
-                                    } else {
-                                        "+"
-                                    })
-                                },
-                            );
-                            if let Some(source) = source {
-                                match source {
-                                    DragDropSource::NewDevice(key) => {
-                                        drag_and_drop_action =
-                                            Some(DragDropSource::NewDevice(key.clone()));
-                                    }
+                let r = ddm
+                    .drop_target(ui, true, |ui, source| {
+                        ui.allocate_ui_with_layout(
+                            desired_size,
+                            Layout::centered_and_justified(egui::Direction::LeftToRight),
+                            |ui| {
+                                ui.label(if self.thing_store.is_empty() {
+                                    "Drag things here"
+                                } else {
+                                    "+"
+                                })
+                            },
+                        );
+                        if let Some(source) = source {
+                            match source {
+                                DragDropSource::NewDevice(key) => {
+                                    drag_and_drop_action =
+                                        Some(DragDropSource::NewDevice(key.clone()));
                                 }
                             }
-                        })
-                        .response;
-                    if r.hovered() {
-                        hovered = true;
-                    }
+                        }
+                    })
+                    .response;
+                if r.hovered() {
+                    hovered = true;
                 }
             });
         }
@@ -744,7 +745,7 @@ impl Track {
 
                             // This is important to let the manager know that
                             // you've handled the drop.
-                            drag_drop_manager.lock().unwrap().reset();
+                            ddm.reset();
                         }
                     }
                 }

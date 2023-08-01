@@ -29,13 +29,7 @@ use groove_core::{
 };
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    fmt::Debug,
-    ops::Range,
-    sync::{Arc, Mutex},
-    vec::Vec,
-};
+use std::{collections::HashMap, fmt::Debug, ops::Range, vec::Vec};
 
 /// Actions that [Orchestrator]'s UI might need the parent to perform.
 #[derive(Debug)]
@@ -106,12 +100,6 @@ pub struct Orchestrator {
     //
     #[serde(skip)]
     e: OrchestratorEphemerals,
-
-    /// Placeholder doc to work around
-    /// https://github.com/colin-kiegel/rust-derive-builder/issues/283
-    #[serde(skip)]
-    #[builder(setter)]
-    drag_drop_manager: Arc<Mutex<DragDropManager>>,
 }
 impl Default for Orchestrator {
     fn default() -> Self {
@@ -130,7 +118,6 @@ impl Default for Orchestrator {
             max_entity_uid: Default::default(),
 
             e: Default::default(),
-            drag_drop_manager: Default::default(),
         }
     }
 }
@@ -284,7 +271,6 @@ impl Orchestrator {
         // Copy over the current sample rate, whose validity shouldn't change
         // because we loaded a new project.
         new.update_sample_rate(self.sample_rate());
-        new.set_drag_drop_manager(Arc::clone(&self.drag_drop_manager));
     }
 
     /// Returns all [Track] uids in UI order.
@@ -300,11 +286,6 @@ impl Orchestrator {
     /// Returns an iterator of all [Track]s in arbitrary order. Mutable version.
     pub fn track_iter_mut(&mut self) -> impl Iterator<Item = &mut Track> {
         self.tracks.values_mut()
-    }
-
-    /// Gives the Orchestrator a clone of a DragDropManager.
-    pub fn set_drag_drop_manager(&mut self, drag_drop_manager: Arc<Mutex<DragDropManager>>) {
-        self.drag_drop_manager = drag_drop_manager;
     }
 
     /// Returns the specified [Track].
@@ -380,6 +361,7 @@ impl Orchestrator {
     pub fn show_2(
         &mut self,
         ui: &mut Ui,
+        ddm: &mut DragDropManager,
         track_selection_set: &SelectionSet<TrackUid>,
     ) -> Option<OrchestratorAction> {
         let mut action = None;
@@ -408,7 +390,6 @@ impl Orchestrator {
                             let desired_size = vec2(ui.available_width(), height);
                             ui.allocate_ui(desired_size, |ui| {
                                 ui.set_min_size(desired_size);
-                                let ddm = Arc::clone(&self.drag_drop_manager);
                                 let (response, action_opt) = track.show_2(
                                     ui,
                                     ddm,

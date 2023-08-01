@@ -1,6 +1,6 @@
 use eframe::egui::{Id as EguiId, Ui};
 use groove_core::traits::gui::Shows;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::mini::{
     {DragDropManager, DragDropSource}, {EntityFactory, Key},
@@ -17,7 +17,6 @@ pub enum PaletteAction {
 #[derive(Debug)]
 pub struct PalettePanel {
     factory: Arc<EntityFactory>,
-    drag_drop_manager: Arc<Mutex<DragDropManager>>,
 }
 impl Shows for PalettePanel {
     fn show(&mut self, ui: &mut Ui) {
@@ -28,30 +27,26 @@ impl Shows for PalettePanel {
 }
 impl PalettePanel {
     /// Creates a new [PalettePanel].
-    pub fn new_with(
-        factory: Arc<EntityFactory>,
-        drag_drop_manager: Arc<Mutex<DragDropManager>>,
-    ) -> Self {
-        Self {
-            factory,
-            drag_drop_manager,
-        }
+    pub fn new_with(factory: Arc<EntityFactory>) -> Self {
+        Self { factory }
     }
 
     /// Draws the panel.
-    pub fn show_with_action(&mut self, ui: &mut Ui) -> Option<PaletteAction> {
+    pub fn show_with_action(
+        &mut self,
+        ui: &mut Ui,
+        ddm: &mut DragDropManager,
+    ) -> Option<PaletteAction> {
         let action = None;
-        if let Ok(mut dnd) = self.drag_drop_manager.lock() {
-            for key in self.factory.sorted_keys() {
-                dnd.drag_source(
-                    ui,
-                    EguiId::new(key),
-                    DragDropSource::NewDevice(key.clone()),
-                    |ui| {
-                        ui.label(key.to_string());
-                    },
-                );
-            }
+        for key in self.factory.sorted_keys() {
+            ddm.drag_source(
+                ui,
+                EguiId::new(key),
+                DragDropSource::NewDevice(key.clone()),
+                |ui| {
+                    ui.label(key.to_string());
+                },
+            );
         }
         action
     }

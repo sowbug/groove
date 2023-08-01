@@ -213,7 +213,7 @@ struct MiniDaw {
     settings_panel: SettingsPanel,
 
     exit_requested: bool,
-    drag_drop_manager: Arc<Mutex<DragDropManager>>,
+    drag_drop_manager: DragDropManager,
 
     toasts: Toasts,
 }
@@ -232,9 +232,7 @@ impl MiniDaw {
         register_mini_factory_entities(&mut entity_factory);
         let factory = Arc::new(entity_factory);
 
-        let drag_drop_manager = Arc::new(Mutex::new(DragDropManager::default()));
-        let orchestrator_panel =
-            OrchestratorPanel::new_with(Arc::clone(&factory), Arc::clone(&drag_drop_manager));
+        let orchestrator_panel = OrchestratorPanel::new_with(Arc::clone(&factory));
         let mini_orchestrator = Arc::clone(orchestrator_panel.orchestrator());
 
         let mini_orchestrator_for_fn = Arc::clone(&mini_orchestrator);
@@ -249,11 +247,11 @@ impl MiniDaw {
             menu_bar: MenuBar::new_with(Arc::clone(&factory)),
             control_panel: Default::default(),
             orchestrator_panel,
-            palette_panel: PalettePanel::new_with(factory, Arc::clone(&drag_drop_manager)),
+            palette_panel: PalettePanel::new_with(factory),
             settings_panel: SettingsPanel::new_with(Box::new(needs_audio)),
 
             exit_requested: Default::default(),
-            drag_drop_manager,
+            drag_drop_manager: Default::default(),
 
             toasts: Toasts::new()
                 .anchor(Align2::RIGHT_BOTTOM, (-10.0, -10.0))
@@ -571,7 +569,10 @@ impl MiniDaw {
 
     fn show_left(&mut self, ui: &mut Ui) {
         ScrollArea::horizontal().show(ui, |ui| {
-            if let Some(_action) = self.palette_panel.show_with_action(ui) {
+            if let Some(_action) = self
+                .palette_panel
+                .show_with_action(ui, &mut self.drag_drop_manager)
+            {
                 // these are inactive for now because we're skipping the drag/drop stuff.
                 //self.handle_palette_action(action);
             }
@@ -584,7 +585,8 @@ impl MiniDaw {
 
     fn show_center(&mut self, ui: &mut Ui, is_shift_only_down: bool) {
         ScrollArea::vertical().show(ui, |ui| {
-            self.orchestrator_panel.show(ui, is_shift_only_down);
+            self.orchestrator_panel
+                .show(ui, &mut self.drag_drop_manager, is_shift_only_down);
         });
     }
 
@@ -622,9 +624,7 @@ impl MiniDaw {
 impl eframe::App for MiniDaw {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.handle_message_channels();
-        if let Ok(mut dnd) = self.drag_drop_manager.lock() {
-            dnd.reset();
-        }
+        self.drag_drop_manager.reset();
         self.update_window_title(frame);
 
         let mut is_control_only_down = false;

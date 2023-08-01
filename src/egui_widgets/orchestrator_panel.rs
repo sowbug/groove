@@ -87,14 +87,8 @@ pub struct OrchestratorPanel {
 }
 impl OrchestratorPanel {
     /// Creates a new panel.
-    pub fn new_with(
-        factory: Arc<EntityFactory>,
-        drag_drop_manager: Arc<Mutex<DragDropManager>>,
-    ) -> Self {
-        let mut o = OrchestratorBuilder::default()
-            .drag_drop_manager(drag_drop_manager)
-            .build()
-            .unwrap();
+    pub fn new_with(factory: Arc<EntityFactory>) -> Self {
+        let mut o = OrchestratorBuilder::default().build().unwrap();
         let _ = o.create_starter_tracks();
         let mut r = Self {
             orchestrator: Arc::new(Mutex::new(o)),
@@ -295,10 +289,10 @@ impl OrchestratorPanel {
     }
 
     /// Renders the panel.
-    pub fn show(&mut self, ui: &mut Ui, is_control_only_down: bool) {
+    pub fn show(&mut self, ui: &mut Ui, ddm: &mut DragDropManager, is_control_only_down: bool) {
         let mut o = self.orchestrator.lock().unwrap();
         let tss = self.track_selection_set.lock().unwrap().clone();
-        if let Some(action) = o.show_2(ui, &tss) {
+        if let Some(action) = o.show_2(ui, ddm, &tss) {
             match action {
                 OrchestratorAction::ClickTrack(track_uid) => {
                     self.track_selection_set
