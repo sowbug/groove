@@ -24,7 +24,12 @@ use groove_core::{
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Display, ops::Range, sync::RwLock};
+use std::{
+    collections::HashMap,
+    fmt::Display,
+    ops::Range,
+    sync::{Arc, RwLock},
+};
 
 /// Identifies an arrangement of a [Pattern].
 #[derive(
@@ -109,7 +114,7 @@ pub struct SequencerEphemerals {
     // Whether we're performing, in the [Performs] sense.
     is_performing: bool,
     // The source of [Pattern]s.
-    piano_roll: RwLock<PianoRoll>,
+    piano_roll: Arc<RwLock<PianoRoll>>,
 }
 
 /// [Sequencer] converts a chain of [Pattern]s into MIDI notes according to a
@@ -140,7 +145,7 @@ pub struct Sequencer {
 }
 impl Sequencer {
     #[allow(missing_docs)]
-    pub fn set_piano_roll(&mut self, piano_roll: RwLock<PianoRoll>) {
+    pub fn set_piano_roll(&mut self, piano_roll: Arc<RwLock<PianoRoll>>) {
         self.e.piano_roll = piano_roll;
     }
 
@@ -482,7 +487,13 @@ impl Sequencer {
                 ui.horizontal_top(|ui| {
                     let mut uid_to_toggle = None;
                     for (arranged_pattern_uid, arranged_pattern) in self.arranged_patterns.iter() {
-                        if let Some(pattern) = piano_roll.get(&arranged_pattern.pattern_uid) {
+                        if let Some(pattern) = self
+                            .e
+                            .piano_roll
+                            .read()
+                            .unwrap()
+                            .get(&arranged_pattern.pattern_uid)
+                        {
                             if arranged_pattern
                                 .ui_content(
                                     ui,

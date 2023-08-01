@@ -91,7 +91,9 @@ pub struct Orchestrator {
     track_uids: Vec<TrackUid>,
     track_ui_states: HashMap<TrackUid, TrackUiState>,
 
-    // This is the owned and serialized instance of PianoRoll. TODO message about serde rc feature
+    // This is the owned and serialized instance of PianoRoll. Because we're
+    // using Arc<> in a struct that Serde serializes, we need to have the `rc`
+    // feature enabled for Serde.
     piano_roll: Arc<RwLock<PianoRoll>>,
 
     /// The highest [Uid] that has been added. This is serialized along with the

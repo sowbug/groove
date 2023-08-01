@@ -846,8 +846,12 @@ impl Track {
         self.ty
     }
 
-    pub(crate) fn set_piano_roll(&mut self, piano_roll: Arc<RwLock<PianoRoll>>) {
-        self.piano_roll = piano_roll;
+    #[allow(missing_docs)]
+    pub fn set_piano_roll(&mut self, piano_roll: Arc<RwLock<PianoRoll>>) {
+        self.piano_roll = Arc::clone(&piano_roll);
+        if let Some(sequencer) = self.sequencer.as_mut() {
+            sequencer.set_piano_roll(piano_roll);
+        }
     }
 }
 impl GeneratesToInternalBuffer<StereoSample> for Track {
