@@ -6,6 +6,7 @@ use super::{
     entity_factory::ThingStore,
     humidifier::Humidifier,
     midi_router::MidiRouter,
+    piano_roll::PianoRoll,
     sequencer::{Sequencer, SequencerAction, SequencerBuilder},
     DragDropManager, DragDropSource, Key,
 };
@@ -31,7 +32,7 @@ use std::{
     f32::consts::PI,
     fmt::Display,
     ops::Range,
-    sync::{Arc, Mutex},
+    sync::{Arc, RwLock},
 };
 
 /// Identifies a [Track].
@@ -182,6 +183,9 @@ pub struct Track {
 
     #[serde(skip)]
     is_sequencer_open: bool,
+
+    #[serde(skip)]
+    piano_roll: Arc<RwLock<PianoRoll>>,
 }
 impl Track {
     #[allow(missing_docs)]
@@ -297,7 +301,7 @@ impl Track {
     ) -> (Response, Option<SequencerAction>) {
         let sequencer = self.sequencer.as_mut().unwrap();
 
-        //sequencer.ui_arrangement(ui, viewable_time_range)
+        //        sequencer.ui_arrangement(ui, viewable_time_range)
         panic!()
     }
 
@@ -661,7 +665,7 @@ impl Track {
         _is_selected: bool,
     ) {
         let sequencer = self.sequencer.as_mut().unwrap();
-        let (_response, _action) = sequencer.ui_arrangement(ui, ddm, viewable_time_range);
+        let (_response, _action) = sequencer.ui_arrangement(ui, ddm, self.uid, viewable_time_range);
     }
 
     /// Renders an audio [Track]'s arrangement view, which is an overview of some or
@@ -686,6 +690,7 @@ impl Track {
         let mut action = None;
         let mut drag_and_drop_action = None;
         let mut hovered = false;
+        let mut dropped_source = None;
         let desired_size = vec2(128.0, Self::device_view_height(ui_state));
         {
             ui.horizontal(|ui| {
@@ -707,50 +712,69 @@ impl Track {
                     Self::ui_device(ui, thing.as_mut(), desired_size);
                 }
 
-                let r = ddm
-                    .drop_target(ui, true, |ui, source| {
-                        ui.allocate_ui_with_layout(
-                            desired_size,
-                            Layout::centered_and_justified(egui::Direction::LeftToRight),
-                            |ui| {
-                                ui.label(if self.thing_store.is_empty() {
-                                    "Drag things here"
-                                } else {
-                                    "+"
-                                })
-                            },
-                        );
-                        if let Some(source) = source {
-                            match source {
-                                DragDropSource::NewDevice(key) => {
-                                    drag_and_drop_action =
-                                        Some(DragDropSource::NewDevice(key.clone()));
-                                }
+                let can_accept = if let Some(source) = ddm.source() {
+                    match source {
+                        DragDropSource::NewDevice(_) => true,
+                        DragDropSource::Pattern(_) => false,
+                    }
+                } else {
+                    false
+                };
+                let mut r;
+                (r, dropped_source) = ddm.drop_target(ui, can_accept, |ui, source| {
+                    ui.allocate_ui_with_layout(
+                        desired_size,
+                        Layout::centered_and_justified(egui::Direction::LeftToRight),
+                        |ui| {
+                            ui.label(if self.thing_store.is_empty() {
+                                "Drag things here"
+                            } else {
+                                "+"
+                            })
+                        },
+                    );
+                    if let Some(source) = source {
+                        match source {
+                            DragDropSource::NewDevice(key) => {
+                                drag_and_drop_action = Some(DragDropSource::NewDevice(key.clone()));
                             }
+                            DragDropSource::Pattern(_) => eprintln!(
+                                "nope - I'm a device drop target, not a pattern target {:?}",
+                                source
+                            ),
                         }
-                    })
-                    .response;
-                if r.hovered() {
+                    }
+                });
+
+                // super::drag_drop::DragDropTarget::Track(self.uid),
+
+                if r.response.hovered() {
                     hovered = true;
                 }
             });
         }
 
-        if hovered {
-            if let Some(dd_action) = drag_and_drop_action {
-                if ui.input(|i| i.pointer.any_released()) {
-                    match dd_action {
-                        DragDropSource::NewDevice(key) => {
-                            action = Some(TrackAction::NewDevice(self.uid, key));
-
-                            // This is important to let the manager know that
-                            // you've handled the drop.
-                            ddm.reset();
-                        }
-                    }
-                }
-            }
+        if dropped_source.is_some() {
+            eprintln!("it happened at track device thing {:?}", dropped_source);
         }
+
+        // if hovered {
+        //     eprintln!("hovered {:?}", drag_and_drop_action);
+        //     if let Some(dd_action) = drag_and_drop_action {
+        //         if ui.input(|i| i.pointer.any_released()) {
+        //             match dd_action {
+        //                 DragDropSource::NewDevice(key) => {
+        //                     action = Some(TrackAction::NewDevice(self.uid, key));
+
+        //                     // This is important to let the manager know that
+        //                     // you've handled the drop.
+        //                     ddm.reset();
+        //                 }
+        //                 DragDropSource::Pattern(_) => eprintln!("I don't think so {:?}", dd_action),
+        //             }
+        //         }
+        //     }
+        // }
 
         action
     }
@@ -820,6 +844,10 @@ impl Track {
 
     pub(crate) fn ty(&self) -> TrackType {
         self.ty
+    }
+
+    pub(crate) fn set_piano_roll(&mut self, piano_roll: Arc<RwLock<PianoRoll>>) {
+        self.piano_roll = piano_roll;
     }
 }
 impl GeneratesToInternalBuffer<StereoSample> for Track {

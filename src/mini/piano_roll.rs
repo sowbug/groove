@@ -1,10 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use super::{widgets::pattern_icon, DragDropManager, DragDropSource, SelectionSet, UidFactory};
 use derive_builder::Builder;
 use eframe::{
-    egui::{Frame, Sense, Ui},
-    emath::{self, RectTransform},
-    epaint::{pos2, vec2, Color32, Pos2, Rect, RectShape, Rounding, Shape, Stroke, Vec2},
+    egui::{Id as EguiId, Response, Sense, Ui, Widget, WidgetInfo, WidgetType},
+    emath::{self, lerp, RectTransform},
+    epaint::{pos2, vec2, Color32, Pos2, Rect, Rounding, Shape, Stroke, Vec2},
 };
 use groove_core::{
     time::{MusicalTime, TimeSignature},
@@ -17,8 +18,6 @@ use std::{
     fmt::Display,
     ops::Range,
 };
-
-use super::{SelectionSet, UidFactory};
 
 /// Identifies a [Pattern].
 #[derive(
@@ -82,41 +81,6 @@ impl PatternBuilder {
             }
             Err(e) => Err(e),
         }
-    }
-
-    /// Given a sequence of MIDI note numbers and an optional grid value that
-    /// overrides the one implied by the time signature, adds [Note]s one after
-    /// another into the pattern. The value 255 is reserved for rest (no note,
-    /// or silence).
-    ///
-    /// The optional grid_value is similar to the time signature's bottom value
-    /// (1 is a whole note, 2 is a half note, etc.). For example, for a 4/4
-    /// pattern, None means each note number produces a quarter note, and we
-    /// would provide sixteen note numbers to fill the pattern with 4 beats of
-    /// four quarter-notes each. For a 4/4 pattern, Some(8) means each note
-    /// number should produce an eighth note., and 4 x 8 = 32 note numbers would
-    /// fill the pattern.
-    ///
-    /// If midi_note_numbers contains fewer than the maximum number of note
-    /// numbers for the grid value, then the rest of the pattern is silent.
-    pub fn note_sequence(
-        &mut self,
-        midi_note_numbers: Vec<u8>,
-        grid_value: Option<usize>,
-    ) -> &mut Self {
-        let grid_value = grid_value.unwrap_or(self.time_signature.unwrap_or_default().bottom);
-        let mut position = MusicalTime::START;
-        let position_delta = MusicalTime::new_with_fractional_beats(1.0 / grid_value as f64);
-        for note in midi_note_numbers {
-            if note != 255 {
-                self.note(Note {
-                    key: note,
-                    range: position..position + position_delta,
-                });
-            }
-            position += position_delta;
-        }
-        self
     }
 }
 impl Default for Pattern {
@@ -249,9 +213,8 @@ impl Pattern {
         let notes_vert = 24.0;
         let steps_horiz = self.time_signature.bottom * 4;
 
-        let desired_size = ui.available_size_before_wrap();
-        let desired_size = Vec2::new(desired_size.x, 256.0);
-        let (mut response, painter) = ui.allocate_painter(desired_size, Sense::click());
+        let (mut response, painter) =
+            ui.allocate_painter(ui.available_size_before_wrap(), Sense::click());
 
         let to_screen = emath::RectTransform::from_to(
             Rect::from_min_size(Pos2::ZERO, Vec2::splat(1.0)),
@@ -374,6 +337,37 @@ impl Pattern {
     pub fn notes(&self) -> &[Note] {
         self.notes.as_ref()
     }
+
+    pub fn icon_widget(&mut self) -> impl Widget + '_ {
+        move |ui: &mut Ui| self.ui_content(ui)
+    }
+
+    fn pattern_ui(&mut self, ui: &mut Ui) -> Response {
+        let mut on_it = true;
+        let on = &mut on_it;
+        let desired_size = ui.spacing().interact_size.y * vec2(2.0, 1.0);
+        let (rect, mut response) = ui.allocate_exact_size(desired_size, Sense::click());
+        if response.clicked() {
+            *on = !*on;
+            response.mark_changed();
+        }
+        response.widget_info(|| WidgetInfo::selected(WidgetType::Checkbox, *on, ""));
+
+        if ui.is_rect_visible(rect) {
+            let how_on = ui.ctx().animate_bool(response.id, *on);
+            let visuals = ui.style().interact_selectable(&response, *on);
+            let rect = rect.expand(visuals.expansion);
+            let radius = 0.5 * rect.height();
+            ui.painter()
+                .rect(rect, radius, visuals.bg_fill, visuals.bg_stroke);
+            let circle_x = lerp((rect.left() + radius)..=(rect.right() - radius), how_on);
+            let center = pos2(circle_x, rect.center().y);
+            ui.painter()
+                .circle(center, 0.75 * radius, visuals.bg_fill, visuals.fg_stroke);
+        }
+
+        response
+    }
 }
 
 /// [PianoRoll] manages all [Pattern]s.
@@ -395,6 +389,16 @@ impl Default for PianoRoll {
         for _ in 0..16 {
             let _ = r.insert(PatternBuilder::default().build().unwrap());
         }
+        let pattern = r.uids_to_patterns.get_mut(&PatternUid(2)).unwrap();
+        pattern.add_note(Note {
+            key: 60,
+            range: MusicalTime::START..MusicalTime::DURATION_QUARTER,
+        });
+        pattern.add_note(Note {
+            key: 62,
+            range: MusicalTime::TIME_END_OF_FIRST_BEAT
+                ..MusicalTime::TIME_END_OF_FIRST_BEAT + MusicalTime::DURATION_HALF,
+        });
         r
     }
 }
@@ -414,73 +418,109 @@ impl PianoRoll {
     pub fn get(&self, pattern_uid: &PatternUid) -> Option<&Pattern> {
         self.uids_to_patterns.get(pattern_uid)
     }
-}
-impl Shows for PianoRoll {
-    fn show(&mut self, ui: &mut Ui) {
+
+    fn carousel_ui(&mut self, ui: &mut Ui, ddm: &mut DragDropManager) {
+        // let carousel_size = vec2(ui.available_width(), 64.0);
+        // let (carousel_rect, response) =
+        //     ui.allocate_exact_size(carousel_size, Sense::click_and_drag());
+        // let carousel_location = Rect::from_two_pos(
+        //     pos2(response.rect.left() + 5.0, response.rect.top() + 5.0),
+        //     pos2(
+        //         response.rect.right() - 5.0,
+        //         response.rect.top() + 5.0 + 32.0,
+        //     ),
+        // );
+        // let to_screen = RectTransform::from_to(
+        //     Rect::from_x_y_ranges(0.0..=(self.ordered_pattern_uids.len() as f32), 0.0..=1.0),
+        //     response.rect,
+        // );
+        ui.horizontal_top(|ui| {
+            ui.set_max_width(ui.available_width());
+            ui.set_height(64.0);
+            if !self.ordered_pattern_uids.is_empty() {
+                let icon_width = ui.available_width() / self.ordered_pattern_uids.len() as f32;
+                for (index, pattern_uid) in self.ordered_pattern_uids.iter().enumerate() {
+                    if let Some(pattern) = self.uids_to_patterns.get_mut(pattern_uid) {
+                        let dnd_id = EguiId::new("piano roll").with(pattern_uid);
+                        ddm.drag_source(ui, dnd_id, DragDropSource::Pattern(*pattern_uid), |ui| {
+                            ui.set_max_width(icon_width);
+                            if ui
+                                .add(pattern_icon(pattern.duration(), pattern.notes().to_vec()))
+                                .clicked()
+                            {
+                                eprintln!("clicked");
+                            };
+                        });
+                    }
+                }
+            }
+        });
+    }
+
+    pub fn show(&mut self, ui: &mut Ui, ddm: &mut DragDropManager) {
         ui.set_min_size(ui.available_size());
         ui.set_max_size(ui.available_size());
         ui.label(format!(
             "there are {} patterns",
             self.uids_to_patterns.len()
         ));
+        self.carousel_ui(ui, ddm);
 
-        let carousel_size = vec2(ui.available_width(), 64.0);
-        let (response, painter) = ui.allocate_painter(carousel_size, Sense::click_and_drag());
-        let carousel_location = Rect::from_two_pos(
-            pos2(response.rect.left() + 5.0, response.rect.top() + 5.0),
-            pos2(
-                response.rect.right() - 5.0,
-                response.rect.top() + 5.0 + 32.0,
-            ),
-        );
-        let to_screen = RectTransform::from_to(
-            Rect::from_x_y_ranges(0.0..=(self.ordered_pattern_uids.len() as f32), 0.0..=1.0),
-            carousel_location,
-        );
-        let mut shapes = Vec::default();
-        for (index, pattern_uid) in self.ordered_pattern_uids.iter().enumerate() {
-            if let Some(_) = self.uids_to_patterns.get(pattern_uid) {
-                let ul = to_screen * pos2(index as f32, 0.0);
-                let br = to_screen * pos2(index as f32 + 1.0, 1.0);
-                let rect = Rect::from_two_pos(ul, br).shrink2(vec2(1.0, 0.0));
-                let rect_response = ui.interact(
-                    rect,
-                    ui.auto_id_with(format!("patterns {}", index)),
-                    Sense::click(),
-                );
-                let is_hovered = rect_response.hovered();
-                let is_clicked = rect_response.clicked();
-                let is_double_clicked = rect_response.double_clicked();
+        // let (response, painter) = ui.allocate_painter(carousel_size, Sense::click_and_drag());
+        // let mut shapes = Vec::default();
+        // for (index, pattern_uid) in self.ordered_pattern_uids.iter().enumerate() {
+        //     if let Some(_) = self.uids_to_patterns.get(pattern_uid) {
+        //         let dnd_id = EguiId::new("piano roll").with(pattern_uid);
+        //         let ul = to_screen * pos2(index as f32, 0.0);
+        //         let br = to_screen * pos2(index as f32 + 1.0, 1.0);
+        //         let rect = Rect::from_two_pos(ul, br).shrink2(vec2(1.0, 0.0));
+        //         ddm.drag_source(ui, dnd_id, DragDropSource::Pattern(*pattern_uid), |ui| {
+        //             ui.add(pattern());
+        //             // ui.set_max_size(ui.available_size());
+        //             // ui.set_min_size(ui.available_size());
+        //             // let id = EguiId::new("patterns").with(pattern_uid);
+        //             // let rect_response = ui.interact(rect, id, Sense::click());
+        //             // let is_hovered = rect_response.hovered();
+        //             // let is_clicked = rect_response.clicked();
+        //             // let is_double_clicked = rect_response.double_clicked();
+        //             // if is_hovered {
+        //             //     eprintln!("hovering {index} {pattern_uid}");
+        //             // }
 
-                shapes.push(Shape::Rect(RectShape {
-                    rect,
-                    rounding: Rounding::same(3.0),
-                    fill: if is_hovered {
-                        Color32::GREEN
-                    } else {
-                        Color32::LIGHT_GREEN
-                    },
-                    stroke: Stroke {
-                        width: if self.pattern_selection_set.contains(pattern_uid) {
-                            3.0
-                        } else {
-                            0.0
-                        },
-                        color: Color32::YELLOW,
-                    },
-                }));
+        //             // shapes.push(Shape::Rect(RectShape {
+        //             //     rect,
+        //             //     rounding: Rounding::same(3.0),
+        //             //     fill: if is_hovered {
+        //             //         Color32::GREEN
+        //             //     } else {
+        //             //         Color32::LIGHT_GREEN
+        //             //     },
+        //             //     stroke: Stroke {
+        //             //         width: if self.pattern_selection_set.contains(pattern_uid) {
+        //             //             3.0
+        //             //         } else {
+        //             //             0.0
+        //             //         },
+        //             //         color: Color32::YELLOW,
+        //             //     },
+        //             // }));
 
-                if is_double_clicked {
-                    // add to currently selected track
-                } else if is_clicked {
-                    self.pattern_selection_set.click(*pattern_uid, false);
-                }
-            }
-        }
-        painter.extend(shapes);
-        if ui.button("+").clicked() {
-            self.insert(PatternBuilder::default().build().unwrap());
-        }
+        //             // if is_double_clicked {
+        //             //     // add to currently selected track
+        //             // } else if is_clicked {
+        //             //     self.pattern_selection_set.click(*pattern_uid, false);
+        //             // }
+        //             // //   ui.label("drag me");
+        //         });
+        //     }
+        // }
+        // painter.extend(shapes);
+
+        // if let Some(pattern_uid) = self.pattern_selection_set.single_selection() {
+        //     if let Some(pattern) = self.uids_to_patterns.get_mut(pattern_uid) {
+        //         pattern.show(ui);
+        //     }
+        // }
     }
 }
 
@@ -511,6 +551,43 @@ mod tests {
                 key: key as u8,
                 range: start..(start + duration),
             }
+        }
+    }
+
+    impl PatternBuilder {
+        /// Given a sequence of MIDI note numbers and an optional grid value that
+        /// overrides the one implied by the time signature, adds [Note]s one after
+        /// another into the pattern. The value 255 is reserved for rest (no note,
+        /// or silence).
+        ///
+        /// The optional grid_value is similar to the time signature's bottom value
+        /// (1 is a whole note, 2 is a half note, etc.). For example, for a 4/4
+        /// pattern, None means each note number produces a quarter note, and we
+        /// would provide sixteen note numbers to fill the pattern with 4 beats of
+        /// four quarter-notes each. For a 4/4 pattern, Some(8) means each note
+        /// number should produce an eighth note., and 4 x 8 = 32 note numbers would
+        /// fill the pattern.
+        ///
+        /// If midi_note_numbers contains fewer than the maximum number of note
+        /// numbers for the grid value, then the rest of the pattern is silent.
+        pub fn note_sequence(
+            &mut self,
+            midi_note_numbers: Vec<u8>,
+            grid_value: Option<usize>,
+        ) -> &mut Self {
+            let grid_value = grid_value.unwrap_or(self.time_signature.unwrap_or_default().bottom);
+            let mut position = MusicalTime::START;
+            let position_delta = MusicalTime::new_with_fractional_beats(1.0 / grid_value as f64);
+            for note in midi_note_numbers {
+                if note != 255 {
+                    self.note(Note {
+                        key: note,
+                        range: position..position + position_delta,
+                    });
+                }
+                position += position_delta;
+            }
+            self
         }
     }
 

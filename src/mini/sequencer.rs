@@ -3,15 +3,16 @@
 use super::{
     piano_roll::{Pattern, PatternUid, PianoRoll},
     selection_set::SelectionSet,
-    DragDropManager, UidFactory,
+    widgets::arrangement_space,
+    DragDropManager, TrackUid, UidFactory,
 };
 use anyhow::anyhow;
 use btreemultimap::BTreeMultiMap;
 use derive_builder::Builder;
 use eframe::{
-    egui::{Response, ScrollArea, Sense, Ui},
-    emath::{self},
-    epaint::{pos2, vec2, Color32, Pos2, Rect, RectShape, Rounding, Shape, Stroke, Vec2},
+    egui::{Response, ScrollArea, Sense, Ui, Widget, WidgetInfo, WidgetType},
+    emath::{self, lerp},
+    epaint::{pos2, vec2, Color32, Pos2, Rect, Rounding, Stroke, Vec2},
 };
 use groove_core::{
     midi::{new_note_off, new_note_on, MidiChannel, MidiMessage},
@@ -23,12 +24,7 @@ use groove_core::{
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    fmt::Display,
-    ops::Range,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, fmt::Display, ops::Range, sync::RwLock};
 
 /// Identifies an arrangement of a [Pattern].
 #[derive(
@@ -113,7 +109,7 @@ pub struct SequencerEphemerals {
     // Whether we're performing, in the [Performs] sense.
     is_performing: bool,
     // The source of [Pattern]s.
-    piano_roll: Arc<Mutex<PianoRoll>>,
+    piano_roll: RwLock<PianoRoll>,
 }
 
 /// [Sequencer] converts a chain of [Pattern]s into MIDI notes according to a
@@ -143,7 +139,8 @@ pub struct Sequencer {
     e: SequencerEphemerals,
 }
 impl Sequencer {
-    pub fn set_piano_roll(&mut self, piano_roll: Arc<Mutex<PianoRoll>>) {
+    #[allow(missing_docs)]
+    pub fn set_piano_roll(&mut self, piano_roll: RwLock<PianoRoll>) {
         self.e.piano_roll = piano_roll;
     }
 
@@ -183,7 +180,7 @@ impl Sequencer {
             uid,
             self.next_arrangement_position().bars(&self.time_signature) as usize,
         ) {
-            if let Some(pattern) = self.e.piano_roll.lock().unwrap().get(uid) {
+            if let Some(pattern) = self.e.piano_roll.read().unwrap().get(uid) {
                 self.e.arrangement_cursor += pattern.duration();
             }
             Ok(apuid)
@@ -198,7 +195,7 @@ impl Sequencer {
         position_in_bars: usize,
     ) -> anyhow::Result<ArrangedPatternUid> {
         let position = MusicalTime::new_with_bars(&self.time_signature, position_in_bars);
-        if self.e.piano_roll.lock().unwrap().get(uid).is_some() {
+        if self.e.piano_roll.read().unwrap().get(uid).is_some() {
             let arranged_pattern_uid = self.arranged_pattern_uid_factory.next();
             self.arranged_patterns.insert(
                 arranged_pattern_uid,
@@ -253,12 +250,44 @@ impl Sequencer {
         action
     }
 
-    /// Renders the track's arrangement view.
-    #[must_use]
+    /// Renders the owning track's arrangement view.
     pub fn ui_arrangement(
         &mut self,
         ui: &mut Ui,
         ddm: &mut DragDropManager,
+        track_uid: TrackUid,
+        viewable_time_range: &Range<MusicalTime>,
+    ) -> (Response, Option<SequencerAction>) {
+        eprintln!("available height A {}", ui.available_height());
+        // ui.set_min_height(ui.available_height());
+        // ui.set_max_height(ui.available_height());
+        ui.horizontal_top(|ui| {
+            let mut time_pointer = viewable_time_range.start;
+            while time_pointer < viewable_time_range.end {
+                let range_size = viewable_time_range.end
+                    - viewable_time_range.start
+                    - MusicalTime::new_with_units(1);
+                let half_range_size = MusicalTime::new_with_units(range_size.total_units() / 2);
+                let section_end = (time_pointer + half_range_size).min(viewable_time_range.end);
+
+                ui.add(arrangement_space(
+                    viewable_time_range.clone(),
+                    time_pointer..section_end,
+                ));
+                eprintln!("added {time_pointer}..{section_end}");
+                time_pointer = section_end;
+            }
+        });
+        (ui.spinner(), None)
+    }
+
+    /// Renders the owning track's arrangement view.
+    #[must_use]
+    pub fn ui_arrangement_old(
+        &mut self,
+        ui: &mut Ui,
+        ddm: &mut DragDropManager,
+        track_uid: TrackUid,
         viewable_time_range: &Range<MusicalTime>,
     ) -> (Response, Option<SequencerAction>) {
         let desired_size = ui.available_size();
@@ -296,42 +325,86 @@ impl Sequencer {
             to_screen_beats * pos2(start_beat as f32, 0.0),
             to_screen_beats * pos2(start_beat as f32, 1.0),
         ];
-        for (i, beat) in (start_beat..end_beat).enumerate() {
-            if i != 0 && i != beat_count - 1 && i % skip != 0 {
-                continue;
+        ui.horizontal(|ui| {
+            for (i, beat) in (start_beat..end_beat).enumerate() {
+                if i != 0 && i != beat_count - 1 && i % skip != 0 {
+                    continue;
+                }
+                let this_segment = [
+                    to_screen_beats * pos2(beat as f32, 0.0),
+                    to_screen_beats * pos2(beat as f32, 1.0),
+                ];
+                let hover_rect = Rect::from_two_pos(last_segment[0], this_segment[1]);
+                let can_accept = if let Some(source) = ddm.source() {
+                    match source {
+                        super::DragDropSource::NewDevice(_) => false,
+                        super::DragDropSource::Pattern(_) => true,
+                    }
+                } else {
+                    false
+                };
+                let mut r;
+                let mut dropped_source;
+                (r, dropped_source) = ddm.drop_target(ui, can_accept, |ui, source| {
+                    ui.add(space());
+                    // shapes.push(Shape::LineSegment {
+                    //     points: this_segment,
+                    //     stroke: if ui.interact(hover_rect, id, Sense::hover()).hovered() {
+                    //         ui.style().visuals.widgets.active.bg_stroke
+                    //     } else {
+                    //         ui.style().visuals.widgets.inactive.bg_stroke
+                    //     },
+                    // });
+
+                    // if let Some(source) = source {
+                    //     match source {
+                    //         DragDropSource::NewDevice(key) => {
+                    //             eprintln!("nope - I'm a pattern target {:?}", source)
+                    //         }
+                    //         DragDropSource::Pattern(_) => {
+                    //             eprintln!("sure - I'm a pattern target {:?}", source)
+                    //         }
+                    //     }
+                    // }
+
+                    // if ui.interact(hover_rect, id, Sense::hover()).hovered() {
+                    //     shapes.push(Shape::Rect(RectShape {
+                    //         rect: hover_rect,
+                    //         rounding: Rounding::none(),
+                    //         fill: Color32::DARK_GRAY,
+                    //         stroke: Stroke {
+                    //             width: 2.0,
+                    //             color: Color32::YELLOW,
+                    //         },
+                    //     }));
+                    // }
+
+                    // super::drag_drop::DragDropTarget::TrackLocation(
+                    //     track_uid,
+                    //     MusicalTime::new_with_beats(beat),
+                    // )
+
+                    // if ui.interact(hover_rect, id, Sense::hover()).hovered() {
+                    //     if let Some(source) = source {
+                    //         eprintln!("track beat {beat} - {:?}", source);
+                    //     }
+                    // };
+                });
+
+                if dropped_source.is_some() {
+                    eprintln!("dropped at track beat {beat}: {:#?}", dropped_source);
+                }
+                last_segment = this_segment;
             }
-            let this_segment = [
-                to_screen_beats * pos2(beat as f32, 0.0),
-                to_screen_beats * pos2(beat as f32, 1.0),
-            ];
-            shapes.push(Shape::LineSegment {
-                points: this_segment,
-                stroke: Stroke {
-                    width: 1.0,
-                    color: Color32::DARK_GRAY,
-                },
-            });
-            let hover_rect = Rect::from_two_pos(last_segment[0], this_segment[1]);
-            if ui.interact(hover_rect, id, Sense::hover()).hovered() {
-                shapes.push(Shape::Rect(RectShape {
-                    rect: hover_rect,
-                    rounding: Rounding::none(),
-                    fill: Color32::DARK_GRAY,
-                    stroke: Stroke {
-                        width: 2.0,
-                        color: Color32::YELLOW,
-                    },
-                }));
-            }
-            last_segment = this_segment;
-        }
+        });
+
         painter.extend(shapes);
 
         for (_arranged_pattern_uid, arranged_pattern) in self.arranged_patterns.iter() {
             if let Some(pattern) = self
                 .e
                 .piano_roll
-                .lock()
+                .read()
                 .unwrap()
                 .get(&arranged_pattern.pattern_uid)
             {
@@ -377,7 +450,11 @@ impl Sequencer {
 
     /// Renders the arrangement view.
     #[must_use]
-    pub fn show_arrangement(&mut self, ui: &mut Ui) -> (Response, Option<SequencerAction>) {
+    pub fn show_arrangement(
+        &mut self,
+        ui: &mut Ui,
+        piano_roll: &PianoRoll,
+    ) -> (Response, Option<SequencerAction>) {
         let action = None;
         let desired_size = vec2(ui.available_width(), 64.0);
         let (_id, rect) = ui.allocate_space(desired_size);
@@ -405,13 +482,7 @@ impl Sequencer {
                 ui.horizontal_top(|ui| {
                     let mut uid_to_toggle = None;
                     for (arranged_pattern_uid, arranged_pattern) in self.arranged_patterns.iter() {
-                        if let Some(pattern) = self
-                            .e
-                            .piano_roll
-                            .lock()
-                            .unwrap()
-                            .get(&arranged_pattern.pattern_uid)
-                        {
+                        if let Some(pattern) = piano_roll.get(&arranged_pattern.pattern_uid) {
                             if arranged_pattern
                                 .ui_content(
                                     ui,
@@ -449,7 +520,7 @@ impl Sequencer {
         self.e.final_event_time = MusicalTime::default();
         for ap in self.arranged_patterns.values() {
             let uid = ap.pattern_uid;
-            if let Some(pattern) = self.e.piano_roll.lock().unwrap().get(&uid) {
+            if let Some(pattern) = self.e.piano_roll.read().unwrap().get(&uid) {
                 for note in pattern.notes() {
                     self.e
                         .events
@@ -508,10 +579,6 @@ impl Sequencer {
     fn show_full(&mut self, ui: &mut Ui) {
         self.show_and_handle(ui)
     }
-
-    fn piano_roll(&self) -> &Mutex<PianoRoll> {
-        self.e.piano_roll.as_ref()
-    }
 }
 impl Shows for Sequencer {
     fn show(&mut self, ui: &mut Ui) {
@@ -523,7 +590,7 @@ impl Shows for Sequencer {
         } else if height <= 128.0 {
             self.show_medium(ui);
         } else {
-            self.show_medium(ui);
+            self.show_full(ui);
         }
     }
 }
@@ -570,12 +637,46 @@ impl Serializable for Sequencer {
     }
 }
 
+fn space_ui(ui: &mut Ui) -> Response {
+    let mut on_it = true;
+    let on = &mut on_it;
+    let desired_size = ui.spacing().interact_size.y * vec2(2.0, 1.0);
+    let (rect, mut response) = ui.allocate_exact_size(desired_size, Sense::click());
+    if response.clicked() {
+        *on = !*on;
+        response.mark_changed();
+    }
+    response.widget_info(|| WidgetInfo::selected(WidgetType::Checkbox, *on, ""));
+
+    if ui.is_rect_visible(rect) {
+        let how_on = ui.ctx().animate_bool(response.id, *on);
+        let visuals = ui.style().interact_selectable(&response, *on);
+        let rect = rect.expand(visuals.expansion);
+        let radius = 0.5 * rect.height();
+        ui.painter()
+            .rect(rect, radius, visuals.bg_fill, visuals.bg_stroke);
+        let circle_x = lerp((rect.left() + radius)..=(rect.right() - radius), how_on);
+        let center = pos2(circle_x, rect.center().y);
+        ui.painter()
+            .circle(center, 0.75 * radius, visuals.bg_fill, visuals.fg_stroke);
+    }
+
+    response
+}
+
+fn space() -> impl Widget {
+    move |ui: &mut Ui| space_ui(ui)
+}
+
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use super::*;
-    use crate::mini::piano_roll::PianoRoll;
+
+    impl Sequencer {
+        fn piano_roll(&self) -> &RwLock<PianoRoll> {
+            &self.e.piano_roll
+        }
+    }
 
     #[test]
     fn basic() {
@@ -590,10 +691,11 @@ mod tests {
     #[test]
     fn sequencer_translates_patterns_to_events() {
         let mut s = Sequencer::default();
-        s.set_piano_roll(Arc::new(Mutex::new(PianoRoll::default())));
 
-        let (pid0, p0_note_count, p0_duration) = s.piano_roll().lock().unwrap().populate_pattern(0);
-        let (pid1, p1_note_count, p1_duration) = s.piano_roll().lock().unwrap().populate_pattern(1);
+        let (pid0, p0_note_count, p0_duration) =
+            s.piano_roll().write().unwrap().populate_pattern(0);
+        let (pid1, p1_note_count, p1_duration) =
+            s.piano_roll().write().unwrap().populate_pattern(1);
 
         assert!(s.arrange_pattern_append(&pid0).is_ok());
         assert_eq!(s.arranged_patterns.len(), 1, "arranging pattern works");
@@ -636,7 +738,7 @@ mod tests {
         assert_eq!(s.e.final_event_time, MusicalTime::START);
 
         // Add a pattern to the palette.
-        let (pid0, _, p0_duration) = s.piano_roll().lock().unwrap().populate_pattern(0);
+        let (pid0, _, p0_duration) = s.piano_roll().write().unwrap().populate_pattern(0);
         assert_eq!(p0_duration, MusicalTime::new_with_beats(4));
 
         // Arrange that pattern at the cursor location.
@@ -660,7 +762,7 @@ mod tests {
     #[test]
     fn shift_pattern() {
         let mut s = SequencerBuilder::default().build().unwrap();
-        let (puid, _, _) = s.piano_roll().lock().unwrap().populate_pattern(0);
+        let (puid, _, _) = s.piano_roll().write().unwrap().populate_pattern(0);
         let apuid = s.arrange_pattern(&puid, 0).unwrap();
         assert_eq!(
             s.arranged_pattern_by_uid(&apuid).unwrap().position,
@@ -692,7 +794,7 @@ mod tests {
     #[test]
     fn removing_arranged_pattern_works() {
         let mut s = SequencerBuilder::default().build().unwrap();
-        let (puid0, _, _) = s.piano_roll().lock().unwrap().populate_pattern(0);
+        let (puid0, _, _) = s.piano_roll().write().unwrap().populate_pattern(0);
 
         let uid0 = s.arrange_pattern(&puid0, 0).unwrap();
         assert_eq!(s.arranged_patterns.len(), 1);
@@ -700,7 +802,7 @@ mod tests {
         s.remove_arranged_pattern(&uid0);
         assert!(s.arranged_patterns.is_empty());
 
-        let (puid1, _, _) = s.piano_roll().lock().unwrap().populate_pattern(1);
+        let (puid1, _, _) = s.piano_roll().write().unwrap().populate_pattern(1);
 
         let uid1 = s.arrange_pattern(&puid1, 0).unwrap();
         let uid0 = s.arrange_pattern(&puid0, 1).unwrap();
@@ -720,8 +822,8 @@ mod tests {
         let mut s = SequencerBuilder::default().build().unwrap();
         assert!(s.arranged_pattern_selection_set.is_empty());
 
-        let (puid0, _, _) = s.piano_roll().lock().unwrap().populate_pattern(0);
-        let (puid1, _, _) = s.piano_roll().lock().unwrap().populate_pattern(1);
+        let (puid0, _, _) = s.piano_roll().write().unwrap().populate_pattern(0);
+        let (puid1, _, _) = s.piano_roll().write().unwrap().populate_pattern(1);
 
         let uid0 = s.arrange_pattern(&puid0, 0).unwrap();
         let uid1 = s.arrange_pattern(&puid1, 1).unwrap();

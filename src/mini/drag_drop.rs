@@ -1,16 +1,25 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::entity_factory::Key;
+use super::{entity_factory::Key, piano_roll::PatternUid, TrackUid};
 use eframe::{
     egui::{CursorIcon, Id as EguiId, InnerResponse, LayerId, Order, Sense, Ui},
     epaint::{self, Rect, Shape, Vec2},
 };
+use groove_core::time::MusicalTime;
 use strum_macros::Display;
 
 #[allow(missing_docs)]
 #[derive(Debug, Display)]
 pub enum DragDropSource {
     NewDevice(Key),
+    Pattern(PatternUid),
+}
+
+#[allow(missing_docs)]
+#[derive(Debug, Display)]
+pub enum DragDropTarget {
+    Track(TrackUid),
+    TrackLocation(TrackUid, MusicalTime),
 }
 
 // TODO: a way to express rules about what can and can't be dropped
@@ -26,27 +35,37 @@ impl DragDropManager {
     }
 
     // These two functions are based on egui_demo_lib/src/demo/drag_and_drop.rs
-    #[allow(dead_code)]
     pub fn drag_source(
         &mut self,
         ui: &mut Ui,
         id: EguiId,
-        dnd_id: DragDropSource,
+        source: DragDropSource,
         body: impl FnOnce(&mut Ui),
     ) {
-        let is_being_dragged = ui.memory(|mem| mem.is_being_dragged(id));
+        if ui.memory(|mem| mem.is_being_dragged(id)) {
+            // It is. So let's mark that it's the one.
+            self.source = Some(source);
 
-        if is_being_dragged {
-            self.source = Some(dnd_id);
+            // Indicate in UI that we're dragging.
             ui.ctx().set_cursor_icon(CursorIcon::Grabbing);
+
+            // Plan to draw above everything else except debug.
             let layer_id = LayerId::new(Order::Tooltip, id);
+
+            // Draw the body and grab the response.
             let response = ui.with_layer_id(layer_id, body).response;
+
+            // Shift the entire tooltip layer to keep up with mouse movement.
             if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
                 let delta = pointer_pos - response.rect.center();
                 ui.ctx().translate_layer(layer_id, delta);
             }
         } else {
+            // Let the body draw itself, but scope to undo any style changes.
             let response = ui.scope(body).response;
+
+            // If the mouse is still over the item, change cursor to indicate
+            // that user could drag.
             let response = ui.interact(response.rect, id, Sense::drag());
             if response.hovered() {
                 ui.ctx().set_cursor_icon(CursorIcon::Grab);
@@ -59,33 +78,51 @@ impl DragDropManager {
         ui: &mut Ui,
         can_accept_what_is_being_dragged: bool,
         body: impl FnOnce(&mut Ui, &Option<DragDropSource>) -> R,
-    ) -> InnerResponse<R> {
-        let is_being_dragged = ui.memory(|mem| mem.is_anything_being_dragged());
+    ) -> (InnerResponse<R>, Option<DragDropSource>) {
+        let mut dropped_source = None;
 
+        // Is there any drag source at all?
+        let is_anything_being_dragged = ui.memory(|mem| mem.is_anything_being_dragged());
+
+        // Carve out a UI-sized area but leave a bit of margin to draw DnD
+        // highlight.
         let margin = Vec2::splat(2.0);
-
         let outer_rect_bounds = ui.available_rect_before_wrap();
         let inner_rect = outer_rect_bounds.shrink2(margin);
+
+        // We want this to draw behind the body, but we're not sure what it is
+        // yet.
         let where_to_put_background = ui.painter().add(Shape::Noop);
+
+        // Draw the potential target.
         let mut content_ui = ui.child_ui(inner_rect, *ui.layout());
         let ret = body(&mut content_ui, &self.source);
+
+        // I think but am not sure that this calculates the actual boundaries of
+        // what the body drew.
         let outer_rect =
             Rect::from_min_max(outer_rect_bounds.min, content_ui.min_rect().max + margin);
+
+        // Figure out what's going on in that rect.
         let (rect, response) = ui.allocate_at_least(outer_rect.size(), Sense::hover());
 
-        let style = if is_being_dragged && can_accept_what_is_being_dragged && response.hovered() {
+        // Adjust styling depending on whether this is still a potential target.
+        let style = if is_anything_being_dragged
+            && can_accept_what_is_being_dragged
+            && response.hovered()
+        {
             ui.visuals().widgets.active
         } else {
             ui.visuals().widgets.inactive
         };
-
         let mut fill = style.bg_fill;
         let mut stroke = style.bg_stroke;
-        if is_being_dragged && !can_accept_what_is_being_dragged {
+        if is_anything_being_dragged && !can_accept_what_is_being_dragged {
             fill = ui.visuals().gray_out(fill);
             stroke.color = ui.visuals().gray_out(stroke.color);
         }
 
+        // Update the background border based on target state.
         ui.painter().set(
             where_to_put_background,
             epaint::RectShape {
@@ -96,6 +133,27 @@ impl DragDropManager {
             },
         );
 
-        InnerResponse::new(ret, response)
+        if is_anything_being_dragged
+            && response.hovered()
+            && self.source.is_some()
+            && ui.input(|i| i.pointer.any_released())
+        {
+            if can_accept_what_is_being_dragged {
+                eprintln!("detected drop: {:?}", self.source);
+                dropped_source = self.source.take();
+            } else {
+                eprintln!("app rejected {:?}", self.source);
+            }
+        }
+
+        if is_anything_being_dragged && !can_accept_what_is_being_dragged {
+            ui.ctx().set_cursor_icon(CursorIcon::NotAllowed);
+        }
+
+        (InnerResponse::new(ret, response), dropped_source)
+    }
+
+    pub fn source(&self) -> Option<&DragDropSource> {
+        self.source.as_ref()
     }
 }

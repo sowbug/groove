@@ -6,6 +6,7 @@ use super::{
     selection_set::SelectionSet,
     track::{Track, TrackAction, TrackFactory, TrackTitle, TrackUiState, TrackUid},
     transport::{Transport, TransportBuilder},
+    widgets::arrangement_legend,
     DragDropManager, Key,
 };
 use anyhow::{anyhow, Result};
@@ -21,7 +22,7 @@ use groove_core::{
     midi::{MidiChannel, MidiMessage, MidiMessagesFn},
     time::{MusicalTime, SampleRate, Tempo},
     traits::{
-        gui::Shows, Configurable, ControlEventsFn, Controllable, Controls, Generates,
+        Configurable, ControlEventsFn, Controllable, Controls, Generates,
         GeneratesToInternalBuffer, HandlesMidi, HasUid, Performs, Serializable, Thing, ThingEvent,
         Ticks,
     },
@@ -29,7 +30,13 @@ use groove_core::{
 };
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Debug, ops::Range, vec::Vec};
+use std::{
+    collections::HashMap,
+    fmt::Debug,
+    ops::Range,
+    sync::{Arc, RwLock},
+    vec::Vec,
+};
 
 /// Actions that [Orchestrator]'s UI might need the parent to perform.
 #[derive(Debug)]
@@ -84,7 +91,8 @@ pub struct Orchestrator {
     track_uids: Vec<TrackUid>,
     track_ui_states: HashMap<TrackUid, TrackUiState>,
 
-    piano_roll: PianoRoll,
+    // This is the owned and serialized instance of PianoRoll. TODO message about serde rc feature
+    piano_roll: Arc<RwLock<PianoRoll>>,
 
     /// The highest [Uid] that has been added. This is serialized along with the
     /// rest of the project, so anyone generating [Uid]s, such as
@@ -372,13 +380,14 @@ impl Orchestrator {
             .resizable(true)
             .max_height(total_height / 2.0)
             .show(ui.ctx(), |ui| {
-                self.piano_roll.show(ui);
+                self.piano_roll.write().unwrap().show(ui, ddm);
             });
 
         egui::CentralPanel::default().show(ui.ctx(), |ui| {
             ScrollArea::vertical()
                 .id_source("orchestrator-scroller")
                 .show(ui, |ui| {
+                    ui.add(arrangement_legend(viewable_time_range.clone()));
                     for track_uid in self.track_uids.iter() {
                         if let Some(track) = self.tracks.get_mut(track_uid) {
                             let track_ui_state = self
@@ -517,6 +526,7 @@ impl Orchestrator {
         action
     }
 
+    #[deprecated] // This has been moved to the ArrangementLegend widget.
     fn ui_arrangement_labels(
         &self,
         ui: &mut Ui,
@@ -773,7 +783,10 @@ impl Controls for Orchestrator {
 }
 impl Serializable for Orchestrator {
     fn after_deser(&mut self) {
-        self.tracks.values_mut().for_each(|t| t.after_deser());
+        self.tracks.values_mut().for_each(|t| {
+            t.set_piano_roll(Arc::clone(&self.piano_roll));
+            t.after_deser();
+        });
     }
 }
 

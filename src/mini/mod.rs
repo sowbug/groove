@@ -29,6 +29,7 @@ mod selection_set;
 mod sequencer;
 mod track;
 mod transport;
+mod widgets;
 
 /// Generates unique [Uid]s. This factory is not threadsafe.
 #[derive(Debug, Default, Serialize, Deserialize)]
