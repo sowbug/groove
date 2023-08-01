@@ -17,9 +17,7 @@ use eframe::{
 use egui_toast::{Toast, ToastOptions, Toasts};
 use groove::{
     app_version,
-    egui_widgets::{
-        ControlBar, MidiPanel, OldAudioPanel, Preferences, ThingBrowser, ThingBrowserEvent,
-    },
+    panels::{ControlBar, MidiPanel, OldAudioPanel, Preferences, ThingBrowser, ThingBrowserEvent},
 };
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
@@ -342,18 +340,18 @@ impl GrooveApp {
             if let Ok(message) = self.midi_panel.receiver().try_recv() {
                 received = true;
                 match message {
-                    groove::egui_widgets::MidiPanelEvent::Midi(channel, message) => {
+                    groove::panels::MidiPanelEvent::Midi(channel, message) => {
                         if let Ok(mut o) = self.orchestrator.lock() {
                             o.update(GrooveInput::MidiFromExternal(channel, message));
                         }
                     }
-                    groove::egui_widgets::MidiPanelEvent::SelectInput(port) => {
+                    groove::panels::MidiPanelEvent::SelectInput(port) => {
                         self.preferences.set_selected_midi_input(&port.to_string())
                     }
-                    groove::egui_widgets::MidiPanelEvent::SelectOutput(port) => {
+                    groove::panels::MidiPanelEvent::SelectOutput(port) => {
                         self.preferences.set_selected_midi_output(&port.to_string())
                     }
-                    groove::egui_widgets::MidiPanelEvent::PortsRefreshed => {
+                    groove::panels::MidiPanelEvent::PortsRefreshed => {
                         self.restore_midi_port_selections()
                     }
                 }

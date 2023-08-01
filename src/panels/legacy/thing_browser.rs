@@ -10,7 +10,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::egui_widgets::Preferences;
+use crate::panels::Preferences;
 
 /// The browser provides updates to the app through [ThingBrowserEvent] messages.
 #[derive(Debug)]

@@ -15,12 +15,12 @@ use eframe::{
 use egui_toast::{Toast, ToastOptions, Toasts};
 use groove::{
     app_version,
-    egui_widgets::{
+    mini::{register_mini_factory_entities, DragDropManager, EntityFactory, Key, Orchestrator},
+    panels::{
         AudioPanelEvent, ControlPanel, ControlPanelAction, MidiPanelEvent, NeedsAudioFn,
         OrchestratorEvent, OrchestratorInput, OrchestratorPanel, PaletteAction, PalettePanel,
         SettingsPanel,
     },
-    mini::{register_mini_factory_entities, DragDropManager, EntityFactory, Key, Orchestrator},
 };
 use groove_core::{
     time::SampleRate,

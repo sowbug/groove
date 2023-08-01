@@ -100,7 +100,7 @@ pub use mini::EntityFactory;
 pub use mini::Orchestrator;
 
 /// Widgets for egui
-pub mod egui_widgets;
+pub mod panels;
 
 /// Temp home for minidaw research results
 pub mod mini;
