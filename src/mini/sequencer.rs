@@ -48,9 +48,12 @@ impl Display for ArrangedPatternUid {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct ArrangedPattern {
+/// A placement of a [Pattern] within an arrangement.
+#[derive(Debug, Serialize, Deserialize, Builder)]
+pub struct ArrangedPattern {
+    /// The identifier of the underlying pattern being arranged. 
     pattern_uid: PatternUid,
+    /// Where to place the pattern.
     position: MusicalTime,
 }
 impl ArrangedPattern {
@@ -92,6 +95,11 @@ impl ArrangedPattern {
         painter.extend(shapes);
 
         response
+    }
+
+    /// The placement of the [ArrangedPattern].
+    pub fn position(&self) -> MusicalTime {
+        self.position
     }
 }
 
@@ -235,7 +243,7 @@ impl Sequencer {
     }
 
     fn ui_content(&mut self, ui: &mut Ui) -> Option<SequencerAction> {
-        let mut action = None;
+        let  action = None;
         ui.allocate_ui(ui.available_size_before_wrap(), |ui| {
             ScrollArea::vertical().show(ui, |ui| {
                 // let patterns = &mut self.patterns;

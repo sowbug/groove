@@ -41,7 +41,9 @@ impl Display for PatternUid {
 /// supposed to play, relative to time zero.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Note {
+    /// The MIDI key code for the note. 69 is (usually) A4.
     pub key: u8,
+    /// The range of time when this note should play.
     pub range: Range<MusicalTime>,
 }
 
@@ -145,16 +147,20 @@ impl Pattern {
         self.duration = MusicalTime::new_with_bars(&self.time_signature, rounded_up_bars);
     }
 
+    /// Adds a note to this pattern. Does not check for duplicates. It's OK to
+    /// add notes in any time order.
     pub fn add_note(&mut self, note: Note) {
         self.notes.push(note);
         self.refresh_internals();
     }
 
+    /// Removes all notes matching this one in this pattern.
     pub fn remove_note(&mut self, note: &Note) {
         self.notes.retain(|v| v != note);
         self.refresh_internals();
     }
 
+    /// Removes all notes in this pattern.
     #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.notes.clear();
@@ -334,14 +340,18 @@ impl Pattern {
         self.time_signature
     }
 
+    /// Returns a read-only slice of all the [Note]s in this pattern. No order
+    /// is currently defined.
     pub fn notes(&self) -> &[Note] {
         self.notes.as_ref()
     }
 
+    #[allow(missing_docs)]
     pub fn icon_widget(&mut self) -> impl Widget + '_ {
         move |ui: &mut Ui| self.ui_content(ui)
     }
 
+    /// Draws the pattern.
     fn pattern_ui(&mut self, ui: &mut Ui) -> Response {
         let mut on_it = true;
         let on = &mut on_it;
@@ -439,13 +449,13 @@ impl PianoRoll {
             ui.set_height(64.0);
             if !self.ordered_pattern_uids.is_empty() {
                 let icon_width = ui.available_width() / self.ordered_pattern_uids.len() as f32;
-                for (index, pattern_uid) in self.ordered_pattern_uids.iter().enumerate() {
+                for pattern_uid in self.ordered_pattern_uids.iter() {
                     if let Some(pattern) = self.uids_to_patterns.get_mut(pattern_uid) {
                         let dnd_id = EguiId::new("piano roll").with(pattern_uid);
                         ddm.drag_source(ui, dnd_id, DragDropSource::Pattern(*pattern_uid), |ui| {
                             ui.set_max_width(icon_width);
                             if ui
-                                .add(pattern_icon(pattern.duration(), pattern.notes().to_vec()))
+                                .add(pattern_icon(pattern.duration(), pattern.notes()))
                                 .clicked()
                             {
                                 eprintln!("clicked");
