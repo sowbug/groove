@@ -117,7 +117,6 @@ impl ArrangementSpace {
         self
     }
     pub fn ui_content(&mut self, ui: &mut Ui) -> Response {
-        eprintln!("C - {}", ui.available_height());
         ui.set_min_height(ui.available_height());
 
         let full_range_beats = (self.arrangement_range.end.total_beats()

@@ -690,91 +690,90 @@ impl Track {
         let mut action = None;
         let mut drag_and_drop_action = None;
         let mut hovered = false;
-        let mut dropped_source = None;
         let desired_size = vec2(128.0, Self::device_view_height(ui_state));
-        {
-            ui.horizontal(|ui| {
-                if let Some(sequencer) = self.sequencer.as_mut() {
-                    if self.is_sequencer_open {
-                        egui::Window::new("Sequencer")
-                            .open(&mut self.is_sequencer_open)
-                            .show(ui.ctx(), |ui| {
-                                sequencer.show(ui);
-                            });
-                    } else {
-                        Self::ui_device(ui, sequencer, desired_size);
-                        if ui.button("open").clicked() {
-                            self.is_sequencer_open = !self.is_sequencer_open;
-                        }
-                    }
-                }
-                for thing in self.thing_store.iter_mut() {
-                    Self::ui_device(ui, thing.as_mut(), desired_size);
-                }
 
-                let can_accept = if let Some(source) = ddm.source() {
-                    match source {
-                        DragDropSource::NewDevice(_) => true,
-                        DragDropSource::Pattern(_) => false,
-                    }
+        ui.horizontal(|ui| {
+            if let Some(sequencer) = self.sequencer.as_mut() {
+                if self.is_sequencer_open {
+                    egui::Window::new("Sequencer")
+                        .open(&mut self.is_sequencer_open)
+                        .show(ui.ctx(), |ui| {
+                            sequencer.show(ui);
+                        });
                 } else {
-                    false
-                };
-                let mut r;
-                (r, dropped_source) = ddm.drop_target(ui, can_accept, |ui, source| {
-                    ui.allocate_ui_with_layout(
-                        desired_size,
-                        Layout::centered_and_justified(egui::Direction::LeftToRight),
-                        |ui| {
-                            ui.label(if self.thing_store.is_empty() {
-                                "Drag things here"
-                            } else {
-                                "+"
-                            })
-                        },
-                    );
-                    if let Some(source) = source {
-                        match source {
-                            DragDropSource::NewDevice(key) => {
-                                drag_and_drop_action = Some(DragDropSource::NewDevice(key.clone()));
-                            }
-                            DragDropSource::Pattern(_) => eprintln!(
-                                "nope - I'm a device drop target, not a pattern target {:?}",
-                                source
-                            ),
-                        }
+                    Self::ui_device(ui, sequencer, desired_size);
+                    if ui.button("open").clicked() {
+                        self.is_sequencer_open = !self.is_sequencer_open;
                     }
-                });
-
-                // super::drag_drop::DragDropTarget::Track(self.uid),
-
-                if r.response.hovered() {
-                    hovered = true;
                 }
+            }
+            for thing in self.thing_store.iter_mut() {
+                Self::ui_device(ui, thing.as_mut(), desired_size);
+            }
+
+            let can_accept = if let Some(source) = ddm.source() {
+                match source {
+                    DragDropSource::NewDevice(_) => true,
+                    DragDropSource::Pattern(_) => false,
+                }
+            } else {
+                false
+            };
+            let mut r = ddm.drop_target(ui, can_accept, |ui| {
+                ui.allocate_ui_with_layout(
+                    desired_size,
+                    Layout::centered_and_justified(egui::Direction::LeftToRight),
+                    |ui| {
+                        ui.label(if self.thing_store.is_empty() {
+                            "Drag things here"
+                        } else {
+                            "+"
+                        })
+                    },
+                );
             });
-        }
 
-        if dropped_source.is_some() {
-            eprintln!("it happened at track device thing {:?}", dropped_source);
-        }
+            // super::drag_drop::DragDropTarget::Track(self.uid),
 
-        // if hovered {
-        //     eprintln!("hovered {:?}", drag_and_drop_action);
-        //     if let Some(dd_action) = drag_and_drop_action {
-        //         if ui.input(|i| i.pointer.any_released()) {
-        //             match dd_action {
-        //                 DragDropSource::NewDevice(key) => {
-        //                     action = Some(TrackAction::NewDevice(self.uid, key));
+            // TODO lazy clone
+            if ddm.is_dropped(ui, r.response.clone()) {
+                if let Some(source) = ddm.source() {
+                    match source {
+                        DragDropSource::NewDevice(key) => {
+                            drag_and_drop_action = Some(DragDropSource::NewDevice(key.clone()));
+                            action = Some(TrackAction::NewDevice(self.uid, key.clone()));
+                            ddm.reset();
+                        }
+                        DragDropSource::Pattern(_) => eprintln!(
+                            "nope - I'm a device drop target, not a pattern target {:?}",
+                            source
+                        ),
+                    }
+                }
+            }
 
-        //                     // This is important to let the manager know that
-        //                     // you've handled the drop.
-        //                     ddm.reset();
-        //                 }
-        //                 DragDropSource::Pattern(_) => eprintln!("I don't think so {:?}", dd_action),
+            // if r.response.hovered() {
+            //     hovered = true;
+            // }
+        });
+
+        // //        if hovered {
+        // //            eprintln!("hovered {:?}", drag_and_drop_action);
+        // if let Some(dd_action) = drag_and_drop_action {
+        //     if ui.input(|i| i.pointer.any_released()) {
+        //         match dd_action {
+        //             DragDropSource::NewDevice(key) => {
+        //                 action = Some(TrackAction::NewDevice(self.uid, key));
+
+        //                 // This is important to let the manager know that
+        //                 // you've handled the drop.
+        //                 ddm.reset();
         //             }
+        //             DragDropSource::Pattern(_) => eprintln!("I don't think so {:?}", dd_action),
         //         }
         //     }
         // }
+        // //    }
 
         action
     }

@@ -44,6 +44,10 @@ impl DragDropManager {
     ) {
         if ui.memory(|mem| mem.is_being_dragged(id)) {
             // It is. So let's mark that it's the one.
+            debug_assert!(
+                !self.source.is_some(),
+                "If we are being dragged, then source should be None because we're about to set it"
+            );
             self.source = Some(source);
 
             // Indicate in UI that we're dragging.
@@ -74,15 +78,13 @@ impl DragDropManager {
     }
 
     pub fn drop_target<R>(
-        &mut self,
+        &self,
         ui: &mut Ui,
         can_accept_what_is_being_dragged: bool,
-        body: impl FnOnce(&mut Ui, &Option<DragDropSource>) -> R,
-    ) -> (InnerResponse<R>, Option<DragDropSource>) {
-        let mut dropped_source = None;
-
+        body: impl FnOnce(&mut Ui) -> R,
+    ) -> InnerResponse<R> {
         // Is there any drag source at all?
-        let is_anything_being_dragged = ui.memory(|mem| mem.is_anything_being_dragged());
+        let is_anything_dragged = self.is_anything_being_dragged(ui);
 
         // Carve out a UI-sized area but leave a bit of margin to draw DnD
         // highlight.
@@ -96,7 +98,7 @@ impl DragDropManager {
 
         // Draw the potential target.
         let mut content_ui = ui.child_ui(inner_rect, *ui.layout());
-        let ret = body(&mut content_ui, &self.source);
+        let ret = body(&mut content_ui);
 
         // I think but am not sure that this calculates the actual boundaries of
         // what the body drew.
@@ -107,9 +109,7 @@ impl DragDropManager {
         let (rect, response) = ui.allocate_at_least(outer_rect.size(), Sense::hover());
 
         // Adjust styling depending on whether this is still a potential target.
-        let style = if is_anything_being_dragged
-            && can_accept_what_is_being_dragged
-            && response.hovered()
+        let style = if is_anything_dragged && can_accept_what_is_being_dragged && response.hovered()
         {
             ui.visuals().widgets.active
         } else {
@@ -117,7 +117,7 @@ impl DragDropManager {
         };
         let mut fill = style.bg_fill;
         let mut stroke = style.bg_stroke;
-        if is_anything_being_dragged && !can_accept_what_is_being_dragged {
+        if is_anything_dragged && !can_accept_what_is_being_dragged {
             fill = ui.visuals().gray_out(fill);
             stroke.color = ui.visuals().gray_out(stroke.color);
         }
@@ -133,24 +133,22 @@ impl DragDropManager {
             },
         );
 
-        if is_anything_being_dragged
-            && response.hovered()
-            && self.source.is_some()
-            && ui.input(|i| i.pointer.any_released())
-        {
-            if can_accept_what_is_being_dragged {
-                eprintln!("detected drop: {:?}", self.source);
-                dropped_source = self.source.take();
-            } else {
-                eprintln!("app rejected {:?}", self.source);
-            }
-        }
-
-        if is_anything_being_dragged && !can_accept_what_is_being_dragged {
+        if is_anything_dragged && !can_accept_what_is_being_dragged {
             ui.ctx().set_cursor_icon(CursorIcon::NotAllowed);
         }
 
-        (InnerResponse::new(ret, response), dropped_source)
+        InnerResponse::new(ret, response)
+    }
+
+    fn is_anything_being_dragged(&self, ui: &mut Ui) -> bool {
+        ui.memory(|mem| mem.is_anything_being_dragged())
+    }
+
+    pub fn is_dropped(&self, ui: &mut Ui, response: eframe::egui::Response) -> bool {
+        self.is_anything_being_dragged(ui)
+            && response.hovered()
+            && ui.input(|i| i.pointer.any_released())
+            && self.source.is_some()
     }
 
     pub fn source(&self) -> Option<&DragDropSource> {

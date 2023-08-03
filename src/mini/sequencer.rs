@@ -271,9 +271,6 @@ impl Sequencer {
         track_uid: TrackUid,
         viewable_time_range: &Range<MusicalTime>,
     ) -> (Response, Option<SequencerAction>) {
-        eprintln!("available height A {}", ui.available_height());
-        // ui.set_min_height(ui.available_height());
-        // ui.set_max_height(ui.available_height());
         ui.horizontal_top(|ui| {
             let mut time_pointer = viewable_time_range.start;
             while time_pointer < viewable_time_range.end {
@@ -287,7 +284,6 @@ impl Sequencer {
                     viewable_time_range.clone(),
                     time_pointer..section_end,
                 ));
-                eprintln!("added {time_pointer}..{section_end}");
                 time_pointer = section_end;
             }
         });
@@ -356,10 +352,8 @@ impl Sequencer {
                 } else {
                     false
                 };
-                let mut r;
-                let mut dropped_source;
-                (r, dropped_source) = ddm.drop_target(ui, can_accept, |ui, source| {
-                    ui.add(space());
+                let mut r = ddm.drop_target(ui, can_accept, |ui| {
+                    ui.add(space())
                     // shapes.push(Shape::LineSegment {
                     //     points: this_segment,
                     //     stroke: if ui.interact(hover_rect, id, Sense::hover()).hovered() {
@@ -404,8 +398,9 @@ impl Sequencer {
                     // };
                 });
 
-                if dropped_source.is_some() {
-                    eprintln!("dropped at track beat {beat}: {:#?}", dropped_source);
+                if ddm.is_dropped(ui, r.response) {
+                    eprintln!("dropped at track beat {beat}: {:#?}", ddm.source());
+                    ddm.reset();
                 }
                 last_segment = this_segment;
             }

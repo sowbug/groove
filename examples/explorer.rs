@@ -12,7 +12,7 @@ use groove::{
     app_version,
     mini::{
         widgets::{arrangement_legend, pattern_icon},
-        Note,
+        DragDropManager, DragDropSource, Note, PatternUid,
     },
 };
 use groove_core::{midi::MidiNote, time::MusicalTime};
@@ -98,7 +98,7 @@ impl<'a> Arrangement<'a> {
         self
     }
 
-    fn ui_content(self, ui: &mut Ui, dnd: &dnd::DragDropManager) -> Response {
+    fn ui_content(self, ui: &mut Ui, dnd: &DragDropManager) -> Response {
         let Self {
             handled_drop,
             range,
@@ -192,7 +192,7 @@ impl FillWidget {
 }
 
 fn arrangement<'a>(
-    dnd: &'a dnd::DragDropManager,
+    dnd: &'a DragDropManager,
     range: Range<MusicalTime>,
     handled_drop: &'a mut bool,
 ) -> impl eframe::egui::Widget + 'a {
@@ -246,7 +246,7 @@ impl PatternIconSettings {
 
 #[derive(Debug, Default)]
 struct Explorer {
-    dnd: dnd::DragDropManager,
+    dnd: DragDropManager,
     arrangement_legend: ArrangementLegendSettings,
     pattern_icon: PatternIconSettings,
     arrangement: ArrangementSettings,
@@ -313,7 +313,7 @@ impl Explorer {
                         self.dnd.drag_source(
                             ui,
                             Id::new("pattern icon"),
-                            dnd::DragDropSource::Pattern(99),
+                            DragDropSource::Pattern(PatternUid(99)),
                             |ui| {
                                 ui.add(pattern_icon(
                                     self.pattern_icon.duration,
@@ -404,155 +404,4 @@ fn main() -> anyhow::Result<(), eframe::Error> {
         options,
         Box::new(|cc| Box::new(Explorer::new(cc))),
     )
-}
-
-mod dnd {
-    use derive_more::Display;
-    use eframe::{
-        egui::{CursorIcon, Id, InnerResponse, LayerId, Order, Sense, Ui},
-        epaint::{Rect, RectShape, Shape, Vec2},
-    };
-
-    #[derive(Debug, Display)]
-    pub enum DragDropSource {
-        Pattern(usize),
-    }
-
-    // #[allow(missing_docs)]
-    // #[derive(Debug, Display)]
-    // pub enum DragDropTarget {
-    //     TrackLocation(MusicalTime),
-    //     ArrangedPattern,
-    // }
-
-    #[derive(Debug, Default)]
-    pub struct DragDropManager {
-        source: Option<DragDropSource>,
-    }
-    #[allow(missing_docs)]
-    impl DragDropManager {
-        pub fn reset(&mut self) {
-            self.source = None;
-        }
-
-        // These two functions are based on egui_demo_lib/src/demo/drag_and_drop.rs
-        pub fn drag_source(
-            &mut self,
-            ui: &mut Ui,
-            id: Id,
-            source: DragDropSource,
-            body: impl FnOnce(&mut Ui),
-        ) {
-            if ui.memory(|mem| mem.is_being_dragged(id)) {
-                debug_assert!(!
-                    self.source.is_some(),
-                    "If we are being dragged, then source should be None because we're about to set it"
-                );
-                self.source = Some(source);
-
-                // Indicate in UI that we're dragging.
-                ui.ctx().set_cursor_icon(CursorIcon::Grabbing);
-
-                // Plan to draw above everything else except debug.
-                let layer_id = LayerId::new(Order::Tooltip, id);
-
-                // Draw the body and grab the response.
-                let response = ui.with_layer_id(layer_id, body).response;
-
-                // Shift the entire tooltip layer to keep up with mouse movement.
-                if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
-                    let delta = pointer_pos - response.rect.center();
-                    ui.ctx().translate_layer(layer_id, delta);
-                }
-            } else {
-                // Let the body draw itself, but scope to undo any style changes.
-                let response = ui.scope(body).response;
-
-                // If the mouse is still over the item, change cursor to indicate
-                // that user could drag.
-                let response = ui.interact(response.rect, id, Sense::drag());
-                if response.hovered() {
-                    ui.ctx().set_cursor_icon(CursorIcon::Grab);
-                }
-            }
-        }
-
-        pub fn drop_target<R>(
-            &self,
-            ui: &mut Ui,
-            can_accept_what_is_being_dragged: bool,
-            body: impl FnOnce(&mut Ui) -> R,
-        ) -> InnerResponse<R> {
-            // Is there any drag source at all?
-            let is_anything_dragged = self.is_anything_being_dragged(ui);
-
-            // Carve out a UI-sized area but leave a bit of margin to draw DnD
-            // highlight.
-            let margin = Vec2::splat(2.0);
-            let outer_rect_bounds = ui.available_rect_before_wrap();
-            let inner_rect = outer_rect_bounds.shrink2(margin);
-
-            // We want this to draw behind the body, but we're not sure what it is
-            // yet.
-            let where_to_put_background = ui.painter().add(Shape::Noop);
-
-            // Draw the potential target.
-            let mut content_ui = ui.child_ui(inner_rect, *ui.layout());
-            let ret = body(&mut content_ui);
-
-            // I think but am not sure that this calculates the actual boundaries of
-            // what the body drew.
-            let outer_rect =
-                Rect::from_min_max(outer_rect_bounds.min, content_ui.min_rect().max + margin);
-
-            // Figure out what's going on in that rect.
-            let (rect, response) = ui.allocate_at_least(outer_rect.size(), Sense::hover());
-
-            // Adjust styling depending on whether this is still a potential target.
-            let style =
-                if is_anything_dragged && can_accept_what_is_being_dragged && response.hovered() {
-                    ui.visuals().widgets.active
-                } else {
-                    ui.visuals().widgets.inactive
-                };
-            let mut fill = style.bg_fill;
-            let mut stroke = style.bg_stroke;
-            if is_anything_dragged && !can_accept_what_is_being_dragged {
-                fill = ui.visuals().gray_out(fill);
-                stroke.color = ui.visuals().gray_out(stroke.color);
-            }
-
-            // Update the background border based on target state.
-            ui.painter().set(
-                where_to_put_background,
-                RectShape {
-                    rounding: style.rounding,
-                    fill,
-                    stroke,
-                    rect,
-                },
-            );
-
-            if is_anything_dragged && !can_accept_what_is_being_dragged {
-                ui.ctx().set_cursor_icon(CursorIcon::NotAllowed);
-            }
-
-            InnerResponse::new(ret, response)
-        }
-
-        fn is_anything_being_dragged(&self, ui: &mut Ui) -> bool {
-            ui.memory(|mem| mem.is_anything_being_dragged())
-        }
-
-        pub fn is_dropped(&self, ui: &mut Ui, response: eframe::egui::Response) -> bool {
-            self.is_anything_being_dragged(ui)
-                && response.hovered()
-                && ui.input(|i| i.pointer.any_released())
-                && self.source.is_some()
-        }
-
-        pub fn source(&self) -> Option<&DragDropSource> {
-            self.source.as_ref()
-        }
-    }
 }
