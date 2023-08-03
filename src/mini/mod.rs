@@ -4,8 +4,9 @@ pub use drag_drop::{DragDropManager, DragDropSource};
 pub use entities::register_mini_factory_entities;
 pub use entity_factory::{EntityFactory, Key};
 pub use orchestrator::{Orchestrator, OrchestratorAction, OrchestratorBuilder};
+pub use piano_roll::{Note, Pattern, PatternUid};
 pub use selection_set::SelectionSet;
-pub use sequencer::{Sequencer, SequencerParams};
+pub use sequencer::{ArrangedPattern, ArrangedPatternBuilder, Sequencer, SequencerParams};
 pub use track::{Track, TrackAction, TrackTitle, TrackUid};
 pub use transport::Transport;
 
@@ -29,7 +30,8 @@ mod selection_set;
 mod sequencer;
 mod track;
 mod transport;
-mod widgets;
+/// egui widgets
+pub mod widgets;
 
 /// Generates unique [Uid]s. This factory is not threadsafe.
 #[derive(Debug, Default, Serialize, Deserialize)]

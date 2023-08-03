@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use super::piano_roll::Note;
 use eframe::{
     egui::{Response, Ui},
     emath::{Align2, RectTransform},
@@ -8,9 +9,7 @@ use eframe::{
 use groove_core::time::MusicalTime;
 use std::ops::Range;
 
-use super::piano_roll::Note;
-
-pub fn pattern_icon(duration: MusicalTime, notes: Vec<Note>) -> impl eframe::egui::Widget {
+pub fn pattern_icon(duration: MusicalTime, notes: &[Note]) -> impl eframe::egui::Widget + '_ {
     move |ui: &mut eframe::egui::Ui| {
         PatternIcon::new()
             .duration(duration)
@@ -161,11 +160,11 @@ impl ArrangementSpace {
 }
 
 #[derive(Debug, Default)]
-pub struct PatternIcon {
+pub struct PatternIcon<'a> {
     duration: MusicalTime,
-    notes: Vec<Note>,
+    notes: &'a [Note],
 }
-impl PatternIcon {
+impl<'a> PatternIcon<'a> {
     pub fn new() -> Self {
         Default::default()
     }
@@ -173,7 +172,7 @@ impl PatternIcon {
         self.duration = duration;
         self
     }
-    pub fn notes(mut self, notes: Vec<Note>) -> Self {
+    pub fn notes(mut self, notes: &'a [Note]) -> Self {
         self.notes = notes;
         self
     }
@@ -195,7 +194,7 @@ impl PatternIcon {
             ),
             rect,
         );
-        for note in &self.notes {
+        for note in self.notes {
             let key = note.key as f32;
             let p1 = to_screen * eframe::epaint::pos2(note.range.start.total_beats() as f32, key);
             let p2 =
