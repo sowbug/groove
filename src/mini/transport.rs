@@ -29,8 +29,8 @@ pub struct TransportEphemerals {
     is_performing: bool,
 }
 
-/// [Transport] is the global clock. It knows where in the song we are, and how
-/// fast time should advance.
+/// [Transport] is the global clock. It keeps track of the current position in
+/// the song, and how time should advance.
 #[derive(Serialize, Deserialize, Clone, Control, IsController, Debug, Default, Uid, Builder)]
 pub struct Transport {
     uid: Uid,
