@@ -52,10 +52,7 @@ impl MessageBounds for ThingEvent {}
 /// [IsEffect] or [IsInstrument] can't finish; they wait forever for audio to
 /// process, or MIDI commands to handle. A performance ends once all
 /// [IsController] entities indicate that they've finished.
-pub trait IsController:
-    Controls + HandlesMidi + Performs + HasUid + Shows + Send + std::fmt::Debug
-{
-}
+pub trait IsController: Controls + HandlesMidi + HasUid + Shows + Send + std::fmt::Debug {}
 
 /// An [IsEffect] transforms audio. It takes audio inputs and produces audio
 /// output. It does not get called unless there is audio input to provide to it
@@ -192,6 +189,10 @@ pub trait Ticks: Configurable + Send + std::fmt::Debug {
 /// API like we have now isn't appropriate.
 pub type ControlEventsFn<'a> = dyn FnMut(Uid, ThingEvent) + 'a;
 
+/// A device that [Controls] produces [ThingEvent]s that control other things.
+/// It also has a concept of a performance that has a beginning and an end. It
+/// knows how to respond to requests to start, stop, restart, and seek within
+/// the performance.
 pub trait Controls: Configurable + Send + std::fmt::Debug {
     #[allow(unused_variables)]
     fn update_time(&mut self, range: &Range<MusicalTime>);
@@ -210,6 +211,37 @@ pub trait Controls: Configurable + Send + std::fmt::Debug {
     /// the framework ends the piece being performed only when all things
     /// implementing [Controls] indicate that they're finished.
     fn is_finished(&self) -> bool;
+
+    /// Tells the device to play its performance from the current location. A
+    /// device *must* refresh is_finished() during this method.
+    fn play(&mut self);
+
+    /// Tells the device to stop playing its performance. It shouldn't change
+    /// its cursor location, so that a play() after a stop() acts like a resume.
+    fn stop(&mut self);
+
+    /// Resets cursors to the beginning. This is set_cursor Lite (TODO).
+    fn skip_to_start(&mut self);
+
+    /// Whether the device is currently playing. This is part of the trait so
+    /// that implementers don't have to leak their internal state to unit test
+    /// code.
+    fn is_performing(&self) -> bool;
+
+    /// Sets the loop range. Parents should propagate to children. We provide a
+    /// default implementation for this set of methods because looping doesn't
+    /// apply to many devices.
+    #[allow(unused_variables)]
+    fn set_loop(&mut self, range: &Range<PerfectTimeUnit>) {}
+
+    /// Clears the loop range, restoring normal cursor behavior.
+    fn clear_loop(&mut self) {}
+
+    /// Enables or disables loop behavior. When looping is enabled, if the
+    /// cursor is outside the range on the right side (i.e., after), it sets
+    /// itself to the start point.
+    #[allow(unused_variables)]
+    fn set_loop_enabled(&mut self, is_enabled: bool) {}
 }
 
 /// A [TransformsAudio] takes input audio, which is typically produced by
@@ -296,41 +328,6 @@ pub trait StoresVoices: Generates<StereoSample> + Send + std::fmt::Debug {
 
     /// All the voices as a mutable iterator.
     fn voices_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut Box<Self::Voice>> + 'a>;
-}
-
-/// A device that [Performs] has a concept of a performance that has a beginning
-/// and an end, and it knows how to respond to requests to start, stop, restart,
-/// and seek within the performance.
-pub trait Performs: Controls {
-    /// Tells the device to play its performance from the current location.
-    fn play(&mut self);
-
-    /// Tells the device to stop playing its performance. It shouldn't change
-    /// its cursor location, so that a play() after a stop() acts like a resume.
-    fn stop(&mut self);
-
-    /// Resets cursors to the beginning. This is set_cursor Lite (TODO).
-    fn skip_to_start(&mut self);
-
-    /// Whether the device is currently playing. This is part of the trait so
-    /// that implementers don't have to leak their internal state to unit test
-    /// code.
-    fn is_performing(&self) -> bool;
-
-    /// Sets the loop range. Parents should propagate to children. We provide a
-    /// default implementation for this set of methods because looping doesn't
-    /// apply to many devices.
-    #[allow(unused_variables)]
-    fn set_loop(&mut self, range: &Range<PerfectTimeUnit>) {}
-
-    /// Clears the loop range, restoring normal cursor behavior.
-    fn clear_loop(&mut self) {}
-
-    /// Enables or disables loop behavior. When looping is enabled, if the
-    /// cursor is outside the range on the right side (i.e., after), it sets
-    /// itself to the start point.
-    #[allow(unused_variables)]
-    fn set_loop_enabled(&mut self, is_enabled: bool) {}
 }
 
 /// Something that is [Serializable] might need to do work right before

@@ -29,10 +29,7 @@ mod sequencers;
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessagesFn},
     time::{ClockTimeUnit, MusicalTime, MusicalTimeParams, SampleRate},
-    traits::{
-        Configurable, ControlEventsFn, Controls, Performs, Serializable, ThingEvent,
-        TransformsAudio,
-    },
+    traits::{Configurable, ControlEventsFn, Controls, Serializable, ThingEvent, TransformsAudio},
     BipolarNormal, Normal, Sample, StereoSample,
 };
 use groove_proc_macros::{Control, IsController, IsControllerEffect, Params, Uid};
@@ -142,8 +139,7 @@ impl Controls for Timer {
     fn is_finished(&self) -> bool {
         self.is_finished
     }
-}
-impl Performs for Timer {
+
     fn play(&mut self) {
         self.is_performing = true;
     }
@@ -153,7 +149,19 @@ impl Performs for Timer {
     }
 
     fn skip_to_start(&mut self) {
-        self.end_time = None;
+        // TODO: think how important it is for LFO oscillator to start at zero
+    }
+
+    fn set_loop(&mut self, _range: &Range<groove_core::time::PerfectTimeUnit>) {
+        // TODO
+    }
+
+    fn clear_loop(&mut self) {
+        // TODO
+    }
+
+    fn set_loop_enabled(&mut self, _is_enabled: bool) {
+        // TODO
     }
 
     fn is_performing(&self) -> bool {
@@ -193,14 +201,7 @@ impl Controls for Trigger {
     fn is_finished(&self) -> bool {
         self.timer.is_finished()
     }
-}
-impl Configurable for Trigger {
-    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
-        self.timer.update_sample_rate(sample_rate)
-    }
-}
-impl HandlesMidi for Trigger {}
-impl Performs for Trigger {
+
     fn play(&mut self) {
         self.is_performing = true;
         self.timer.play();
@@ -220,6 +221,12 @@ impl Performs for Trigger {
         self.is_performing
     }
 }
+impl Configurable for Trigger {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.timer.update_sample_rate(sample_rate)
+    }
+}
+impl HandlesMidi for Trigger {}
 impl Trigger {
     pub fn new_with(params: &TriggerParams) -> Self {
         Self {
@@ -272,9 +279,7 @@ impl Controls for SignalPassthroughController {
     fn is_finished(&self) -> bool {
         true
     }
-}
-impl HandlesMidi for SignalPassthroughController {}
-impl Performs for SignalPassthroughController {
+
     fn play(&mut self) {
         self.is_performing = true;
     }
@@ -289,6 +294,7 @@ impl Performs for SignalPassthroughController {
         self.is_performing
     }
 }
+impl HandlesMidi for SignalPassthroughController {}
 impl TransformsAudio for SignalPassthroughController {
     fn transform_audio(&mut self, input_sample: StereoSample) -> StereoSample {
         let averaged_sample: Sample = (input_sample.0 + input_sample.1) * 0.5;
@@ -409,6 +415,20 @@ impl Controls for ToyController {
     fn is_finished(&self) -> bool {
         true
     }
+
+    fn play(&mut self) {
+        self.is_performing = true;
+    }
+
+    fn stop(&mut self) {
+        self.is_performing = false;
+    }
+
+    fn skip_to_start(&mut self) {}
+
+    fn is_performing(&self) -> bool {
+        self.is_performing
+    }
 }
 impl Configurable for ToyController {
     fn update_sample_rate(&mut self, _sample_rate: SampleRate) {}
@@ -426,21 +446,6 @@ impl HandlesMidi for ToyController {
             MidiMessage::NoteOn { key, vel } => self.is_enabled = true,
             _ => todo!(),
         }
-    }
-}
-impl Performs for ToyController {
-    fn play(&mut self) {
-        self.is_performing = true;
-    }
-
-    fn stop(&mut self) {
-        self.is_performing = false;
-    }
-
-    fn skip_to_start(&mut self) {}
-
-    fn is_performing(&self) -> bool {
-        self.is_performing
     }
 }
 impl ToyController {
@@ -563,7 +568,7 @@ mod tests {
     use crate::controllers::{TimerParams, Trigger, TriggerParams};
     use groove_core::{
         time::{MusicalTime, MusicalTimeParams, SampleRate, TimeSignature},
-        traits::{Configurable, Controls, Performs},
+        traits::{Configurable, Controls},
         Normal,
     };
     use std::ops::Range;

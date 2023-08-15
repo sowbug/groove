@@ -17,8 +17,7 @@ use groove_core::{
     midi::{note_to_frequency, MidiChannel, MidiMessage, MidiMessagesFn},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, TimeSignatureParams},
     traits::{
-        Configurable, ControlEventsFn, Controls, Generates, HandlesMidi, Performs, Serializable,
-        Ticks,
+        Configurable, ControlEventsFn, Controls, Generates, HandlesMidi, Serializable, Ticks,
     },
     voices::VoicePerNoteStore,
     ParameterType, StereoSample,
@@ -375,7 +374,19 @@ impl Engine {
         pattern.step(self.pb_step_index)
     }
 }
-impl Performs for Engine {
+impl Controls for Engine {
+    fn update_time(&mut self, _range: &Range<MusicalTime>) {
+        todo!()
+    }
+
+    fn work(&mut self, _control_events_fn: &mut ControlEventsFn) {
+        todo!()
+    }
+
+    fn is_finished(&self) -> bool {
+        todo!()
+    }
+
     fn play(&mut self) {
         self.set_state(EngineState::Playing);
     }
@@ -399,19 +410,6 @@ impl Performs for Engine {
     fn clear_loop(&mut self) {}
 
     fn set_loop_enabled(&mut self, _is_enabled: bool) {}
-}
-impl Controls for Engine {
-    fn update_time(&mut self, _range: &Range<MusicalTime>) {
-        todo!()
-    }
-
-    fn work(&mut self, _control_events_fn: &mut ControlEventsFn) {
-        todo!()
-    }
-
-    fn is_finished(&self) -> bool {
-        todo!()
-    }
 }
 impl Configurable for Engine {
     fn update_sample_rate(&mut self, _sample_rate: SampleRate) {}
@@ -487,32 +485,6 @@ pub struct Calculator {
     last_handled_step: usize,
 }
 impl Serializable for Calculator {}
-impl Performs for Calculator {
-    fn play(&mut self) {
-        // We don't have resume, so play always skips to start.
-        self.skip_to_start();
-        self.engine.play();
-    }
-
-    fn stop(&mut self) {
-        self.engine.stop();
-    }
-
-    fn skip_to_start(&mut self) {
-        self.clock.seek(0);
-        self.last_handled_step = usize::MAX;
-        self.engine.skip_to_start();
-    }
-
-    // This instrument is all about looping, so we ignore this.
-    fn set_loop(&mut self, _range: &Range<PerfectTimeUnit>) {}
-    fn clear_loop(&mut self) {}
-    fn set_loop_enabled(&mut self, _is_enabled: bool) {}
-
-    fn is_performing(&self) -> bool {
-        self.engine.is_performing()
-    }
-}
 impl HandlesMidi for Calculator {
     fn handle_midi_message(
         &mut self,
@@ -540,6 +512,31 @@ impl Controls for Calculator {
 
     fn is_finished(&self) -> bool {
         todo!()
+    }
+
+    fn play(&mut self) {
+        // We don't have resume, so play always skips to start.
+        self.skip_to_start();
+        self.engine.play();
+    }
+
+    fn stop(&mut self) {
+        self.engine.stop();
+    }
+
+    fn skip_to_start(&mut self) {
+        self.clock.seek(0);
+        self.last_handled_step = usize::MAX;
+        self.engine.skip_to_start();
+    }
+
+    // This instrument is all about looping, so we ignore this.
+    fn set_loop(&mut self, _range: &Range<PerfectTimeUnit>) {}
+    fn clear_loop(&mut self) {}
+    fn set_loop_enabled(&mut self, _is_enabled: bool) {}
+
+    fn is_performing(&self) -> bool {
+        self.engine.is_performing()
     }
 }
 impl Configurable for Calculator {
@@ -1410,9 +1407,10 @@ mod gui {
 
 #[cfg(test)]
 mod tests {
+    use groove_core::traits::Controls;
+
     use super::{Engine, Pattern, Step};
     use crate::controllers::calculator::{Percentage, Tempo, TempoValue};
-    use groove_core::traits::Performs;
 
     impl Engine {
         fn chain_active_pattern(&mut self) {

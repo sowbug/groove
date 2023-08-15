@@ -17,9 +17,7 @@ use eframe::{
 use groove_core::{
     midi::{new_note_off, new_note_on, MidiChannel, MidiMessage},
     time::{MusicalTime, TimeSignature},
-    traits::{
-        gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, Performs, Serializable,
-    },
+    traits::{gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable},
     IsUid, Uid,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
@@ -608,21 +606,6 @@ impl Shows for Sequencer {
         }
     }
 }
-impl Performs for Sequencer {
-    fn play(&mut self) {
-        self.e.is_performing = true;
-    }
-
-    fn stop(&mut self) {
-        self.e.is_performing = false;
-    }
-
-    fn skip_to_start(&mut self) {}
-
-    fn is_performing(&self) -> bool {
-        self.e.is_performing
-    }
-}
 impl HandlesMidi for Sequencer {}
 impl Controls for Sequencer {
     fn update_time(&mut self, range: &std::ops::Range<MusicalTime>) {
@@ -642,6 +625,20 @@ impl Controls for Sequencer {
     fn is_finished(&self) -> bool {
         // both these are exclusive range bounds
         self.e.range.end >= self.e.final_event_time
+    }
+
+    fn play(&mut self) {
+        self.e.is_performing = true;
+    }
+
+    fn stop(&mut self) {
+        self.e.is_performing = false;
+    }
+
+    fn skip_to_start(&mut self) {}
+
+    fn is_performing(&self) -> bool {
+        self.e.is_performing
     }
 }
 impl Configurable for Sequencer {}

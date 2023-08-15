@@ -22,7 +22,7 @@ use groove_core::{
     midi::MidiChannel,
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
     traits::{
-        gui::Shows, Configurable, ControlEventsFn, Controls, GeneratesToInternalBuffer, Performs,
+        gui::Shows, Configurable, ControlEventsFn, Controls, GeneratesToInternalBuffer,
         Serializable, Thing, Ticks,
     },
     IsUid, Normal, StereoSample, Uid,
@@ -994,8 +994,7 @@ impl Controls for Track {
             true
         }) && self.thing_store.is_finished()
     }
-}
-impl Performs for Track {
+
     fn play(&mut self) {
         if let Some(sequencer) = self.sequencer.as_mut() {
             sequencer.play()

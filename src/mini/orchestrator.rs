@@ -23,8 +23,7 @@ use groove_core::{
     time::{MusicalTime, SampleRate, Tempo},
     traits::{
         Configurable, ControlEventsFn, Controllable, Controls, Generates,
-        GeneratesToInternalBuffer, HandlesMidi, HasUid, Performs, Serializable, Thing, ThingEvent,
-        Ticks,
+        GeneratesToInternalBuffer, HandlesMidi, HasUid, Serializable, Thing, ThingEvent, Ticks,
     },
     Sample, StereoSample, Uid,
 };
@@ -728,34 +727,6 @@ impl HandlesMidi for Orchestrator {
         self.route_midi_message(channel, message);
     }
 }
-impl Performs for Orchestrator {
-    fn play(&mut self) {
-        self.e.is_performing = true;
-        self.transport.play();
-        self.tracks.values_mut().for_each(|t| t.play());
-    }
-
-    fn stop(&mut self) {
-        // If we were performing, stop. Otherwise, it's a stop-while-stopped
-        // action, which means the user wants to rewind to the beginning.
-        if self.e.is_performing {
-            self.e.is_performing = false;
-        } else {
-            self.skip_to_start();
-        }
-        self.transport.stop();
-        self.tracks.values_mut().for_each(|t| t.stop());
-    }
-
-    fn skip_to_start(&mut self) {
-        self.transport.skip_to_start();
-        self.tracks.values_mut().for_each(|t| t.skip_to_start());
-    }
-
-    fn is_performing(&self) -> bool {
-        self.e.is_performing
-    }
-}
 impl Controls for Orchestrator {
     fn update_time(&mut self, range: &Range<MusicalTime>) {
         self.e.range = range.clone();
@@ -782,6 +753,41 @@ impl Controls for Orchestrator {
     fn is_finished(&self) -> bool {
         self.e.is_finished
     }
+
+    fn play(&mut self) {
+        self.e.is_performing = true;
+        self.transport.play();
+        self.tracks.values_mut().for_each(|t| t.play());
+        self.e.is_finished = self.calculate_is_finished();
+
+        // This handles the case where there isn't anything to play because the
+        // performance is zero-length. It stops the transport from advancing a
+        // tiny bit and looking weird.
+        if self.e.is_finished {
+            self.transport.stop();
+        }
+    }
+
+    fn stop(&mut self) {
+        // If we were performing, stop. Otherwise, it's a stop-while-stopped
+        // action, which means the user wants to rewind to the beginning.
+        if self.e.is_performing {
+            self.e.is_performing = false;
+        } else {
+            self.skip_to_start();
+        }
+        self.transport.stop();
+        self.tracks.values_mut().for_each(|t| t.stop());
+    }
+
+    fn skip_to_start(&mut self) {
+        self.transport.skip_to_start();
+        self.tracks.values_mut().for_each(|t| t.skip_to_start());
+    }
+
+    fn is_performing(&self) -> bool {
+        self.e.is_performing
+    }
 }
 impl Serializable for Orchestrator {
     fn after_deser(&mut self) {
@@ -797,7 +803,7 @@ mod tests {
     use crate::mini::{orchestrator::Orchestrator, TrackUid};
     use groove_core::{
         time::{MusicalTime, SampleRate, Tempo},
-        traits::{Configurable, Controls, HasUid, Performs},
+        traits::{Configurable, Controls, HasUid},
         StereoSample, Uid,
     };
     use groove_entities::controllers::{Timer, TimerParams};
@@ -954,5 +960,18 @@ mod tests {
             o.delete_tracks(&Vec::from_iter(selection_set.iter().copied()));
             assert!(o.track_uids().is_empty());
         }
+    }
+
+    #[test]
+    fn zero_length_performance_ends_immediately() {
+        let mut o = Orchestrator::default();
+
+        // This is actually undefined before play(), so we're cheating a bit in
+        // the Orchestrator implementation to allow testing of what we want to
+        // test.
+        assert!(!o.is_finished());
+
+        o.play();
+        assert!(o.is_finished());
     }
 }

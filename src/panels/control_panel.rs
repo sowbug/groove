@@ -4,7 +4,7 @@ use crate::mini::Transport;
 use eframe::egui::{DragValue, Ui};
 use groove_core::{
     time::PerfectTimeUnit,
-    traits::{gui::Shows, Performs},
+    traits::{gui::Shows, Controls},
 };
 use groove_orchestration::Orchestrator;
 use std::{

@@ -4,7 +4,7 @@ use btreemultimap::BTreeMultiMap;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn, MidiNoteMinder},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, TimeSignatureParams},
-    traits::{Configurable, ControlEventsFn, Controls, Performs, Serializable, ThingEvent},
+    traits::{Configurable, ControlEventsFn, Controls, Serializable, ThingEvent},
     ParameterType,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
@@ -56,38 +56,6 @@ pub struct Sequencer {
 }
 impl Serializable for Sequencer {}
 impl HandlesMidi for Sequencer {}
-impl Performs for Sequencer {
-    fn play(&mut self) {
-        self.is_performing = true;
-    }
-
-    fn stop(&mut self) {
-        self.is_performing = false;
-        self.should_stop_pending_notes = true;
-    }
-
-    fn skip_to_start(&mut self) {
-        self.temp_hack_clock.seek(0);
-        self.next_instant = PerfectTimeUnit::default();
-        self.should_stop_pending_notes = true;
-    }
-
-    fn set_loop(&mut self, range: &std::ops::Range<PerfectTimeUnit>) {
-        self.loop_range = Some(range.clone());
-    }
-
-    fn clear_loop(&mut self) {
-        self.loop_range = None;
-    }
-
-    fn set_loop_enabled(&mut self, is_enabled: bool) {
-        self.is_loop_enabled = is_enabled;
-    }
-
-    fn is_performing(&self) -> bool {
-        self.is_performing
-    }
-}
 impl Sequencer {
     pub fn new_with(params: &SequencerParams) -> Self {
         Self {
@@ -253,6 +221,37 @@ impl Controls for Sequencer {
 
     fn is_finished(&self) -> bool {
         self.time_range.start >= self.last_event_time
+    }
+
+    fn play(&mut self) {
+        self.is_performing = true;
+    }
+
+    fn stop(&mut self) {
+        self.is_performing = false;
+        self.should_stop_pending_notes = true;
+    }
+
+    fn skip_to_start(&mut self) {
+        self.temp_hack_clock.seek(0);
+        self.next_instant = PerfectTimeUnit::default();
+        self.should_stop_pending_notes = true;
+    }
+
+    fn set_loop(&mut self, range: &std::ops::Range<PerfectTimeUnit>) {
+        self.loop_range = Some(range.clone());
+    }
+
+    fn clear_loop(&mut self) {
+        self.loop_range = None;
+    }
+
+    fn set_loop_enabled(&mut self, is_enabled: bool) {
+        self.is_loop_enabled = is_enabled;
+    }
+
+    fn is_performing(&self) -> bool {
+        self.is_performing
     }
 }
 

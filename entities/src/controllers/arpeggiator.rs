@@ -4,7 +4,7 @@ use super::{sequencers::Sequencer, SequencerParams};
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
     time::{MusicalTime, PerfectTimeUnit, SampleRate},
-    traits::{Configurable, ControlEventsFn, Controls, Performs, Serializable},
+    traits::{Configurable, ControlEventsFn, Controls, Serializable},
     ParameterType,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
@@ -55,6 +55,34 @@ impl Controls for Arpeggiator {
     fn is_finished(&self) -> bool {
         self.sequencer.is_finished()
     }
+
+    fn play(&mut self) {
+        self.sequencer.play();
+    }
+
+    fn stop(&mut self) {
+        self.sequencer.stop();
+    }
+
+    fn skip_to_start(&mut self) {
+        self.sequencer.skip_to_start();
+    }
+
+    fn set_loop(&mut self, range: &Range<PerfectTimeUnit>) {
+        self.sequencer.set_loop(range);
+    }
+
+    fn clear_loop(&mut self) {
+        self.sequencer.clear_loop();
+    }
+
+    fn set_loop_enabled(&mut self, is_enabled: bool) {
+        self.sequencer.set_loop_enabled(is_enabled);
+    }
+
+    fn is_performing(&self) -> bool {
+        self.sequencer.is_performing()
+    }
 }
 impl HandlesMidi for Arpeggiator {
     fn handle_midi_message(
@@ -98,35 +126,6 @@ impl HandlesMidi for Arpeggiator {
             MidiMessage::ChannelAftertouch { vel: _ } => todo!(),
             MidiMessage::PitchBend { bend: _ } => todo!(),
         }
-    }
-}
-impl Performs for Arpeggiator {
-    fn play(&mut self) {
-        self.sequencer.play();
-    }
-
-    fn stop(&mut self) {
-        self.sequencer.stop();
-    }
-
-    fn skip_to_start(&mut self) {
-        self.sequencer.skip_to_start();
-    }
-
-    fn set_loop(&mut self, range: &Range<PerfectTimeUnit>) {
-        self.sequencer.set_loop(range);
-    }
-
-    fn clear_loop(&mut self) {
-        self.sequencer.clear_loop();
-    }
-
-    fn set_loop_enabled(&mut self, is_enabled: bool) {
-        self.sequencer.set_loop_enabled(is_enabled);
-    }
-
-    fn is_performing(&self) -> bool {
-        self.sequencer.is_performing()
     }
 }
 

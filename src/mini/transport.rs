@@ -8,9 +8,7 @@ use eframe::{
 };
 use groove_core::{
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
-    traits::{
-        gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, Performs, Serializable,
-    },
+    traits::{gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable},
     Uid,
 };
 use groove_proc_macros::{Control, IsController, Uid};
@@ -136,24 +134,6 @@ impl Configurable for Transport {
         self.time_signature = time_signature;
     }
 }
-impl Performs for Transport {
-    fn play(&mut self) {
-        self.e.is_performing = true;
-    }
-
-    fn stop(&mut self) {
-        self.e.is_performing = false;
-    }
-
-    fn skip_to_start(&mut self) {
-        self.e.current_time = MusicalTime::default();
-        self.e.current_frame = Default::default();
-    }
-
-    fn is_performing(&self) -> bool {
-        self.e.is_performing
-    }
-}
 impl Controls for Transport {
     fn update_time(&mut self, range: &Range<MusicalTime>) {
         // Nothing - we calculated the range, so we don't need to do anything with it.
@@ -171,6 +151,23 @@ impl Controls for Transport {
 
     fn is_finished(&self) -> bool {
         true
+    }
+
+    fn play(&mut self) {
+        self.e.is_performing = true;
+    }
+
+    fn stop(&mut self) {
+        self.e.is_performing = false;
+    }
+
+    fn skip_to_start(&mut self) {
+        self.e.current_time = MusicalTime::default();
+        self.e.current_frame = Default::default();
+    }
+
+    fn is_performing(&self) -> bool {
+        self.e.is_performing
     }
 }
 

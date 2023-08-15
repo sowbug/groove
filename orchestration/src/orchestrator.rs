@@ -11,7 +11,7 @@ use groove_core::{
     control::{ControlIndex, ControlValue},
     midi::{MidiChannel, MidiMessage},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
-    traits::{Configurable, Controls, Performs, ThingEvent},
+    traits::{Configurable, Controls, ThingEvent},
     IsUid, ParameterType, StereoSample, Uid,
 };
 use groove_entities::{
@@ -952,7 +952,19 @@ impl Orchestrator {
         self.is_loop_enabled
     }
 }
-impl Performs for Orchestrator {
+impl Controls for Orchestrator {
+    fn update_time(&mut self, _range: &Range<MusicalTime>) {
+        todo!()
+    }
+
+    fn work(&mut self, _control_events_fn: &mut groove_core::traits::ControlEventsFn) {
+        todo!()
+    }
+
+    fn is_finished(&self) -> bool {
+        todo!()
+    }
+
     // The difference between play() and tick() is that play() tells devices
     // that it's time to do work, and tick() actually gives them gives them a
     // slice of time to do that work. To illustrate: suppose we start calling
@@ -1030,19 +1042,6 @@ impl Performs for Orchestrator {
 
     fn is_performing(&self) -> bool {
         self.is_performing
-    }
-}
-impl Controls for Orchestrator {
-    fn update_time(&mut self, _range: &Range<MusicalTime>) {
-        todo!()
-    }
-
-    fn work(&mut self, _control_events_fn: &mut groove_core::traits::ControlEventsFn) {
-        todo!()
-    }
-
-    fn is_finished(&self) -> bool {
-        todo!()
     }
 }
 impl Configurable for Orchestrator {
@@ -1555,7 +1554,7 @@ pub mod tests {
             BeatValue, Clock, ClockParams, MusicalTime, MusicalTimeParams, PerfectTimeUnit,
             SampleRate, TimeSignature, TimeSignatureParams,
         },
-        traits::{Configurable, Performs},
+        traits::{Configurable, Controls},
         DcaParams, Normal, StereoSample, Uid,
     };
     use groove_entities::{

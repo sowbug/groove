@@ -8,7 +8,7 @@ use eframe::egui::Ui;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::Tempo,
-    traits::{Configurable, HandlesMidi, Performs, Serializable},
+    traits::{Configurable, Controls, HandlesMidi, Serializable},
 };
 use std::{
     path::PathBuf,

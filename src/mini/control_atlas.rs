@@ -2,9 +2,7 @@
 
 use groove_core::{
     time::MusicalTime,
-    traits::{
-        gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, Performs, Serializable,
-    },
+    traits::{gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable},
     Uid,
 };
 use groove_entities::controllers::ControlTrip;
@@ -22,23 +20,6 @@ pub struct ControlAtlas {
     range: Range<MusicalTime>,
 }
 impl Shows for ControlAtlas {}
-impl Performs for ControlAtlas {
-    fn play(&mut self) {
-        todo!()
-    }
-
-    fn stop(&mut self) {
-        todo!()
-    }
-
-    fn skip_to_start(&mut self) {
-        todo!()
-    }
-
-    fn is_performing(&self) -> bool {
-        false
-    }
-}
 impl HandlesMidi for ControlAtlas {}
 impl Controls for ControlAtlas {
     fn update_time(&mut self, range: &Range<MusicalTime>) {
@@ -54,6 +35,22 @@ impl Controls for ControlAtlas {
 
     fn is_finished(&self) -> bool {
         self.trips.iter().all(|t| t.is_finished())
+    }
+
+    fn play(&mut self) {
+        todo!()
+    }
+
+    fn stop(&mut self) {
+        todo!()
+    }
+
+    fn skip_to_start(&mut self) {
+        todo!()
+    }
+
+    fn is_performing(&self) -> bool {
+        false
     }
 }
 impl Serializable for ControlAtlas {}

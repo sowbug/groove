@@ -4,7 +4,7 @@ use atomic_counter::{AtomicCounter, RelaxedCounter};
 use derive_more::Display;
 use groove_core::{
     time::{SampleRate, Tempo, TimeSignature},
-    traits::{Configurable, ControlEventsFn, Controls, Performs, Serializable, Thing, Ticks},
+    traits::{Configurable, ControlEventsFn, Controls, Serializable, Thing, Ticks},
     Uid,
 };
 use serde::{Deserialize, Serialize};
@@ -222,8 +222,7 @@ impl Controls for ThingStore {
             }
         })
     }
-}
-impl Performs for ThingStore {
+
     fn play(&mut self) {
         // TODO: measure whether it's faster to speed through everything and
         // check type than to look up each UID in self.controllers

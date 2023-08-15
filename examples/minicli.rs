@@ -2,10 +2,7 @@
 
 use clap::Parser;
 use groove::mini::Orchestrator;
-use groove_core::{
-    traits::{Controls, Performs},
-    StereoSample,
-};
+use groove_core::{traits::Controls, StereoSample};
 use regex::Regex;
 use std::{fs::File, io::BufReader, path::PathBuf};
 

@@ -8,7 +8,7 @@ use groove_core::{
         BeatValue, Clock, ClockParams, ClockTimeUnit, MusicalTime, PerfectTimeUnit, SampleRate,
         TimeSignature, TimeSignatureParams,
     },
-    traits::{Configurable, ControlEventsFn, Controls, Performs, Serializable},
+    traits::{Configurable, ControlEventsFn, Controls, Serializable},
     ParameterType, SignalType,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
@@ -70,35 +70,6 @@ pub struct ControlTrip {
 }
 impl Serializable for ControlTrip {}
 impl HandlesMidi for ControlTrip {}
-impl Performs for ControlTrip {
-    fn play(&mut self) {
-        self.is_performing = true;
-    }
-
-    fn stop(&mut self) {
-        self.is_performing = false;
-    }
-
-    fn skip_to_start(&mut self) {
-        self.clock.seek(0);
-    }
-
-    fn set_loop(&mut self, _range: &Range<PerfectTimeUnit>) {
-        // TODO
-    }
-
-    fn clear_loop(&mut self) {
-        // TODO
-    }
-
-    fn set_loop_enabled(&mut self, _is_enabled: bool) {
-        // TODO
-    }
-
-    fn is_performing(&self) -> bool {
-        self.is_performing
-    }
-}
 impl ControlTrip {
     const CURSOR_BEGIN: f64 = 0.0;
 
@@ -266,6 +237,34 @@ impl Controls for ControlTrip {
 
     fn is_finished(&self) -> bool {
         true
+    }
+
+    fn play(&mut self) {
+        self.is_performing = true;
+    }
+
+    fn stop(&mut self) {
+        self.is_performing = false;
+    }
+
+    fn skip_to_start(&mut self) {
+        self.clock.seek(0);
+    }
+
+    fn set_loop(&mut self, _range: &Range<PerfectTimeUnit>) {
+        // TODO
+    }
+
+    fn clear_loop(&mut self) {
+        // TODO
+    }
+
+    fn set_loop_enabled(&mut self, _is_enabled: bool) {
+        // TODO
+    }
+
+    fn is_performing(&self) -> bool {
+        self.is_performing
     }
 }
 

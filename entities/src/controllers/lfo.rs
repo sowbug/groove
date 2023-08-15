@@ -5,10 +5,7 @@ use groove_core::{
     generators::{Oscillator, OscillatorParams, Waveform},
     midi::HandlesMidi,
     time::{MusicalTime, SampleRate, Tempo},
-    traits::{
-        Configurable, ControlEventsFn, Controls, Generates, Performs, Serializable, ThingEvent,
-        Ticks,
-    },
+    traits::{Configurable, ControlEventsFn, Controls, Generates, Serializable, ThingEvent, Ticks},
     FrequencyHz, ParameterType,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
@@ -93,9 +90,7 @@ impl Controls for LfoController {
     fn is_finished(&self) -> bool {
         true
     }
-}
-impl HandlesMidi for LfoController {}
-impl Performs for LfoController {
+
     fn play(&mut self) {
         self.is_performing = true;
     }
@@ -124,6 +119,7 @@ impl Performs for LfoController {
         self.is_performing
     }
 }
+impl HandlesMidi for LfoController {}
 impl LfoController {
     pub fn new_with(params: &LfoControllerParams) -> Self {
         Self {

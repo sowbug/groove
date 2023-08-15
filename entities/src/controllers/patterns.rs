@@ -5,7 +5,7 @@ use super::Sequencer;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage},
     time::{BeatValue, MusicalTime, PerfectTimeUnit, TimeSignature, TimeSignatureParams},
-    traits::{Configurable, ControlEventsFn, Controls, Performs, Serializable},
+    traits::{Configurable, ControlEventsFn, Controls, Serializable},
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
 use std::{cmp, fmt::Debug, ops::Range};
@@ -71,8 +71,6 @@ impl Controls for PatternManager {
     fn is_finished(&self) -> bool {
         true
     }
-}
-impl Performs for PatternManager {
     fn play(&mut self) {}
     fn stop(&mut self) {}
     fn skip_to_start(&mut self) {}

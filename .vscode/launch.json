@@ -65,6 +65,24 @@
     {
       "type": "lldb",
       "request": "launch",
+      "name": "Song example",
+      "cargo": {
+        "args": [
+            "build",
+            "--example=song",
+            "--package=groove",
+        ],
+        "filter": {
+            "name": "song",
+            "kind": "example"
+        }
+    },
+    "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
       "name": "Explorer example",
       "cargo": {
         "args": [
