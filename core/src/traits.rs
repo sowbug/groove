@@ -301,7 +301,7 @@ pub trait StoresVoices: Generates<StereoSample> + Send + std::fmt::Debug {
 /// A device that [Performs] has a concept of a performance that has a beginning
 /// and an end, and it knows how to respond to requests to start, stop, restart,
 /// and seek within the performance.
-pub trait Performs {
+pub trait Performs: Controls {
     /// Tells the device to play its performance from the current location.
     fn play(&mut self);
 

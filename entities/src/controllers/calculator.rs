@@ -391,14 +391,34 @@ impl Performs for Engine {
         self.play();
     }
 
-    // This instrument is all about looping, so we ignore this section.
-    fn set_loop(&mut self, _range: &Range<PerfectTimeUnit>) {}
-    fn clear_loop(&mut self) {}
-    fn set_loop_enabled(&mut self, _is_enabled: bool) {}
-
     fn is_performing(&self) -> bool {
         self.state() == &EngineState::Playing
     }
+    // This instrument is all about looping, so we ignore this section.
+    fn set_loop(&mut self, _range: &Range<PerfectTimeUnit>) {}
+    fn clear_loop(&mut self) {}
+
+    fn set_loop_enabled(&mut self, _is_enabled: bool) {}
+}
+impl Controls for Engine {
+    fn update_time(&mut self, _range: &Range<MusicalTime>) {
+        todo!()
+    }
+
+    fn work(&mut self, _control_events_fn: &mut ControlEventsFn) {
+        todo!()
+    }
+
+    fn is_finished(&self) -> bool {
+        todo!()
+    }
+}
+impl Configurable for Engine {
+    fn update_sample_rate(&mut self, _sample_rate: SampleRate) {}
+
+    fn update_tempo(&mut self, _tempo: groove_core::time::Tempo) {}
+
+    fn update_time_signature(&mut self, _time_signature: groove_core::time::TimeSignature) {}
 }
 
 #[derive(Clone, Copy, Debug, Default, Display, PartialEq)]
