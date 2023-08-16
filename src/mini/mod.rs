@@ -4,7 +4,7 @@ pub use drag_drop::{DragDropManager, DragDropSource};
 pub use entities::register_mini_factory_entities;
 pub use entity_factory::{EntityFactory, Key};
 pub use orchestrator::{Orchestrator, OrchestratorAction, OrchestratorBuilder};
-pub use piano_roll::{Note, Pattern, PatternUid};
+pub use piano_roll::{Note, Pattern, PatternBuilder, PatternUid};
 pub use selection_set::SelectionSet;
 pub use sequencer::{ArrangedPattern, ArrangedPatternBuilder, Sequencer, SequencerParams};
 pub use track::{Track, TrackAction, TrackTitle, TrackUid};
