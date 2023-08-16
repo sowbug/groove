@@ -2,47 +2,8 @@
 
 use clap::Parser;
 use groove::mini::Orchestrator;
-use groove_core::{traits::Controls, StereoSample};
 use regex::Regex;
 use std::{fs::File, io::BufReader, path::PathBuf};
-
-fn write_performance_to_file(
-    orchestrator: &mut Orchestrator,
-    path: &PathBuf,
-) -> anyhow::Result<()> {
-    let spec = hound::WavSpec {
-        channels: orchestrator.channels(),
-        sample_rate: orchestrator.sample_rate().into(),
-        bits_per_sample: 16,
-        sample_format: hound::SampleFormat::Int,
-    };
-    let mut writer = hound::WavWriter::create(path, spec).unwrap();
-
-    let mut buffer = [StereoSample::SILENCE; 64];
-
-    let mut batches_processed = 0;
-    orchestrator.play();
-    loop {
-        if orchestrator.is_finished() {
-            break;
-        }
-        buffer.fill(StereoSample::SILENCE);
-        orchestrator.render(&mut buffer);
-        for sample in buffer {
-            let (left, right) = sample.into_i16();
-            let _ = writer.write_sample(left);
-            let _ = writer.write_sample(right);
-        }
-        batches_processed += 1;
-    }
-
-    eprintln!(
-        "Processed {batches_processed} batches of {} samples each",
-        buffer.len()
-    );
-
-    Ok(())
-}
 
 #[derive(Parser, Debug, Default)]
 #[clap(author, about, long_about = None)]
@@ -77,7 +38,7 @@ fn main() -> anyhow::Result<()> {
                             panic!("would overwrite input file; couldn't generate output filename");
                         }
                         let output_path = PathBuf::from(output_filename.to_string());
-                        if let Err(e) = write_performance_to_file(&mut o, &output_path) {
+                        if let Err(e) = o.write_to_file(&output_path) {
                             eprintln!(
                                 "error while writing {input_filename} render to {}: {e:?}",
                                 output_path.display()

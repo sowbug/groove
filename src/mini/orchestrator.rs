@@ -33,6 +33,7 @@ use std::{
     collections::HashMap,
     fmt::Debug,
     ops::Range,
+    path::PathBuf,
     sync::{Arc, RwLock, RwLockWriteGuard},
     vec::Vec,
 };
@@ -647,8 +648,40 @@ impl Orchestrator {
         self.max_entity_uid
     }
 
+    /// Returns the one and only [PianoRoll].
     pub fn piano_roll_mut(&self) -> RwLockWriteGuard<'_, PianoRoll> {
         self.piano_roll.write().unwrap()
+    }
+
+    // TODO: this could be a feature so that we don't always need the hound
+    // dependency. Probably not important either way.
+    /// Writes the current performance to a WAV file. Intended for integration
+    /// tests only (for now).
+    pub fn write_to_file(&mut self, path: &PathBuf) -> anyhow::Result<()> {
+        let spec = hound::WavSpec {
+            channels: self.channels(),
+            sample_rate: self.sample_rate().into(),
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut writer = hound::WavWriter::create(path, spec).unwrap();
+
+        let mut buffer = [StereoSample::SILENCE; 64];
+        self.play();
+        loop {
+            if self.is_finished() {
+                break;
+            }
+            buffer.fill(StereoSample::SILENCE);
+            self.render(&mut buffer);
+            for sample in buffer {
+                let (left, right) = sample.into_i16();
+                let _ = writer.write_sample(left);
+                let _ = writer.write_sample(right);
+            }
+        }
+
+        Ok(())
     }
 }
 impl HasUid for Orchestrator {
