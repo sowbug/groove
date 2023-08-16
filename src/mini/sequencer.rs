@@ -200,7 +200,8 @@ impl Sequencer {
         }
     }
 
-    fn arrange_pattern(
+    /// Arranges the given [Pattern] at the specified position, in bars.
+    pub fn arrange_pattern(
         &mut self,
         uid: &PatternUid,
         position_in_bars: usize,
@@ -456,11 +457,7 @@ impl Sequencer {
 
     /// Renders the arrangement view.
     #[must_use]
-    pub fn show_arrangement(
-        &mut self,
-        ui: &mut Ui,
-        piano_roll: &PianoRoll,
-    ) -> (Response, Option<SequencerAction>) {
+    pub fn show_arrangement(&mut self, ui: &mut Ui) -> (Response, Option<SequencerAction>) {
         let action = None;
         let desired_size = vec2(ui.available_width(), 64.0);
         let (_id, rect) = ui.allocate_space(desired_size);

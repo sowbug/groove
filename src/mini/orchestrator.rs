@@ -33,7 +33,7 @@ use std::{
     collections::HashMap,
     fmt::Debug,
     ops::Range,
-    sync::{Arc, RwLock},
+    sync::{Arc, RwLock, RwLockWriteGuard},
     vec::Vec,
 };
 
@@ -74,7 +74,7 @@ pub struct OrchestratorEphemerals {
 /// orchestrator.render(&mut samples);
 /// ```
 #[derive(Serialize, Deserialize, Debug, Builder)]
-#[builder(setter(skip))]
+#[builder(setter(skip), default)]
 #[builder_struct_attr(allow(missing_docs))]
 pub struct Orchestrator {
     /// The user-supplied name of this project.
@@ -112,7 +112,7 @@ pub struct Orchestrator {
 }
 impl Default for Orchestrator {
     fn default() -> Self {
-        Self {
+        let r = Self {
             title: None,
             transport: TransportBuilder::default()
                 .uid(Self::TRANSPORT_UID)
@@ -127,7 +127,9 @@ impl Default for Orchestrator {
             max_entity_uid: Default::default(),
 
             e: Default::default(),
-        }
+        };
+        r.piano_roll.write().unwrap().set_the_one();
+        r
     }
 }
 impl Orchestrator {
@@ -165,7 +167,7 @@ impl Orchestrator {
     /// Adds a new MIDI track, which can contain controllers, instruments, and
     /// effects. Returns the new track's [TrackUid] if successful.
     pub fn new_midi_track(&mut self) -> anyhow::Result<TrackUid> {
-        let track = self.track_factory.midi();
+        let track = self.track_factory.midi(&self.piano_roll);
         self.new_track(track)
     }
 
@@ -298,13 +300,12 @@ impl Orchestrator {
     }
 
     /// Returns the specified [Track].
-    #[allow(dead_code)]
-    fn get_track(&self, uid: &TrackUid) -> Option<&Track> {
+    pub fn get_track(&self, uid: &TrackUid) -> Option<&Track> {
         self.tracks.get(uid)
     }
 
     /// Returns the specified mutable [Track].
-    fn get_track_mut(&mut self, uid: &TrackUid) -> Option<&mut Track> {
+    pub fn get_track_mut(&mut self, uid: &TrackUid) -> Option<&mut Track> {
         self.tracks.get_mut(uid)
     }
 
@@ -645,6 +646,10 @@ impl Orchestrator {
     pub fn max_entity_uid(&self) -> Uid {
         self.max_entity_uid
     }
+
+    pub fn piano_roll_mut(&self) -> RwLockWriteGuard<'_, PianoRoll> {
+        self.piano_roll.write().unwrap()
+    }
 }
 impl HasUid for Orchestrator {
     fn uid(&self) -> Uid {
@@ -800,7 +805,7 @@ impl Serializable for Orchestrator {
 
 #[cfg(test)]
 mod tests {
-    use crate::mini::{orchestrator::Orchestrator, TrackUid};
+    use crate::mini::{orchestrator::Orchestrator, OrchestratorBuilder, TrackUid};
     use groove_core::{
         time::{MusicalTime, SampleRate, Tempo},
         traits::{Configurable, Controls, HasUid},
@@ -973,5 +978,18 @@ mod tests {
 
         o.play();
         assert!(o.is_finished());
+    }
+
+    #[test]
+    fn default_orchestrator_transport_has_correct_uid() {
+        let o = Orchestrator::default();
+        assert_eq!(o.transport().uid(), Orchestrator::TRANSPORT_UID);
+    }
+
+    #[test]
+    fn default_orchestratorbuilder_transport_has_correct_uid() {
+        // This makes sure we remembered #[builder(default)] on the struct
+        let o = OrchestratorBuilder::default().build().unwrap();
+        assert_eq!(o.transport().uid(), Orchestrator::TRANSPORT_UID);
     }
 }

@@ -92,11 +92,11 @@ impl TrackFactory {
         uid
     }
 
-    pub fn midi(&mut self) -> Track {
+    pub fn midi(&mut self, piano_roll: &Arc<RwLock<PianoRoll>>) -> Track {
         let uid = self.next_uid();
         let title = TrackTitle(format!("MIDI {}", uid));
 
-        Track {
+        let mut t = Track {
             uid,
             title,
             ty: TrackType::Midi,
@@ -107,7 +107,11 @@ impl TrackFactory {
                     .unwrap(),
             ),
             ..Default::default()
+        };
+        if let Some(s) = t.sequencer_mut() {
+            s.set_piano_roll(Arc::clone(piano_roll));
         }
+        t
     }
 
     pub fn audio(&mut self) -> Track {
@@ -851,6 +855,10 @@ impl Track {
         if let Some(sequencer) = self.sequencer.as_mut() {
             sequencer.set_piano_roll(piano_roll);
         }
+    }
+
+    pub fn sequencer_mut(&mut self) -> Option<&mut Sequencer> {
+        self.sequencer.as_mut()
     }
 }
 impl GeneratesToInternalBuffer<StereoSample> for Track {

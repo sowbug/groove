@@ -55,6 +55,7 @@ pub struct Note {
 #[derive(Debug, Serialize, Deserialize, Builder)]
 #[builder(build_fn(private, name = "build_from_builder"))]
 pub struct Pattern {
+    /// The pattern's [TimeSignature].
     #[builder(default)]
     time_signature: TimeSignature,
 
@@ -65,6 +66,8 @@ pub struct Pattern {
     #[builder(setter(skip))]
     duration: MusicalTime,
 
+    /// The notes that make up this pattern. TODO: specify any ordering
+    /// restrictions.
     #[builder(default, setter(each(name = "note", into)))]
     notes: Vec<Note>,
 
@@ -75,6 +78,7 @@ pub struct Pattern {
     note_selection_set: HashSet<usize>,
 }
 impl PatternBuilder {
+    /// Builds the [Pattern].
     pub fn build(&self) -> Result<Pattern, PatternBuilderError> {
         match self.build_from_builder() {
             Ok(mut s) => {
@@ -83,6 +87,41 @@ impl PatternBuilder {
             }
             Err(e) => Err(e),
         }
+    }
+
+    /// Given a sequence of MIDI note numbers and an optional grid value that
+    /// overrides the one implied by the time signature, adds [Note]s one after
+    /// another into the pattern. The value 255 is reserved for rest (no note,
+    /// or silence).
+    ///
+    /// The optional grid_value is similar to the time signature's bottom value
+    /// (1 is a whole note, 2 is a half note, etc.). For example, for a 4/4
+    /// pattern, None means each note number produces a quarter note, and we
+    /// would provide sixteen note numbers to fill the pattern with 4 beats of
+    /// four quarter-notes each. For a 4/4 pattern, Some(8) means each note
+    /// number should produce an eighth note., and 4 x 8 = 32 note numbers would
+    /// fill the pattern.
+    ///
+    /// If midi_note_numbers contains fewer than the maximum number of note
+    /// numbers for the grid value, then the rest of the pattern is silent.
+    pub fn note_sequence(
+        &mut self,
+        midi_note_numbers: Vec<u8>,
+        grid_value: Option<usize>,
+    ) -> &mut Self {
+        let grid_value = grid_value.unwrap_or(self.time_signature.unwrap_or_default().bottom);
+        let mut position = MusicalTime::START;
+        let position_delta = MusicalTime::new_with_fractional_beats(1.0 / grid_value as f64);
+        for note in midi_note_numbers {
+            if note != 255 {
+                self.note(Note {
+                    key: note,
+                    range: position..position + position_delta,
+                });
+            }
+            position += position_delta;
+        }
+        self
     }
 }
 impl Default for Pattern {
@@ -387,6 +426,7 @@ pub struct PianoRoll {
     uids_to_patterns: HashMap<PatternUid, Pattern>,
     ordered_pattern_uids: Vec<PatternUid>,
     pattern_selection_set: SelectionSet<PatternUid>,
+    i_am_the_one: bool,
 }
 impl Default for PianoRoll {
     fn default() -> Self {
@@ -395,6 +435,7 @@ impl Default for PianoRoll {
             uids_to_patterns: Default::default(),
             ordered_pattern_uids: Default::default(),
             pattern_selection_set: Default::default(),
+            i_am_the_one: false,
         };
         for _ in 0..16 {
             let _ = r.insert(PatternBuilder::default().build().unwrap());
@@ -413,6 +454,12 @@ impl Default for PianoRoll {
     }
 }
 impl PianoRoll {
+    // TODO: remove this once you have a coherent story for ensuring that
+    // everyone gets the same reference to the one serialized instance.
+    pub fn set_the_one(&mut self) {
+        self.i_am_the_one = true;
+    }
+
     pub fn insert(&mut self, pattern: Pattern) -> PatternUid {
         let uid = self.uid_factory.next();
         self.uids_to_patterns.insert(uid, pattern);
@@ -561,43 +608,6 @@ mod tests {
                 key: key as u8,
                 range: start..(start + duration),
             }
-        }
-    }
-
-    impl PatternBuilder {
-        /// Given a sequence of MIDI note numbers and an optional grid value that
-        /// overrides the one implied by the time signature, adds [Note]s one after
-        /// another into the pattern. The value 255 is reserved for rest (no note,
-        /// or silence).
-        ///
-        /// The optional grid_value is similar to the time signature's bottom value
-        /// (1 is a whole note, 2 is a half note, etc.). For example, for a 4/4
-        /// pattern, None means each note number produces a quarter note, and we
-        /// would provide sixteen note numbers to fill the pattern with 4 beats of
-        /// four quarter-notes each. For a 4/4 pattern, Some(8) means each note
-        /// number should produce an eighth note., and 4 x 8 = 32 note numbers would
-        /// fill the pattern.
-        ///
-        /// If midi_note_numbers contains fewer than the maximum number of note
-        /// numbers for the grid value, then the rest of the pattern is silent.
-        pub fn note_sequence(
-            &mut self,
-            midi_note_numbers: Vec<u8>,
-            grid_value: Option<usize>,
-        ) -> &mut Self {
-            let grid_value = grid_value.unwrap_or(self.time_signature.unwrap_or_default().bottom);
-            let mut position = MusicalTime::START;
-            let position_delta = MusicalTime::new_with_fractional_beats(1.0 / grid_value as f64);
-            for note in midi_note_numbers {
-                if note != 255 {
-                    self.note(Note {
-                        key: note,
-                        range: position..position + position_delta,
-                    });
-                }
-                position += position_delta;
-            }
-            self
         }
     }
 
