@@ -1,16 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use std::path::PathBuf;
-
 use groove::{
     mini::{register_mini_factory_entities, Key, OrchestratorBuilder, PatternBuilder, PatternUid},
     EntityFactory, Orchestrator,
 };
-use groove_core::{
-    time::{SampleRate, Tempo},
-    traits::Configurable,
-    Normal,
-};
+use groove_core::{time::Tempo, traits::Configurable, Normal};
+use std::path::PathBuf;
 
 fn set_up_patterns(o: &mut Orchestrator) -> Vec<PatternUid> {
     let mut piano_roll = o.piano_roll_mut();
@@ -53,7 +48,7 @@ fn set_up_patterns(o: &mut Orchestrator) -> Vec<PatternUid> {
     vec![drum_pattern_uid, scale_pattern_uid]
 }
 
-fn set_up_kick_track(o: &mut Orchestrator, factory: &EntityFactory, kick_pattern: PatternUid) {
+fn set_up_drum_track(o: &mut Orchestrator, factory: &EntityFactory, kick_pattern: PatternUid) {
     let track_uid = o.new_midi_track().unwrap();
     let track = o.get_track_mut(&track_uid).unwrap();
     let sequencer = track.sequencer_mut().unwrap();
@@ -82,7 +77,7 @@ fn drum_beat() {
     let factory = factory;
 
     let pattern_uids = set_up_patterns(&mut orchestrator);
-    set_up_kick_track(&mut orchestrator, &factory, pattern_uids[0]);
+    set_up_drum_track(&mut orchestrator, &factory, pattern_uids[0]);
 
     // https://doc.rust-lang.org/std/path/struct.PathBuf.html example
     let output_path: PathBuf = [env!("CARGO_TARGET_TMPDIR"), "drum-beat.wav"]
