@@ -6,7 +6,11 @@ use groove::{
     mini::{register_mini_factory_entities, Key, OrchestratorBuilder, PatternBuilder, PatternUid},
     EntityFactory, Orchestrator,
 };
-use groove_core::{time::Tempo, traits::Configurable};
+use groove_core::{
+    time::{SampleRate, Tempo},
+    traits::Configurable,
+    Normal,
+};
 
 fn set_up_patterns(o: &mut Orchestrator) -> Vec<PatternUid> {
     let mut piano_roll = o.piano_roll_mut();
@@ -26,6 +30,7 @@ fn set_up_patterns(o: &mut Orchestrator) -> Vec<PatternUid> {
         )
         .note_sequence(
             vec![
+                // Bug: if we do note on every 16th, we get only the first one
                 42, 255, 42, 255, 42, 255, 42, 255, 42, 255, 42, 255, 42, 255, 42, 255,
             ],
             None,
@@ -54,12 +59,14 @@ fn set_up_kick_track(o: &mut Orchestrator, factory: &EntityFactory, kick_pattern
     let sequencer = track.sequencer_mut().unwrap();
     let _ = sequencer.arrange_pattern(&kick_pattern, 0);
 
-    let _drumkit_uid = o
-        .add_thing(
-            factory.new_thing(&Key::from("drumkit")).unwrap(),
-            &track_uid,
-        )
+    let _drumkit_uid = track
+        .append_thing(factory.new_thing(&Key::from("drumkit")).unwrap())
         .unwrap();
+
+    let effect_uid = track
+        .append_thing(factory.new_thing(&Key::from("reverb")).unwrap())
+        .unwrap();
+    let _ = track.set_humidity(effect_uid, Normal::from(0.2));
 }
 
 #[test]

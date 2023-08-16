@@ -54,6 +54,10 @@ impl<V: IsStereoSampleVoice> Generates<StereoSample> for Synthesizer<V> {
     }
 }
 impl<V: IsStereoSampleVoice> Configurable for Synthesizer<V> {
+    fn sample_rate(&self) -> SampleRate {
+        self.sample_rate
+    }
+
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
         if let Some(vs) = self.voice_store.as_mut() {
@@ -121,10 +125,6 @@ impl<V: IsStereoSampleVoice> Synthesizer<V> {
 
     pub fn set_pan(&mut self, pan: BipolarNormal) {
         self.pan = pan;
-    }
-
-    pub fn sample_rate(&self) -> SampleRate {
-        self.sample_rate
     }
 
     pub fn is_midi_recently_active(&self) -> bool {
@@ -207,6 +207,10 @@ mod tests {
         }
     }
     impl Configurable for TestSynthesizer {
+        fn sample_rate(&self) -> SampleRate {
+            self.inner_synth.sample_rate()
+        }
+
         fn update_sample_rate(&mut self, sample_rate: SampleRate) {
             self.inner_synth.update_sample_rate(sample_rate);
         }

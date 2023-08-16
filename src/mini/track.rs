@@ -10,6 +10,7 @@ use super::{
     sequencer::{Sequencer, SequencerAction, SequencerBuilder},
     DragDropManager, DragDropSource, Key,
 };
+use anyhow::anyhow;
 use eframe::{
     egui::{self, Frame, Layout, Margin, Response, Sense, TextFormat, Ui},
     emath::{self, Align},
@@ -32,6 +33,7 @@ use std::{
     f32::consts::PI,
     fmt::Display,
     ops::Range,
+    option::Option,
     sync::{Arc, RwLock},
 };
 
@@ -199,8 +201,9 @@ impl Track {
 
     // TODO: for now the only way to add something new to a Track is to append it.
     #[allow(missing_docs)]
-    pub fn append_thing(&mut self, thing: Box<dyn Thing>) -> Uid {
+    pub fn append_thing(&mut self, thing: Box<dyn Thing>) -> anyhow::Result<Uid> {
         let uid = thing.uid();
+
         if thing.as_controller().is_some() {
             // TODO: some things are hybrids - the "else" is wrong
             self.controllers.push(uid);
@@ -209,12 +212,12 @@ impl Track {
         } else if thing.as_instrument().is_some() {
             self.instruments.push(uid);
         }
-        self.thing_store.add(thing);
+        if thing.as_handles_midi().is_some() {
+            // TODO: for now, everyone's on channel 0
+            self.midi_router.connect(uid, MidiChannel(0));
+        }
 
-        // TODO: for now, everyone's on channel 0
-        self.midi_router.connect(uid, MidiChannel(0));
-
-        uid
+        self.thing_store.add(thing)
     }
 
     #[allow(missing_docs)]
@@ -857,8 +860,27 @@ impl Track {
         }
     }
 
+    #[allow(missing_docs)]
     pub fn sequencer_mut(&mut self) -> Option<&mut Sequencer> {
         self.sequencer.as_mut()
+    }
+
+    /// Sets the wet/dry of an effect in the chain.
+    pub fn set_humidity(&mut self, effect_uid: Uid, humidity: Normal) -> anyhow::Result<()> {
+        if let Some(thing) = self.thing(&effect_uid) {
+            if thing.as_effect().is_some() {
+                self.humidifier.set_humidity_by_uid(effect_uid, humidity);
+                Ok(())
+            } else {
+                Err(anyhow!("{effect_uid} is not an effect"))
+            }
+        } else {
+            Err(anyhow!("{effect_uid} not found"))
+        }
+    }
+
+    pub(crate) fn calculate_max_entity_uid(&self) -> Option<Uid> {
+        self.thing_store.calculate_max_entity_uid()
     }
 }
 impl GeneratesToInternalBuffer<StereoSample> for Track {
@@ -1057,12 +1079,12 @@ mod tests {
         // Create an instrument and add it to a track.
         let mut instrument = ToyInstrument::new_with(&ToyInstrumentParams::default());
         instrument.set_uid(Uid(1));
-        let id1 = t.append_thing(Box::new(instrument));
+        let id1 = t.append_thing(Box::new(instrument)).unwrap();
 
         // Add a second instrument to the track.
         let mut instrument = ToyInstrument::new_with(&ToyInstrumentParams::default());
         instrument.set_uid(Uid(2));
-        let id2 = t.append_thing(Box::new(instrument));
+        let id2 = t.append_thing(Box::new(instrument)).unwrap();
 
         assert_ne!(id1, id2, "Don't forget to assign UIDs!");
 

@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use anyhow::anyhow;
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use derive_more::Display;
 use groove_core::{
@@ -8,7 +9,7 @@ use groove_core::{
     Uid,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::hash_map, fmt::Debug};
+use std::{collections::hash_map, fmt::Debug, option::Option};
 use std::{
     collections::{HashMap, HashSet},
     hash::Hash,
@@ -66,7 +67,8 @@ impl EntityFactory {
     /// configuration.
     pub fn set_next_uid(&self, next_uid_value: usize) {
         self.next_uid.reset();
-        self.next_uid.add(next_uid_value);
+        self.next_uid
+            .add(next_uid_value.max(Self::MAX_RESERVED_UID + 1));
     }
 
     /// Registers a new type for the given [Key] using the given closure.
@@ -130,13 +132,19 @@ impl EntityFactory {
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct ThingStore {
+    #[serde(skip)]
+    sample_rate: SampleRate,
     things: HashMap<Uid, Box<dyn Thing>>,
 }
 impl ThingStore {
-    pub fn add(&mut self, thing: Box<dyn Thing>) -> Uid {
+    pub fn add(&mut self, mut thing: Box<dyn Thing>) -> anyhow::Result<Uid> {
         let uid = thing.uid();
+        if self.things.contains_key(&uid) {
+            return Err(anyhow!("Thing Uid {uid} already exists"));
+        }
+        thing.update_sample_rate(self.sample_rate);
         self.things.insert(thing.uid(), thing);
-        uid
+        Ok(uid)
     }
     #[allow(dead_code)]
     pub fn get(&self, uid: &Uid) -> Option<&Box<dyn Thing>> {
@@ -161,6 +169,17 @@ impl ThingStore {
     pub fn is_empty(&self) -> bool {
         self.things.is_empty()
     }
+
+    pub(crate) fn calculate_max_entity_uid(&self) -> Option<Uid> {
+        // TODO: keep an eye on this in case it gets expensive. It's currently
+        // used only after loading from disk, and it's O(number of things in
+        // system), so it's unlikely to matter.
+        if let Some(uid) = self.things.keys().max() {
+            Some(*uid)
+        } else {
+            None
+        }
+    }
 }
 impl Ticks for ThingStore {
     fn tick(&mut self, tick_count: usize) {
@@ -173,6 +192,7 @@ impl Ticks for ThingStore {
 }
 impl Configurable for ThingStore {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.sample_rate = sample_rate;
         self.iter_mut().for_each(|t| {
             t.update_sample_rate(sample_rate);
         });
@@ -267,8 +287,14 @@ impl Serializable for ThingStore {
 
 #[cfg(test)]
 mod tests {
+    use super::ThingStore;
     use crate::mini::{register_test_factory_entities, EntityFactory, Key};
-    use groove_core::Uid;
+    use groove_core::{
+        time::SampleRate,
+        traits::{Configurable, HasUid},
+        Uid,
+    };
+    use groove_toys::ToySynth;
     use std::collections::HashSet;
 
     #[test]
@@ -320,5 +346,55 @@ mod tests {
         ef.set_next_uid(uid.0 + 1);
         let uid2 = ef.mint_uid();
         assert_ne!(uid, uid2);
+    }
+
+    #[test]
+    fn thing_store_is_responsible_for_sample_rate() {
+        let mut t = ThingStore::default();
+        assert_eq!(t.sample_rate, SampleRate::DEFAULT);
+        t.update_sample_rate(SampleRate(44444));
+        let mut factory = EntityFactory::default();
+        register_test_factory_entities(&mut factory);
+
+        let thing = factory.new_thing(&Key::from("instrument")).unwrap();
+        assert_eq!(
+            thing.sample_rate(),
+            SampleRate::DEFAULT,
+            "before adding to thing store, sample rate should be untouched"
+        );
+
+        let thing_id = t.add(thing).unwrap();
+        let thing = t.remove(&thing_id).unwrap();
+        assert_eq!(
+            thing.sample_rate(),
+            SampleRate(44444),
+            "after adding/removing to/from thing store, sample rate should match"
+        );
+    }
+
+    #[test]
+    fn disallow_duplicate_uids() {
+        let mut t = ThingStore::default();
+        assert_eq!(t.calculate_max_entity_uid(), None);
+
+        let mut one = Box::new(ToySynth::default());
+        one.set_uid(Uid(9999));
+        assert!(t.add(one).is_ok(), "adding a unique UID should succeed");
+        assert_eq!(t.calculate_max_entity_uid(), Some(Uid(9999)));
+
+        let mut two = Box::new(ToySynth::default());
+        two.set_uid(Uid(9999));
+        assert!(t.add(two).is_err(), "adding a duplicate UID should fail");
+
+        let max_uid = t.calculate_max_entity_uid().unwrap();
+        // Though the add() was sure to fail, it's still considered mutably
+        // borrowed at compile time.
+        let mut two = Box::new(ToySynth::default());
+        two.set_uid(Uid(max_uid.0 + 1));
+        assert!(
+            t.add(two).is_ok(),
+            "using Orchestrator's max_entity_uid as a guide should work."
+        );
+        assert_eq!(t.calculate_max_entity_uid(), Some(Uid(10000)));
     }
 }

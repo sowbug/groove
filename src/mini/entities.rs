@@ -6,7 +6,10 @@ use groove_entities::{
     controllers::{
         Arpeggiator, ArpeggiatorParams, LfoController, LfoControllerParams, Timer, TimerParams,
     },
-    effects::{BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbParams, Reverb, ReverbParams},
+    effects::{
+        BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbParams, Gain, GainParams, Reverb,
+        ReverbParams,
+    },
     instruments::{Drumkit, DrumkitParams, WelshSynth, WelshSynthParams},
 };
 use groove_toys::{ToyInstrument, ToyInstrumentParams, ToySynth, ToySynthParams};
@@ -36,6 +39,11 @@ pub fn register_mini_factory_entities(factory: &mut EntityFactory) {
         Box::new(Reverb::new_with(&ReverbParams {
             attenuation: Normal::from(0.8),
             seconds: 1.0,
+        }))
+    });
+    factory.register_thing(Key::from("gain"), || {
+        Box::new(Gain::new_with(&GainParams {
+            ceiling: Normal::from(0.5),
         }))
     });
     factory.register_thing(Key::from("filter-low-pass-24db"), || {

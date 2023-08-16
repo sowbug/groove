@@ -144,6 +144,12 @@ pub trait HasUid {
 /// Something that is [Configurable] is interested in staying in sync with
 /// global configuration.
 pub trait Configurable {
+    fn sample_rate(&self) -> SampleRate {
+        // I was too lazy to add this everywhere when I added this to the trait,
+        // but I didn't want unexpected usage to go undetected.
+        panic!("Someone asked for a SampleRate but we provided default");
+    }
+
     /// The sample rate changed.
     #[allow(unused_variables)]
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {}

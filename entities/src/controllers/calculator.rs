@@ -412,6 +412,10 @@ impl Controls for Engine {
     fn set_loop_enabled(&mut self, _is_enabled: bool) {}
 }
 impl Configurable for Engine {
+    fn sample_rate(&self) -> SampleRate {
+        SampleRate::default()
+    }
+
     fn update_sample_rate(&mut self, _sample_rate: SampleRate) {}
 
     fn update_tempo(&mut self, _tempo: groove_core::time::Tempo) {}
@@ -540,6 +544,9 @@ impl Controls for Calculator {
     }
 }
 impl Configurable for Calculator {
+    fn sample_rate(&self) -> SampleRate {
+        self.clock.sample_rate()
+    }
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.clock.update_sample_rate(sample_rate);
     }

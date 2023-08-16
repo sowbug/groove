@@ -177,8 +177,10 @@ impl OrchestratorPanel {
                             // TODO: this is weird because it acts on all selected tracks. Figure out how to better restrict in the GUI.
                             if let Ok(track_selection_set) = track_selection_set.lock() {
                                 track_selection_set.iter().for_each(|track_uid| {
-                                    if let Some(e) = factory.new_thing(&key) {
-                                        let _ = o.add_thing(e, track_uid);
+                                    if let Some(track) = o.get_track_mut(track_uid) {
+                                        if let Some(e) = factory.new_thing(&key) {
+                                            let _ = track.append_thing(e);
+                                        }
                                     }
                                 });
                             }
@@ -304,8 +306,10 @@ impl OrchestratorPanel {
                     o.toggle_track_ui_state(&track_uid);
                 }
                 OrchestratorAction::NewDeviceForTrack(track_uid, key) => {
-                    if let Some(thing) = self.factory.new_thing(&key) {
-                        let _ = o.add_thing(thing, &track_uid);
+                    if let Some(track) = o.get_track_mut(&track_uid) {
+                        if let Some(thing) = self.factory.new_thing(&key) {
+                            let _ = track.append_thing(thing);
+                        }
                     }
                 }
             }
@@ -315,7 +319,12 @@ impl OrchestratorPanel {
     /// Lets the [EntityFactory] know of the highest [Uid] that the current
     /// Orchestrator has seen, so that it won't generate duplicates.
     pub fn update_entity_factory_uid(&self) {
-        self.factory
-            .set_next_uid(self.orchestrator.lock().unwrap().max_entity_uid().0 + 1);
+        let uid = self
+            .orchestrator
+            .lock()
+            .unwrap()
+            .calculate_max_entity_uid()
+            .0;
+        self.factory.set_next_uid(uid + 1);
     }
 }

@@ -39,6 +39,10 @@ pub struct Arpeggiator {
 }
 impl Serializable for Arpeggiator {}
 impl Configurable for Arpeggiator {
+    fn sample_rate(&self) -> SampleRate {
+        self.sequencer.sample_rate()
+    }
+
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sequencer.update_sample_rate(sample_rate);
     }

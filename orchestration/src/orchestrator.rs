@@ -899,10 +899,6 @@ impl Orchestrator {
         (commands, ticks_completed)
     }
 
-    pub fn sample_rate(&self) -> SampleRate {
-        self.clock.sample_rate()
-    }
-
     #[deprecated = "Call reset() instead"]
     pub fn set_sample_rate(&mut self, _: usize) {
         panic!("Call reset() instead");
@@ -1045,6 +1041,10 @@ impl Controls for Orchestrator {
     }
 }
 impl Configurable for Orchestrator {
+    fn sample_rate(&self) -> SampleRate {
+        self.clock.sample_rate()
+    }
+
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.clock.update_sample_rate(sample_rate);
         self.store.update_sample_rate(sample_rate);

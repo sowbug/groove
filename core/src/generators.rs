@@ -205,6 +205,10 @@ impl Generates<BipolarNormal> for Oscillator {
     }
 }
 impl Configurable for Oscillator {
+    fn sample_rate(&self) -> SampleRate {
+        self.sample_rate
+    }
+
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
         self.reset_handled = false;
@@ -421,10 +425,6 @@ impl Oscillator {
         self.frequency_tune = frequency_tune;
     }
 
-    pub fn sample_rate(&self) -> SampleRate {
-        self.sample_rate
-    }
-
     pub fn fixed_frequency(&self) -> Option<FrequencyHz> {
         self.fixed_frequency
     }
@@ -556,6 +556,10 @@ impl Generates<Normal> for Envelope {
     }
 }
 impl Configurable for Envelope {
+    fn sample_rate(&self) -> SampleRate {
+        self.sample_rate
+    }
+
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
         self.was_reset = true;

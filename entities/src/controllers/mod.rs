@@ -222,6 +222,9 @@ impl Controls for Trigger {
     }
 }
 impl Configurable for Trigger {
+    fn sample_rate(&self) -> SampleRate {
+        self.timer.sample_rate()
+    }
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.timer.update_sample_rate(sample_rate)
     }

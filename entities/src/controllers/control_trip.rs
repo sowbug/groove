@@ -192,6 +192,9 @@ impl ControlTrip {
     }
 }
 impl Configurable for ControlTrip {
+    fn sample_rate(&self) -> SampleRate {
+        self.clock.sample_rate()
+    }
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.clock.update_sample_rate(sample_rate);
     }

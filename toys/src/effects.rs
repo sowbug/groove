@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    time::ClockTimeUnit,
+    time::{ClockTimeUnit, SampleRate},
     traits::{Configurable, Serializable, TransformsAudio},
     Normal, Sample,
 };
@@ -31,6 +31,8 @@ pub struct ToyEffect {
     pub checkpoint_delta: f32,
     #[cfg_attr(feature = "serialization", serde(skip))]
     pub time_unit: ClockTimeUnit,
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    sample_rate: SampleRate,
 }
 impl TransformsAudio for ToyEffect {
     fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
@@ -38,7 +40,11 @@ impl TransformsAudio for ToyEffect {
         -input_sample
     }
 }
-impl Configurable for ToyEffect {}
+impl Configurable for ToyEffect {
+    fn sample_rate(&self) -> SampleRate {
+        self.sample_rate
+    }
+}
 impl Serializable for ToyEffect {}
 
 #[cfg(feature = "egui-framework")]
@@ -103,6 +109,7 @@ impl ToyEffect {
             checkpoint: Default::default(),
             checkpoint_delta: Default::default(),
             time_unit: Default::default(),
+            sample_rate: Default::default(),
         }
     }
 

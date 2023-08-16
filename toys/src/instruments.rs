@@ -72,6 +72,10 @@ impl Generates<StereoSample> for ToyInstrument {
     }
 }
 impl Configurable for ToyInstrument {
+    fn sample_rate(&self) -> SampleRate {
+        self.oscillator.sample_rate()
+    }
+
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.oscillator.update_sample_rate(sample_rate);
     }
@@ -232,8 +236,6 @@ pub struct DebugSynth {
     fake_value: Normal,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
-    sample_rate: SampleRate,
-    #[cfg_attr(feature = "serialization", serde(skip))]
     sample: StereoSample,
 
     // #[controllable]
@@ -253,8 +255,11 @@ impl Generates<StereoSample> for DebugSynth {
     }
 }
 impl Configurable for DebugSynth {
+    fn sample_rate(&self) -> SampleRate {
+        self.oscillator.sample_rate()
+    }
+
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
-        self.sample_rate = sample_rate;
         self.oscillator.update_sample_rate(sample_rate);
     }
 }
@@ -291,7 +296,6 @@ impl DebugSynth {
     pub fn new_with_components(oscillator: Box<Oscillator>, envelope: Box<Envelope>) -> Self {
         Self {
             uid: Default::default(),
-            sample_rate: Default::default(),
             fake_value: Normal::from(0.32342),
             sample: Default::default(),
             // oscillator_modulation: Default::default(),
@@ -392,6 +396,9 @@ impl Ticks for ToySynth {
     }
 }
 impl Configurable for ToySynth {
+    fn sample_rate(&self) -> SampleRate {
+        self.inner.sample_rate()
+    }
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.inner.update_sample_rate(sample_rate)
     }
@@ -500,6 +507,10 @@ impl Ticks for ToyVoice {
     }
 }
 impl Configurable for ToyVoice {
+    fn sample_rate(&self) -> SampleRate {
+        self.oscillator.sample_rate()
+    }
+
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.oscillator.update_sample_rate(sample_rate);
         self.envelope.update_sample_rate(sample_rate);
@@ -527,6 +538,9 @@ pub struct ToyAudioSource {
     #[control]
     #[params]
     level: ParameterType,
+
+    #[cfg_attr(feature = "serialization", serde(skip))]
+    sample_rate: SampleRate,
 }
 impl Serializable for ToyAudioSource {}
 impl Generates<StereoSample> for ToyAudioSource {
@@ -540,7 +554,13 @@ impl Generates<StereoSample> for ToyAudioSource {
     }
 }
 impl Configurable for ToyAudioSource {
-    fn update_sample_rate(&mut self, _sample_rate: SampleRate) {}
+    fn sample_rate(&self) -> SampleRate {
+        self.sample_rate
+    }
+
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.sample_rate = sample_rate;
+    }
 }
 impl Ticks for ToyAudioSource {
     fn tick(&mut self, _tick_count: usize) {}

@@ -47,6 +47,9 @@ pub struct LfoController {
 }
 impl Serializable for LfoController {}
 impl Configurable for LfoController {
+    fn sample_rate(&self) -> SampleRate {
+        self.oscillator.sample_rate()
+    }
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.oscillator.update_sample_rate(sample_rate);
     }

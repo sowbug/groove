@@ -69,7 +69,8 @@ pub struct OrchestratorEphemerals {
 ///
 /// let mut orchestrator = Orchestrator::default();
 /// let track_uid = orchestrator.new_midi_track().unwrap();
-/// let uid = orchestrator.add_thing(Box::new(ToySynth::default()), &track_uid);
+/// let track = orchestrator.get_track_mut(&track_uid).unwrap();
+/// let uid = track.append_thing(Box::new(ToySynth::default())).unwrap();
 ///
 /// let mut samples = [StereoSample::SILENCE; Orchestrator::SAMPLE_BUFFER_SIZE];
 /// orchestrator.render(&mut samples);
@@ -96,14 +97,6 @@ pub struct Orchestrator {
     // feature enabled for Serde.
     piano_roll: Arc<RwLock<PianoRoll>>,
 
-    /// The highest [Uid] that has been added. This is serialized along with the
-    /// rest of the project, so anyone generating [Uid]s, such as
-    /// [crate::EntityFactory], can stay out of the range of consumed [Uid]s.
-    ///
-    /// This isn't threadsafe. I don't think this matters. If it does, the
-    /// failure mode is the user has to add a device again. TODO
-    max_entity_uid: Uid,
-
     //////////////////////////////////////////////////////
     // Nothing below this comment should be serialized. //
     //////////////////////////////////////////////////////
@@ -125,7 +118,6 @@ impl Default for Orchestrator {
             track_uids: Default::default(),
             track_ui_states: Default::default(),
             piano_roll: Default::default(),
-            max_entity_uid: Default::default(),
 
             e: Default::default(),
         };
@@ -146,23 +138,16 @@ impl Orchestrator {
     const TRANSPORT_UID: Uid = Uid(2);
 
     /// Adds the given [Thing] (instrument, controller, or entity), returning an
-    /// assigned [Uid] if successful. [Orchestrator] takes ownership.
+    /// assigned [Uid] if successful. The specified [Track] takes ownership.
     ///
     /// It is recommended to use [EntityFactory](crate::EntityFactory) to create
     /// new [Thing]s.
-    pub fn add_thing(&mut self, mut thing: Box<dyn Thing>, track_uid: &TrackUid) -> Result<Uid> {
-        thing.update_sample_rate(self.sample_rate());
+    fn check_thing_uid(&self, track_uid: &TrackUid, thing: Box<dyn Thing>) -> Result<()> {
         let uid = thing.uid();
         if self.tracks.values().any(|t| t.thing(&uid).is_some()) {
             return Err(anyhow!("Thing Uid {uid} already exists"));
         }
-        self.max_entity_uid = self.max_entity_uid.max(uid);
-        if let Some(track) = self.tracks.get_mut(track_uid) {
-            track.append_thing(thing);
-            Ok(uid)
-        } else {
-            Err(anyhow!("Track UID {track_uid} not found"))
-        }
+        Ok(())
     }
 
     /// Adds a new MIDI track, which can contain controllers, instruments, and
@@ -318,12 +303,6 @@ impl Orchestrator {
     #[allow(missing_docs)]
     pub fn transport_mut(&mut self) -> &mut Transport {
         &mut self.transport
-    }
-
-    /// The current [SampleRate] used to render the current project. Typically
-    /// something like 44.1KHz.
-    pub fn sample_rate(&self) -> SampleRate {
-        self.transport.sample_rate()
     }
 
     /// Returns the current [Tempo].
@@ -644,8 +623,16 @@ impl Orchestrator {
     /// The highest [Thing] [Uid] that this orchestrator has seen. This is
     /// needed so that generators of new [Uid]s (such as [crate::EntityFactory])
     /// can keep generating unique ones.
-    pub fn max_entity_uid(&self) -> Uid {
-        self.max_entity_uid
+    pub fn calculate_max_entity_uid(&self) -> Uid {
+        if let Some(track) = self
+            .track_iter()
+            .max_by_key(|t| t.calculate_max_entity_uid())
+        {
+            if let Some(uid) = track.calculate_max_entity_uid() {
+                return uid;
+            }
+        }
+        Uid(0)
     }
 
     /// Returns the one and only [PianoRoll].
@@ -735,6 +722,10 @@ impl Ticks for Orchestrator {
     }
 }
 impl Configurable for Orchestrator {
+    fn sample_rate(&self) -> SampleRate {
+        self.transport.sample_rate()
+    }
+
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.transport.update_sample_rate(sample_rate);
         for track in self.tracks.values_mut() {
@@ -877,17 +868,15 @@ mod tests {
     fn exposes_traits_ergonomically() {
         let mut o = Orchestrator::default();
         let tuid = o.new_midi_track().unwrap();
+        let track = o.get_track_mut(&tuid).unwrap();
 
         // TODO: worst ergonomics ever.
         const TIMER_DURATION: MusicalTime = MusicalTime::new_with_beats(1);
-        let _ = o.add_thing(
-            Box::new(Timer::new_with(&TimerParams {
-                duration: groove_core::time::MusicalTimeParams {
-                    units: TIMER_DURATION.total_units(),
-                },
-            })),
-            &tuid,
-        );
+        let _ = track.append_thing(Box::new(Timer::new_with(&TimerParams {
+            duration: groove_core::time::MusicalTimeParams {
+                units: TIMER_DURATION.total_units(),
+            },
+        })));
 
         o.play();
         let mut prior_start_time = MusicalTime::TIME_ZERO;
@@ -934,35 +923,6 @@ mod tests {
             count += 1;
         });
         assert_eq!(count, 4);
-    }
-
-    #[test]
-    fn disallow_duplicate_uids() {
-        let mut o = Orchestrator::default();
-        let track_uid = o.new_midi_track().unwrap();
-
-        let mut one = Box::new(ToySynth::default());
-        one.set_uid(Uid(9999));
-        assert!(
-            o.add_thing(one, &track_uid).is_ok(),
-            "adding a unique UID should succeed"
-        );
-        assert_eq!(o.max_entity_uid, Uid(9999));
-
-        let mut two = Box::new(ToySynth::default());
-        two.set_uid(Uid(9999));
-        assert!(
-            o.add_thing(two, &track_uid).is_err(),
-            "adding a duplicate UID should fail"
-        );
-
-        let mut two = Box::new(ToySynth::default());
-        two.set_uid(Uid(o.max_entity_uid.0 + 1));
-        assert!(
-            o.add_thing(two, &track_uid).is_ok(),
-            "using Orchestrator's max_entity_uid as a guide should work."
-        );
-        assert_eq!(o.max_entity_uid, Uid(10000));
     }
 
     #[test]

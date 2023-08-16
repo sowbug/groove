@@ -35,6 +35,10 @@ pub struct Reverb {
 }
 impl Serializable for Reverb {}
 impl Configurable for Reverb {
+    fn sample_rate(&self) -> SampleRate {
+        self.sample_rate
+    }
+
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
         self.channels[0].update_sample_rate(sample_rate);
@@ -68,10 +72,6 @@ impl Reverb {
             ReverbMessage::Reverb(s) => *self = Self::new_with(s),
             _ => self.derived_update(message),
         }
-    }
-
-    pub fn sample_rate(&self) -> SampleRate {
-        self.sample_rate
     }
 
     pub fn attenuation(&self) -> Normal {

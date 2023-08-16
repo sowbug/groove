@@ -24,8 +24,9 @@ impl Default for VoiceCount {
 
 /// A [StoresVoices](crate::traits::StoresVoices) that fails when too many
 /// voices are used simultaneously.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct VoiceStore<V: IsStereoSampleVoice> {
+    sample_rate: SampleRate,
     sample: StereoSample,
     voices: Vec<Box<V>>,
     notes_playing: Vec<u7>,
@@ -79,7 +80,12 @@ impl<V: IsStereoSampleVoice> Generates<StereoSample> for VoiceStore<V> {
     }
 }
 impl<V: IsStereoSampleVoice> Configurable for VoiceStore<V> {
+    fn sample_rate(&self) -> SampleRate {
+        self.sample_rate
+    }
+
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.sample_rate = sample_rate;
         self.voices
             .iter_mut()
             .for_each(|v| v.update_sample_rate(sample_rate));
@@ -101,6 +107,7 @@ impl<V: IsStereoSampleVoice> Ticks for VoiceStore<V> {
 impl<V: IsStereoSampleVoice> VoiceStore<V> {
     fn new() -> Self {
         Self {
+            sample_rate: Default::default(),
             sample: Default::default(),
             voices: Default::default(),
             notes_playing: Default::default(),
@@ -126,6 +133,7 @@ impl<V: IsStereoSampleVoice> VoiceStore<V> {
 /// A [StoresVoices](crate::traits::StoresVoices) that steals voices as needed.
 #[derive(Debug)]
 pub struct StealingVoiceStore<V: IsStereoSampleVoice> {
+    sample_rate: SampleRate,
     sample: StereoSample,
     voices: Vec<Box<V>>,
     notes_playing: Vec<u7>,
@@ -186,7 +194,12 @@ impl<V: IsStereoSampleVoice> Generates<StereoSample> for StealingVoiceStore<V> {
     }
 }
 impl<V: IsStereoSampleVoice> Configurable for StealingVoiceStore<V> {
+    fn sample_rate(&self) -> SampleRate {
+        self.sample_rate
+    }
+
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.sample_rate = sample_rate;
         self.voices
             .iter_mut()
             .for_each(|v| v.update_sample_rate(sample_rate));
@@ -208,6 +221,7 @@ impl<V: IsStereoSampleVoice> Ticks for StealingVoiceStore<V> {
 impl<V: IsStereoSampleVoice> StealingVoiceStore<V> {
     fn new() -> Self {
         Self {
+            sample_rate: Default::default(),
             sample: Default::default(),
             voices: Default::default(),
             notes_playing: Default::default(),
@@ -237,6 +251,7 @@ impl<V: IsStereoSampleVoice> StealingVoiceStore<V> {
 /// played.
 #[derive(Debug)]
 pub struct VoicePerNoteStore<V: IsStereoSampleVoice> {
+    sample_rate: SampleRate,
     sample: StereoSample,
     voices: FxHashMap<u7, Box<V>>,
 }
@@ -281,7 +296,12 @@ impl<V: IsStereoSampleVoice> Generates<StereoSample> for VoicePerNoteStore<V> {
     }
 }
 impl<V: IsStereoSampleVoice> Configurable for VoicePerNoteStore<V> {
+    fn sample_rate(&self) -> SampleRate {
+        self.sample_rate
+    }
+
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+        self.sample_rate = sample_rate;
         self.voices
             .values_mut()
             .for_each(|v| v.update_sample_rate(sample_rate));
@@ -296,6 +316,7 @@ impl<V: IsStereoSampleVoice> Ticks for VoicePerNoteStore<V> {
 impl<V: IsStereoSampleVoice> VoicePerNoteStore<V> {
     pub fn new() -> Self {
         Self {
+            sample_rate: Default::default(),
             sample: Default::default(),
             voices: Default::default(),
         }
@@ -381,6 +402,10 @@ pub(crate) mod tests {
         }
     }
     impl Configurable for TestVoice {
+        fn sample_rate(&self) -> SampleRate {
+            self.sample_rate
+        }
+
         fn update_sample_rate(&mut self, sample_rate: SampleRate) {
             self.sample_rate = sample_rate;
             self.oscillator.update_sample_rate(sample_rate);

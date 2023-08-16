@@ -28,8 +28,6 @@ pub struct Drumkit {
 
     uid: groove_core::Uid,
     #[cfg_attr(feature = "serialization", serde(skip))]
-    sample_rate: SampleRate,
-    #[cfg_attr(feature = "serialization", serde(skip))]
     #[allow(dead_code)]
     paths: Paths,
     #[cfg_attr(feature = "serialization", serde(skip))]
@@ -46,6 +44,10 @@ impl Generates<StereoSample> for Drumkit {
 }
 impl Serializable for Drumkit {}
 impl Configurable for Drumkit {
+    fn sample_rate(&self) -> SampleRate {
+        self.inner_synth.sample_rate()
+    }
+
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.inner_synth.update_sample_rate(sample_rate);
     }
@@ -120,7 +122,6 @@ impl Drumkit {
 
         Self {
             uid: Default::default(),
-            sample_rate: Default::default(),
             inner_synth: Synthesizer::<SamplerVoice>::new_with(Box::new(voice_store)),
             paths: paths.clone(),
             name: kit_name.to_string(),
@@ -139,10 +140,6 @@ impl Drumkit {
             DrumkitMessage::Drumkit(s) => *self = Self::new_with(&self.paths, s),
             _ => self.derived_update(message),
         }
-    }
-
-    pub fn sample_rate(&self) -> SampleRate {
-        self.sample_rate
     }
 
     pub fn name(&self) -> &str {

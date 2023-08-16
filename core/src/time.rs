@@ -126,9 +126,6 @@ impl Clock {
     pub fn midi_ticks(&self) -> usize {
         self.midi_ticks
     }
-    pub fn sample_rate(&self) -> SampleRate {
-        self.sample_rate
-    }
     pub fn bpm(&self) -> ParameterType {
         self.bpm
     }
@@ -237,6 +234,10 @@ impl Ticks for Clock {
     }
 }
 impl Configurable for Clock {
+    fn sample_rate(&self) -> SampleRate {
+        self.sample_rate
+    }
+
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
         self.was_reset = true;
@@ -938,7 +939,7 @@ mod tests {
     }
 
     #[test]
-    fn sample_rate() {
+    fn sample_rate_default_is_sane() {
         let sr = SampleRate::default();
         assert_eq!(sr.value(), 44100);
     }

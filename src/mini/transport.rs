@@ -112,16 +112,14 @@ impl Transport {
             ));
         });
     }
-
-    /// The current sample rate.
-    // TODO: should this be part of the Configurable trait?
-    pub fn sample_rate(&self) -> SampleRate {
-        self.e.sample_rate
-    }
 }
 impl Shows for Transport {}
 impl Serializable for Transport {}
 impl Configurable for Transport {
+    fn sample_rate(&self) -> SampleRate {
+        self.e.sample_rate
+    }
+
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.e.sample_rate = sample_rate;
     }
