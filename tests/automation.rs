@@ -68,15 +68,6 @@ fn demo_automation() {
         // This would have been a little easier if Orchestrator or Track had a
         // way to query param names, but I'm not sure how often that will
         // happen.
-        let foo = factory.new_thing(&Key::from("toy-synth")).unwrap();
-        let foo2 = foo.as_controllable();
-        let foo = foo2.unwrap();
-        for index in 0..foo.control_index_count() {
-            eprintln!(
-                "{index} -> {}",
-                foo.control_name_for_index(ControlIndex(index)).unwrap()
-            );
-        }
         factory
             .new_thing(&Key::from("toy-synth"))
             .unwrap()
