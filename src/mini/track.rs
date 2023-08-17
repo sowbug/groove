@@ -899,6 +899,11 @@ impl Track {
             Err(anyhow!("Effect {uid} not found"))
         }
     }
+
+    /// Returns the [ControlRouter].
+    pub fn control_router_mut(&mut self) -> &mut ControlRouter {
+        &mut self.control_router
+    }
 }
 impl GeneratesToInternalBuffer<StereoSample> for Track {
     fn generate_batch_values(&mut self, len: usize) -> usize {

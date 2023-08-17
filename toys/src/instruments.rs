@@ -356,6 +356,10 @@ pub struct ToySynth {
     #[params]
     envelope: Envelope,
 
+    #[control]
+    #[params]
+    dca: Dca,
+
     // TODO: this skip is a can of worms. I don't know whether we want to
     // serialize everything, or manually reconstitute everything. Maybe the
     // right answer is to expect that every struct gets serialized, but everyone
@@ -373,6 +377,11 @@ impl Generates<StereoSample> for ToySynth {
     }
 
     fn generate_batch_values(&mut self, values: &mut [StereoSample]) {
+        // TODO: temp hack to avoid the pain of figuring out how deal with
+        // Synthesizer sharing a single DCA across voices.
+        for voice in self.inner.voices_mut() {
+            voice.dca.set_pan(self.dca.pan());
+        }
         self.inner.generate_batch_values(values);
         self.update_max();
     }
@@ -413,6 +422,7 @@ impl ToySynth {
             voice_count: params.voice_count(),
             waveform: params.waveform(),
             envelope: Envelope::new_with(&params.envelope),
+            dca: Dca::new_with(&params.dca),
             inner: Synthesizer::<ToyVoice>::new_with(Box::new(voice_store)),
             max_signal: Normal::minimum(),
         }
@@ -466,6 +476,7 @@ impl ToySynth {
 struct ToyVoice {
     oscillator: Oscillator,
     envelope: Envelope,
+    dca: Dca,
     value: StereoSample,
 }
 impl IsStereoSampleVoice for ToyVoice {}
@@ -502,8 +513,9 @@ impl Ticks for ToyVoice {
     fn tick(&mut self, tick_count: usize) {
         self.oscillator.tick(tick_count);
         self.envelope.tick(tick_count);
-        self.value =
-            StereoSample::from(self.oscillator.value().value() * self.envelope.value().value());
+        self.value = self.dca.transform_audio_to_stereo(
+            (self.oscillator.value().value() * self.envelope.value().value()).into(),
+        );
     }
 }
 impl Configurable for ToyVoice {
@@ -521,6 +533,7 @@ impl ToyVoice {
         Self {
             oscillator: Oscillator::new_with(&OscillatorParams::default_with_waveform(waveform)),
             envelope: Envelope::new_with(envelope),
+            dca: Dca::default(),
             value: Default::default(),
         }
     }
