@@ -5,7 +5,6 @@ use groove::{
     EntityFactory,
 };
 use groove_core::{
-    control::ControlIndex,
     generators::Waveform,
     time::Tempo,
     traits::{Configurable, HasUid},

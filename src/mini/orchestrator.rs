@@ -9,7 +9,7 @@ use super::{
     widgets::arrangement_legend,
     DragDropManager, Key,
 };
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
 use derive_builder::Builder;
 use eframe::{
     egui::{self, Frame, ScrollArea, Ui},
@@ -23,7 +23,7 @@ use groove_core::{
     time::{MusicalTime, SampleRate, Tempo},
     traits::{
         Configurable, ControlEventsFn, Controllable, Controls, Generates,
-        GeneratesToInternalBuffer, HandlesMidi, HasUid, Serializable, Thing, ThingEvent, Ticks,
+        GeneratesToInternalBuffer, HandlesMidi, HasUid, Serializable, ThingEvent, Ticks,
     },
     Sample, StereoSample, Uid,
 };
@@ -136,19 +136,6 @@ impl Orchestrator {
     const UID: Uid = Uid(1);
     /// The fixed [Uid] for the global transport.
     const TRANSPORT_UID: Uid = Uid(2);
-
-    /// Adds the given [Thing] (instrument, controller, or entity), returning an
-    /// assigned [Uid] if successful. The specified [Track] takes ownership.
-    ///
-    /// It is recommended to use [EntityFactory](crate::EntityFactory) to create
-    /// new [Thing]s.
-    fn check_thing_uid(&self, track_uid: &TrackUid, thing: Box<dyn Thing>) -> Result<()> {
-        let uid = thing.uid();
-        if self.tracks.values().any(|t| t.thing(&uid).is_some()) {
-            return Err(anyhow!("Thing Uid {uid} already exists"));
-        }
-        Ok(())
-    }
 
     /// Adds a new MIDI track, which can contain controllers, instruments, and
     /// effects. Returns the new track's [TrackUid] if successful.
@@ -833,10 +820,9 @@ mod tests {
     use groove_core::{
         time::{MusicalTime, SampleRate, Tempo},
         traits::{Configurable, Controls, HasUid},
-        StereoSample, Uid,
+        StereoSample,
     };
     use groove_entities::controllers::{Timer, TimerParams};
-    use groove_toys::ToySynth;
     use std::collections::HashSet;
 
     #[test]

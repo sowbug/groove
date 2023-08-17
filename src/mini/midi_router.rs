@@ -167,13 +167,13 @@ mod tests {
             None,
             Arc::clone(&tracker),
         ));
-        es.add(thing);
+        let _ = es.add(thing);
         let thing = Box::new(TestHandlesMidi::new_with(
             Uid(2),
             None,
             Arc::clone(&tracker),
         ));
-        es.add(thing);
+        let _ = es.add(thing);
 
         let mut r = MidiRouter::default();
         r.connect(Uid(1), MidiChannel(1));
@@ -225,13 +225,13 @@ mod tests {
             Some(MidiChannel(2)),
             Arc::clone(&tracker),
         ));
-        es.add(thing);
+        let _ = es.add(thing);
         let thing = Box::new(TestHandlesMidi::new_with(
             Uid(2),
             None,
             Arc::clone(&tracker),
         ));
-        es.add(thing);
+        let _ = es.add(thing);
 
         let mut r = MidiRouter::default();
         r.connect(Uid(1), MidiChannel(1));
@@ -282,7 +282,7 @@ mod tests {
             Some(MidiChannel(1)),
             Arc::clone(&tracker),
         ));
-        es.add(thing);
+        let _ = es.add(thing);
 
         let mut r = MidiRouter::default();
         r.connect(Uid(1), MidiChannel(1));

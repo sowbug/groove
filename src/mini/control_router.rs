@@ -151,9 +151,9 @@ mod tests {
         let mut es = ThingStore::default();
         let tracker = Arc::new(RwLock::new(Vec::default()));
         let controllable = TestControllable::new_with(target_uid, Arc::clone(&tracker));
-        es.add(Box::new(controllable));
+        let _ = es.add(Box::new(controllable));
         let controllable = TestControllable::new_with(target_2_uid, Arc::clone(&tracker));
-        es.add(Box::new(controllable));
+        let _ = es.add(Box::new(controllable));
 
         let _ = cr.route(
             &mut |target_uid, index, value| {
