@@ -191,7 +191,7 @@ impl Sequencer {
             uid,
             self.next_arrangement_position().bars(&self.time_signature) as usize,
         ) {
-            if let Some(pattern) = self.e.piano_roll.read().unwrap().get(uid) {
+            if let Some(pattern) = self.e.piano_roll.read().unwrap().get_pattern(uid) {
                 self.e.arrangement_cursor += pattern.duration();
             }
             Ok(apuid)
@@ -207,7 +207,7 @@ impl Sequencer {
         position_in_bars: usize,
     ) -> anyhow::Result<ArrangedPatternUid> {
         let position = MusicalTime::new_with_bars(&self.time_signature, position_in_bars);
-        if self.e.piano_roll.read().unwrap().get(uid).is_some() {
+        if self.e.piano_roll.read().unwrap().get_pattern(uid).is_some() {
             let arranged_pattern_uid = self.arranged_pattern_uid_factory.next();
             self.arranged_patterns.insert(
                 arranged_pattern_uid,
@@ -413,7 +413,7 @@ impl Sequencer {
                 .piano_roll
                 .read()
                 .unwrap()
-                .get(&arranged_pattern.pattern_uid)
+                .get_pattern(&arranged_pattern.pattern_uid)
             {
                 let start = arranged_pattern.position;
                 let end = start + pattern.duration();
@@ -490,7 +490,7 @@ impl Sequencer {
                             .piano_roll
                             .read()
                             .unwrap()
-                            .get(&arranged_pattern.pattern_uid)
+                            .get_pattern(&arranged_pattern.pattern_uid)
                         {
                             if arranged_pattern
                                 .ui_content(
@@ -529,7 +529,7 @@ impl Sequencer {
         self.e.final_event_time = MusicalTime::default();
         for ap in self.arranged_patterns.values() {
             let uid = ap.pattern_uid;
-            if let Some(pattern) = self.e.piano_roll.read().unwrap().get(&uid) {
+            if let Some(pattern) = self.e.piano_roll.read().unwrap().get_pattern(&uid) {
                 for note in pattern.notes() {
                     self.e
                         .events

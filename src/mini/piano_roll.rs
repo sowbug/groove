@@ -1,6 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::{widgets::pattern_icon, DragDropManager, DragDropSource, SelectionSet, UidFactory};
+use anyhow::anyhow;
 use derive_builder::Builder;
 use eframe::{
     egui::{Id as EguiId, Response, Sense, Ui, Widget, WidgetInfo, WidgetType},
@@ -357,21 +358,51 @@ impl Pattern {
         self.duration
     }
 
-    #[allow(dead_code)]
-    fn move_note(&mut self, note: &Note, new_start: MusicalTime) {
-        self.notes.iter_mut().filter(|n| n == &note).for_each(|n| {
-            let n_length = n.range.end - n.range.start;
-            n.range = new_start..new_start + n_length;
-        });
-        self.refresh_internals();
+    /// Sets a new start time for all notes in the Pattern matching the given
+    /// [Note]. If any are found, returns the new version.
+    pub fn move_note(&mut self, note: &Note, new_start: MusicalTime) -> anyhow::Result<Note> {
+        let mut new_note = note.clone();
+        let new_note_length = new_note.range.end - new_note.range.start;
+        new_note.range = new_start..new_start + new_note_length;
+        self.replace_note(note, new_note)
     }
 
-    #[allow(dead_code)]
-    fn move_and_resize_note(&mut self, note: &Note, new_start: MusicalTime, duration: MusicalTime) {
+    /// Sets a new start time and duration for all notes in the Pattern matching
+    /// the given [Note]. If any are found, returns the new version.
+    pub fn move_and_resize_note(
+        &mut self,
+        note: &Note,
+        new_start: MusicalTime,
+        duration: MusicalTime,
+    ) -> anyhow::Result<Note> {
+        let mut new_note = note.clone();
+        new_note.range = new_start..new_start + duration;
+        self.replace_note(note, new_note)
+    }
+
+    /// Sets a new key for all notes in the Pattern matching the given [Note].
+    /// If any are found, returns the new version.
+    pub fn change_note_key(&mut self, note: &Note, new_key: u8) -> anyhow::Result<Note> {
+        let mut new_note = note.clone();
+        new_note.key = new_key;
+        self.replace_note(note, new_note)
+    }
+
+    /// Replaces all notes in the Pattern matching the given [Note] with a new
+    /// [Note]. If any are found, returns the new version.
+    pub fn replace_note(&mut self, note: &Note, new_note: Note) -> anyhow::Result<Note> {
+        let mut found = false;
+
         self.notes.iter_mut().filter(|n| n == &note).for_each(|n| {
-            n.range = new_start..new_start + duration;
+            *n = new_note.clone();
+            found = true;
         });
-        self.refresh_internals();
+        if found {
+            self.refresh_internals();
+            Ok(new_note)
+        } else {
+            Err(anyhow!("replace_note: couldn't find note {:?}", note))
+        }
     }
 
     #[allow(missing_docs)]
@@ -391,6 +422,7 @@ impl Pattern {
     }
 
     /// Draws the pattern.
+    #[allow(dead_code)]
     fn pattern_ui(&mut self, ui: &mut Ui) -> Response {
         let mut on_it = true;
         let on = &mut on_it;
@@ -472,8 +504,12 @@ impl PianoRoll {
         self.ordered_pattern_uids.retain(|uid| uid != pattern_uid);
     }
 
-    pub fn get(&self, pattern_uid: &PatternUid) -> Option<&Pattern> {
+    pub fn get_pattern(&self, pattern_uid: &PatternUid) -> Option<&Pattern> {
         self.uids_to_patterns.get(pattern_uid)
+    }
+
+    pub fn get_pattern_mut(&mut self, pattern_uid: &PatternUid) -> Option<&mut Pattern> {
+        self.uids_to_patterns.get_mut(pattern_uid)
     }
 
     fn carousel_ui(&mut self, ui: &mut Ui, ddm: &mut DragDropManager) {
@@ -876,7 +912,9 @@ mod tests {
             "Pattern can add duplicate notes. This is probably not desirable to allow."
         );
 
-        p.move_note(&Note::TEST_C4, MusicalTime::new_with_beats(4));
+        assert!(p
+            .move_note(&Note::TEST_C4, MusicalTime::new_with_beats(4))
+            .is_ok());
         assert_eq!(p.notes.len(), 3, "Moving a note doesn't copy or destroy");
         p.remove_note(&Note::TEST_D4);
         assert_eq!(p.notes.len(), 2, "remove_note() removes notes");
@@ -899,10 +937,12 @@ mod tests {
         let mut p = PatternBuilder::default().build().unwrap();
 
         p.add_note(Note::TEST_C4.clone());
-        p.move_note(
-            &Note::TEST_C4,
-            MusicalTime::START + MusicalTime::DURATION_SIXTEENTH,
-        );
+        assert!(p
+            .move_note(
+                &Note::TEST_C4,
+                MusicalTime::START + MusicalTime::DURATION_SIXTEENTH,
+            )
+            .is_ok());
         assert_eq!(
             p.notes[0].range.start,
             MusicalTime::START + MusicalTime::DURATION_SIXTEENTH,
@@ -913,6 +953,11 @@ mod tests {
             MusicalTime::new_with_beats(4),
             "Moving a note in pattern doesn't change duration"
         );
+
+        assert!(
+            p.move_note(&Note::TEST_E4, MusicalTime::default()).is_err(),
+            "moving nonexistent note should fail"
+        );
     }
 
     #[test]
@@ -920,7 +965,9 @@ mod tests {
         let mut p = PatternBuilder::default().build().unwrap();
 
         p.add_note(Note::TEST_C4.clone());
-        p.move_note(&Note::TEST_C4, MusicalTime::new_with_beats(4));
+        assert!(p
+            .move_note(&Note::TEST_C4, MusicalTime::new_with_beats(4))
+            .is_ok());
         assert_eq!(
             p.duration,
             MusicalTime::new_with_beats(4 * 2),
@@ -934,11 +981,13 @@ mod tests {
 
         p.add_note(Note::TEST_C4.clone());
 
-        p.move_and_resize_note(
-            &Note::TEST_C4,
-            MusicalTime::START + MusicalTime::DURATION_EIGHTH,
-            MusicalTime::DURATION_WHOLE,
-        );
+        assert!(p
+            .move_and_resize_note(
+                &Note::TEST_C4,
+                MusicalTime::START + MusicalTime::DURATION_EIGHTH,
+                MusicalTime::DURATION_WHOLE,
+            )
+            .is_ok());
         let expected_range = (MusicalTime::START + MusicalTime::DURATION_EIGHTH)
             ..(MusicalTime::START + MusicalTime::DURATION_EIGHTH + MusicalTime::DURATION_WHOLE);
         assert_eq!(
@@ -951,19 +1000,48 @@ mod tests {
             "moving/resizing within pattern doesn't change duration"
         );
 
-        p.move_and_resize_note(
-            &Note::new_with(
-                MidiNote::C4,
-                expected_range.start,
-                expected_range.end - expected_range.start,
-            ),
-            MusicalTime::new_with_beats(4),
-            MusicalTime::DURATION_WHOLE,
-        );
+        assert!(p
+            .move_and_resize_note(
+                &Note::new_with(
+                    MidiNote::C4,
+                    expected_range.start,
+                    expected_range.end - expected_range.start,
+                ),
+                MusicalTime::new_with_beats(4),
+                MusicalTime::DURATION_WHOLE,
+            )
+            .is_ok());
         assert_eq!(
             p.duration,
             MusicalTime::new_with_beats(8),
             "moving/resizing outside current pattern makes the pattern longer"
+        );
+
+        assert!(
+            p.move_and_resize_note(
+                &Note::TEST_E4,
+                MusicalTime::default(),
+                MusicalTime::default()
+            )
+            .is_err(),
+            "moving/resizing nonexistent note should fail"
+        );
+    }
+
+    #[test]
+    fn change_note_key() {
+        let mut p = PatternBuilder::default().build().unwrap();
+
+        p.add_note(Note::TEST_C4.clone());
+        assert_eq!(p.notes[0].key, MidiNote::C4 as u8);
+        assert!(p
+            .change_note_key(&Note::TEST_C4, MidiNote::C5 as u8)
+            .is_ok());
+        assert_eq!(p.notes[0].key, MidiNote::C5 as u8);
+
+        assert!(
+            p.change_note_key(&Note::TEST_C4, 254).is_err(),
+            "changing key of nonexistent note should fail"
         );
     }
 
