@@ -882,6 +882,23 @@ impl Track {
     pub(crate) fn calculate_max_entity_uid(&self) -> Option<Uid> {
         self.thing_store.calculate_max_entity_uid()
     }
+
+    /// Moves the indicated effect to a new position within the effects chain.
+    /// Zero is the first position.
+    pub fn move_effect(&mut self, uid: Uid, new_index: usize) -> anyhow::Result<()> {
+        if new_index >= self.effects.len() {
+            Err(anyhow!(
+                "Can't move {uid} to {new_index} when we have only {} items",
+                self.effects.len()
+            ))
+        } else if self.effects.contains(&uid) {
+            self.effects.retain(|e| e != &uid);
+            self.effects.insert(new_index, uid);
+            Ok(())
+        } else {
+            Err(anyhow!("Effect {uid} not found"))
+        }
+    }
 }
 impl GeneratesToInternalBuffer<StereoSample> for Track {
     fn generate_batch_values(&mut self, len: usize) -> usize {
@@ -1067,7 +1084,7 @@ impl Serializable for Track {
 mod tests {
     use super::*;
     use groove_core::traits::HasUid;
-    use groove_toys::{ToyInstrument, ToyInstrumentParams};
+    use groove_toys::{ToyEffect, ToyInstrument, ToyInstrumentParams};
 
     #[test]
     fn basic_track_operations() {
@@ -1113,5 +1130,21 @@ mod tests {
             t.thing_store.get(&id1).is_none(),
             "it should be gone from the store"
         );
+
+        let mut effect = ToyEffect::default();
+        effect.set_uid(Uid(3));
+        let effect_id1 = t.append_thing(Box::new(effect)).unwrap();
+        let mut effect = ToyEffect::default();
+        effect.set_uid(Uid(4));
+        let effect_id2 = t.append_thing(Box::new(effect)).unwrap();
+
+        assert_eq!(t.effects[0], effect_id1);
+        assert_eq!(t.effects[1], effect_id2);
+        assert!(t.move_effect(effect_id1, 1).is_ok());
+        assert_eq!(
+            t.effects[0], effect_id2,
+            "After moving effects, id2 should be first"
+        );
+        assert_eq!(t.effects[1], effect_id1);
     }
 }

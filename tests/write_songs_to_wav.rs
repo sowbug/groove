@@ -4,7 +4,13 @@ use groove::{
     mini::{register_mini_factory_entities, Key, OrchestratorBuilder, PatternBuilder, PatternUid},
     EntityFactory, Orchestrator,
 };
-use groove_core::{time::Tempo, traits::Configurable, Normal};
+use groove_core::{
+    control::ControlValue,
+    time::Tempo,
+    traits::{Configurable, Controllable, HasUid},
+    Normal,
+};
+use groove_entities::effects::Gain;
 use std::path::PathBuf;
 
 fn set_up_patterns(o: &mut Orchestrator) -> Vec<PatternUid> {
@@ -58,10 +64,26 @@ fn set_up_drum_track(o: &mut Orchestrator, factory: &EntityFactory, kick_pattern
         .append_thing(factory.new_thing(&Key::from("drumkit")).unwrap())
         .unwrap();
 
-    let effect_uid = track
+    let reverb_uid = track
         .append_thing(factory.new_thing(&Key::from("reverb")).unwrap())
         .unwrap();
-    let _ = track.set_humidity(effect_uid, Normal::from(0.2));
+    let _ = track.set_humidity(reverb_uid, Normal::from(0.2));
+
+    // Try appending and then moving to front. Just for pedagogical purposes,
+    // we'll construct this one manually.
+    let mut gain = Gain::default();
+    gain.set_uid(factory.mint_uid());
+    gain.set_ceiling(Normal::from(0.9));
+    let gain_uid = track.append_thing(Box::new(gain)).unwrap();
+    let _ = track.move_effect(gain_uid, 0);
+
+    // Once again, but address the control param using the Controllable trait.
+    let mut gain = Gain::default();
+    gain.set_uid(factory.mint_uid());
+    gain.control_set_param_by_name("ceiling", ControlValue(0.99));
+    assert_eq!(gain.ceiling(), Normal::from(0.99));
+    let gain_uid = track.append_thing(Box::new(gain)).unwrap();
+    let _ = track.move_effect(gain_uid, 0);
 }
 
 #[test]
