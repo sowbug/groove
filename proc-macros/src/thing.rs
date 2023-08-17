@@ -112,6 +112,9 @@ pub(crate) fn parse_and_generate_thing(input: TokenStream, ty: ThingType) -> Tok
             | ThingType::Instrument
             | ThingType::ControllerEffect
             | ThingType::ControllerInstrument => quote! {
+                fn as_controllable(&self) -> Option<&dyn #core_crate::traits::Controllable> {
+                    Some(self)
+                }
                 fn as_controllable_mut(&mut self) -> Option<&mut dyn #core_crate::traits::Controllable> {
                     Some(self)
                 }

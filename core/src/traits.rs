@@ -369,6 +369,9 @@ pub trait Thing: HasUid + Shows + Configurable + Serializable + std::fmt::Debug 
     fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
         None
     }
+    fn as_controllable(&self) -> Option<&dyn Controllable> {
+        None
+    }
     fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
         None
     }
