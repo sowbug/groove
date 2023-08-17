@@ -1,3 +1,5 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use groove_core::{
     time::SampleRate, traits::Configurable, util::tests::TestOnlyPaths, StereoSample,
     SAMPLE_BUFFER_SIZE,
