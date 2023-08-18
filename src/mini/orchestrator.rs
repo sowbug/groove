@@ -741,6 +741,9 @@ impl Generates<StereoSample> for Orchestrator {
         }
 
         // ... and then generate the aux tracks...
+        //
+        // We don't currently support an aux returning to another aux. It's just
+        // regular tracks sending to aux, then aux returning to main. See #143
         self.tracks.par_iter_mut().for_each(|(_uid, track)| {
             if track.is_aux() {
                 track.generate_batch_values(len);
