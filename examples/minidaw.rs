@@ -57,7 +57,7 @@ enum MenuBarAction {
     ProjectSave,
     TrackNewMidi,
     TrackNewAudio,
-    TrackNewSend,
+    TrackNewAux,
     TrackDuplicate,
     TrackDelete,
     TrackRemoveSelectedPatterns,
@@ -153,7 +153,7 @@ impl MenuBar {
                     vec![
                         MenuBarItem::leaf("New MIDI", MenuBarAction::TrackNewMidi, true),
                         MenuBarItem::leaf("New Audio", MenuBarAction::TrackNewAudio, true),
-                        MenuBarItem::leaf("New Send", MenuBarAction::TrackNewSend, true),
+                        MenuBarItem::leaf("New Aux", MenuBarAction::TrackNewAux, true),
                         MenuBarItem::leaf(
                             "Duplicate",
                             MenuBarAction::TrackDuplicate,
@@ -228,10 +228,7 @@ impl MiniDaw {
         Self::initialize_fonts(cc);
         Self::initialize_style(&cc.egui_ctx);
 
-        let mut entity_factory = EntityFactory::default();
-        register_mini_factory_entities(&mut entity_factory);
-        let factory = Arc::new(entity_factory);
-
+        let factory = Arc::new(register_mini_factory_entities(EntityFactory::default()));
         let orchestrator_panel = OrchestratorPanel::new_with(Arc::clone(&factory));
         let mini_orchestrator = Arc::clone(orchestrator_panel.orchestrator());
 
@@ -493,9 +490,9 @@ impl MiniDaw {
         let mut input = None;
         match action {
             MenuBarAction::Quit => self.exit_requested = true,
-            MenuBarAction::TrackNewMidi => input = Some(OrchestratorInput::TrackNewMidi),
             MenuBarAction::TrackNewAudio => input = Some(OrchestratorInput::TrackNewAudio),
-            MenuBarAction::TrackNewSend => input = Some(OrchestratorInput::TrackNewSend),
+            MenuBarAction::TrackNewAux => input = Some(OrchestratorInput::TrackNewAux),
+            MenuBarAction::TrackNewMidi => input = Some(OrchestratorInput::TrackNewMidi),
             MenuBarAction::TrackDelete => input = Some(OrchestratorInput::TrackDeleteSelected),
             MenuBarAction::TrackDuplicate => {
                 input = Some(OrchestratorInput::TrackDuplicateSelected)

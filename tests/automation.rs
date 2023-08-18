@@ -22,9 +22,7 @@ fn demo_automation() {
         .unwrap();
     orchestrator.update_tempo(Tempo(128.0));
 
-    let mut factory = EntityFactory::default();
-    register_mini_factory_entities(&mut factory);
-    let factory = factory;
+    let factory = register_mini_factory_entities(EntityFactory::default());
 
     // Add the lead pattern to the PianoRoll.
     let scale_pattern_uid = {

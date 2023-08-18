@@ -80,7 +80,7 @@ pub enum TrackType {
     #[default]
     Midi,
     Audio,
-    Send,
+    Aux,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -127,13 +127,13 @@ impl TrackFactory {
         }
     }
 
-    pub fn send(&mut self) -> Track {
+    pub fn aux(&mut self) -> Track {
         let uid = self.next_uid();
-        let title = TrackTitle(format!("Send {}", uid));
+        let title = TrackTitle(format!("Aux {}", uid));
         Track {
             uid,
             title,
-            ty: TrackType::Send,
+            ty: TrackType::Aux,
             ..Default::default()
         }
     }
@@ -196,7 +196,7 @@ pub struct Track {
 impl Track {
     #[allow(missing_docs)]
     pub fn is_send(&self) -> bool {
-        matches!(self.ty, TrackType::Send)
+        matches!(self.ty, TrackType::Aux)
     }
 
     // TODO: for now the only way to add something new to a Track is to append it.
@@ -492,8 +492,8 @@ impl Track {
             TrackType::Audio => {
                 self.show_audio(ui, viewable_time_range);
             }
-            TrackType::Send => {
-                // For now, the title bar is enough for a send track, which holds only effects.
+            TrackType::Aux => {
+                // For now, the title bar is enough for a aux track, which holds only effects.
             }
         }
         (response, action)
@@ -547,7 +547,7 @@ impl Track {
                     // Build the track content with the device view beneath it.
                     ui.vertical(|ui| {
                         // Only MIDI/audio tracks have content.
-                        if !matches!(self.ty, TrackType::Send) {
+                        if !matches!(self.ty, TrackType::Aux) {
                             // Reserve space for the device view.
                             ui.set_max_height(Self::arrangement_view_height(ui_state));
 
@@ -643,7 +643,7 @@ impl Track {
     }
 
     pub(crate) fn track_view_height(track_type: TrackType, ui_state: TrackUiState) -> f32 {
-        if matches!(track_type, TrackType::Send) {
+        if matches!(track_type, TrackType::Aux) {
             Self::device_view_height(ui_state)
         } else {
             Self::arrangement_view_height(ui_state) + Self::device_view_height(ui_state)

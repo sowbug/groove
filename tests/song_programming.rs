@@ -108,10 +108,7 @@ fn program_song() {
         .build()
         .unwrap();
     orchestrator.update_tempo(Tempo(128.0));
-
-    let mut factory = EntityFactory::default();
-    register_mini_factory_entities(&mut factory);
-    let factory = factory;
+    let factory = register_mini_factory_entities(EntityFactory::default());
 
     set_up_drum_track(&mut orchestrator, &factory);
     set_up_lead_track(&mut orchestrator, &factory);

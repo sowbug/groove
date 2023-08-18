@@ -37,10 +37,10 @@ pub enum OrchestratorInput {
     TrackDuplicateSelected,
     /// Create a new audio track.
     TrackNewAudio,
+    /// Create a new aux track.
+    TrackNewAux,
     /// Create a new MIDI track.
     TrackNewMidi,
-    /// Create a new send track.
-    TrackNewSend,
     /// Delete the selected arranged patterns.
     TrackPatternRemoveSelected,
     /// Add a new entity to the selected track.
@@ -157,8 +157,8 @@ impl OrchestratorPanel {
                         OrchestratorInput::TrackNewAudio => {
                             let _ = o.new_audio_track();
                         }
-                        OrchestratorInput::TrackNewSend => {
-                            let _ = o.new_send_track();
+                        OrchestratorInput::TrackNewAux => {
+                            let _ = o.new_aux_track();
                         }
                         OrchestratorInput::TrackDeleteSelected => {
                             if let Ok(track_selection_set) = track_selection_set.lock() {

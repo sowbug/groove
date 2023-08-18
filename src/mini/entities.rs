@@ -15,11 +15,16 @@ use groove_entities::{
 use groove_toys::{ToyInstrument, ToyInstrumentParams, ToySynth, ToySynthParams};
 use groove_utils::Paths;
 
-/// Registers all the entities we want for the minidaw example's EntityFactory.
-pub fn register_mini_factory_entities(factory: &mut EntityFactory) {
-    // TODO: might be nice to move HasUid::name() to be a function... and
-    // while we're at it, I guess make the mondo IsEntity trait that allows
-    // discovery of IsInstrument/Effect/Controller.
+/// Registers all [EntityFactory]'s entities. Note that the function returns a
+/// EntityFactory, rather than operating on an &mut. This encourages
+/// one-and-done creation, after which the factory is immutable:
+///
+/// ```ignore
+/// let factory = register_mini_factory_entities(EntityFactory::default());
+/// ```
+#[must_use]
+pub fn register_mini_factory_entities(mut factory: EntityFactory) -> EntityFactory {
+    // TODO: might be nice to move HasUid::name() to be a function.
 
     factory.register_thing(Key::from("arpeggiator"), || {
         Box::new(Arpeggiator::new_with(
@@ -77,6 +82,8 @@ pub fn register_mini_factory_entities(factory: &mut EntityFactory) {
     });
 
     factory.complete_registration();
+
+    factory
 }
 
 #[cfg(test)]
@@ -85,9 +92,18 @@ use {
     groove_toys::{ToyEffect, ToyEffectParams},
 };
 
-/// Registers all the entities we want for the minidaw example's EntityFactory.
+/// Registers all [EntityFactory]'s entities. Note that the function returns an
+/// &EntityFactory. This encourages usage like this:
+///
+/// ```
+/// let mut factory = EntityFactory::default();
+/// let factory = register_test_factory_entities(&mut factory);
+/// ```
+///
+/// This makes the factory immutable once it's set up.
 #[cfg(test)]
-pub fn register_test_factory_entities(factory: &mut EntityFactory) {
+#[must_use]
+pub fn register_test_factory_entities(mut factory: EntityFactory) -> EntityFactory {
     factory.register_thing(Key::from("instrument"), || {
         Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default()))
     });
@@ -102,4 +118,6 @@ pub fn register_test_factory_entities(factory: &mut EntityFactory) {
     });
 
     factory.complete_registration();
+
+    factory
 }

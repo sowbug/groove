@@ -151,11 +151,11 @@ impl Orchestrator {
         self.new_track(track)
     }
 
-    /// Adds a new send track, which contains only effects, and which receives
-    /// its input audio from other tracks. Returns the new track's [TrackUid] if
-    /// successful.
-    pub fn new_send_track(&mut self) -> anyhow::Result<TrackUid> {
-        let track = self.track_factory.send();
+    /// Adds a new aux track, which contains only effects, and to which other
+    /// tracks can *send* their output audio. Returns the new track's [TrackUid]
+    /// if successful.
+    pub fn new_aux_track(&mut self) -> anyhow::Result<TrackUid> {
+        let track = self.track_factory.aux();
         self.new_track(track)
     }
 
@@ -167,7 +167,7 @@ impl Orchestrator {
         self.new_midi_track()?;
         self.new_midi_track()?;
         self.new_audio_track()?;
-        self.new_send_track()?;
+        self.new_aux_track()?;
         Ok(())
     }
 
@@ -449,7 +449,7 @@ impl Orchestrator {
                 self.ui_arrangement_labels(ui, to_screen_beats, text_bottom, viewable_time_range);
             ui.painter().extend(shapes);
 
-            // Non-send tracks are first, then send tracks
+            // Non-aux tracks are first, then aux tracks
             let uids: Vec<&TrackUid> = self
                 .track_uids
                 .iter()
@@ -887,7 +887,7 @@ mod tests {
         assert!(o.create_starter_tracks().is_err());
 
         assert_eq!(o.track_uids().len(), 4,
-            "we should have two MIDI tracks, one audio track, and one send track after create_starter_tracks().");
+            "we should have two MIDI tracks, one audio track, and one aux track after create_starter_tracks().");
     }
 
     #[test]

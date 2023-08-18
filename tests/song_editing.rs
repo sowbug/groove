@@ -4,10 +4,7 @@ use groove::{
     mini::{register_mini_factory_entities, Key, Note, OrchestratorBuilder, PatternBuilder},
     EntityFactory,
 };
-use groove_core::{
-    time::{MusicalTime, Tempo},
-    traits::Configurable,
-};
+use groove_core::time::MusicalTime;
 use std::path::PathBuf;
 
 #[test]
@@ -16,11 +13,7 @@ fn edit_song() {
         .title(Some("Simple Song (Edits)".to_string()))
         .build()
         .unwrap();
-    orchestrator.update_tempo(Tempo(128.0));
-
-    let mut factory = EntityFactory::default();
-    register_mini_factory_entities(&mut factory);
-    let factory = factory;
+    let factory = register_mini_factory_entities(EntityFactory::default());
 
     // Create two MIDI tracks.
     let rhythm_track_uid = orchestrator.new_midi_track().unwrap();

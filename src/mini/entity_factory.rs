@@ -299,10 +299,12 @@ mod tests {
 
     #[test]
     fn entity_creation() {
-        let mut factory = EntityFactory::default();
-        assert!(factory.entities().is_empty());
+        assert!(
+            EntityFactory::default().entities().is_empty(),
+            "A new EntityFactory should be empty"
+        );
 
-        register_test_factory_entities(&mut factory);
+        let factory = register_test_factory_entities(EntityFactory::default());
         assert!(
             !factory.entities().is_empty(),
             "after registering test entities, factory should contain at least one"
@@ -353,8 +355,7 @@ mod tests {
         let mut t = ThingStore::default();
         assert_eq!(t.sample_rate, SampleRate::DEFAULT);
         t.update_sample_rate(SampleRate(44444));
-        let mut factory = EntityFactory::default();
-        register_test_factory_entities(&mut factory);
+        let factory = register_test_factory_entities(EntityFactory::default());
 
         let thing = factory.new_thing(&Key::from("instrument")).unwrap();
         assert_eq!(
