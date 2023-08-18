@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove::{
-    mini::{register_mini_factory_entities, Key, OrchestratorBuilder, PatternBuilder},
+    mini::{register_factory_entities, Key, OrchestratorBuilder, PatternBuilder},
     EntityFactory,
 };
 use groove_core::{
@@ -22,7 +22,7 @@ fn demo_automation() {
         .unwrap();
     orchestrator.update_tempo(Tempo(128.0));
 
-    let factory = register_mini_factory_entities(EntityFactory::default());
+    let factory = register_factory_entities(EntityFactory::default());
 
     // Add the lead pattern to the PianoRoll.
     let scale_pattern_uid = {

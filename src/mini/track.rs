@@ -195,7 +195,7 @@ pub struct Track {
 }
 impl Track {
     #[allow(missing_docs)]
-    pub fn is_send(&self) -> bool {
+    pub fn is_aux(&self) -> bool {
         matches!(self.ty, TrackType::Aux)
     }
 
@@ -904,6 +904,16 @@ impl Track {
     pub fn control_router_mut(&mut self) -> &mut ControlRouter {
         &mut self.control_router
     }
+
+    /// Returns an immutable reference to the internal buffer.
+    pub fn buffer(&self) -> &TrackBuffer {
+        &self.buffer
+    }
+
+    /// Returns a writable version of the internal buffer.
+    pub fn buffer_mut(&mut self) -> &mut TrackBuffer {
+        &mut self.buffer
+    }
 }
 impl GeneratesToInternalBuffer<StereoSample> for Track {
     fn generate_batch_values(&mut self, len: usize) -> usize {
@@ -916,7 +926,16 @@ impl GeneratesToInternalBuffer<StereoSample> for Track {
             return 0;
         }
 
-        self.buffer.0.fill(StereoSample::SILENCE);
+        if !self.is_aux() {
+            // We're a regular track. Start with a fresh buffer and let each
+            // instrument do its thing.
+            self.buffer.0.fill(StereoSample::SILENCE);
+        } else {
+            // We're an aux track. We leave the internal buffer as-is, with the
+            // expectation that the caller has already filled it with the signal
+            // we should be processing.
+        }
+
         for uid in self.instruments.iter() {
             if let Some(e) = self.thing_store.get_mut(uid) {
                 if let Some(e) = e.as_instrument_mut() {

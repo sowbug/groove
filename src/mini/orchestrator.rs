@@ -1,10 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::{
+    bus_station::{BusRoute, BusStation},
     control_router::ControlRouter,
     piano_roll::PianoRoll,
     selection_set::SelectionSet,
-    track::{Track, TrackAction, TrackFactory, TrackTitle, TrackUiState, TrackUid},
+    track::{Track, TrackAction, TrackBuffer, TrackFactory, TrackTitle, TrackUiState, TrackUid},
     transport::{Transport, TransportBuilder},
     widgets::arrangement_legend,
     DragDropManager, Key,
@@ -25,7 +26,7 @@ use groove_core::{
         Configurable, ControlEventsFn, Controllable, Controls, Generates,
         GeneratesToInternalBuffer, HandlesMidi, HasUid, Serializable, ThingEvent, Ticks,
     },
-    Sample, StereoSample, Uid,
+    Normal, Sample, StereoSample, Uid,
 };
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
@@ -97,6 +98,8 @@ pub struct Orchestrator {
     // feature enabled for Serde.
     piano_roll: Arc<RwLock<PianoRoll>>,
 
+    bus_station: BusStation,
+
     //////////////////////////////////////////////////////
     // Nothing below this comment should be serialized. //
     //////////////////////////////////////////////////////
@@ -118,6 +121,7 @@ impl Default for Orchestrator {
             track_uids: Default::default(),
             track_ui_states: Default::default(),
             piano_roll: Default::default(),
+            bus_station: Default::default(),
 
             e: Default::default(),
         };
@@ -453,11 +457,11 @@ impl Orchestrator {
             let uids: Vec<&TrackUid> = self
                 .track_uids
                 .iter()
-                .filter(|uid| !self.tracks.get(uid).unwrap().is_send())
+                .filter(|uid| !self.tracks.get(uid).unwrap().is_aux())
                 .chain(
                     self.track_uids
                         .iter()
-                        .filter(|uid| self.tracks.get(uid).unwrap().is_send()),
+                        .filter(|uid| self.tracks.get(uid).unwrap().is_aux()),
                 )
                 .collect();
             let uids: Vec<TrackUid> = uids.iter().map(|u| (*u).clone()).collect();
@@ -657,6 +661,24 @@ impl Orchestrator {
 
         Ok(())
     }
+
+    /// Configures a send from the given track to the given aux track. The
+    /// `send_amount` parameter indicates how much of the signal should go to
+    /// the aux: 1.0 is full, 0.0 is silent.
+    pub fn send_to_aux(
+        &mut self,
+        send_track_uid: TrackUid,
+        aux_track_uid: TrackUid,
+        send_amount: Normal,
+    ) -> anyhow::Result<()> {
+        self.bus_station.add_send_route(
+            send_track_uid,
+            BusRoute {
+                aux_track_uid,
+                amount: send_amount,
+            },
+        )
+    }
 }
 impl HasUid for Orchestrator {
     fn uid(&self) -> Uid {
@@ -680,9 +702,53 @@ impl Generates<StereoSample> for Orchestrator {
     // its results, rather than overwriting.
     fn generate_batch_values(&mut self, values: &mut [StereoSample]) {
         let len = values.len();
+
+        // Generate all normal tracks in parallel.
         self.tracks.par_iter_mut().for_each(|(_uid, track)| {
-            track.generate_batch_values(len);
+            if !track.is_aux() {
+                track.generate_batch_values(len);
+            }
         });
+
+        // Send audio to aux tracks...
+        self.tracks.par_iter_mut().for_each(|(_uid, track)| {
+            if track.is_aux() {
+                track.buffer_mut().0.fill(StereoSample::SILENCE);
+            }
+        });
+        for (track_uid, routes) in self.bus_station.send_routes() {
+            // We need an extra buffer copy to satisfy the borrow checker.
+            // HashMap::get_mut() grabs the entire HashMap, preventing us from
+            // holding references to other elements in it. There are other
+            // implementations of HashMap that allow get_many_mut(), which could
+            // help. TODO
+            let mut send_buffer = TrackBuffer::default();
+            if let Some(send) = self.tracks.get(track_uid) {
+                send_buffer.0.copy_from_slice(&send.buffer().0);
+            } else {
+                eprintln!("Warning: couldn't find send track {track_uid}");
+                continue;
+            }
+
+            for route in routes {
+                if let Some(aux) = self.tracks.get_mut(&route.aux_track_uid) {
+                    let aux_buffer = aux.buffer_mut();
+                    for (index, sample) in send_buffer.0.iter().enumerate() {
+                        aux_buffer.0[index] += *sample * route.amount
+                    }
+                }
+            }
+        }
+
+        // ... and then generate the aux tracks...
+        self.tracks.par_iter_mut().for_each(|(_uid, track)| {
+            if track.is_aux() {
+                track.generate_batch_values(len);
+            }
+        });
+
+        // ... and we get returns for free, because (for now) all tracks are
+        // connected to the main mixer.
 
         // TODO: there must be a way to quickly sum same-sized arrays into a
         // final array. https://stackoverflow.com/questions/41207666/ seems to
@@ -816,13 +882,19 @@ impl Serializable for Orchestrator {
 
 #[cfg(test)]
 mod tests {
-    use crate::mini::{orchestrator::Orchestrator, OrchestratorBuilder, TrackUid};
+    use crate::mini::{
+        orchestrator::Orchestrator, track::TrackBuffer, OrchestratorBuilder, TrackUid,
+    };
     use groove_core::{
         time::{MusicalTime, SampleRate, Tempo},
         traits::{Configurable, Controls, HasUid},
-        StereoSample,
+        Normal, StereoSample,
     };
-    use groove_entities::controllers::{Timer, TimerParams};
+    use groove_entities::{
+        controllers::{Timer, TimerParams},
+        effects::{Gain, GainParams},
+    };
+    use groove_toys::ToyAudioSource;
     use std::collections::HashSet;
 
     #[test]
@@ -970,5 +1042,52 @@ mod tests {
         // This makes sure we remembered #[builder(default)] on the struct
         let o = OrchestratorBuilder::default().build().unwrap();
         assert_eq!(o.transport().uid(), Orchestrator::TRANSPORT_UID);
+    }
+
+    #[test]
+    fn sends_send() {
+        let mut o = Orchestrator::default();
+        let track_uid = o.new_midi_track().unwrap();
+        let aux_uid = o.new_aux_track().unwrap();
+
+        {
+            let track = o.get_track_mut(&track_uid).unwrap();
+            assert!(track
+                .append_thing(Box::new(ToyAudioSource::new_always_medium()))
+                .is_ok());
+        }
+        let mut samples = [StereoSample::SILENCE; TrackBuffer::LEN];
+        o.render(&mut samples);
+        let expected_sample = StereoSample::from(ToyAudioSource::MEDIUM);
+        assert!(
+            samples.iter().all(|s| *s == expected_sample),
+            "Without a send, original signal should pass through unchanged."
+        );
+
+        assert!(o.send_to_aux(track_uid, aux_uid, Normal::from(0.5)).is_ok());
+        let mut samples = [StereoSample::SILENCE; TrackBuffer::LEN];
+        o.render(&mut samples);
+        let expected_sample = StereoSample::from(0.75);
+        assert!(
+            samples.iter().all(|s| *s == expected_sample),
+            "With a 50% send, we should see the original 0.5 plus 50% of 0.5 = 0.75"
+        );
+
+        // Add an effect to the aux track.
+        {
+            let track = o.get_track_mut(&aux_uid).unwrap();
+            assert!(track
+                .append_thing(Box::new(Gain::new_with(&GainParams {
+                    ceiling: Normal::from(0.5)
+                })))
+                .is_ok());
+        }
+        let mut samples = [StereoSample::SILENCE; TrackBuffer::LEN];
+        o.render(&mut samples);
+        let expected_sample = StereoSample::from(0.5 + 0.5 * 0.5 * 0.5);
+        assert!(
+            samples.iter().all(|s| *s == expected_sample),
+            "With a 50% send to an aux with 50% gain, we should see the original 0.5 plus 50% of 50% of 0.5 = 0.625"
+        );
     }
 }

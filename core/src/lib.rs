@@ -246,6 +246,13 @@ impl Mul<f64> for StereoSample {
         Self(self.0 * rhs, self.1 * rhs)
     }
 }
+impl Mul<Normal> for StereoSample {
+    type Output = Self;
+
+    fn mul(self, rhs: Normal) -> Self::Output {
+        self * rhs.0
+    }
+}
 
 // TODO: I tried implementing this using the sort-of new generic const
 // expressions, because I wanted to see whether I could have compile-time

@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 pub use drag_drop::{DragDropManager, DragDropSource};
-pub use entities::register_mini_factory_entities;
+pub use entities::register_factory_entities;
 pub use entity_factory::{EntityFactory, Key};
 pub use orchestrator::{Orchestrator, OrchestratorAction, OrchestratorBuilder};
 pub use piano_roll::{Note, Pattern, PatternBuilder, PatternUid};
@@ -17,6 +17,7 @@ use crossbeam_channel::{Receiver, Sender};
 use groove_core::IsUid;
 use serde::{Deserialize, Serialize};
 
+mod bus_station;
 mod control_atlas;
 mod control_router;
 mod drag_drop;

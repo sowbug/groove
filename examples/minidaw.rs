@@ -15,7 +15,7 @@ use eframe::{
 use egui_toast::{Toast, ToastOptions, Toasts};
 use groove::{
     app_version,
-    mini::{register_mini_factory_entities, DragDropManager, EntityFactory, Key, Orchestrator},
+    mini::{register_factory_entities, DragDropManager, EntityFactory, Key, Orchestrator},
     panels::{
         AudioPanelEvent, ControlPanel, ControlPanelAction, MidiPanelEvent, NeedsAudioFn,
         OrchestratorEvent, OrchestratorInput, OrchestratorPanel, PaletteAction, PalettePanel,
@@ -228,7 +228,7 @@ impl MiniDaw {
         Self::initialize_fonts(cc);
         Self::initialize_style(&cc.egui_ctx);
 
-        let factory = Arc::new(register_mini_factory_entities(EntityFactory::default()));
+        let factory = Arc::new(register_factory_entities(EntityFactory::default()));
         let orchestrator_panel = OrchestratorPanel::new_with(Arc::clone(&factory));
         let mini_orchestrator = Arc::clone(orchestrator_panel.orchestrator());
 

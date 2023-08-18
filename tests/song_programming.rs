@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove::{
-    mini::{register_mini_factory_entities, Key, OrchestratorBuilder, PatternBuilder},
+    mini::{register_factory_entities, Key, OrchestratorBuilder, PatternBuilder},
     EntityFactory, Orchestrator,
 };
 use groove_core::{time::Tempo, traits::Configurable, Normal};
@@ -108,7 +108,7 @@ fn program_song() {
         .build()
         .unwrap();
     orchestrator.update_tempo(Tempo(128.0));
-    let factory = register_mini_factory_entities(EntityFactory::default());
+    let factory = register_factory_entities(EntityFactory::default());
 
     set_up_drum_track(&mut orchestrator, &factory);
     set_up_lead_track(&mut orchestrator, &factory);

@@ -563,7 +563,8 @@ impl Generates<StereoSample> for ToyAudioSource {
 
     #[allow(unused_variables)]
     fn generate_batch_values(&mut self, values: &mut [StereoSample]) {
-        todo!()
+        let sample = StereoSample::from(self.level);
+        values.fill(sample);
     }
 }
 impl Configurable for ToyAudioSource {
@@ -583,6 +584,7 @@ impl HandlesMidi for ToyAudioSource {}
 impl ToyAudioSource {
     pub const TOO_LOUD: SampleType = 1.1;
     pub const LOUD: SampleType = 1.0;
+    pub const MEDIUM: SampleType = 0.5;
     pub const SILENT: SampleType = 0.0;
     pub const QUIET: SampleType = -1.0;
     pub const TOO_QUIET: SampleType = -1.1;
@@ -592,6 +594,20 @@ impl ToyAudioSource {
             level: params.level(),
             ..Default::default()
         }
+    }
+
+    pub fn new_always_loud() -> Self {
+        Self::new_with(&ToyAudioSourceParams { level: Self::LOUD })
+    }
+
+    pub fn new_always_medium() -> Self {
+        Self::new_with(&ToyAudioSourceParams {
+            level: Self::MEDIUM,
+        })
+    }
+
+    pub fn new_always_quiet() -> Self {
+        Self::new_with(&ToyAudioSourceParams { level: Self::QUIET })
     }
 
     #[cfg(feature = "iced-framework")]

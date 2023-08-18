@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove::{
-    mini::{register_mini_factory_entities, Key, Note, OrchestratorBuilder, PatternBuilder},
+    mini::{register_factory_entities, Key, Note, OrchestratorBuilder, PatternBuilder},
     EntityFactory,
 };
 use groove_core::time::MusicalTime;
@@ -13,7 +13,7 @@ fn edit_song() {
         .title(Some("Simple Song (Edits)".to_string()))
         .build()
         .unwrap();
-    let factory = register_mini_factory_entities(EntityFactory::default());
+    let factory = register_factory_entities(EntityFactory::default());
 
     // Create two MIDI tracks.
     let rhythm_track_uid = orchestrator.new_midi_track().unwrap();

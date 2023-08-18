@@ -20,10 +20,10 @@ use groove_utils::Paths;
 /// one-and-done creation, after which the factory is immutable:
 ///
 /// ```ignore
-/// let factory = register_mini_factory_entities(EntityFactory::default());
+/// let factory = register_factory_entities(EntityFactory::default());
 /// ```
 #[must_use]
-pub fn register_mini_factory_entities(mut factory: EntityFactory) -> EntityFactory {
+pub fn register_factory_entities(mut factory: EntityFactory) -> EntityFactory {
     // TODO: might be nice to move HasUid::name() to be a function.
 
     factory.register_thing(Key::from("arpeggiator"), || {
