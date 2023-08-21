@@ -7,7 +7,7 @@ use super::{
     humidifier::Humidifier,
     midi_router::MidiRouter,
     piano_roll::PianoRoll,
-    sequencer::{Sequencer, SequencerAction, SequencerBuilder},
+    sequencer::{Sequencer, SequencerAction},
     DragDropManager, DragDropSource, Key,
 };
 use anyhow::anyhow;

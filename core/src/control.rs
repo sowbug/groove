@@ -10,6 +10,9 @@ pub struct ControlName(pub String);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ControlIndex(pub usize);
+
+/// A [ControlValue] is a standardized value range (0..=1.0) for
+/// Controls/Controllable.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct ControlValue(pub f64);
 impl From<Normal> for ControlValue {
