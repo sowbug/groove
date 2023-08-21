@@ -102,17 +102,10 @@ impl TrackFactory {
             uid,
             title,
             ty: TrackType::Midi,
-            sequencer: Some(
-                SequencerBuilder::default()
-                    .midi_channel_out(MidiChannel(0))
-                    .build()
-                    .unwrap(),
-            ),
             ..Default::default()
         };
-        if let Some(s) = t.sequencer_mut() {
-            s.set_piano_roll(Arc::clone(piano_roll));
-        }
+        t.sequencer_mut().set_piano_roll(Arc::clone(piano_roll));
+
         t
     }
 
@@ -173,8 +166,8 @@ pub struct Track {
     title: TrackTitle,
     ty: TrackType,
 
-    sequencer: Option<Sequencer>,
-    control_atlas: Option<ControlAtlas>,
+    sequencer: Sequencer,
+    control_atlas: ControlAtlas,
     thing_store: ThingStore,
     controllers: Vec<Uid>,
     instruments: Vec<Uid>,
@@ -306,9 +299,7 @@ impl Track {
         ui: &mut Ui,
         viewable_time_range: &Range<MusicalTime>,
     ) -> (Response, Option<SequencerAction>) {
-        let sequencer = self.sequencer.as_mut().unwrap();
-
-        //        sequencer.ui_arrangement(ui, viewable_time_range)
+        //        self.sequencer.ui_arrangement(ui, viewable_time_range)
         panic!()
     }
 
@@ -337,15 +328,13 @@ impl Track {
 
                     let mut action = None;
 
-                    if let Some(sequencer) = self.sequencer.as_mut() {
-                        if let Some(a) = Self::add_track_element(ui, 0, false, false, false, |ui| {
-                            ui.allocate_ui(vec2(256.0, ui.available_height()), |ui| {
-                                sequencer.show(ui);
-                            });
-                        }) {
-                            action = Some(a);
-                        };
-                    }
+                    if let Some(a) = Self::add_track_element(ui, 0, false, false, false, |ui| {
+                        ui.allocate_ui(vec2(256.0, ui.available_height()), |ui| {
+                            self.sequencer.show(ui);
+                        });
+                    }) {
+                        action = Some(a);
+                    };
 
                     let len = self.controllers.len();
                     for (index, uid) in self.controllers.iter().enumerate() {
@@ -671,8 +660,9 @@ impl Track {
         _ui_state: TrackUiState,
         _is_selected: bool,
     ) {
-        let sequencer = self.sequencer.as_mut().unwrap();
-        let (_response, _action) = sequencer.ui_arrangement(ui, ddm, self.uid, viewable_time_range);
+        let (_response, _action) =
+            self.sequencer
+                .ui_arrangement(ui, ddm, self.uid, viewable_time_range);
     }
 
     /// Renders an audio [Track]'s arrangement view, which is an overview of some or
@@ -700,18 +690,16 @@ impl Track {
         let desired_size = vec2(128.0, Self::device_view_height(ui_state));
 
         ui.horizontal(|ui| {
-            if let Some(sequencer) = self.sequencer.as_mut() {
-                if self.is_sequencer_open {
-                    egui::Window::new("Sequencer")
-                        .open(&mut self.is_sequencer_open)
-                        .show(ui.ctx(), |ui| {
-                            sequencer.show(ui);
-                        });
-                } else {
-                    Self::ui_device(ui, sequencer, desired_size);
-                    if ui.button("open").clicked() {
-                        self.is_sequencer_open = !self.is_sequencer_open;
-                    }
+            if self.is_sequencer_open {
+                egui::Window::new("Sequencer")
+                    .open(&mut self.is_sequencer_open)
+                    .show(ui.ctx(), |ui| {
+                        self.sequencer.show(ui);
+                    });
+            } else {
+                Self::ui_device(ui, &mut self.sequencer, desired_size);
+                if ui.button("open").clicked() {
+                    self.is_sequencer_open = !self.is_sequencer_open;
                 }
             }
             for thing in self.thing_store.iter_mut() {
@@ -803,9 +791,7 @@ impl Track {
 
     #[allow(missing_docs)]
     pub fn remove_selected_patterns(&mut self) {
-        if let Some(sequencer) = self.sequencer.as_mut() {
-            sequencer.remove_selected_arranged_patterns();
-        }
+        self.sequencer.remove_selected_arranged_patterns();
     }
 
     #[allow(missing_docs)]
@@ -855,14 +841,12 @@ impl Track {
     #[allow(missing_docs)]
     pub fn set_piano_roll(&mut self, piano_roll: Arc<RwLock<PianoRoll>>) {
         self.piano_roll = Arc::clone(&piano_roll);
-        if let Some(sequencer) = self.sequencer.as_mut() {
-            sequencer.set_piano_roll(piano_roll);
-        }
+        self.sequencer.set_piano_roll(piano_roll);
     }
 
     #[allow(missing_docs)]
-    pub fn sequencer_mut(&mut self) -> Option<&mut Sequencer> {
-        self.sequencer.as_mut()
+    pub fn sequencer_mut(&mut self) -> &mut Sequencer {
+        &mut self.sequencer
     }
 
     /// Sets the wet/dry of an effect in the chain.
@@ -913,6 +897,11 @@ impl Track {
     /// Returns a writable version of the internal buffer.
     pub fn buffer_mut(&mut self) -> &mut TrackBuffer {
         &mut self.buffer
+    }
+
+    /// Returns the [ControlAtlas].
+    pub fn control_atlas_mut(&mut self) -> &mut ControlAtlas {
+        &mut self.control_atlas
     }
 }
 impl GeneratesToInternalBuffer<StereoSample> for Track {
@@ -980,33 +969,21 @@ impl Ticks for Track {
 }
 impl Configurable for Track {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
-        if let Some(sequencer) = self.sequencer.as_mut() {
-            sequencer.update_sample_rate(sample_rate);
-        }
-        if let Some(atlas) = self.control_atlas.as_mut() {
-            atlas.update_sample_rate(sample_rate);
-        }
+        self.sequencer.update_sample_rate(sample_rate);
+
+        self.control_atlas.update_sample_rate(sample_rate);
         self.thing_store.update_sample_rate(sample_rate);
     }
 
     fn update_tempo(&mut self, tempo: Tempo) {
-        if let Some(sequencer) = self.sequencer.as_mut() {
-            sequencer.update_tempo(tempo);
-        }
-        if let Some(atlas) = self.control_atlas.as_mut() {
-            atlas.update_tempo(tempo)
-        }
+        self.sequencer.update_tempo(tempo);
+        self.control_atlas.update_tempo(tempo);
         self.thing_store.update_tempo(tempo);
     }
 
     fn update_time_signature(&mut self, time_signature: TimeSignature) {
-        if let Some(sequencer) = self.sequencer.as_mut() {
-            sequencer.update_time_signature(time_signature);
-        }
-        if let Some(atlas) = self.control_atlas.as_mut() {
-            atlas.update_time_signature(time_signature);
-        }
-
+        self.sequencer.update_time_signature(time_signature);
+        self.control_atlas.update_time_signature(time_signature);
         self.thing_store.update_time_signature(time_signature);
     }
 }
@@ -1035,71 +1012,45 @@ impl HandlesMidi for Track {
 }
 impl Controls for Track {
     fn update_time(&mut self, range: &std::ops::Range<groove_core::time::MusicalTime>) {
-        if let Some(sequencer) = self.sequencer.as_mut() {
-            sequencer.update_time(range);
-        }
-        if let Some(atlas) = self.control_atlas.as_mut() {
-            atlas.update_time(range);
-        }
+        self.sequencer.update_time(range);
+        self.control_atlas.update_time(range);
         self.thing_store.update_time(range);
     }
 
     fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
-        if let Some(sequencer) = self.sequencer.as_mut() {
-            sequencer.work(control_events_fn);
-        }
-        if let Some(atlas) = self.control_atlas.as_mut() {
-            atlas.work(control_events_fn);
-        }
+        self.sequencer.work(control_events_fn);
+        self.control_atlas.work(control_events_fn);
         self.thing_store.work(control_events_fn);
     }
 
     fn is_finished(&self) -> bool {
-        (if let Some(sequencer) = &self.sequencer {
-            sequencer.is_finished()
-        } else {
-            true
-        }) && (if let Some(atlas) = &self.control_atlas {
-            atlas.is_finished()
-        } else {
-            true
-        }) && self.thing_store.is_finished()
+        self.sequencer.is_finished()
+            && self.control_atlas.is_finished()
+            && self.thing_store.is_finished()
     }
 
     fn play(&mut self) {
-        if let Some(sequencer) = self.sequencer.as_mut() {
-            sequencer.play()
-        }
+        self.sequencer.play();
         self.thing_store.play();
     }
 
     fn stop(&mut self) {
-        if let Some(sequencer) = self.sequencer.as_mut() {
-            sequencer.stop()
-        }
+        self.sequencer.stop();
         self.thing_store.stop();
     }
 
     fn skip_to_start(&mut self) {
-        if let Some(sequencer) = self.sequencer.as_mut() {
-            sequencer.skip_to_start();
-        }
+        self.sequencer.skip_to_start();
         self.thing_store.skip_to_start();
     }
 
     fn is_performing(&self) -> bool {
-        (if let Some(sequencer) = &self.sequencer {
-            sequencer.is_performing()
-        } else {
-            false
-        }) || self.thing_store.is_performing()
+        self.sequencer.is_performing() || self.thing_store.is_performing()
     }
 }
 impl Serializable for Track {
     fn after_deser(&mut self) {
-        if let Some(sequencer) = self.sequencer.as_mut() {
-            sequencer.after_deser();
-        }
+        self.sequencer.after_deser();
         self.thing_store.after_deser();
     }
 }

@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::{sequencer::SequencerBuilder, EntityFactory, Key};
+use super::{sequencer::SequencerBuilder, ControlTrip, EntityFactory, Key};
 use groove_core::{generators::Waveform, midi::MidiChannel, FrequencyHz, Normal};
 use groove_entities::{
     controllers::{
@@ -79,6 +79,9 @@ pub fn register_factory_entities(mut factory: EntityFactory) -> EntityFactory {
             frequency: FrequencyHz(0.2),
             waveform: Waveform::Sawtooth,
         }))
+    });
+    factory.register_thing(Key::from("control-trip"), || {
+        Box::new(ControlTrip::default())
     });
 
     factory.complete_registration();

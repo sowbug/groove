@@ -43,8 +43,7 @@ fn set_up_drum_track(o: &mut Orchestrator, factory: &EntityFactory) {
     // Sequencer emits events on MIDI channel 0.
     let track_uid = o.new_midi_track().unwrap();
     let track = o.get_track_mut(&track_uid).unwrap();
-    let sequencer = track.sequencer_mut().unwrap();
-    let _ = sequencer.arrange_pattern(&drum_pattern_uid, 0);
+    let _ = track.sequencer_mut().arrange_pattern(&drum_pattern_uid, 0);
 
     // Add the drumkit instrument to the track. By default, it listens on MIDI channel 0.
     let _drumkit_uid = track
@@ -82,8 +81,7 @@ fn set_up_lead_track(o: &mut Orchestrator, factory: &EntityFactory) {
     // Arrange the lead pattern in a new MIDI track's Sequencer.
     let track_uid = o.new_midi_track().unwrap();
     let track = o.get_track_mut(&track_uid).unwrap();
-    let sequencer = track.sequencer_mut().unwrap();
-    let _ = sequencer.arrange_pattern(&scale_pattern_uid, 0);
+    let _ = track.sequencer_mut().arrange_pattern(&scale_pattern_uid, 0);
 
     // Add a synth to play the pattern.
     let _synth_uid = track

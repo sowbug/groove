@@ -52,8 +52,9 @@ fn aux_bus() {
 
     let _synth_uid_1 = {
         let track = orchestrator.get_track_mut(&track_uid_1).unwrap();
-        let sequencer = track.sequencer_mut().unwrap();
-        let _ = sequencer.arrange_pattern(&synth_pattern_uid_1, 0);
+        let _ = track
+            .sequencer_mut()
+            .arrange_pattern(&synth_pattern_uid_1, 0);
 
         // Even though we want the effect to be placed after the instrument in
         // the audio chain, we can add the effect before we add the instrument.
@@ -68,8 +69,9 @@ fn aux_bus() {
     };
     let _synth_uid_2 = {
         let track = orchestrator.get_track_mut(&track_uid_2).unwrap();
-        let sequencer = track.sequencer_mut().unwrap();
-        let _ = sequencer.arrange_pattern(&synth_pattern_uid_2, 0);
+        let _ = track
+            .sequencer_mut()
+            .arrange_pattern(&synth_pattern_uid_2, 0);
         track
             .append_thing(factory.new_thing(&Key::from("gain")).unwrap())
             .unwrap();

@@ -72,8 +72,9 @@ fn edit_song() {
         .unwrap();
 
     // Arrange the drum pattern.
-    let sequencer = rhythm_track.sequencer_mut().unwrap();
-    let _ = sequencer.arrange_pattern(&drum_pattern_uid, 0);
+    let _ = rhythm_track
+        .sequencer_mut()
+        .arrange_pattern(&drum_pattern_uid, 0);
 
     // Now set up the lead track. We need a pattern; we'll whip up something
     // quickly because we already showed the editing process while making the
@@ -115,8 +116,9 @@ fn edit_song() {
     let _ = lead_track.move_effect(lead_gain_uid, 0);
 
     // Arrange the lead pattern.
-    let sequencer = lead_track.sequencer_mut().unwrap();
-    let _ = sequencer.arrange_pattern(&lead_pattern_uid, 0);
+    let _ = lead_track
+        .sequencer_mut()
+        .arrange_pattern(&lead_pattern_uid, 0);
 
     // https://doc.rust-lang.org/std/path/struct.PathBuf.html example
     let output_path: PathBuf = [env!("CARGO_TARGET_TMPDIR"), "simple-song-with-edits.wav"]
