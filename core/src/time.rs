@@ -696,7 +696,8 @@ impl MusicalTime {
         (frames_per_beat * (units as f64 / Self::UNITS_IN_BEAT as f64) + 0.5) as usize
     }
 
-    pub fn end_of_time_range() -> Range<Self> {
+    /// Returns a [Range] that contains nothing.
+    pub fn empty_range() -> Range<Self> {
         Range {
             start: Self::TIME_MAX,
             end: Self::TIME_MAX,

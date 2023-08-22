@@ -481,7 +481,7 @@ impl ToyController {
             checkpoint,
             checkpoint_delta,
             time_unit,
-            time_range: MusicalTime::end_of_time_range(),
+            time_range: MusicalTime::empty_range(),
             last_time_handled: MusicalTime::TIME_MAX,
         }
     }

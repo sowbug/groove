@@ -1,14 +1,18 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove::{
-    mini::{register_factory_entities, ControlTrip, Key, OrchestratorBuilder, PatternBuilder},
+    mini::{
+        register_factory_entities, ControlPath, ControlStepBuilder, ControlTripBuilder, Key,
+        OrchestratorBuilder, PatternBuilder,
+    },
     EntityFactory,
 };
 use groove_core::{
+    control::ControlValue,
     generators::Waveform,
-    time::{MusicalTime, Tempo, TimeSignature},
+    time::{MusicalTime, Tempo},
     traits::{Configurable, HasUid},
-    FrequencyHz, Normal,
+    FrequencyHz,
 };
 use groove_entities::controllers::{LfoController, LfoControllerParams};
 use std::path::PathBuf;
@@ -134,10 +138,25 @@ fn demo_control_trips() {
 
     // Add a ControlTrip that ramps from zero to max over the desired amount of time.
     let control_atlas = track.control_atlas_mut();
-    let mut trip = ControlTrip::new_with(
-        Normal::minimum()..=Normal::maximum(),
-        MusicalTime::START..MusicalTime::new_with_bars(&TimeSignature::default(), 1),
-    );
+    let mut trip = ControlTripBuilder::default()
+        .step(
+            ControlStepBuilder::default()
+                .value(ControlValue::MIN)
+                .time(MusicalTime::START)
+                .path(ControlPath::Linear)
+                .build()
+                .unwrap(),
+        )
+        .step(
+            ControlStepBuilder::default()
+                .value(ControlValue::MAX)
+                .time(MusicalTime::new_with_beats(4))
+                .path(ControlPath::Flat)
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
     let trip_uid = factory.mint_uid();
     trip.set_uid(trip_uid);
     control_atlas.add_trip(trip);
