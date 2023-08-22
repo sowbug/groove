@@ -14,7 +14,12 @@ pub struct ControlIndex(pub usize);
 /// A [ControlValue] is a standardized value range (0..=1.0) for
 /// Controls/Controllable.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ControlValue(pub f64);
+impl ControlValue {
+    pub const MIN: Self = Self(0.0);
+    pub const MAX: Self = Self(1.0);
+}
 impl From<Normal> for ControlValue {
     fn from(value: Normal) -> Self {
         Self(value.0)
