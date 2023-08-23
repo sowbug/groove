@@ -4,7 +4,8 @@ use super::{sequencer::SequencerBuilder, ControlTrip, EntityFactory, Key};
 use groove_core::{generators::Waveform, midi::MidiChannel, FrequencyHz, Normal};
 use groove_entities::{
     controllers::{
-        Arpeggiator, ArpeggiatorParams, LfoController, LfoControllerParams, Timer, TimerParams,
+        Arpeggiator, ArpeggiatorParams, LfoController, LfoControllerParams,
+        SignalPassthroughController, Timer, TimerParams,
     },
     effects::{
         BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbParams, Gain, GainParams, Reverb,
@@ -51,6 +52,13 @@ pub fn register_factory_entities(mut factory: EntityFactory) -> EntityFactory {
             ceiling: Normal::from(0.5),
         }))
     });
+    // TODO: this is lazy. It's too hard right now to adjust parameters within
+    // code, so I'm creating a special instrument with the parameters I want.
+    factory.register_thing(Key::from("mute"), || {
+        Box::new(Gain::new_with(&GainParams {
+            ceiling: Normal::minimum(),
+        }))
+    });
     factory.register_thing(Key::from("filter-low-pass-24db"), || {
         Box::new(BiQuadFilterLowPass24db::new_with(
             &BiQuadFilterLowPass24dbParams::default(),
@@ -82,6 +90,15 @@ pub fn register_factory_entities(mut factory: EntityFactory) -> EntityFactory {
     });
     factory.register_thing(Key::from("control-trip"), || {
         Box::new(ControlTrip::default())
+    });
+    factory.register_thing(Key::from("signal-passthrough"), || {
+        Box::new(SignalPassthroughController::default())
+    });
+    factory.register_thing(Key::from("signal-amplitude-passthrough"), || {
+        Box::new(SignalPassthroughController::new_amplitude_passthrough_type())
+    });
+    factory.register_thing(Key::from("signal-amplitude-inverted-passthrough"), || {
+        Box::new(SignalPassthroughController::new_amplitude_inverted_passthrough_type())
     });
 
     factory.complete_registration();

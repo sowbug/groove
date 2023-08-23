@@ -24,7 +24,7 @@ use groove_core::{
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
     traits::{
         gui::Shows, Configurable, ControlEventsFn, Controls, GeneratesToInternalBuffer,
-        Serializable, Thing, Ticks,
+        Serializable, Thing, ThingEvent, Ticks,
     },
     IsUid, Normal, StereoSample, Uid,
 };
@@ -197,12 +197,15 @@ impl Track {
     pub fn append_thing(&mut self, thing: Box<dyn Thing>) -> anyhow::Result<Uid> {
         let uid = thing.uid();
 
+        // Some things are hybrids, so they can appear in multiple lists. That's
+        // why we don't have if-else here.
         if thing.as_controller().is_some() {
-            // TODO: some things are hybrids - the "else" is wrong
             self.controllers.push(uid);
-        } else if thing.as_effect().is_some() {
+        }
+        if thing.as_effect().is_some() {
             self.effects.push(uid);
-        } else if thing.as_instrument().is_some() {
+        }
+        if thing.as_instrument().is_some() {
             self.instruments.push(uid);
         }
         if thing.as_handles_midi().is_some() {
@@ -218,9 +221,11 @@ impl Track {
         if let Some(thing) = self.thing_store.remove(uid) {
             if thing.as_controller().is_some() {
                 self.controllers.retain(|e| e != uid)
-            } else if thing.as_effect().is_some() {
+            }
+            if thing.as_effect().is_some() {
                 self.effects.retain(|e| e != uid);
-            } else if thing.as_instrument().is_some() {
+            }
+            if thing.as_instrument().is_some() {
                 self.instruments.retain(|e| e != uid);
             }
             Some(thing)
@@ -955,6 +960,9 @@ impl GeneratesToInternalBuffer<StereoSample> for Track {
             }
         }
 
+        // See #146 TODO - at this point we might want to gather any events
+        // produced during the effects stage.
+
         self.buffer.0.len()
     }
 
@@ -1018,7 +1026,21 @@ impl Controls for Track {
     }
 
     fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
-        self.sequencer.work(control_events_fn);
+        self.sequencer.work(&mut |uid, event| match event {
+            // #145: we don't want MIDI messages to escape this track. This is a
+            // temporary fix because we do want Orchestrator to route to
+            // external MIDI devices, so eventually we will need to pass them
+            // along.
+            ThingEvent::Midi(channel, message) => {
+                let _ = self
+                    .midi_router
+                    .route(&mut self.thing_store, channel, message);
+            }
+            ThingEvent::Control(_) => {
+                control_events_fn(uid, event);
+            }
+            ThingEvent::HandleControl(_, _) => todo!(),
+        });
         self.control_atlas.work(control_events_fn);
         self.thing_store.work(control_events_fn);
     }
