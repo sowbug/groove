@@ -48,6 +48,9 @@ I use VSCode on Ubuntu 22.04 LTS for development.
   advanced than what `stable` provides, so it's OK to install just that one.
 - If you're developing on Linux, `apt install` the packages you find buried
   somewhere in `.github/workflows/build.yml`.
+- Also `apt install mold`, which provides faster linking during development. If
+  you don't want to use mold, or can't, then comment out the section in
+  `.cargo/config.toml` that specifies use of mold.
 - `cargo build`, and then try the commands listed in the other Getting Started
   section. Or try `cargo install` if you want the current binaries installed in
   your PATH (not recommended).
