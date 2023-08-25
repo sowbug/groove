@@ -8,6 +8,7 @@ use groove_core::{
     traits::{Configurable, ControlEventsFn, Controls, Serializable, Thing, Ticks},
     Uid,
 };
+use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::{collections::hash_map, fmt::Debug, option::Option};
 use std::{
@@ -31,6 +32,9 @@ impl From<&str> for Key {
 }
 
 type ThingFactoryFn = fn() -> Box<dyn Thing>;
+
+/// The one and only EntityFactory. Access it with `EntityFactory::global()`.
+pub static FACTORY: OnceCell<EntityFactory> = OnceCell::new();
 
 /// [EntityFactory] accepts [Key]s and creates instruments, controllers, and
 /// effects. It makes sure every entity has a proper [Uid].
@@ -56,6 +60,13 @@ impl Default for EntityFactory {
 }
 impl EntityFactory {
     pub(crate) const MAX_RESERVED_UID: usize = 1023;
+
+    /// Provides the one and only [EntityFactory].
+    pub fn global() -> &'static Self {
+        FACTORY
+            .get()
+            .expect("EntityFactory has not been initialized")
+    }
 
     /// Set the next [Uid]. This is needed if we're deserializing a project and
     /// need to reset the [EntityFactory] to mint unique [Uid]s.

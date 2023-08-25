@@ -166,15 +166,23 @@ pub struct Track {
     title: TrackTitle,
     ty: TrackType,
 
-    sequencer: Sequencer,
-    control_atlas: ControlAtlas,
     thing_store: ThingStore,
+
+    sequencer: Sequencer,
+    midi_router: MidiRouter,
+
+    /// [ControlAtlas] manages the sources of Control events. It generates
+    /// events but does not handle their routing.
+    control_atlas: ControlAtlas,
+    /// [ControlRouter] manages the destinations of Control events. It does not
+    /// generate events, but when events are generated, it knows where to route
+    /// them.
+    control_router: ControlRouter,
+
     controllers: Vec<Uid>,
     instruments: Vec<Uid>,
     effects: Vec<Uid>,
 
-    midi_router: MidiRouter,
-    control_router: ControlRouter,
     humidifier: Humidifier,
 
     #[serde(skip)]
@@ -568,6 +576,7 @@ impl Track {
                                         }
                                         _ => panic!(),
                                     }
+                                    self.control_atlas.show(ui);
                                 });
                         }
 

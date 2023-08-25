@@ -1,11 +1,13 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use crate::EntityFactory;
 use derive_builder::Builder;
 use groove_core::{
     control::ControlValue,
     time::MusicalTime,
     traits::{
-        gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable, ThingEvent,
+        gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, HasUid, Serializable,
+        ThingEvent,
     },
     Uid,
 };
@@ -277,7 +279,29 @@ pub struct ControlAtlas {
     #[serde(skip)]
     range: Range<MusicalTime>,
 }
-impl Shows for ControlAtlas {}
+impl Shows for ControlAtlas {
+    fn show(&mut self, ui: &mut eframe::egui::Ui) {
+        ui.horizontal_top(|ui| {
+            if ui.button("Add trip").clicked() {
+                let mut trip = ControlTripBuilder::default().build().unwrap();
+                trip.set_uid(EntityFactory::global().mint_uid());
+                self.add_trip(trip);
+            }
+            let mut remove_uid = None;
+            for trip in self.trips.iter_mut() {
+                ui.vertical(|ui| {
+                    if ui.button("x").clicked() {
+                        remove_uid = Some(trip.uid);
+                    }
+                });
+                trip.show(ui);
+            }
+            if let Some(uid) = remove_uid {
+                self.remove_trip(uid);
+            }
+        });
+    }
+}
 impl HandlesMidi for ControlAtlas {}
 impl Controls for ControlAtlas {
     fn update_time(&mut self, range: &Range<MusicalTime>) {
@@ -330,8 +354,13 @@ impl Configurable for ControlAtlas {
     }
 }
 impl ControlAtlas {
+    /// Adds the given [ControlTrip] to this atlas. TODO: specify any ordering constraints
     pub fn add_trip(&mut self, trip: ControlTrip) {
         self.trips.push(trip);
+    }
+
+    fn remove_trip(&mut self, uid: Uid) {
+        self.trips.retain(|t| t.uid != uid);
     }
 }
 

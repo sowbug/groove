@@ -270,23 +270,26 @@ impl Sequencer {
         track_uid: TrackUid,
         viewable_time_range: &Range<MusicalTime>,
     ) -> (Response, Option<SequencerAction>) {
-        ui.horizontal_top(|ui| {
-            let mut time_pointer = viewable_time_range.start;
-            while time_pointer < viewable_time_range.end {
-                let range_size = viewable_time_range.end
-                    - viewable_time_range.start
-                    - MusicalTime::new_with_units(1);
-                let half_range_size = MusicalTime::new_with_units(range_size.total_units() / 2);
-                let section_end = (time_pointer + half_range_size).min(viewable_time_range.end);
+        (
+            ui.horizontal_top(|ui| {
+                let mut time_pointer = viewable_time_range.start;
+                while time_pointer < viewable_time_range.end {
+                    let range_size = viewable_time_range.end
+                        - viewable_time_range.start
+                        - MusicalTime::new_with_units(1);
+                    let half_range_size = MusicalTime::new_with_units(range_size.total_units() / 2);
+                    let section_end = (time_pointer + half_range_size).min(viewable_time_range.end);
 
-                ui.add(arrangement_space(
-                    viewable_time_range.clone(),
-                    time_pointer..section_end,
-                ));
-                time_pointer = section_end;
-            }
-        });
-        (ui.spinner(), None)
+                    ui.add(arrangement_space(
+                        viewable_time_range.clone(),
+                        time_pointer..section_end,
+                    ));
+                    time_pointer = section_end;
+                }
+            })
+            .response,
+            None,
+        )
     }
 
     /// Renders the owning track's arrangement view.

@@ -1,11 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 pub use control_atlas::{
-    ControlPath, ControlStep, ControlStepBuilder, ControlTrip, ControlTripBuilder,
+    ControlAtlas, ControlPath, ControlStep, ControlStepBuilder, ControlTrip, ControlTripBuilder,
 };
 pub use drag_drop::{DragDropManager, DragDropSource};
 pub use entities::register_factory_entities;
-pub use entity_factory::{EntityFactory, Key};
+pub use entity_factory::{EntityFactory, Key, FACTORY};
 pub use orchestrator::{Orchestrator, OrchestratorAction, OrchestratorBuilder};
 pub use piano_roll::{Note, Pattern, PatternBuilder, PatternUid};
 pub use selection_set::SelectionSet;

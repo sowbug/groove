@@ -2,6 +2,7 @@
 
 #![deny(rustdoc::broken_intra_doc_links)]
 
+use anyhow::anyhow;
 use crossbeam_channel::Select;
 use eframe::{
     egui::{
@@ -15,7 +16,7 @@ use eframe::{
 use egui_toast::{Toast, ToastOptions, Toasts};
 use groove::{
     app_version,
-    mini::{register_factory_entities, DragDropManager, EntityFactory, Key, Orchestrator},
+    mini::{register_factory_entities, DragDropManager, EntityFactory, Key, Orchestrator, FACTORY},
     panels::{
         AudioPanelEvent, ControlPanel, ControlPanelAction, MidiPanelEvent, NeedsAudioFn,
         OrchestratorEvent, OrchestratorInput, OrchestratorPanel, PaletteAction, PalettePanel,
@@ -112,15 +113,9 @@ impl MenuBarItem {
     }
 }
 
-#[derive(Debug)]
-struct MenuBar {
-    factory: Arc<EntityFactory>,
-}
+#[derive(Debug, Default)]
+struct MenuBar {}
 impl MenuBar {
-    pub fn new_with(factory: Arc<EntityFactory>) -> Self {
-        Self { factory }
-    }
-
     fn show_with_action(&mut self, ui: &mut Ui, is_track_selected: bool) -> Option<MenuBarAction> {
         let mut action = None;
 
@@ -188,7 +183,7 @@ impl MenuBar {
     fn new_entity_menu(&self) -> Vec<MenuBarItem> {
         vec![MenuBarItem::node(
             "Things",
-            self.factory
+            EntityFactory::global()
                 .keys()
                 .iter()
                 .map(|k| {
@@ -228,8 +223,7 @@ impl MiniDaw {
         Self::initialize_fonts(cc);
         Self::initialize_style(&cc.egui_ctx);
 
-        let factory = Arc::new(register_factory_entities(EntityFactory::default()));
-        let orchestrator_panel = OrchestratorPanel::new_with(Arc::clone(&factory));
+        let orchestrator_panel = OrchestratorPanel::default();
         let mini_orchestrator = Arc::clone(orchestrator_panel.orchestrator());
 
         let mini_orchestrator_for_fn = Arc::clone(&mini_orchestrator);
@@ -241,10 +235,10 @@ impl MiniDaw {
 
         let mut r = Self {
             mini_orchestrator,
-            menu_bar: MenuBar::new_with(Arc::clone(&factory)),
+            menu_bar: Default::default(),
             control_panel: Default::default(),
             orchestrator_panel,
-            palette_panel: PalettePanel::new_with(factory),
+            palette_panel: Default::default(),
             settings_panel: SettingsPanel::new_with(Box::new(needs_audio)),
 
             exit_requested: Default::default(),
@@ -683,16 +677,24 @@ impl eframe::App for MiniDaw {
     }
 }
 
-fn main() -> anyhow::Result<(), eframe::Error> {
+fn main() -> anyhow::Result<()> {
     env_logger::init();
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(1366.0, 768.0)),
         ..Default::default()
     };
 
-    eframe::run_native(
+    let factory = register_factory_entities(EntityFactory::default());
+    if FACTORY.set(factory).is_err() {
+        return Err(anyhow!("Couldn't initialize EntityFactory"));
+    }
+    if let Err(e) = eframe::run_native(
         MiniDaw::APP_NAME,
         options,
         Box::new(|cc| Box::new(MiniDaw::new(cc))),
-    )
+    ) {
+        Err(anyhow!("eframe::run_native(): {:?}", e))
+    } else {
+        Ok(())
+    }
 }

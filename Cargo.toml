@@ -39,6 +39,7 @@ groove-settings = { path = "settings" }
 groove-toys = { path = "toys", features = ["serialization", "egui-framework"] }
 groove-utils = { path = "utils" }
 hound = "3.5"
+once_cell = "1.18.0"
 oorandom = "11.1"
 plotters = { version = "0.3", optional = true, default-features = false }
 rayon = "1.7"

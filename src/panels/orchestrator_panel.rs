@@ -77,34 +77,33 @@ pub enum OrchestratorEvent {
 }
 
 /// An egui panel that renders a [Orchestrator].
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct OrchestratorPanel {
     orchestrator: Arc<Mutex<Orchestrator>>,
-    factory: Arc<EntityFactory>,
     track_selection_set: Arc<Mutex<SelectionSet<TrackUid>>>,
     input_channel_pair: ChannelPair<OrchestratorInput>,
     event_channel_pair: ChannelPair<OrchestratorEvent>,
 }
-impl OrchestratorPanel {
-    /// Creates a new panel.
-    pub fn new_with(factory: Arc<EntityFactory>) -> Self {
-        let mut o = OrchestratorBuilder::default().build().unwrap();
-        let _ = o.create_starter_tracks();
+impl Default for OrchestratorPanel {
+    fn default() -> Self {
+        let mut orchestrator = OrchestratorBuilder::default().build().unwrap();
+        let _ = orchestrator.create_starter_tracks();
         let mut r = Self {
-            orchestrator: Arc::new(Mutex::new(o)),
-            factory,
-            ..Default::default()
+            orchestrator: Arc::new(Mutex::new(orchestrator)),
+            track_selection_set: Default::default(),
+            input_channel_pair: Default::default(),
+            event_channel_pair: Default::default(),
         };
         r.start_thread();
         r
     }
-
+}
+impl OrchestratorPanel {
     fn start_thread(&mut self) {
         let receiver = self.input_channel_pair.receiver.clone();
         let sender = self.event_channel_pair.sender.clone();
         self.introduce();
         let orchestrator = Arc::clone(&self.orchestrator);
-        let factory = Arc::clone(&self.factory);
         let track_selection_set = Arc::clone(&self.track_selection_set);
         std::thread::spawn(move || loop {
             let recv = receiver.recv();
@@ -178,7 +177,7 @@ impl OrchestratorPanel {
                             if let Ok(track_selection_set) = track_selection_set.lock() {
                                 track_selection_set.iter().for_each(|track_uid| {
                                     if let Some(track) = o.get_track_mut(track_uid) {
-                                        if let Some(e) = factory.new_thing(&key) {
+                                        if let Some(e) = EntityFactory::global().new_thing(&key) {
                                             let _ = track.append_thing(e);
                                         }
                                     }
@@ -307,7 +306,7 @@ impl OrchestratorPanel {
                 }
                 OrchestratorAction::NewDeviceForTrack(track_uid, key) => {
                     if let Some(track) = o.get_track_mut(&track_uid) {
-                        if let Some(thing) = self.factory.new_thing(&key) {
+                        if let Some(thing) = EntityFactory::global().new_thing(&key) {
                             let _ = track.append_thing(thing);
                         }
                     }
@@ -325,6 +324,6 @@ impl OrchestratorPanel {
             .unwrap()
             .calculate_max_entity_uid()
             .0;
-        self.factory.set_next_uid(uid + 1);
+        EntityFactory::global().set_next_uid(uid + 1);
     }
 }

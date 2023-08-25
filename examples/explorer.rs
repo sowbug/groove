@@ -12,10 +12,10 @@ use groove::{
     app_version,
     mini::{
         widgets::{arrangement_legend, pattern_icon},
-        DragDropManager, DragDropSource, Note, PatternUid,
+        ControlAtlas, DragDropManager, DragDropSource, Note, PatternUid,
     },
 };
-use groove_core::{midi::MidiNote, time::MusicalTime};
+use groove_core::{midi::MidiNote, time::MusicalTime, traits::gui::Shows};
 use std::ops::Range;
 
 #[derive(Debug)]
@@ -244,12 +244,45 @@ impl PatternIconSettings {
     }
 }
 
+#[derive(Debug)]
+struct ControlAtlasSettings {
+    hide: bool,
+    range: Range<MusicalTime>,
+}
+impl Default for ControlAtlasSettings {
+    fn default() -> Self {
+        Self {
+            hide: Default::default(),
+            range: MusicalTime::START..MusicalTime::new_with_beats(128),
+        }
+    }
+}
+impl ControlAtlasSettings {
+    fn show(&mut self, ui: &mut Ui) -> egui::Response {
+        ui.allocate_ui(ui.available_size(), |ui| {
+            ui.checkbox(&mut self.hide, "Hide ControlAtlas");
+            ui.label("start/end");
+            let mut range_start = self.range.start.total_beats();
+            let mut range_end = self.range.end.total_beats();
+            if ui.add(Slider::new(&mut range_start, 0..=1024)).changed() {
+                self.range.start = MusicalTime::new_with_beats(range_start);
+            };
+            if ui.add(Slider::new(&mut range_end, 0..=1024)).changed() {
+                self.range.end = MusicalTime::new_with_beats(range_end);
+            };
+        })
+        .response
+    }
+}
+
 #[derive(Debug, Default)]
 struct Explorer {
     dnd: DragDropManager,
     arrangement_legend: ArrangementLegendSettings,
     pattern_icon: PatternIconSettings,
     arrangement: ArrangementSettings,
+    control_atlas_settings: ControlAtlasSettings,
+    control_atlas: ControlAtlas,
 }
 impl Explorer {
     pub const APP_NAME: &str = "Explorer";
@@ -284,6 +317,9 @@ impl Explorer {
             ui.separator();
 
             self.arrangement.show(ui);
+            ui.separator();
+
+            self.control_atlas_settings.show(ui);
             ui.separator();
 
             let mut debug_on_hover = ui.ctx().debug_on_hover();
@@ -349,6 +385,12 @@ impl Explorer {
                             self.dnd.reset();
                             eprintln!("Dropped on arrangement at beat {}", 2);
                         }
+                    }
+                    ui.separator();
+
+                    // Control Atlas
+                    if !self.control_atlas_settings.hide {
+                        self.control_atlas.show(ui);
                     }
                     ui.separator();
                 });
