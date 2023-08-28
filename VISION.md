@@ -8,8 +8,8 @@ tools will be a good combination.
 Software engineers have developed a sixth sense that I'll call **the itch**.
 They feel this itch when they haven't "checked in" to "the repo" for a while.
 "Checking in" means updating your copy of your team's project, and publishing
-your work to the rest of the team. Engineers exchange feedback by checking in.
-It's how they communicate.
+your work, via the repository, to the rest of the team. Engineers exchange
+feedback by checking in. It's how they communicate.
 
 Checking in is central to the life of a software engineer. It's no surprise that
 we have great check-in tools. These tools make it easy to compare your work with
@@ -99,5 +99,4 @@ producers branch another song's project file, so that new songs are part of this
 the many people who contributed to its lineage over the years. Most new music is
 heavily influenced by existing music and thousands of years of evolving styles.
 This workflow change incorporates that evolution into a song's explicit
-documentary history.
-\n
+documentary history. \n
