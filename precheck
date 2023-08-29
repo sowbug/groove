@@ -1,0 +1,4 @@
+#!/bin/bash
+
+cargo fmt --all && \
+    cargo test --workspace
