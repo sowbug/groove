@@ -10,7 +10,7 @@ use crate::{
 use std::ops::Range;
 
 #[cfg(feature = "egui-framework")]
-use self::gui::{Displays, DisplaysInTimeline, DisplaysWithResponse, Shows};
+use self::gui::{Displays, DisplaysInTimeline, DisplaysWithoutResponse};
 
 pub trait MessageBounds: std::fmt::Debug + Send {}
 
@@ -52,20 +52,23 @@ impl MessageBounds for ThingEvent {}
 /// [IsEffect] or [IsInstrument] can't finish; they wait forever for audio to
 /// process, or MIDI commands to handle. A performance ends once all
 /// [IsController] entities indicate that they've finished.
-pub trait IsController: Controls + HandlesMidi + HasUid + Shows + Send + std::fmt::Debug {}
+pub trait IsController:
+    Controls + HandlesMidi + HasUid + Displays + Send + std::fmt::Debug
+{
+}
 
 /// An [IsEffect] transforms audio. It takes audio inputs and produces audio
 /// output. It does not get called unless there is audio input to provide to it
 /// (which can include silence, e.g., in the case of a muted instrument).
 pub trait IsEffect:
-    TransformsAudio + Controllable + Configurable + HasUid + Shows + Send + std::fmt::Debug
+    TransformsAudio + Controllable + Configurable + HasUid + Displays + Send + std::fmt::Debug
 {
 }
 
 /// An [IsInstrument] produces audio, usually upon request from MIDI or
 /// [IsController] input.
 pub trait IsInstrument:
-    Generates<StereoSample> + HandlesMidi + Controllable + HasUid + Shows + Send + std::fmt::Debug
+    Generates<StereoSample> + HandlesMidi + Controllable + HasUid + Displays + Send + std::fmt::Debug
 {
 }
 
@@ -344,7 +347,7 @@ pub trait Serializable {
 }
 
 #[typetag::serde(tag = "type")]
-pub trait Thing: HasUid + Shows + Configurable + Serializable + std::fmt::Debug + Send {
+pub trait Thing: HasUid + Displays + Configurable + Serializable + std::fmt::Debug + Send {
     fn as_controller(&self) -> Option<&dyn IsController> {
         None
     }
@@ -389,26 +392,19 @@ pub trait Shows {}
 pub mod gui {
     use eframe::egui;
 
-    /// Implements egui content inside a Window or SidePanel.
-    /// TODO: replace with Displays::ui()
-    #[deprecated]
-    pub trait Shows {
-        fn show(&mut self, ui: &mut egui::Ui) {
-            ui.label("Coming soon!");
-        }
-    }
-
     /// Something that can be called during egui rendering to display a view of
     /// itself.
     //
     // Adapted from egui_demo_lib/src/demo/mod.rs
     pub trait Displays {
-        fn ui(&mut self, ui: &mut egui::Ui);
+        fn uixx(&mut self, ui: &mut egui::Ui) -> egui::Response {
+            ui.label("Coming soon!")
+        }
     }
 
-    /// Similar to Displays, but returns a Response.
-    pub trait DisplaysWithResponse {
-        fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response;
+    /// Similar to Displays, but doesn't return a Response.
+    pub trait DisplaysWithoutResponse {
+        fn ui(&mut self, ui: &mut egui::Ui);
     }
 
     pub trait DisplaysInTimeline {

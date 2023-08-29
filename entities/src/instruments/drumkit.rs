@@ -155,10 +155,10 @@ impl Drumkit {
 mod gui {
     use super::Drumkit;
     use eframe::egui::Ui;
-    use groove_core::traits::gui::Shows;
+    use groove_core::traits::gui::Displays;
 
-    impl Shows for Drumkit {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Displays for Drumkit {
+        fn uixx(&mut self, ui: &mut Ui) {
             ui.label(self.name());
         }
     }

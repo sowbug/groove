@@ -4,7 +4,7 @@ use crate::mini::Transport;
 use eframe::egui::{DragValue, Ui};
 use groove_core::{
     time::PerfectTimeUnit,
-    traits::{gui::Shows, Controls},
+    traits::{gui::Displays, Controls},
 };
 use groove_orchestration::Orchestrator;
 use std::{
@@ -45,7 +45,7 @@ impl ControlPanel {
     pub fn show_with_action(&mut self, ui: &mut Ui) -> Option<ControlPanelAction> {
         let mut action = None;
         ui.horizontal_centered(|ui| {
-            self.transport_copy.show(ui);
+            self.transport_copy.uixx(ui);
             if ui.button("play").clicked() {
                 action = Some(ControlPanelAction::Play);
             }
@@ -76,8 +76,8 @@ impl ControlPanel {
         self.transport_copy = transport;
     }
 }
-impl Shows for ControlPanel {
-    fn show(&mut self, ui: &mut Ui) {
+impl Displays for ControlPanel {
+    fn uixx(&mut self, ui: &mut Ui) {
         let _ = self.show_with_action(ui);
     }
 }

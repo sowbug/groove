@@ -452,16 +452,16 @@ impl WelshSynth {
 mod gui {
     use super::{WelshSynth, WelshVoice};
     use eframe::{
-        egui::{CollapsingHeader, Sense, Ui},
+        egui::{CollapsingHeader, Response, Sense, Ui},
         epaint::{Color32, Stroke, Vec2},
     };
-    use groove_core::{instruments::Synthesizer, traits::gui::Shows};
+    use groove_core::{instruments::Synthesizer, traits::gui::Displays};
 
-    impl Shows for WelshSynth {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Displays for WelshSynth {
+        fn uixx(&mut self, ui: &mut Ui) -> Response {
             // TODO: LED should be a reusable widget
             const LED_SIZE: Vec2 = Vec2::splat(5.0);
-            let (rect, _response) = ui.allocate_exact_size(LED_SIZE, Sense::hover());
+            let (rect, response) = ui.allocate_exact_size(LED_SIZE, Sense::hover());
             ui.painter().rect(
                 rect,
                 ui.style().visuals.noninteractive().rounding,
@@ -473,6 +473,7 @@ mod gui {
                 Stroke::NONE,
             );
             self.voice.show(ui, &mut self.inner_synth);
+            response
         }
     }
 

@@ -82,10 +82,10 @@ impl Limiter {
 mod gui {
     use super::Limiter;
     use eframe::egui::{Slider, Ui};
-    use groove_core::{traits::gui::Shows, Normal};
+    use groove_core::{traits::gui::Displays, Normal};
 
-    impl Shows for Limiter {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Displays for Limiter {
+        fn uixx(&mut self, ui: &mut Ui) {
             let mut min = self.min().to_percentage();
             let mut max = self.max().to_percentage();
             if ui

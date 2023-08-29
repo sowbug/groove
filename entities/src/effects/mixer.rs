@@ -47,10 +47,10 @@ impl Mixer {
 mod gui {
     use super::Mixer;
     use eframe::egui::Ui;
-    use groove_core::traits::gui::Shows;
+    use groove_core::traits::gui::Displays;
 
-    impl Shows for Mixer {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Displays for Mixer {
+        fn uixx(&mut self, ui: &mut Ui) {
             ui.label("I don't have anything!");
         }
     }

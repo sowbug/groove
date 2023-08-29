@@ -119,10 +119,10 @@ impl Metronome {
 mod gui {
     use super::Metronome;
     use eframe::egui::Ui;
-    use groove_core::traits::gui::Shows;
+    use groove_core::traits::gui::Displays;
 
-    impl Shows for Metronome {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Displays for Metronome {
+        fn uixx(&mut self, ui: &mut Ui) {
             ui.label(format!("BPM: {:0.1}", self.bpm()));
             ui.label(format!(
                 "Time Signature: {}/{}",

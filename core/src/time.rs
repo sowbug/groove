@@ -872,17 +872,18 @@ impl From<SampleRate> for u32 {
 #[cfg(feature = "egui-framework")]
 mod gui {
     use super::BeatValue;
-    use crate::traits::gui::Shows;
+    use crate::traits::gui::Displays;
     use eframe::{
         egui::{Frame, Margin, Ui},
         epaint::{Color32, Stroke, Vec2},
     };
 
-    impl Shows for BeatValue {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Displays for BeatValue {
+        fn uixx(&mut self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
             ui.allocate_ui(Vec2::new(60.0, 24.0), |ui| {
                 Self::show_beat_value(ui, &format!("{} beats", BeatValue::divisor(self.clone())));
-            });
+            })
+            .response
         }
     }
 

@@ -259,10 +259,10 @@ impl Controls for Sequencer {
 mod gui {
     use super::Sequencer;
     use eframe::egui::{RichText, Ui};
-    use groove_core::traits::gui::Shows;
+    use groove_core::traits::gui::Displays;
 
-    impl Shows for Sequencer {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Displays for Sequencer {
+        fn uixx(&mut self, ui: &mut Ui) {
             for (when, (channel, message)) in &self.events {
                 let has_played = when < &self.time_range.start;
                 let mut text = RichText::new(format!("{}: {} -> {:?}", when, channel, message));

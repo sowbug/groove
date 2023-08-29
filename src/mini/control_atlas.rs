@@ -11,7 +11,7 @@ use groove_core::{
     control::ControlValue,
     time::MusicalTime,
     traits::{
-        gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, HasUid, Serializable,
+        gui::Displays, Configurable, ControlEventsFn, Controls, HandlesMidi, HasUid, Serializable,
         ThingEvent,
     },
     Uid,
@@ -243,7 +243,7 @@ impl ControlTrip {
         }
     }
 }
-impl Shows for ControlTrip {}
+impl Displays for ControlTrip {}
 impl HandlesMidi for ControlTrip {}
 impl Controls for ControlTrip {
     fn update_time(&mut self, range: &Range<MusicalTime>) {
@@ -377,8 +377,8 @@ impl Default for ControlAtlas {
         r
     }
 }
-impl Shows for ControlAtlas {
-    fn show(&mut self, ui: &mut eframe::egui::Ui) {
+impl Displays for ControlAtlas {
+    fn uixx(&mut self, ui: &mut eframe::egui::Ui) {
         let (id, rect) = ui.allocate_space(vec2(ui.available_width(), 64.0));
         ui.allocate_ui_at_rect(rect, |ui| {
             ui.horizontal_top(|ui| {
@@ -391,13 +391,13 @@ impl Shows for ControlAtlas {
                 for trip in self.trips.iter_mut() {
                     ui.vertical(|ui| {
                         ui.allocate_ui_at_rect(rect, |ui| {
-                            trip.show(ui);
+                            trip.uixx(ui);
                             if ui.button("x").clicked() {
                                 remove_uid = Some(trip.uid);
                             }
                         });
                     });
-                    trip.show(ui);
+                    trip.uixx(ui);
                 }
                 if let Some(uid) = remove_uid {
                     self.remove_trip(uid);
@@ -488,7 +488,7 @@ impl ControlAtlas {
                             }
                         });
                     });
-                    trip.show(ui);
+                    trip.uixx(ui);
                 }
                 if let Some(uid) = remove_uid {
                     self.remove_trip(uid);

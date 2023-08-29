@@ -1046,11 +1046,11 @@ impl Step {
 mod gui {
     use super::{Calculator, EngineState, UiState};
     use eframe::{
-        egui::{Button, Grid, Response, Sense, Ui},
+        egui::{self, Button, Grid, Response, Sense, Ui},
         epaint::{Color32, Stroke, Vec2},
     };
     use egui_extras_xt::displays::SegmentedDisplayWidget;
-    use groove_core::traits::gui::Shows;
+    use groove_core::traits::gui::Displays;
     use strum_macros::FromRepr;
 
     #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -1358,8 +1358,8 @@ mod gui {
         }
     }
 
-    impl Shows for Calculator {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Displays for Calculator {
+        fn uixx(&mut self, ui: &mut Ui) -> egui::Response {
             let highlighted_button = if self.engine.state() == &EngineState::Playing {
                 Some(self.current_step())
             } else {
@@ -1370,44 +1370,47 @@ mod gui {
             self.create_dashboard(ui);
             ui.add(SegmentedDisplayWidget::sixteen_segment("MUSIC").digit_height(72.0));
             ui.add_space(16.0);
-            Grid::new(ui.next_auto_id()).num_columns(5).show(ui, |ui| {
-                for (index, label) in Self::BUTTON_LABELS.iter().enumerate() {
-                    let pad_index = Self::BUTTON_INDEX_TO_PAD_INDEX[index];
-                    let is_highlighted = if let Some(hb) = highlighted_button {
-                        pad_index == hb
-                    } else {
-                        false
-                    };
-                    let button = ButtonLabel::from_repr(index).unwrap();
-                    match button {
-                        ButtonLabel::A => {
-                            self.create_knob_a(ui);
-                        }
-                        ButtonLabel::B => {
-                            self.create_knob_b(ui);
-                        }
-                        _ => {
-                            let button_state = self.calculate_button_state(&button, pad_index);
-                            let response = self.create_button(
-                                ui,
-                                label,
-                                button_state,
-                                is_highlighted,
-                                pad_index != u8::MAX,
-                            );
-                            if response.clicked() {
-                                self.handle_button_click(&button, pad_index);
+            Grid::new(ui.next_auto_id())
+                .num_columns(5)
+                .show(ui, |ui| {
+                    for (index, label) in Self::BUTTON_LABELS.iter().enumerate() {
+                        let pad_index = Self::BUTTON_INDEX_TO_PAD_INDEX[index];
+                        let is_highlighted = if let Some(hb) = highlighted_button {
+                            pad_index == hb
+                        } else {
+                            false
+                        };
+                        let button = ButtonLabel::from_repr(index).unwrap();
+                        match button {
+                            ButtonLabel::A => {
+                                self.create_knob_a(ui);
                             }
-                            if response.clicked_by(eframe::egui::PointerButton::Secondary) {
-                                self.handle_second_button_click(button);
+                            ButtonLabel::B => {
+                                self.create_knob_b(ui);
                             }
+                            _ => {
+                                let button_state = self.calculate_button_state(&button, pad_index);
+                                let response = self.create_button(
+                                    ui,
+                                    label,
+                                    button_state,
+                                    is_highlighted,
+                                    pad_index != u8::MAX,
+                                );
+                                if response.clicked() {
+                                    self.handle_button_click(&button, pad_index);
+                                }
+                                if response.clicked_by(eframe::egui::PointerButton::Secondary) {
+                                    self.handle_second_button_click(button);
+                                }
+                            }
+                        }
+                        if (index + 1) % 5 == 0 {
+                            ui.end_row();
                         }
                     }
-                    if (index + 1) % 5 == 0 {
-                        ui.end_row();
-                    }
-                }
-            });
+                })
+                .response
         }
     }
 }

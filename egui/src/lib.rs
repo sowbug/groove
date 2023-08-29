@@ -1,11 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use eframe::{
-    egui::{Frame, Label, Ui},
+    egui::{self, Frame, Label},
     emath,
     epaint::{self, pos2, vec2, Color32, Pos2, Rect, Stroke},
 };
-use groove_core::traits::gui::Shows;
+use groove_core::traits::gui::Displays;
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -13,8 +13,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Default)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Waveform {}
-impl Shows for Waveform {
-    fn show(&mut self, ui: &mut Ui) {
+impl Displays for Waveform {
+    fn uixx(&mut self, ui: &mut egui::Ui) -> egui::Response {
         let color = if ui.visuals().dark_mode {
             Color32::from_additive_luminance(196)
         } else {
@@ -53,8 +53,7 @@ impl Shows for Waveform {
 
             ui.painter().extend(shapes);
         });
-        ui.vertical_centered(|ui| {
-            ui.add(Label::new("hello!"));
-        });
+        ui.vertical_centered(|ui| ui.add(Label::new("hello!")))
+            .inner
     }
 }

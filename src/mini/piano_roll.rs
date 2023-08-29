@@ -10,7 +10,7 @@ use eframe::{
 };
 use groove_core::{
     time::{MusicalTime, TimeSignature},
-    traits::gui::Shows,
+    traits::gui::Displays,
     IsUid,
 };
 use serde::{Deserialize, Serialize};
@@ -137,8 +137,8 @@ impl Default for Pattern {
         r
     }
 }
-impl Shows for Pattern {
-    fn show(&mut self, ui: &mut Ui) {
+impl Displays for Pattern {
+    fn uixx(&mut self, ui: &mut Ui) {
         self.ui_content(ui);
     }
 }

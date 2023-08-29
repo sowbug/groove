@@ -22,7 +22,7 @@ use groove::{
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::{ClockParams, TimeSignatureParams},
-    traits::gui::Shows,
+    traits::gui::Displays,
 };
 use groove_orchestration::{messages::GrooveInput, Orchestrator};
 use groove_utils::Paths;
@@ -137,16 +137,16 @@ impl eframe::App for GrooveApp {
         right.show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.vertical(|ui| {
-                    self.preferences.show(ui);
-                    self.midi_panel.show(ui);
-                    self.audio_panel.show(ui);
+                    self.preferences.uixx(ui);
+                    self.midi_panel.uixx(ui);
+                    self.audio_panel.uixx(ui);
                 });
             })
         });
         center.show(ctx, |ui| {
             ScrollArea::vertical().show(ui, |ui| {
                 if let Ok(mut o) = self.orchestrator.lock() {
-                    o.show(ui);
+                    o.uixx(ui);
                 }
             });
             self.toasts.show(ctx);

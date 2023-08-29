@@ -17,7 +17,7 @@ use eframe::{
 use groove_core::{
     midi::{new_note_off, new_note_on, MidiChannel, MidiMessage},
     time::{MusicalTime, TimeSignature},
-    traits::{gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable},
+    traits::{gui::Displays, Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable},
     IsUid, Uid,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
@@ -592,8 +592,8 @@ impl Sequencer {
         self.show_and_handle(ui)
     }
 }
-impl Shows for Sequencer {
-    fn show(&mut self, ui: &mut Ui) {
+impl Displays for Sequencer {
+    fn uixx(&mut self, ui: &mut Ui) {
         let height = ui.available_height();
         ui.set_min_size(ui.available_size());
         ui.set_max_size(ui.available_size());

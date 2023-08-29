@@ -76,10 +76,10 @@ impl Bitcrusher {
 mod gui {
     use super::Bitcrusher;
     use eframe::egui::{DragValue, Ui};
-    use groove_core::traits::gui::Shows;
+    use groove_core::traits::gui::Displays;
 
-    impl Shows for Bitcrusher {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Displays for Bitcrusher {
+        fn uixx(&mut self, ui: &mut Ui) {
             let mut bits = self.bits();
             if ui
                 .add(

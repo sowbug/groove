@@ -50,12 +50,12 @@ impl Serializable for ToyEffect {}
 #[cfg(feature = "egui-framework")]
 mod gui {
     use super::ToyEffect;
-    use eframe::egui::Ui;
-    use groove_core::traits::{gui::Shows, HasUid};
+    use eframe::egui;
+    use groove_core::traits::{gui::Displays, HasUid};
 
-    impl Shows for ToyEffect {
-        fn show(&mut self, ui: &mut Ui) {
-            ui.label(self.name());
+    impl Displays for ToyEffect {
+        fn uixx(&mut self, ui: &mut egui::Ui) -> egui::Response {
+            ui.label(self.name())
         }
     }
 }

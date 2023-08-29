@@ -4,7 +4,7 @@ use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{CollapsingHeader, ComboBox, Ui};
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
-    traits::gui::Shows,
+    traits::gui::Displays,
 };
 use groove_midi::{
     MidiInterfaceEvent, MidiInterfaceInput, MidiInterfaceService, MidiPortDescriptor,
@@ -162,8 +162,8 @@ impl MidiPanel {
         eprintln!("MIDI Panel acks the quit... TODO");
     }
 }
-impl Shows for MidiPanel {
-    fn show(&mut self, ui: &mut Ui) {
+impl Displays for MidiPanel {
+    fn uixx(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("MIDI")
             .default_open(true)
             .show(ui, |ui| {

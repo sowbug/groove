@@ -3,7 +3,7 @@
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{CollapsingHeader, Ui};
 use groove_audio::{AudioInterfaceEvent, AudioInterfaceInput, AudioQueue, AudioStreamService};
-use groove_core::{time::SampleRate, traits::gui::Shows, StereoSample, SAMPLE_BUFFER_SIZE};
+use groove_core::{time::SampleRate, traits::gui::Displays, StereoSample, SAMPLE_BUFFER_SIZE};
 use groove_orchestration::Orchestrator;
 use std::{
     fmt::Debug,
@@ -161,8 +161,8 @@ impl OldAudioPanel {
         0
     }
 }
-impl Shows for OldAudioPanel {
-    fn show(&mut self, ui: &mut Ui) {
+impl Displays for OldAudioPanel {
+    fn uixx(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("Audio")
             .default_open(true)
             .show(ui, |ui| {
@@ -279,8 +279,8 @@ impl AudioPanel {
         eprintln!("Audio Panel acks the quit... TODO");
     }
 }
-impl Shows for AudioPanel {
-    fn show(&mut self, ui: &mut Ui) {
+impl Displays for AudioPanel {
+    fn uixx(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("Audio")
             .default_open(true)
             .show(ui, |ui| {

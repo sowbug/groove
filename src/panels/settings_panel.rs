@@ -1,5 +1,5 @@
 use eframe::egui::Ui;
-use groove_core::traits::gui::Shows;
+use groove_core::traits::gui::Displays;
 
 use super::{AudioPanel, MidiPanel, NeedsAudioFn};
 
@@ -47,12 +47,12 @@ impl SettingsPanel {
         self.midi_panel.exit();
     }
 }
-impl Shows for SettingsPanel {
-    fn show(&mut self, ui: &mut Ui) {
+impl Displays for SettingsPanel {
+    fn uixx(&mut self, ui: &mut Ui) {
         ui.label("Audio");
-        self.audio_panel.show(ui);
+        self.audio_panel.uixx(ui);
         ui.label("MIDI");
-        self.midi_panel.show(ui);
+        self.midi_panel.uixx(ui);
 
         {
             let mut debug_on_hover = ui.ctx().debug_on_hover();

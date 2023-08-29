@@ -1,5 +1,5 @@
 use eframe::egui::{Id as EguiId, Ui};
-use groove_core::traits::gui::Shows;
+use groove_core::traits::gui::Displays;
 
 use crate::mini::{
     {DragDropManager, DragDropSource}, {EntityFactory, Key},
@@ -15,8 +15,8 @@ pub enum PaletteAction {
 /// A tree view of devices that can be placed in tracks.
 #[derive(Debug, Default)]
 pub struct PalettePanel {}
-impl Shows for PalettePanel {
-    fn show(&mut self, ui: &mut Ui) {
+impl Displays for PalettePanel {
+    fn uixx(&mut self, ui: &mut Ui) {
         for name in EntityFactory::global().keys() {
             ui.label(name.to_string());
         }

@@ -176,11 +176,11 @@ impl LfoController {
 #[cfg(feature = "egui-framework")]
 mod gui {
     use super::LfoController;
-    use eframe::egui::Ui;
-    use groove_core::traits::gui::Shows;
+    use eframe::egui::{Response, Ui};
+    use groove_core::traits::gui::Displays;
 
-    impl Shows for LfoController {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Displays for LfoController {
+        fn uixx(&mut self, ui: &mut Ui) -> Response {
             // TODO: come up with a better pattern for .changed() to happen at
             // the same level as whoever called show().
             if self.frequency.show(ui, Self::frequency_range()) {
@@ -189,7 +189,7 @@ mod gui {
             if self.waveform.show(ui).inner.is_some() {
                 self.set_waveform(self.waveform);
             }
-            self.waveform_widget.show(ui);
+            self.waveform_widget.uixx(ui)
         }
     }
 }

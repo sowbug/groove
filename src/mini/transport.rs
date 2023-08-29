@@ -8,7 +8,7 @@ use eframe::{
 };
 use groove_core::{
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
-    traits::{gui::Shows, Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable},
+    traits::{gui::Displays, Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable},
     Uid,
 };
 use groove_proc_macros::{Control, IsController, Uid};
@@ -94,9 +94,9 @@ impl Transport {
     pub fn current_time(&self) -> MusicalTime {
         self.e.current_time
     }
-
-    /// Renders the [Transport].
-    pub fn show(&self, ui: &mut Ui) {
+}
+impl Displays for Transport {
+    fn uixx(&mut self, ui: &mut Ui) {
         ui.allocate_ui(vec2(72.0, 20.0), |ui| {
             ui.set_min_width(128.0);
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -113,7 +113,6 @@ impl Transport {
         });
     }
 }
-impl Shows for Transport {}
 impl Serializable for Transport {}
 impl Configurable for Transport {
     fn sample_rate(&self) -> SampleRate {

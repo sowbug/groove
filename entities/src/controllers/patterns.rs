@@ -201,7 +201,7 @@ mod gui {
     };
     use groove_core::{
         time::{BeatValue, PerfectTimeUnit},
-        traits::gui::Shows,
+        traits::gui::{Displays, DisplaysWithResponse},
     };
     use std::ops::Range;
 
@@ -222,10 +222,10 @@ mod gui {
         pub const CELL_HEIGHT: f32 = 24.0;
     }
 
-    impl Shows for Pattern<Note> {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Displays for Pattern<Note> {
+        fn uixx(&mut self, ui: &mut Ui) {
             if let Some(v) = self.note_value.as_mut() {
-                v.show(ui);
+                v.ui(ui);
             } else {
                 // We want to inherit the beat value from orchestrator, but we
                 // don't have it! TODO
@@ -256,8 +256,8 @@ mod gui {
         }
     }
 
-    impl Shows for PatternManager {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Displays for PatternManager {
+        fn uixx(&mut self, ui: &mut Ui) {
             ui.set_min_width(16.0 * Pattern::CELL_WIDTH + 8.0); //  8 pixels margin
             ScrollArea::vertical().show(ui, |ui| {
                 let mut is_first = true;
@@ -267,19 +267,20 @@ mod gui {
                     } else {
                         ui.separator();
                     }
-                    pattern.show(ui);
+                    pattern.uixx(ui);
                 }
             });
         }
     }
 
-    impl NewPattern {
-        pub fn show(&mut self, ui: &mut Ui) {
+    impl Displays for NewPattern {
+        fn uixx(&mut self, ui: &mut Ui) {
             Frame::canvas(ui.style()).show(ui, |ui| {
                 self.ui_content(ui);
             });
         }
-
+    }
+    impl NewPattern {
         fn make_note_shapes(
             &self,
             note: &NewNote,

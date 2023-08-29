@@ -94,7 +94,7 @@ mod tests {
     use groove_core::{
         midi,
         midi::{MidiChannel, MidiMessage, MidiMessagesFn},
-        traits::{gui::Shows, Configurable, Generates, HandlesMidi, Serializable, Ticks},
+        traits::{gui::Displays, Configurable, Generates, HandlesMidi, Serializable, Ticks},
         StereoSample, Uid,
     };
     use groove_proc_macros::{Control, IsInstrument, Uid};
@@ -140,7 +140,7 @@ mod tests {
     }
     impl Serializable for TestHandlesMidi {}
     impl Configurable for TestHandlesMidi {}
-    impl Shows for TestHandlesMidi {}
+    impl Displays for TestHandlesMidi {}
     impl Generates<StereoSample> for TestHandlesMidi {
         fn value(&self) -> StereoSample {
             todo!()

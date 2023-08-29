@@ -90,10 +90,10 @@ impl Chorus {
 mod gui {
     use super::Chorus;
     use eframe::egui::Ui;
-    use groove_core::traits::{gui::Shows, HasUid};
+    use groove_core::traits::{gui::Displays, HasUid};
 
-    impl Shows for Chorus {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Displays for Chorus {
+        fn uixx(&mut self, ui: &mut Ui) {
             ui.label(self.name());
         }
     }

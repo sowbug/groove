@@ -1059,7 +1059,7 @@ mod gui {
         epaint::{Color32, Stroke, Vec2},
     };
     use egui_extras::{Size, StripBuilder};
-    use groove_core::{traits::gui::Shows, Uid};
+    use groove_core::{traits::gui::Displays, Uid};
     use groove_entities::controllers::NewPattern;
     use num_derive::FromPrimitive;
     use num_traits::FromPrimitive;
@@ -1185,7 +1185,7 @@ mod gui {
                     });
                     strip.cell(|ui| {
                         ui.label("I'm the signal!");
-                        self.gui.new_pattern.show(ui);
+                        self.gui.new_pattern.uixx(ui);
                     });
                     strip.cell(|ui| {
                         ui.label("I'm the detail!");
@@ -1194,8 +1194,8 @@ mod gui {
         }
     }
 
-    impl Shows for Orchestrator {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Displays for Orchestrator {
+        fn uixx(&mut self, ui: &mut Ui) {
             ui.allocate_ui(
                 Vec2::new(ui.available_width(), 128.0 + 2.0),
                 |ui| match self.gui.mode {
@@ -1232,7 +1232,7 @@ mod gui {
                 ui.label(entity.as_has_uid().name());
             }
             Entity::BiQuadFilterLowPass24db(e) => {
-                e.show(ui);
+                e.uixx(ui);
             }
             Entity::BiQuadFilterLowShelf(e) => {
                 ui.label(entity.as_has_uid().name());
@@ -1244,7 +1244,7 @@ mod gui {
                 ui.label(entity.as_has_uid().name());
             }
             Entity::Bitcrusher(e) => {
-                e.show(ui);
+                e.uixx(ui);
             }
             Entity::Chorus(e) => {
                 ui.label(entity.as_has_uid().name());
@@ -1253,7 +1253,7 @@ mod gui {
                 ui.label(entity.as_has_uid().name());
             }
             Entity::Compressor(e) => {
-                e.show(ui);
+                e.uixx(ui);
             }
             Entity::ControlTrip(e) => {
                 ui.label(entity.as_has_uid().name());
@@ -1271,22 +1271,22 @@ mod gui {
                 ui.label(entity.as_has_uid().name());
             }
             Entity::Gain(e) => {
-                e.show(ui);
+                e.uixx(ui);
             }
             Entity::LfoController(e) => {
-                e.show(ui);
+                e.uixx(ui);
             }
             Entity::Limiter(e) => {
-                e.show(ui);
+                e.uixx(ui);
             }
             Entity::Metronome(e) => {
-                e.show(ui);
+                e.uixx(ui);
             }
             Entity::Mixer(e) => {
-                e.show(ui);
+                e.uixx(ui);
             }
             Entity::PatternManager(e) => {
-                e.show(ui);
+                e.uixx(ui);
             }
             Entity::Reverb(e) => {
                 ui.label(entity.as_has_uid().name());
@@ -1295,7 +1295,7 @@ mod gui {
                 ui.label(entity.as_has_uid().name());
             }
             Entity::Sequencer(e) => {
-                e.show(ui);
+                e.uixx(ui);
             }
             Entity::SignalPassthroughController(e) => {
                 ui.label(entity.as_has_uid().name());
@@ -1322,9 +1322,9 @@ mod gui {
                 ui.label(entity.as_has_uid().name());
             }
             Entity::WelshSynth(e) => {
-                e.show(ui);
+                e.uixx(ui);
             }
-            Entity::Integrated(e) => e.show(ui),
+            Entity::Integrated(e) => e.uixx(ui),
         }
     }
 }

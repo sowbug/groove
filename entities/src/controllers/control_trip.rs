@@ -283,12 +283,12 @@ pub struct ControlPath {
 #[cfg(feature = "egui-framework")]
 mod gui {
     use super::ControlTrip;
-    use eframe::egui::Ui;
-    use groove_core::traits::{gui::Shows, HasUid};
+    use eframe::egui::{Response, Ui};
+    use groove_core::traits::{gui::Displays, HasUid};
 
-    impl Shows for ControlTrip {
-        fn show(&mut self, ui: &mut Ui) {
-            ui.label(self.name());
+    impl Displays for ControlTrip {
+        fn uixx(&mut self, ui: &mut Ui) -> Response {
+            ui.label(self.name())
         }
     }
 }

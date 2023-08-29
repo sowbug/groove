@@ -54,10 +54,10 @@ impl Gain {
 mod gui {
     use super::Gain;
     use eframe::egui::{DragValue, Ui};
-    use groove_core::{traits::gui::Shows, Normal};
+    use groove_core::{traits::gui::Displays, Normal};
 
-    impl Shows for Gain {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Displays for Gain {
+        fn uixx(&mut self, ui: &mut Ui) {
             let mut ceiling = self.ceiling().to_percentage();
             if ui
                 .add(

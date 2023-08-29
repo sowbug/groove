@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use eframe::egui::{CollapsingHeader, Ui};
-use groove_core::traits::{gui::Shows, Configurable};
+use groove_core::traits::{gui::Displays, Configurable};
 use groove_orchestration::Orchestrator;
 use groove_settings::SongSettings;
 use groove_utils::Paths;
@@ -164,8 +164,8 @@ impl Preferences {
         }
     }
 }
-impl Shows for Preferences {
-    fn show(&mut self, ui: &mut Ui) {
+impl Displays for Preferences {
+    fn uixx(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("General")
             .default_open(true)
             .show(ui, |ui| {

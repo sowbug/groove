@@ -636,7 +636,7 @@ mod gui {
         epaint::{pos2, Color32, Rect, Rounding, Stroke},
     };
     use groove_core::{
-        traits::{gui::Shows, HasUid},
+        traits::{gui::Displays, HasUid},
         Normal,
     };
 
@@ -680,58 +680,63 @@ mod gui {
         response
     }
 
-    impl Shows for ToyInstrument {
-        fn show(&mut self, ui: &mut Ui) {
-            ui.label(self.name());
+    impl Displays for ToyInstrument {
+        fn uixx(&mut self, ui: &mut Ui) -> egui::Response {
+            ui.label(self.name())
         }
     }
 
-    impl Shows for DebugSynth {
-        fn show(&mut self, ui: &mut Ui) {
-            ui.label(self.name());
+    impl Displays for DebugSynth {
+        fn uixx(&mut self, ui: &mut Ui) -> egui::Response {
+            ui.label(self.name())
         }
     }
-    impl Shows for ToySynth {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Displays for ToySynth {
+        fn uixx(&mut self, ui: &mut Ui) -> egui::Response {
             let height = ui.available_height();
             ui.set_min_size(ui.available_size());
             ui.set_max_size(ui.available_size());
             if height <= 32.0 {
-                self.show_small(ui);
+                self.show_small(ui)
             } else if height <= 128.0 {
-                self.show_medium(ui);
+                self.show_medium(ui)
             } else {
-                self.show_full(ui);
+                self.show_full(ui)
             }
         }
     }
     impl ToySynth {
-        fn show_small(&mut self, ui: &mut Ui) {
-            ui.horizontal(|ui| {
-                ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                    ui.label("ToySynth");
-                });
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    ui.add(indicator(self.max_signal));
-                });
-            });
+        fn show_small(&mut self, ui: &mut Ui) -> egui::Response {
+            let response = ui
+                .horizontal(|ui| {
+                    ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                        ui.label("ToySynth")
+                    })
+                    .inner
+                        | ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            ui.add(indicator(self.max_signal))
+                        })
+                        .inner
+                })
+                .inner;
             self.degrade_max(0.95);
+            response
         }
-        fn show_medium(&mut self, ui: &mut Ui) {
+        fn show_medium(&mut self, ui: &mut Ui) -> egui::Response {
             ui.label("ToySynth MEDIUM!");
             let value = Normal::from(0.5);
-            ui.add(indicator(value));
+            ui.add(indicator(value))
         }
-        fn show_full(&mut self, ui: &mut Ui) {
+        fn show_full(&mut self, ui: &mut Ui) -> egui::Response {
             ui.label("ToySynth LARGE!!!!");
             let value = Normal::from(0.8);
-            ui.add(indicator(value));
+            ui.add(indicator(value))
         }
     }
 
-    impl Shows for ToyAudioSource {
-        fn show(&mut self, ui: &mut Ui) {
-            ui.label(self.name());
+    impl Displays for ToyAudioSource {
+        fn uixx(&mut self, ui: &mut Ui) -> egui::Response {
+            ui.label(self.name())
         }
     }
 }

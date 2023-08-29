@@ -57,7 +57,7 @@ mod tests {
     use crate::mini::entity_factory::ThingStore;
     use groove_core::{
         traits::{
-            gui::Shows, Configurable, Controllable, Generates, HandlesMidi, Serializable, Ticks,
+            gui::Displays, Configurable, Controllable, Generates, HandlesMidi, Serializable, Ticks,
         },
         StereoSample,
     };
@@ -103,7 +103,7 @@ mod tests {
     }
     impl Serializable for TestControllable {}
     impl Configurable for TestControllable {}
-    impl Shows for TestControllable {}
+    impl Displays for TestControllable {}
 
     #[test]
     fn crud_works() {

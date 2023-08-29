@@ -23,7 +23,7 @@ use groove_core::{
     midi::MidiChannel,
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
     traits::{
-        gui::Shows, Configurable, ControlEventsFn, Controls, GeneratesToInternalBuffer,
+        gui::Displays, Configurable, ControlEventsFn, Controls, GeneratesToInternalBuffer,
         Serializable, Thing, ThingEvent, Ticks,
     },
     IsUid, Normal, StereoSample, Uid,
@@ -343,7 +343,7 @@ impl Track {
 
                     if let Some(a) = Self::add_track_element(ui, 0, false, false, false, |ui| {
                         ui.allocate_ui(vec2(256.0, ui.available_height()), |ui| {
-                            self.sequencer.show(ui);
+                            self.sequencer.uixx(ui);
                         });
                     }) {
                         action = Some(a);
@@ -362,7 +362,7 @@ impl Track {
                                 true,
                                 |ui| {
                                     if let Some(e) = self.thing_store.get_mut(uid) {
-                                        e.show(ui);
+                                        e.uixx(ui);
                                     }
                                 },
                             ) {
@@ -383,7 +383,7 @@ impl Track {
                                 true,
                                 |ui| {
                                     if let Some(e) = self.thing_store.get_mut(uid) {
-                                        e.show(ui);
+                                        e.uixx(ui);
                                     }
                                 },
                             ) {
@@ -404,7 +404,7 @@ impl Track {
                                 true,
                                 |ui| {
                                     if let Some(e) = self.thing_store.get_mut(uid) {
-                                        e.show(ui);
+                                        e.uixx(ui);
                                     }
                                 },
                             ) {
@@ -576,7 +576,7 @@ impl Track {
                                         }
                                         _ => panic!(),
                                     }
-                                    self.control_atlas.show(ui);
+                                    self.control_atlas.uixx(ui);
                                 });
                         }
 
@@ -708,7 +708,7 @@ impl Track {
                 egui::Window::new("Sequencer")
                     .open(&mut self.is_sequencer_open)
                     .show(ui.ctx(), |ui| {
-                        self.sequencer.show(ui);
+                        self.sequencer.uixx(ui);
                     });
             } else {
                 Self::ui_device(ui, &mut self.sequencer, desired_size);
@@ -798,7 +798,7 @@ impl Track {
                 })
                 .inner_margin(2.0)
                 .show(ui, |ui| {
-                    thing.show(ui);
+                    thing.uixx(ui);
                 });
         });
     }

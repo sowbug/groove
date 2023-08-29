@@ -576,28 +576,28 @@ impl ToyController {
 mod gui {
     use super::{SignalPassthroughController, Timer, ToyController, Trigger};
     use eframe::egui::Ui;
-    use groove_core::traits::{gui::Shows, HasUid};
+    use groove_core::traits::{gui::Displays, HasUid};
 
-    impl Shows for Timer {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Displays for Timer {
+        fn uixx(&mut self, ui: &mut Ui) {
             ui.label(self.name());
         }
     }
 
-    impl Shows for Trigger {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Displays for Trigger {
+        fn uixx(&mut self, ui: &mut Ui) {
             ui.label(self.name());
         }
     }
 
-    impl Shows for SignalPassthroughController {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Displays for SignalPassthroughController {
+        fn uixx(&mut self, ui: &mut Ui) {
             ui.label(self.name());
         }
     }
 
-    impl Shows for ToyController {
-        fn show(&mut self, ui: &mut Ui) {
+    impl Displays for ToyController {
+        fn uixx(&mut self, ui: &mut Ui) {
             ui.label(self.name());
         }
     }
