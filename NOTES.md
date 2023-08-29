@@ -1,4 +1,6 @@
-### egui research
+# Notes
+
+## egui research
 
 A widget is a lightweight reusable GUI component that is intended to be
 instantiated on every render. Typically mutates a single provided variable,
@@ -38,7 +40,7 @@ show() is more consistent (part of the Demo trait): `fn show(&mut self, ctx: &Co
 The sample custom widget (toggle) has a wrapper that implements `Widget`, but
 I'm not totally sure how it works.
 
-### painting one thing over another thing
+## painting one thing over another thing
 
 ```rust
 // How big the paint surface should be
@@ -61,3 +63,30 @@ ui.allocate_ui_at_rect(rect, |ui| {
 ```
 
 You can do this again and again for as many layers as you want.
+
+## Possible egui traits
+
+```rust
+    /// Something that can be called during egui rendering to display a view of
+    /// itself.
+    //
+    // Taken from egui_demo_lib/src/demo/mod.rs
+    pub trait View {
+        fn ui(&mut self, ui: &mut egui::Ui);
+    }
+ 
+    // pub trait DisplaysComponent {
+    //     /// A self-contained entity that has all it needs to display itself.
+    //     fn show_component(&mut self, ui: &mut egui::Ui) -> egui::Response;
+    // }
+
+    pub trait DisplaysArrangement {
+        /// An entity that can display the portion of itself corresponding to a
+        /// slice of [MusicalTime].
+        fn show_arrangement(
+            &mut self,
+            ui: &mut egui::Ui,
+            time_range: std::ops::Range<crate::time::MusicalTime>,
+        ) -> egui::Response;
+    }
+```

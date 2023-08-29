@@ -1,8 +1,10 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use anyhow::anyhow;
 use eframe::{
     egui::{
-        self, vec2, warn_if_debug_build, Frame, Id, Layout, Response, ScrollArea, Sense, Slider, Ui,
+        self, vec2, warn_if_debug_build, Frame, Id, Label, Layout, Response, ScrollArea, Sense,
+        Slider, Ui,
     },
     emath::{Align, RectTransform},
     epaint::{pos2, Color32, Rect, Rounding, Stroke},
@@ -11,11 +13,13 @@ use eframe::{
 use groove::{
     app_version,
     mini::{
+        register_factory_entities,
         widgets::{arrangement_legend, pattern_icon},
-        ControlAtlas, DragDropManager, DragDropSource, Note, PatternUid,
+        ControlAtlas, DragDropManager, DragDropSource, Note, PatternUid, FACTORY,
     },
+    EntityFactory,
 };
-use groove_core::{midi::MidiNote, time::MusicalTime, traits::gui::Shows};
+use groove_core::{midi::MidiNote, time::MusicalTime, traits::gui::DisplaysWithResponse};
 use std::ops::Range;
 
 #[derive(Debug)]
@@ -31,8 +35,8 @@ impl Default for ArrangementLegendSettings {
         }
     }
 }
-impl ArrangementLegendSettings {
-    fn show(&mut self, ui: &mut Ui) -> egui::Response {
+impl DisplaysWithResponse for ArrangementLegendSettings {
+    fn ui(&mut self, ui: &mut Ui) -> egui::Response {
         ui.allocate_ui(ui.available_size(), |ui| {
             ui.checkbox(&mut self.hide, "Hide Arrangement Legend");
             ui.label("start/end");
@@ -62,8 +66,8 @@ impl Default for ArrangementSettings {
         }
     }
 }
-impl ArrangementSettings {
-    fn show(&mut self, ui: &mut Ui) -> egui::Response {
+impl DisplaysWithResponse for ArrangementSettings {
+    fn ui(&mut self, ui: &mut Ui) -> egui::Response {
         ui.allocate_ui(ui.available_size(), |ui| {
             ui.checkbox(&mut self.hide, "Hide Arrangement");
             ui.label("start/end");
@@ -161,7 +165,7 @@ impl<'a> Arrangement<'a> {
 }
 
 fn fill_widget() -> impl eframe::egui::Widget {
-    move |ui: &mut eframe::egui::Ui| FillWidget::new().ui_content(ui)
+    move |ui: &mut eframe::egui::Ui| FillWidget::new().ui(ui)
 }
 
 struct FillWidget {}
@@ -169,8 +173,9 @@ impl FillWidget {
     fn new() -> Self {
         Self {}
     }
-
-    fn ui_content(&mut self, ui: &mut Ui) -> Response {
+}
+impl DisplaysWithResponse for FillWidget {
+    fn ui(&mut self, ui: &mut Ui) -> Response {
         // let desired_size = ui.available_size();
         // ui.set_min_size(desired_size);
         // ui.set_max_size(desired_size);
@@ -229,13 +234,15 @@ impl Default for PatternIconSettings {
         }
     }
 }
-impl PatternIconSettings {
-    fn show(&mut self, ui: &mut Ui) -> egui::Response {
+impl DisplaysWithResponse for PatternIconSettings {
+    fn ui(&mut self, ui: &mut Ui) -> egui::Response {
         ui.allocate_ui(ui.available_size(), |ui| {
             ui.checkbox(&mut self.hide, "Hide Pattern Icon");
         })
         .response
     }
+}
+impl PatternIconSettings {
     fn note(key: MidiNote, start: MusicalTime, duration: MusicalTime) -> Note {
         Note {
             key: key as u8,
@@ -257,8 +264,8 @@ impl Default for ControlAtlasSettings {
         }
     }
 }
-impl ControlAtlasSettings {
-    fn show(&mut self, ui: &mut Ui) -> egui::Response {
+impl DisplaysWithResponse for ControlAtlasSettings {
+    fn ui(&mut self, ui: &mut Ui) -> egui::Response {
         ui.allocate_ui(ui.available_size(), |ui| {
             ui.checkbox(&mut self.hide, "Hide ControlAtlas");
             ui.label("start/end");
@@ -310,16 +317,16 @@ impl Explorer {
 
     fn show_left(&mut self, ui: &mut Ui) {
         ScrollArea::horizontal().show(ui, |ui| {
-            self.arrangement_legend.show(ui);
+            self.arrangement_legend.ui(ui);
             ui.separator();
 
-            self.pattern_icon.show(ui);
+            self.pattern_icon.ui(ui);
             ui.separator();
 
-            self.arrangement.show(ui);
+            self.arrangement.ui(ui);
             ui.separator();
 
-            self.control_atlas_settings.show(ui);
+            self.control_atlas_settings.ui(ui);
             ui.separator();
 
             let mut debug_on_hover = ui.ctx().debug_on_hover();
@@ -390,9 +397,59 @@ impl Explorer {
 
                     // Control Atlas
                     if !self.control_atlas_settings.hide {
-                        self.control_atlas.show(ui);
+                        self.control_atlas
+                            .ui_arrangement(ui, &self.arrangement_legend.range);
                     }
                     ui.separator();
+
+                    // How big the paint surface should be
+                    let desired_size = vec2(ui.available_width(), 64.0);
+                    // Ask Ui to turn that Vec2 into a laid-out area
+                    let (_id, rect) = ui.allocate_space(desired_size);
+                    // Get the portion of the Ui painter corresponding to the area we want to paint
+                    let painter = ui.painter_at(rect);
+
+                    // Example of painting within the region
+                    // For easier painting, use the to_screen approach to transform local coords to the screen rect as
+                    // demonstrated in https://github.com/emilk/egui/blob/master/crates/egui_demo_lib/src/demo/paint_bezier.rs#L72
+                    painter.rect_filled(rect, Rounding::default(), Color32::DARK_GRAY);
+
+                    // Now ask Ui to allocate a rect that's the same as the one we just painted on,
+                    // and set the cursor to the start of that region.
+                    if ui
+                        .allocate_ui_at_rect(rect, |ui| {
+                            ui.allocate_response(ui.available_size(), Sense::click())
+                        })
+                        .inner
+                        .clicked()
+                    {
+                        eprintln!("space #1 clicked");
+                    }
+
+                    if ui
+                        .allocate_ui_at_rect(rect, |ui| {
+                            ui.add(Label::new(
+                                "I'm a widget being drawn on top of a painted surface!",
+                            ));
+                            ui.button("#1")
+                        })
+                        .inner
+                        .clicked()
+                    {
+                        eprintln!("button #1 (passed to thing #1) clicked");
+                    };
+
+                    if ui
+                        .allocate_ui_at_rect(rect, |ui| {
+                            ui.label("I'm writing over everything");
+                            ui.separator();
+                            ui.button("#2")
+                        })
+                        .inner
+                        .clicked()
+                    {
+                        eprintln!("button #2 (passed to thing #2) clicked");
+                    }
                 });
             });
     }
@@ -434,16 +491,25 @@ impl eframe::App for Explorer {
     }
 }
 
-fn main() -> anyhow::Result<(), eframe::Error> {
+fn main() -> anyhow::Result<()> {
     env_logger::init();
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(1366.0, 768.0)),
         ..Default::default()
     };
 
-    eframe::run_native(
+    let factory = register_factory_entities(EntityFactory::default());
+    if FACTORY.set(factory).is_err() {
+        return Err(anyhow!("Couldn't initialize EntityFactory"));
+    }
+
+    if let Err(e) = eframe::run_native(
         Explorer::APP_NAME,
         options,
         Box::new(|cc| Box::new(Explorer::new(cc))),
-    )
+    ) {
+        Err(anyhow!("eframe::run_native(): {:?}", e))
+    } else {
+        Ok(())
+    }
 }

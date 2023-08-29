@@ -6,7 +6,7 @@ use eframe::{
     emath::{Align2, RectTransform},
     epaint::{pos2, vec2, Color32, FontId, Rounding, Stroke},
 };
-use groove_core::time::MusicalTime;
+use groove_core::{time::MusicalTime, traits::gui::DisplaysInTimeline};
 use std::ops::Range;
 
 pub fn pattern_icon(duration: MusicalTime, notes: &[Note]) -> impl eframe::egui::Widget + '_ {
@@ -18,8 +18,8 @@ pub fn pattern_icon(duration: MusicalTime, notes: &[Note]) -> impl eframe::egui:
     }
 }
 
-pub fn arrangement_legend(range: std::ops::Range<MusicalTime>) -> impl eframe::egui::Widget {
-    move |ui: &mut eframe::egui::Ui| ArrangementLegend::new().range(range).ui_content(ui)
+pub fn arrangement_legend(view_range: std::ops::Range<MusicalTime>) -> impl eframe::egui::Widget {
+    move |ui: &mut eframe::egui::Ui| ArrangementLegend::default().ui_arrangement(ui, view_range)
 }
 
 pub fn arrangement_pattern(
@@ -217,32 +217,26 @@ impl<'a> PatternIcon<'a> {
 }
 
 #[derive(Debug, Default)]
-pub struct ArrangementLegend {
-    range: std::ops::Range<MusicalTime>,
-}
-impl ArrangementLegend {
-    pub fn new() -> Self {
-        Default::default()
-    }
-    pub fn range(mut self, range: Range<MusicalTime>) -> Self {
-        self.range = range;
-        self
-    }
-
-    pub fn ui_content(&mut self, ui: &mut Ui) -> Response {
+pub struct ArrangementLegend {}
+impl DisplaysInTimeline for ArrangementLegend {
+    fn ui_arrangement(
+        &mut self,
+        ui: &mut eframe::egui::Ui,
+        view_range: std::ops::Range<groove_core::time::MusicalTime>,
+    ) -> eframe::egui::Response {
         let desired_size = vec2(ui.available_width(), ui.spacing().interact_size.y);
         let (rect, response) =
             ui.allocate_exact_size(desired_size, eframe::egui::Sense::click_and_drag());
         let to_screen = RectTransform::from_to(
             eframe::epaint::Rect::from_x_y_ranges(
-                self.range.start.total_beats() as f32..=self.range.end.total_beats() as f32,
+                view_range.start.total_beats() as f32..=view_range.end.total_beats() as f32,
                 rect.top()..=rect.bottom(),
             ),
             rect,
         );
 
-        let start_beat = self.range.start.total_beats();
-        let end_beat = self.range.end.total_beats();
+        let start_beat = view_range.start.total_beats();
+        let end_beat = view_range.end.total_beats();
 
         let font_id = FontId::proportional(12.0);
         let beat_count = (end_beat - start_beat) as usize;

@@ -10,7 +10,7 @@ use crate::{
 use std::ops::Range;
 
 #[cfg(feature = "egui-framework")]
-use self::gui::Shows;
+use self::gui::{Displays, DisplaysInTimeline, DisplaysWithResponse, Shows};
 
 pub trait MessageBounds: std::fmt::Debug + Send {}
 
@@ -387,13 +387,37 @@ pub trait Shows {}
 
 #[cfg(feature = "egui-framework")]
 pub mod gui {
-    use eframe::egui::Ui;
+    use eframe::egui;
 
     /// Implements egui content inside a Window or SidePanel.
+    /// TODO: replace with Displays::ui()
+    #[deprecated]
     pub trait Shows {
-        fn show(&mut self, ui: &mut Ui) {
+        fn show(&mut self, ui: &mut egui::Ui) {
             ui.label("Coming soon!");
         }
+    }
+
+    /// Something that can be called during egui rendering to display a view of
+    /// itself.
+    //
+    // Adapted from egui_demo_lib/src/demo/mod.rs
+    pub trait Displays {
+        fn ui(&mut self, ui: &mut egui::Ui);
+    }
+
+    /// Similar to Displays, but returns a Response.
+    pub trait DisplaysWithResponse {
+        fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response;
+    }
+
+    pub trait DisplaysInTimeline {
+        /// An entity that can display a portion of itself in a timeline view.
+        fn ui_arrangement(
+            &mut self,
+            ui: &mut egui::Ui,
+            view_range: std::ops::Range<crate::time::MusicalTime>,
+        ) -> egui::Response;
     }
 }
 #[cfg(test)]

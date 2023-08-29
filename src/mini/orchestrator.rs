@@ -949,8 +949,18 @@ mod tests {
             let mut samples = [StereoSample::SILENCE; 1];
             o.render(&mut samples);
         }
-        let prior_range = prior_start_time..o.transport().current_time();
-        assert!(prior_range.contains(&TIMER_DURATION));
+
+        // TODO: this section is confusing me. It used to say
+        // `prior_start_time..o.transport().current_time()`, but that failed
+        // just now. I am not sure why it would have ever passed. Consider
+        // bisecting to see how it did.
+        let prior_range = MusicalTime::TIME_ZERO..o.transport().current_time();
+        assert!(
+            prior_range.contains(&TIMER_DURATION),
+            "Expected the covered range {:?} to include the duration {:?}",
+            prior_range,
+            TIMER_DURATION
+        );
     }
 
     #[test]

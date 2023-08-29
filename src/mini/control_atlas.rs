@@ -2,6 +2,11 @@
 
 use crate::EntityFactory;
 use derive_builder::Builder;
+use eframe::{
+    egui::Sense,
+    emath::RectTransform,
+    epaint::{pos2, vec2, Color32, Rect, Stroke},
+};
 use groove_core::{
     control::ControlValue,
     time::MusicalTime,
@@ -183,6 +188,29 @@ impl ControlTrip {
             }
         }
     }
+
+    fn ui_arrangement(&mut self, ui: &mut eframe::egui::Ui, view_range: &Range<MusicalTime>) {
+        let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::hover());
+        let to_screen = RectTransform::from_to(
+            Rect::from_x_y_ranges(
+                view_range.start.total_units() as f32..=view_range.end.total_units() as f32,
+                ControlValue::MAX.0 as f32..=ControlValue::MIN.0 as f32,
+            ),
+            response.rect,
+        );
+        let mut pos = to_screen * pos2(MusicalTime::START.total_units() as f32, 0.0);
+        for step in self.steps.iter_mut() {
+            let second_pos = to_screen * pos2(step.time.total_units() as f32, step.value.0 as f32);
+            painter.line_segment(
+                [pos, second_pos],
+                Stroke {
+                    width: 1.0,
+                    color: Color32::YELLOW,
+                },
+            );
+            pos = second_pos;
+        }
+    }
 }
 impl Shows for ControlTrip {}
 impl HandlesMidi for ControlTrip {}
@@ -272,34 +300,81 @@ pub struct ControlStep {
 
 /// A [ControlAtlas] manages a group of [ControlTrip]s. (An atlas is a book of
 /// maps.)
-#[derive(Serialize, Deserialize, IsController, Debug, Uid, Default)]
+#[derive(Serialize, Deserialize, IsController, Debug, Uid)]
 pub struct ControlAtlas {
     uid: Uid,
     trips: Vec<ControlTrip>,
     #[serde(skip)]
     range: Range<MusicalTime>,
 }
+impl Default for ControlAtlas {
+    fn default() -> Self {
+        let mut r = Self {
+            uid: Default::default(),
+            trips: Default::default(),
+            range: Default::default(),
+        };
+        r.add_trip(
+            ControlTripBuilder::default()
+                .step(
+                    ControlStepBuilder::default()
+                        .time(MusicalTime::DURATION_WHOLE)
+                        .path(ControlPath::Flat)
+                        .value(ControlValue(0.25))
+                        .build()
+                        .unwrap(),
+                )
+                .step(
+                    ControlStepBuilder::default()
+                        .time(MusicalTime::DURATION_WHOLE * 2)
+                        .path(ControlPath::Flat)
+                        .value(ControlValue(0.75))
+                        .build()
+                        .unwrap(),
+                )
+                .step(
+                    ControlStepBuilder::default()
+                        .time(MusicalTime::DURATION_WHOLE * 3)
+                        .path(ControlPath::Flat)
+                        .value(ControlValue(0.5))
+                        .build()
+                        .unwrap(),
+                )
+                .build()
+                .unwrap(),
+        );
+        r
+    }
+}
 impl Shows for ControlAtlas {
     fn show(&mut self, ui: &mut eframe::egui::Ui) {
-        ui.horizontal_top(|ui| {
-            if ui.button("Add trip").clicked() {
-                let mut trip = ControlTripBuilder::default().build().unwrap();
-                trip.set_uid(EntityFactory::global().mint_uid());
-                self.add_trip(trip);
-            }
-            let mut remove_uid = None;
-            for trip in self.trips.iter_mut() {
-                ui.vertical(|ui| {
-                    if ui.button("x").clicked() {
-                        remove_uid = Some(trip.uid);
-                    }
-                });
-                trip.show(ui);
-            }
-            if let Some(uid) = remove_uid {
-                self.remove_trip(uid);
-            }
+        let (id, rect) = ui.allocate_space(vec2(ui.available_width(), 64.0));
+        ui.allocate_ui_at_rect(rect, |ui| {
+            ui.horizontal_top(|ui| {
+                if ui.button("Add trip").clicked() {
+                    let mut trip = ControlTripBuilder::default().build().unwrap();
+                    trip.set_uid(EntityFactory::global().mint_uid());
+                    self.add_trip(trip);
+                }
+                let mut remove_uid = None;
+                for trip in self.trips.iter_mut() {
+                    ui.vertical(|ui| {
+                        ui.allocate_ui_at_rect(rect, |ui| {
+                            trip.show(ui);
+                            if ui.button("x").clicked() {
+                                remove_uid = Some(trip.uid);
+                            }
+                        });
+                    });
+                    trip.show(ui);
+                }
+                if let Some(uid) = remove_uid {
+                    self.remove_trip(uid);
+                }
+            });
         });
+        // for trip in self.trips.iter_mut() {
+        // }
     }
 }
 impl HandlesMidi for ControlAtlas {}
@@ -361,6 +436,34 @@ impl ControlAtlas {
 
     fn remove_trip(&mut self, uid: Uid) {
         self.trips.retain(|t| t.uid != uid);
+    }
+
+    pub fn ui_arrangement(&mut self, ui: &mut eframe::egui::Ui, view_range: &Range<MusicalTime>) {
+        let (id, rect) = ui.allocate_space(vec2(ui.available_width(), 64.0));
+        ui.allocate_ui_at_rect(rect, |ui| {
+            ui.horizontal_top(|ui| {
+                if ui.button("Add trip").clicked() {
+                    let mut trip = ControlTripBuilder::default().build().unwrap();
+                    trip.set_uid(EntityFactory::global().mint_uid());
+                    self.add_trip(trip);
+                }
+                let mut remove_uid = None;
+                for trip in self.trips.iter_mut() {
+                    ui.vertical(|ui| {
+                        ui.allocate_ui_at_rect(rect, |ui| {
+                            trip.ui_arrangement(ui, view_range);
+                            if ui.button("x").clicked() {
+                                remove_uid = Some(trip.uid);
+                            }
+                        });
+                    });
+                    trip.show(ui);
+                }
+                if let Some(uid) = remove_uid {
+                    self.remove_trip(uid);
+                }
+            });
+        });
     }
 }
 
