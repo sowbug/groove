@@ -2,7 +2,7 @@
 
 use groove::{
     mini::{
-        register_factory_entities, ControlPath, ControlStepBuilder, ControlTripBuilder, Key,
+        register_factory_entities, ControlStepBuilder, ControlTripBuilder, ControlTripPath, Key,
         OrchestratorBuilder, PatternBuilder,
     },
     EntityFactory,
@@ -143,7 +143,7 @@ fn demo_control_trips() {
             ControlStepBuilder::default()
                 .value(ControlValue::MIN)
                 .time(MusicalTime::START)
-                .path(ControlPath::Linear)
+                .path(ControlTripPath::Linear)
                 .build()
                 .unwrap(),
         )
@@ -151,7 +151,7 @@ fn demo_control_trips() {
             ControlStepBuilder::default()
                 .value(ControlValue::MAX)
                 .time(MusicalTime::new_with_beats(4))
-                .path(ControlPath::Flat)
+                .path(ControlTripPath::Flat)
                 .build()
                 .unwrap(),
         )

@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 pub use control_atlas::{
-    ControlAtlas, ControlPath, ControlStep, ControlStepBuilder, ControlTrip, ControlTripBuilder,
+    ControlAtlas, ControlStep, ControlStepBuilder, ControlTrip, ControlTripBuilder, ControlTripPath,
 };
 pub use drag_drop::{DragDropManager, DragDropSource};
 pub use entities::register_factory_entities;

@@ -22,7 +22,7 @@ use std::ops::{Range, RangeInclusive};
 
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 /// Specifies what a [ControlStep]'s path should look like.
-pub enum ControlPath {
+pub enum ControlTripPath {
     /// No path. This step's value should be ignored.
     #[default]
     None,
@@ -45,7 +45,7 @@ pub struct ControlTripEphemerals {
     /// Which step we're currently processing.
     current_step: usize,
     /// The type of path we should be following.
-    current_path: ControlPath,
+    current_path: ControlTripPath,
     /// The range of values for the current step.
     value_range: RangeInclusive<ControlValue>,
     /// The timespan of the current step.
@@ -119,13 +119,13 @@ impl ControlTrip {
             0 => {
                 // Empty trip. Mark that we don't have a path. This is a
                 // terminal state.
-                self.e.current_path = ControlPath::None;
+                self.e.current_path = ControlTripPath::None;
             }
             1 => {
                 // This trip has only one step, indicating that we should stay
                 // level at its value.
                 let step = &self.steps[0];
-                self.e.current_path = ControlPath::Flat;
+                self.e.current_path = ControlTripPath::Flat;
                 self.e.value_range = step.value..=step.value;
 
                 // Mark the time range to include all time so that we'll
@@ -154,7 +154,7 @@ impl ControlTrip {
                         ControlStep {
                             value: step.value,
                             time: MusicalTime::TIME_MAX,
-                            path: ControlPath::Flat,
+                            path: ControlTripPath::Flat,
                         }
                     };
                     let start_time = end_time;
@@ -169,11 +169,11 @@ impl ControlTrip {
                         self.e.current_path = step.path;
                         self.e.time_range = step_time_range;
                         self.e.value_range = match step.path {
-                            ControlPath::None => todo!(),
-                            ControlPath::Flat => start_value..=start_value,
-                            ControlPath::Linear => start_value..=end_value,
-                            ControlPath::Logarithmic => todo!(),
-                            ControlPath::Exponential => todo!(),
+                            ControlTripPath::None => todo!(),
+                            ControlTripPath::Flat => start_value..=start_value,
+                            ControlTripPath::Linear => start_value..=end_value,
+                            ControlTripPath::Logarithmic => todo!(),
+                            ControlTripPath::Exponential => todo!(),
                         };
                         break;
                     } else {
@@ -198,16 +198,47 @@ impl ControlTrip {
             ),
             response.rect,
         );
-        let mut pos = to_screen * pos2(MusicalTime::START.total_units() as f32, 0.0);
-        for step in self.steps.iter_mut() {
-            let second_pos = to_screen * pos2(step.time.total_units() as f32, step.value.0 as f32);
-            painter.line_segment(
-                [pos, second_pos],
-                Stroke {
-                    width: 1.0,
-                    color: Color32::YELLOW,
+        let mut pos = to_screen
+            * pos2(
+                MusicalTime::START.total_units() as f32,
+                if let Some(step) = self.steps.first() {
+                    step.value.0 as f32
+                } else {
+                    0.0
                 },
             );
+        for step in self.steps.iter_mut() {
+            let second_pos = to_screen * pos2(step.time.total_units() as f32, step.value.0 as f32);
+            match step.path {
+                ControlTripPath::None => {}
+                ControlTripPath::Flat => {
+                    painter.line_segment(
+                        [pos, pos2(pos.x, second_pos.y)],
+                        Stroke {
+                            width: 1.0,
+                            color: Color32::YELLOW,
+                        },
+                    );
+                    painter.line_segment(
+                        [pos2(pos.x, second_pos.y), second_pos],
+                        Stroke {
+                            width: 1.0,
+                            color: Color32::YELLOW,
+                        },
+                    );
+                }
+                ControlTripPath::Linear => {
+                    painter.line_segment(
+                        [pos, second_pos],
+                        Stroke {
+                            width: 1.0,
+                            color: Color32::YELLOW,
+                        },
+                    );
+                }
+                ControlTripPath::Logarithmic => todo!(),
+                ControlTripPath::Exponential => todo!(),
+            }
             pos = second_pos;
         }
     }
@@ -226,7 +257,7 @@ impl Controls for ControlTrip {
 
     fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
         // If we have no current path, then we're all done.
-        if matches!(self.e.current_path, ControlPath::None) {
+        if matches!(self.e.current_path, ControlTripPath::None) {
             return;
         }
         if self.e.range.start >= self.e.time_range.end
@@ -256,7 +287,7 @@ impl Controls for ControlTrip {
     }
 
     fn is_finished(&self) -> bool {
-        matches!(self.e.current_path, ControlPath::None)
+        matches!(self.e.current_path, ControlTripPath::None)
             || self.e.current_step + 1 == self.steps.len()
     }
 
@@ -295,7 +326,7 @@ pub struct ControlStep {
     time: MusicalTime,
     /// How the step should progress to the next step. If this step is the last
     /// in a trip, then it's ControlPath::Flat.
-    path: ControlPath,
+    path: ControlTripPath,
 }
 
 /// A [ControlAtlas] manages a group of [ControlTrip]s. (An atlas is a book of
@@ -319,7 +350,7 @@ impl Default for ControlAtlas {
                 .step(
                     ControlStepBuilder::default()
                         .time(MusicalTime::DURATION_WHOLE)
-                        .path(ControlPath::Flat)
+                        .path(ControlTripPath::Flat)
                         .value(ControlValue(0.25))
                         .build()
                         .unwrap(),
@@ -327,7 +358,7 @@ impl Default for ControlAtlas {
                 .step(
                     ControlStepBuilder::default()
                         .time(MusicalTime::DURATION_WHOLE * 2)
-                        .path(ControlPath::Flat)
+                        .path(ControlTripPath::Flat)
                         .value(ControlValue(0.75))
                         .build()
                         .unwrap(),
@@ -335,7 +366,7 @@ impl Default for ControlAtlas {
                 .step(
                     ControlStepBuilder::default()
                         .time(MusicalTime::DURATION_WHOLE * 3)
-                        .path(ControlPath::Flat)
+                        .path(ControlTripPath::Linear)
                         .value(ControlValue(0.5))
                         .build()
                         .unwrap(),
@@ -484,7 +515,7 @@ mod tests {
         let step = ControlStepBuilder::default()
             .value(ControlValue(0.5))
             .time(MusicalTime::START + MusicalTime::DURATION_WHOLE)
-            .path(ControlPath::Flat)
+            .path(ControlTripPath::Flat)
             .build();
         assert!(step.is_ok());
     }
@@ -495,7 +526,7 @@ mod tests {
             .step(ControlStep {
                 value: ControlValue(0.5),
                 time: MusicalTime::START + MusicalTime::DURATION_WHOLE,
-                path: ControlPath::Flat,
+                path: ControlTripPath::Flat,
             })
             .build()
             .unwrap();
@@ -524,12 +555,12 @@ mod tests {
             .step(ControlStep {
                 value: ControlValue(0.5),
                 time: MusicalTime::START,
-                path: ControlPath::Flat,
+                path: ControlTripPath::Flat,
             })
             .step(ControlStep {
                 value: ControlValue(0.75),
                 time: MusicalTime::START + MusicalTime::DURATION_WHOLE,
-                path: ControlPath::Flat,
+                path: ControlTripPath::Flat,
             })
             .build()
             .unwrap();
@@ -567,12 +598,12 @@ mod tests {
             .step(ControlStep {
                 value: ControlValue(0.0),
                 time: MusicalTime::START,
-                path: ControlPath::Linear,
+                path: ControlTripPath::Linear,
             })
             .step(ControlStep {
                 value: ControlValue(1.0),
                 time: MusicalTime::new_with_beats(2),
-                path: ControlPath::Flat,
+                path: ControlTripPath::Flat,
             })
             .build()
             .unwrap();
@@ -603,17 +634,17 @@ mod tests {
                 .step(ControlStep {
                     value: ControlValue(0.1),
                     time: MusicalTime::new_with_units(10),
-                    path: ControlPath::Flat,
+                    path: ControlTripPath::Flat,
                 })
                 .step(ControlStep {
                     value: ControlValue(0.2),
                     time: MusicalTime::new_with_units(20),
-                    path: ControlPath::Flat,
+                    path: ControlTripPath::Flat,
                 })
                 .step(ControlStep {
                     value: ControlValue(0.3),
                     time: MusicalTime::new_with_units(30),
-                    path: ControlPath::Flat,
+                    path: ControlTripPath::Flat,
                 })
                 .build()
                 .unwrap();
