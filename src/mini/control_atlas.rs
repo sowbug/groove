@@ -11,8 +11,8 @@ use groove_core::{
     control::ControlValue,
     time::MusicalTime,
     traits::{
-        gui::Displays, Configurable, ControlEventsFn, Controls, HandlesMidi, HasUid, Serializable,
-        ThingEvent,
+        gui::{Displays, DisplaysInTimeline},
+        Configurable, ControlEventsFn, Controls, HandlesMidi, HasUid, Serializable, ThingEvent,
     },
     Uid,
 };
@@ -42,6 +42,9 @@ pub struct ControlTripEphemerals {
     /// in Controls::update_time().
     range: Range<MusicalTime>,
 
+    /// The GUI view's time range.
+    view_range: Range<MusicalTime>,
+
     /// Which step we're currently processing.
     current_step: usize,
     /// The type of path we should be following.
@@ -64,6 +67,7 @@ impl Default for ControlTripEphemerals {
     fn default() -> Self {
         Self {
             range: Default::default(),
+            view_range: Default::default(),
             current_step: Default::default(),
             current_path: Default::default(),
             value_range: ControlValue::default()..=ControlValue::default(),
@@ -188,12 +192,19 @@ impl ControlTrip {
             }
         }
     }
-
-    fn ui_arrangement(&mut self, ui: &mut eframe::egui::Ui, view_range: &Range<MusicalTime>) {
+}
+impl DisplaysInTimeline for ControlTrip {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+        self.e.view_range = view_range.clone();
+    }
+}
+impl Displays for ControlTrip {
+    fn ui(&mut self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::hover());
         let to_screen = RectTransform::from_to(
             Rect::from_x_y_ranges(
-                view_range.start.total_units() as f32..=view_range.end.total_units() as f32,
+                self.e.view_range.start.total_units() as f32
+                    ..=self.e.view_range.end.total_units() as f32,
                 ControlValue::MAX.0 as f32..=ControlValue::MIN.0 as f32,
             ),
             response.rect,
@@ -241,9 +252,9 @@ impl ControlTrip {
             }
             pos = second_pos;
         }
+        response
     }
 }
-impl Displays for ControlTrip {}
 impl HandlesMidi for ControlTrip {}
 impl Controls for ControlTrip {
     fn update_time(&mut self, range: &Range<MusicalTime>) {
@@ -329,6 +340,12 @@ pub struct ControlStep {
     path: ControlTripPath,
 }
 
+#[derive(Debug, Default)]
+pub struct ControlAtlasEphemerals {
+    range: Range<MusicalTime>,
+    view_range: Range<MusicalTime>,
+}
+
 /// A [ControlAtlas] manages a group of [ControlTrip]s. (An atlas is a book of
 /// maps.)
 #[derive(Serialize, Deserialize, IsController, Debug, Uid)]
@@ -336,14 +353,14 @@ pub struct ControlAtlas {
     uid: Uid,
     trips: Vec<ControlTrip>,
     #[serde(skip)]
-    range: Range<MusicalTime>,
+    e: ControlAtlasEphemerals,
 }
 impl Default for ControlAtlas {
     fn default() -> Self {
         let mut r = Self {
             uid: Default::default(),
             trips: Default::default(),
-            range: Default::default(),
+            e: Default::default(),
         };
         r.add_trip(
             ControlTripBuilder::default()
@@ -377,6 +394,11 @@ impl Default for ControlAtlas {
         r
     }
 }
+impl DisplaysInTimeline for ControlAtlas {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+        self.e.view_range = view_range.clone();
+    }
+}
 impl Displays for ControlAtlas {
     fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
         let (id, rect) = ui.allocate_space(vec2(ui.available_width(), 64.0));
@@ -391,6 +413,7 @@ impl Displays for ControlAtlas {
                 for trip in self.trips.iter_mut() {
                     ui.vertical(|ui| {
                         ui.allocate_ui_at_rect(rect, |ui| {
+                            trip.set_view_range(&self.e.view_range);
                             trip.ui(ui);
                             if ui.button("x").clicked() {
                                 remove_uid = Some(trip.uid);
@@ -410,7 +433,7 @@ impl Displays for ControlAtlas {
 impl HandlesMidi for ControlAtlas {}
 impl Controls for ControlAtlas {
     fn update_time(&mut self, range: &Range<MusicalTime>) {
-        self.range = range.clone();
+        self.e.range = range.clone();
         self.trips.iter_mut().for_each(|t| t.update_time(range));
     }
 
@@ -466,34 +489,6 @@ impl ControlAtlas {
 
     fn remove_trip(&mut self, uid: Uid) {
         self.trips.retain(|t| t.uid != uid);
-    }
-
-    pub fn ui_arrangement(&mut self, ui: &mut eframe::egui::Ui, view_range: &Range<MusicalTime>) {
-        let (id, rect) = ui.allocate_space(vec2(ui.available_width(), 64.0));
-        ui.allocate_ui_at_rect(rect, |ui| {
-            ui.horizontal_top(|ui| {
-                if ui.button("Add trip").clicked() {
-                    let mut trip = ControlTripBuilder::default().build().unwrap();
-                    trip.set_uid(EntityFactory::global().mint_uid());
-                    self.add_trip(trip);
-                }
-                let mut remove_uid = None;
-                for trip in self.trips.iter_mut() {
-                    ui.vertical(|ui| {
-                        ui.allocate_ui_at_rect(rect, |ui| {
-                            trip.ui_arrangement(ui, view_range);
-                            if ui.button("x").clicked() {
-                                remove_uid = Some(trip.uid);
-                            }
-                        });
-                    });
-                    trip.ui(ui);
-                }
-                if let Some(uid) = remove_uid {
-                    self.remove_trip(uid);
-                }
-            });
-        });
     }
 }
 

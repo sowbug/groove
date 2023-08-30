@@ -19,7 +19,11 @@ use groove::{
     },
     EntityFactory,
 };
-use groove_core::{midi::MidiNote, time::MusicalTime, traits::gui::Displays};
+use groove_core::{
+    midi::MidiNote,
+    time::MusicalTime,
+    traits::gui::{Displays, DisplaysInTimeline},
+};
 use std::ops::Range;
 
 #[derive(Debug)]
@@ -42,10 +46,10 @@ impl Displays for ArrangementLegendSettings {
             ui.label("start/end");
             let mut range_start = self.range.start.total_beats();
             let mut range_end = self.range.end.total_beats();
-            if ui.add(Slider::new(&mut range_start, 0..=1024)).changed() {
+            if ui.add(Slider::new(&mut range_start, 0..=128)).changed() {
                 self.range.start = MusicalTime::new_with_beats(range_start);
             };
-            if ui.add(Slider::new(&mut range_end, 0..=1024)).changed() {
+            if ui.add(Slider::new(&mut range_end, 1..=256)).changed() {
                 self.range.end = MusicalTime::new_with_beats(range_end);
             };
         })
@@ -398,7 +402,8 @@ impl Explorer {
                     // Control Atlas
                     if !self.control_atlas_settings.hide {
                         self.control_atlas
-                            .ui_arrangement(ui, &self.arrangement_legend.range);
+                            .set_view_range(&self.arrangement_legend.range);
+                        self.control_atlas.ui(ui);
                     }
                     ui.separator();
 

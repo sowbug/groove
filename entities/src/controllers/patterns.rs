@@ -279,7 +279,208 @@ mod gui {
     impl Displays for NewPattern {
         fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
             Frame::canvas(ui.style())
-                .show(ui, |ui| self.ui_content(ui))
+                .show(ui, |ui| {
+                    let notes_vert = 24.0;
+                    let steps_horiz = 16.0;
+
+                    let desired_size = ui.available_size_before_wrap();
+                    let desired_size = Vec2::new(desired_size.x, 256.0);
+                    let (mut response, painter) =
+                        ui.allocate_painter(desired_size, Sense::click_and_drag());
+
+                    let to_screen = emath::RectTransform::from_to(
+                        Rect::from_min_size(Pos2::ZERO, Vec2::splat(1.0)),
+                        response.rect,
+                    );
+                    let from_screen = to_screen.inverse();
+
+                    painter.rect_filled(response.rect, Rounding::default(), Color32::GRAY);
+                    for i in 0..16 {
+                        let x = i as f32 / steps_horiz;
+                        let lines = [to_screen * Pos2::new(x, 0.0), to_screen * Pos2::new(x, 1.0)];
+                        painter.line_segment(
+                            lines,
+                            Stroke {
+                                width: 1.0,
+                                color: Color32::DARK_GRAY,
+                            },
+                        );
+                    }
+
+                    // Are we over any existing note?
+                    let mut hovered_note = None;
+                    // if yes, are we hovering at a duration adjustment point?
+                    let mut hovering_at_start = false;
+                    let mut hovering_at_end = false;
+                    if let Some(hover_pos) = response.hover_pos() {
+                        for note in &self.notes {
+                            let note_rect = to_screen.transform_rect(self.rect_for_note(note));
+                            if note_rect.contains(hover_pos) {
+                                const SIDE_MARGIN: f32 = 6.0;
+                                hovered_note = Some(note.clone());
+                                let smaller_rect = Rect::from_min_size(
+                                    note_rect.left_top(),
+                                    Vec2::new(SIDE_MARGIN, note_rect.height()),
+                                );
+                                hovering_at_start = smaller_rect.contains(hover_pos);
+                                let smaller_rect = smaller_rect
+                                    .translate(Vec2::new(note_rect.width() - SIDE_MARGIN, 0.0));
+                                hovering_at_end = smaller_rect.contains(hover_pos);
+                                break;
+                            }
+                        }
+                    }
+
+                    if response.clicked() {
+                        if let Some(pointer_pos) = response.interact_pointer_pos() {
+                            let note = self.note_for_position(
+                                &from_screen,
+                                steps_horiz,
+                                notes_vert,
+                                pointer_pos,
+                            );
+
+                            if let Some(hovered) = &hovered_note {
+                                self.remove(hovered.clone(), PerfectTimeUnit::default());
+                            } else {
+                                self.add(note, PerfectTimeUnit::default());
+                            }
+                            response.mark_changed();
+                        }
+                    }
+
+                    if response.drag_started() {
+                        self.drag_from_start = false;
+                        self.drag_from_end = false;
+                        if hovered_note.is_some() {
+                            if hovering_at_start {
+                                self.drag_from_start = true;
+                            }
+                            if hovering_at_end {
+                                self.drag_from_end = true;
+                            }
+                            self.dragged_note = hovered_note.take();
+                            if let Some(n) = &self.dragged_note {
+                                self.remove(n.clone(), PerfectTimeUnit::default());
+                            }
+                        } else {
+                            self.dragged_note = None;
+                        }
+                    }
+                    if response.dragged() {
+                        if let Some(old_note) = &self.dragged_note {
+                            if let Some(pointer_pos) = response.interact_pointer_pos() {
+                                let new_note = if self.drag_from_start || self.drag_from_end {
+                                    let canvas_pos = from_screen * pointer_pos;
+                                    NewNote {
+                                        key: old_note.key,
+                                        velocity: old_note.velocity,
+                                        range: if self.drag_from_start {
+                                            Range {
+                                                start: (canvas_pos.x * steps_horiz * 8.0).floor()
+                                                    / 32.0,
+                                                end: old_note.range.end,
+                                            }
+                                        } else {
+                                            Range {
+                                                start: old_note.range.start,
+                                                end: (canvas_pos.x * steps_horiz * 8.0).floor()
+                                                    / 32.0,
+                                            }
+                                        },
+                                        ui_state: Default::default(),
+                                    }
+                                } else {
+                                    self.note_for_position(
+                                        &from_screen,
+                                        steps_horiz,
+                                        notes_vert,
+                                        pointer_pos,
+                                    )
+                                };
+                                eprintln!("dragged note {:#?}", new_note);
+                                painter.extend(self.make_note_shapes(&new_note, &to_screen, true));
+                            }
+                        }
+                    }
+                    if response.drag_released() {
+                        if let Some(old_note) = &self.dragged_note {
+                            if let Some(pointer_pos) = response.interact_pointer_pos() {
+                                let new_note = if self.drag_from_start || self.drag_from_end {
+                                    let canvas_pos = from_screen * pointer_pos;
+                                    NewNote {
+                                        key: old_note.key,
+                                        velocity: old_note.velocity,
+                                        range: if self.drag_from_start {
+                                            Range {
+                                                start: (canvas_pos.x * steps_horiz * 8.0).floor()
+                                                    / 32.0,
+                                                end: old_note.range.end,
+                                            }
+                                        } else {
+                                            Range {
+                                                start: old_note.range.start,
+                                                end: (canvas_pos.x * steps_horiz * 8.0).floor()
+                                                    / 32.0,
+                                            }
+                                        },
+                                        ui_state: Default::default(),
+                                    }
+                                } else {
+                                    self.note_for_position(
+                                        &from_screen,
+                                        steps_horiz,
+                                        notes_vert,
+                                        pointer_pos,
+                                    )
+                                };
+                                self.add(new_note, PerfectTimeUnit::default());
+                            }
+                        }
+                        self.dragged_note = None;
+                    }
+
+                    // if response.drag_started() {
+                    //     self.is_dragging = true;
+
+                    //     if let Some(pointer_pos) = response.interact_pointer_pos() {
+                    //         self.drag_start_point = Some(pointer_pos);
+                    //         self.drag_end_point = Some(pointer_pos);
+                    //     }
+                    //     // let note =
+                    //     //     self.note_for_position(&from_screen, steps_horiz, notes_vert, pointer_pos);
+                    //     // self.is_drag_deleting = self.notes.contains(&note);
+                    // }
+                    // if response.drag_released() {
+                    //     self.is_dragging = false;
+
+                    //     if let Some(pointer_pos) = response.interact_pointer_pos() {
+                    //         self.drag_end_point = Some(pointer_pos);
+                    //         let note = self.note_for_position(
+                    //             &from_screen,
+                    //             steps_horiz,
+                    //             notes_vert,
+                    //             self.drag_start_point,
+                    //             Some(pointer_pos),
+                    //         );
+                    //         self.drag_start_point = None;
+                    //     }
+                    // }
+
+                    let shapes = self.notes.iter().fold(Vec::default(), |mut v, note| {
+                        let is_highlighted = if let Some(n) = &hovered_note {
+                            n == note
+                        } else {
+                            false
+                        };
+                        v.extend(self.make_note_shapes(note, &to_screen, is_highlighted));
+                        v
+                    });
+
+                    painter.extend(shapes);
+
+                    response
+                })
                 .inner
         }
     }
@@ -317,201 +518,6 @@ mod gui {
                 y: (1.0 + note.key as f32) / notes_vert,
             };
             Rect::from_two_pos(ul, br)
-        }
-
-        fn ui_content(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            let notes_vert = 24.0;
-            let steps_horiz = 16.0;
-
-            let desired_size = ui.available_size_before_wrap();
-            let desired_size = Vec2::new(desired_size.x, 256.0);
-            let (mut response, painter) =
-                ui.allocate_painter(desired_size, Sense::click_and_drag());
-
-            let to_screen = emath::RectTransform::from_to(
-                Rect::from_min_size(Pos2::ZERO, Vec2::splat(1.0)),
-                response.rect,
-            );
-            let from_screen = to_screen.inverse();
-
-            painter.rect_filled(response.rect, Rounding::default(), Color32::GRAY);
-            for i in 0..16 {
-                let x = i as f32 / steps_horiz;
-                let lines = [to_screen * Pos2::new(x, 0.0), to_screen * Pos2::new(x, 1.0)];
-                painter.line_segment(
-                    lines,
-                    Stroke {
-                        width: 1.0,
-                        color: Color32::DARK_GRAY,
-                    },
-                );
-            }
-
-            // Are we over any existing note?
-            let mut hovered_note = None;
-            // if yes, are we hovering at a duration adjustment point?
-            let mut hovering_at_start = false;
-            let mut hovering_at_end = false;
-            if let Some(hover_pos) = response.hover_pos() {
-                for note in &self.notes {
-                    let note_rect = to_screen.transform_rect(self.rect_for_note(note));
-                    if note_rect.contains(hover_pos) {
-                        const SIDE_MARGIN: f32 = 6.0;
-                        hovered_note = Some(note.clone());
-                        let smaller_rect = Rect::from_min_size(
-                            note_rect.left_top(),
-                            Vec2::new(SIDE_MARGIN, note_rect.height()),
-                        );
-                        hovering_at_start = smaller_rect.contains(hover_pos);
-                        let smaller_rect =
-                            smaller_rect.translate(Vec2::new(note_rect.width() - SIDE_MARGIN, 0.0));
-                        hovering_at_end = smaller_rect.contains(hover_pos);
-                        break;
-                    }
-                }
-            }
-
-            if response.clicked() {
-                if let Some(pointer_pos) = response.interact_pointer_pos() {
-                    let note =
-                        self.note_for_position(&from_screen, steps_horiz, notes_vert, pointer_pos);
-
-                    if let Some(hovered) = &hovered_note {
-                        self.remove(hovered.clone(), PerfectTimeUnit::default());
-                    } else {
-                        self.add(note, PerfectTimeUnit::default());
-                    }
-                    response.mark_changed();
-                }
-            }
-
-            if response.drag_started() {
-                self.drag_from_start = false;
-                self.drag_from_end = false;
-                if hovered_note.is_some() {
-                    if hovering_at_start {
-                        self.drag_from_start = true;
-                    }
-                    if hovering_at_end {
-                        self.drag_from_end = true;
-                    }
-                    self.dragged_note = hovered_note.take();
-                    if let Some(n) = &self.dragged_note {
-                        self.remove(n.clone(), PerfectTimeUnit::default());
-                    }
-                } else {
-                    self.dragged_note = None;
-                }
-            }
-            if response.dragged() {
-                if let Some(old_note) = &self.dragged_note {
-                    if let Some(pointer_pos) = response.interact_pointer_pos() {
-                        let new_note = if self.drag_from_start || self.drag_from_end {
-                            let canvas_pos = from_screen * pointer_pos;
-                            NewNote {
-                                key: old_note.key,
-                                velocity: old_note.velocity,
-                                range: if self.drag_from_start {
-                                    Range {
-                                        start: (canvas_pos.x * steps_horiz * 8.0).floor() / 32.0,
-                                        end: old_note.range.end,
-                                    }
-                                } else {
-                                    Range {
-                                        start: old_note.range.start,
-                                        end: (canvas_pos.x * steps_horiz * 8.0).floor() / 32.0,
-                                    }
-                                },
-                                ui_state: Default::default(),
-                            }
-                        } else {
-                            self.note_for_position(
-                                &from_screen,
-                                steps_horiz,
-                                notes_vert,
-                                pointer_pos,
-                            )
-                        };
-                        eprintln!("dragged note {:#?}", new_note);
-                        painter.extend(self.make_note_shapes(&new_note, &to_screen, true));
-                    }
-                }
-            }
-            if response.drag_released() {
-                if let Some(old_note) = &self.dragged_note {
-                    if let Some(pointer_pos) = response.interact_pointer_pos() {
-                        let new_note = if self.drag_from_start || self.drag_from_end {
-                            let canvas_pos = from_screen * pointer_pos;
-                            NewNote {
-                                key: old_note.key,
-                                velocity: old_note.velocity,
-                                range: if self.drag_from_start {
-                                    Range {
-                                        start: (canvas_pos.x * steps_horiz * 8.0).floor() / 32.0,
-                                        end: old_note.range.end,
-                                    }
-                                } else {
-                                    Range {
-                                        start: old_note.range.start,
-                                        end: (canvas_pos.x * steps_horiz * 8.0).floor() / 32.0,
-                                    }
-                                },
-                                ui_state: Default::default(),
-                            }
-                        } else {
-                            self.note_for_position(
-                                &from_screen,
-                                steps_horiz,
-                                notes_vert,
-                                pointer_pos,
-                            )
-                        };
-                        self.add(new_note, PerfectTimeUnit::default());
-                    }
-                }
-                self.dragged_note = None;
-            }
-
-            // if response.drag_started() {
-            //     self.is_dragging = true;
-
-            //     if let Some(pointer_pos) = response.interact_pointer_pos() {
-            //         self.drag_start_point = Some(pointer_pos);
-            //         self.drag_end_point = Some(pointer_pos);
-            //     }
-            //     // let note =
-            //     //     self.note_for_position(&from_screen, steps_horiz, notes_vert, pointer_pos);
-            //     // self.is_drag_deleting = self.notes.contains(&note);
-            // }
-            // if response.drag_released() {
-            //     self.is_dragging = false;
-
-            //     if let Some(pointer_pos) = response.interact_pointer_pos() {
-            //         self.drag_end_point = Some(pointer_pos);
-            //         let note = self.note_for_position(
-            //             &from_screen,
-            //             steps_horiz,
-            //             notes_vert,
-            //             self.drag_start_point,
-            //             Some(pointer_pos),
-            //         );
-            //         self.drag_start_point = None;
-            //     }
-            // }
-
-            let shapes = self.notes.iter().fold(Vec::default(), |mut v, note| {
-                let is_highlighted = if let Some(n) = &hovered_note {
-                    n == note
-                } else {
-                    false
-                };
-                v.extend(self.make_note_shapes(note, &to_screen, is_highlighted));
-                v
-            });
-
-            painter.extend(shapes);
-
-            response
         }
 
         fn note_for_position(

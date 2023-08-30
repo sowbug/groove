@@ -139,7 +139,80 @@ impl Default for Pattern {
 }
 impl Displays for Pattern {
     fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-        self.ui_content(ui)
+        let notes_vert = 24.0;
+        let steps_horiz = self.time_signature.bottom * 4;
+
+        let (mut response, painter) =
+            ui.allocate_painter(ui.available_size_before_wrap(), Sense::click());
+
+        let to_screen = emath::RectTransform::from_to(
+            Rect::from_min_size(Pos2::ZERO, Vec2::splat(1.0)),
+            response.rect,
+        );
+        let from_screen = to_screen.inverse();
+
+        painter.rect_filled(response.rect, Rounding::default(), Color32::GRAY);
+        for i in 0..steps_horiz {
+            let x = i as f32 / steps_horiz as f32;
+            let lines = [to_screen * Pos2::new(x, 0.0), to_screen * Pos2::new(x, 1.0)];
+            painter.line_segment(
+                lines,
+                Stroke {
+                    width: 1.0,
+                    color: Color32::DARK_GRAY,
+                },
+            );
+        }
+
+        // Are we over any existing note?
+        let mut hovered_note = None;
+        if let Some(hover_pos) = response.hover_pos() {
+            for note in &self.notes {
+                let note_rect = to_screen.transform_rect(self.rect_for_note(&note));
+                if note_rect.contains(hover_pos) {
+                    hovered_note = Some(note.clone());
+                    break;
+                }
+            }
+        }
+
+        // Clicking means we add a new note in an empty space, or remove an existing one.
+        if response.clicked() {
+            if let Some(pointer_pos) = response.interact_pointer_pos() {
+                let note =
+                    self.note_for_position(&from_screen, steps_horiz, notes_vert, pointer_pos);
+                if let Some(hovered) = hovered_note {
+                    let _ = self.remove_note(&hovered);
+                    hovered_note = None;
+                } else {
+                    let _ = self.add_note(note);
+                }
+                response.mark_changed();
+            }
+        }
+
+        let shapes = self
+            .notes
+            .iter()
+            .enumerate()
+            .fold(Vec::default(), |mut v, (index, note)| {
+                let is_highlighted = if let Some(n) = &hovered_note {
+                    n == note
+                } else {
+                    false
+                };
+                v.extend(self.make_note_shapes(
+                    note,
+                    &to_screen,
+                    is_highlighted,
+                    self.note_selection_set.contains(&index),
+                ));
+                v
+            });
+
+        painter.extend(shapes);
+
+        response
     }
 }
 impl Pattern {
@@ -255,83 +328,6 @@ impl Pattern {
         Rect::from_two_pos(ul, br)
     }
 
-    fn ui_content(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-        let notes_vert = 24.0;
-        let steps_horiz = self.time_signature.bottom * 4;
-
-        let (mut response, painter) =
-            ui.allocate_painter(ui.available_size_before_wrap(), Sense::click());
-
-        let to_screen = emath::RectTransform::from_to(
-            Rect::from_min_size(Pos2::ZERO, Vec2::splat(1.0)),
-            response.rect,
-        );
-        let from_screen = to_screen.inverse();
-
-        painter.rect_filled(response.rect, Rounding::default(), Color32::GRAY);
-        for i in 0..steps_horiz {
-            let x = i as f32 / steps_horiz as f32;
-            let lines = [to_screen * Pos2::new(x, 0.0), to_screen * Pos2::new(x, 1.0)];
-            painter.line_segment(
-                lines,
-                Stroke {
-                    width: 1.0,
-                    color: Color32::DARK_GRAY,
-                },
-            );
-        }
-
-        // Are we over any existing note?
-        let mut hovered_note = None;
-        if let Some(hover_pos) = response.hover_pos() {
-            for note in &self.notes {
-                let note_rect = to_screen.transform_rect(self.rect_for_note(&note));
-                if note_rect.contains(hover_pos) {
-                    hovered_note = Some(note.clone());
-                    break;
-                }
-            }
-        }
-
-        // Clicking means we add a new note in an empty space, or remove an existing one.
-        if response.clicked() {
-            if let Some(pointer_pos) = response.interact_pointer_pos() {
-                let note =
-                    self.note_for_position(&from_screen, steps_horiz, notes_vert, pointer_pos);
-                if let Some(hovered) = hovered_note {
-                    let _ = self.remove_note(&hovered);
-                    hovered_note = None;
-                } else {
-                    let _ = self.add_note(note);
-                }
-                response.mark_changed();
-            }
-        }
-
-        let shapes = self
-            .notes
-            .iter()
-            .enumerate()
-            .fold(Vec::default(), |mut v, (index, note)| {
-                let is_highlighted = if let Some(n) = &hovered_note {
-                    n == note
-                } else {
-                    false
-                };
-                v.extend(self.make_note_shapes(
-                    note,
-                    &to_screen,
-                    is_highlighted,
-                    self.note_selection_set.contains(&index),
-                ));
-                v
-            });
-
-        painter.extend(shapes);
-
-        response
-    }
-
     fn note_for_position(
         &self,
         from_screen: &RectTransform,
@@ -418,7 +414,7 @@ impl Pattern {
 
     #[allow(missing_docs)]
     pub fn icon_widget(&mut self) -> impl Widget + '_ {
-        move |ui: &mut Ui| self.ui_content(ui)
+        move |ui: &mut Ui| self.ui(ui)
     }
 
     /// Draws the pattern.

@@ -10,7 +10,7 @@ use crate::{
 use std::ops::Range;
 
 #[cfg(feature = "egui-framework")]
-use self::gui::{Displays, DisplaysInTimeline, DisplaysWithoutResponse};
+use self::gui::Displays;
 
 pub trait MessageBounds: std::fmt::Debug + Send {}
 
@@ -403,17 +403,14 @@ pub mod gui {
     }
 
     /// Similar to Displays, but doesn't return a Response.
+    #[deprecated]
     pub trait DisplaysWithoutResponse {
         fn ui(&mut self, ui: &mut egui::Ui);
     }
 
-    pub trait DisplaysInTimeline {
-        /// An entity that can display a portion of itself in a timeline view.
-        fn ui_arrangement(
-            &mut self,
-            ui: &mut egui::Ui,
-            view_range: std::ops::Range<crate::time::MusicalTime>,
-        ) -> egui::Response;
+    /// Something that can display a portion of itself in a timeline view.
+    pub trait DisplaysInTimeline: Displays {
+        fn set_view_range(&mut self, view_range: &std::ops::Range<crate::time::MusicalTime>);
     }
 }
 #[cfg(test)]
