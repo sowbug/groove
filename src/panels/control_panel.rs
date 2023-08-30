@@ -45,7 +45,7 @@ impl ControlPanel {
     pub fn show_with_action(&mut self, ui: &mut Ui) -> Option<ControlPanelAction> {
         let mut action = None;
         ui.horizontal_centered(|ui| {
-            self.transport_copy.uixx(ui);
+            self.transport_copy.ui(ui);
             if ui.button("play").clicked() {
                 action = Some(ControlPanelAction::Play);
             }
@@ -77,8 +77,9 @@ impl ControlPanel {
     }
 }
 impl Displays for ControlPanel {
-    fn uixx(&mut self, ui: &mut Ui) {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
         let _ = self.show_with_action(ui);
+        ui.label("TODO")
     }
 }
 

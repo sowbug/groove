@@ -397,7 +397,7 @@ pub mod gui {
     //
     // Adapted from egui_demo_lib/src/demo/mod.rs
     pub trait Displays {
-        fn uixx(&mut self, ui: &mut egui::Ui) -> egui::Response {
+        fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
             ui.label("Coming soon!")
         }
     }

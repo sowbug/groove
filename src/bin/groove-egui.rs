@@ -137,16 +137,16 @@ impl eframe::App for GrooveApp {
         right.show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.vertical(|ui| {
-                    self.preferences.uixx(ui);
-                    self.midi_panel.uixx(ui);
-                    self.audio_panel.uixx(ui);
+                    self.preferences.ui(ui);
+                    self.midi_panel.ui(ui);
+                    self.audio_panel.ui(ui);
                 });
             })
         });
         center.show(ctx, |ui| {
             ScrollArea::vertical().show(ui, |ui| {
                 if let Ok(mut o) = self.orchestrator.lock() {
-                    o.uixx(ui);
+                    o.ui(ui);
                 }
             });
             self.toasts.show(ctx);

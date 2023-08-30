@@ -565,11 +565,11 @@ impl Sequencer {
         self.arranged_patterns.remove(uid);
     }
 
-    fn show_small(&mut self, ui: &mut Ui) {
-        ui.label("Sequencer");
+    fn show_small(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        ui.label("Sequencer")
     }
 
-    fn show_and_handle(&mut self, ui: &mut Ui) {
+    fn show_and_handle(&mut self, ui: &mut Ui) -> eframe::egui::Response {
         if let Some(action) = self.ui_content(ui) {
             match action {
                 SequencerAction::ArrangePatternAppend(uid) => {
@@ -582,27 +582,28 @@ impl Sequencer {
                 }
             }
         }
+        ui.label("TODO")
     }
 
-    fn show_medium(&mut self, ui: &mut Ui) {
+    fn show_medium(&mut self, ui: &mut Ui) -> eframe::egui::Response {
         self.show_and_handle(ui)
     }
 
-    fn show_full(&mut self, ui: &mut Ui) {
+    fn show_full(&mut self, ui: &mut Ui) -> eframe::egui::Response {
         self.show_and_handle(ui)
     }
 }
 impl Displays for Sequencer {
-    fn uixx(&mut self, ui: &mut Ui) {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
         let height = ui.available_height();
         ui.set_min_size(ui.available_size());
         ui.set_max_size(ui.available_size());
         if height <= 32.0 {
-            self.show_small(ui);
+            self.show_small(ui)
         } else if height <= 128.0 {
-            self.show_medium(ui);
+            self.show_medium(ui)
         } else {
-            self.show_full(ui);
+            self.show_full(ui)
         }
     }
 }

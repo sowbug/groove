@@ -367,8 +367,8 @@ mod gui {
     use groove_core::traits::{gui::Displays, HasUid};
 
     impl Displays for FmSynth {
-        fn uixx(&mut self, ui: &mut Ui) {
-            ui.label(self.name());
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+            ui.label(self.name())
         }
     }
 }

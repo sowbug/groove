@@ -96,7 +96,7 @@ impl Transport {
     }
 }
 impl Displays for Transport {
-    fn uixx(&mut self, ui: &mut Ui) {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
         ui.allocate_ui(vec2(72.0, 20.0), |ui| {
             ui.set_min_width(128.0);
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -104,13 +104,16 @@ impl Displays for Transport {
                     RichText::new(format!("{:0.2}", self.tempo)).text_style(TextStyle::Monospace),
                 ));
             });
-        });
-        ui.allocate_ui(vec2(72.0, 20.0), |ui| {
-            ui.set_min_width(128.0);
-            ui.add(Label::new(
-                RichText::new(format!("{}", self.e.current_time)).text_style(TextStyle::Monospace),
-            ));
-        });
+        })
+        .response
+            | ui.allocate_ui(vec2(72.0, 20.0), |ui| {
+                ui.set_min_width(128.0);
+                ui.add(Label::new(
+                    RichText::new(format!("{}", self.e.current_time))
+                        .text_style(TextStyle::Monospace),
+                ));
+            })
+            .response
     }
 }
 impl Serializable for Transport {}

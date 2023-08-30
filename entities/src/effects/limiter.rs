@@ -85,31 +85,28 @@ mod gui {
     use groove_core::{traits::gui::Displays, Normal};
 
     impl Displays for Limiter {
-        fn uixx(&mut self, ui: &mut Ui) {
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
             let mut min = self.min().to_percentage();
             let mut max = self.max().to_percentage();
-            if ui
-                .add(
-                    Slider::new(&mut min, 0.0..=max)
-                        .suffix(" %")
-                        .text("min")
-                        .fixed_decimals(2),
-                )
-                .changed()
-            {
+            let min_response = ui.add(
+                Slider::new(&mut min, 0.0..=max)
+                    .suffix(" %")
+                    .text("min")
+                    .fixed_decimals(2),
+            );
+            if min_response.changed() {
                 self.set_min(min.into());
             };
-            if ui
-                .add(
-                    Slider::new(&mut max, min..=1.0)
-                        .suffix(" %")
-                        .text("max")
-                        .fixed_decimals(2),
-                )
-                .changed()
-            {
+            let max_response = ui.add(
+                Slider::new(&mut max, min..=1.0)
+                    .suffix(" %")
+                    .text("max")
+                    .fixed_decimals(2),
+            );
+            if max_response.changed() {
                 self.set_max(Normal::from_percentage(max).into());
             };
+            min_response | max_response
         }
     }
 }

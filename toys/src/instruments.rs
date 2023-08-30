@@ -681,18 +681,18 @@ mod gui {
     }
 
     impl Displays for ToyInstrument {
-        fn uixx(&mut self, ui: &mut Ui) -> egui::Response {
+        fn ui(&mut self, ui: &mut Ui) -> egui::Response {
             ui.label(self.name())
         }
     }
 
     impl Displays for DebugSynth {
-        fn uixx(&mut self, ui: &mut Ui) -> egui::Response {
+        fn ui(&mut self, ui: &mut Ui) -> egui::Response {
             ui.label(self.name())
         }
     }
     impl Displays for ToySynth {
-        fn uixx(&mut self, ui: &mut Ui) -> egui::Response {
+        fn ui(&mut self, ui: &mut Ui) -> egui::Response {
             let height = ui.available_height();
             ui.set_min_size(ui.available_size());
             ui.set_max_size(ui.available_size());
@@ -735,7 +735,7 @@ mod gui {
     }
 
     impl Displays for ToyAudioSource {
-        fn uixx(&mut self, ui: &mut Ui) -> egui::Response {
+        fn ui(&mut self, ui: &mut Ui) -> egui::Response {
             ui.label(self.name())
         }
     }

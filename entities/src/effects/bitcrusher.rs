@@ -79,18 +79,17 @@ mod gui {
     use groove_core::traits::gui::Displays;
 
     impl Displays for Bitcrusher {
-        fn uixx(&mut self, ui: &mut Ui) {
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
             let mut bits = self.bits();
-            if ui
-                .add(
-                    DragValue::new(&mut bits)
-                        .clamp_range(Bitcrusher::bits_range())
-                        .suffix(" bits"),
-                )
-                .changed()
-            {
+            let response = ui.add(
+                DragValue::new(&mut bits)
+                    .clamp_range(Bitcrusher::bits_range())
+                    .suffix(" bits"),
+            );
+            if response.changed() {
                 self.set_bits(bits);
             };
+            response
         }
     }
 }

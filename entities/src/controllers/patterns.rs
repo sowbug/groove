@@ -201,7 +201,7 @@ mod gui {
     };
     use groove_core::{
         time::{BeatValue, PerfectTimeUnit},
-        traits::gui::{Displays, DisplaysWithResponse},
+        traits::gui::Displays,
     };
     use std::ops::Range;
 
@@ -223,7 +223,7 @@ mod gui {
     }
 
     impl Displays for Pattern<Note> {
-        fn uixx(&mut self, ui: &mut Ui) {
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
             if let Some(v) = self.note_value.as_mut() {
                 v.ui(ui);
             } else {
@@ -236,28 +236,30 @@ mod gui {
                 // this makes sense to be optional.
                 BeatValue::show_inherited(ui);
             }
-            Grid::new(ui.next_auto_id()).show(ui, |ui| {
-                for notes in self.notes.iter_mut() {
-                    for note in notes.iter_mut() {
-                        Frame::none()
-                            .stroke(Stroke::new(1.0, Color32::GRAY))
-                            .fill(Color32::DARK_GRAY)
-                            .show(ui, |ui| {
-                                let mut text = format!("{}", note.key);
-                                if ui.text_edit_singleline(&mut text).changed() {
-                                    if let Ok(key) = text.parse() {
-                                        note.key = key;
-                                    }
-                                };
-                            });
+            Grid::new(ui.next_auto_id())
+                .show(ui, |ui| {
+                    for notes in self.notes.iter_mut() {
+                        for note in notes.iter_mut() {
+                            Frame::none()
+                                .stroke(Stroke::new(1.0, Color32::GRAY))
+                                .fill(Color32::DARK_GRAY)
+                                .show(ui, |ui| {
+                                    let mut text = format!("{}", note.key);
+                                    if ui.text_edit_singleline(&mut text).changed() {
+                                        if let Ok(key) = text.parse() {
+                                            note.key = key;
+                                        }
+                                    };
+                                });
+                        }
                     }
-                }
-            });
+                })
+                .response
         }
     }
 
     impl Displays for PatternManager {
-        fn uixx(&mut self, ui: &mut Ui) {
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
             ui.set_min_width(16.0 * Pattern::CELL_WIDTH + 8.0); //  8 pixels margin
             ScrollArea::vertical().show(ui, |ui| {
                 let mut is_first = true;
@@ -267,17 +269,18 @@ mod gui {
                     } else {
                         ui.separator();
                     }
-                    pattern.uixx(ui);
+                    pattern.ui(ui);
                 }
             });
+            ui.label("TODO")
         }
     }
 
     impl Displays for NewPattern {
-        fn uixx(&mut self, ui: &mut Ui) {
-            Frame::canvas(ui.style()).show(ui, |ui| {
-                self.ui_content(ui);
-            });
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+            Frame::canvas(ui.style())
+                .show(ui, |ui| self.ui_content(ui))
+                .inner
         }
     }
     impl NewPattern {

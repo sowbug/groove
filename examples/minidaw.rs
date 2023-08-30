@@ -606,7 +606,7 @@ impl MiniDaw {
         let mut is_settings_open = self.settings_panel.is_open();
         egui::Window::new("Settings")
             .open(&mut is_settings_open)
-            .show(ctx, |ui| self.settings_panel.uixx(ui));
+            .show(ctx, |ui| self.settings_panel.ui(ui));
         if self.settings_panel.is_open() && !is_settings_open {
             self.settings_panel.toggle();
         }

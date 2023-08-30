@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Waveform {}
 impl Displays for Waveform {
-    fn uixx(&mut self, ui: &mut egui::Ui) -> egui::Response {
+    fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
         let color = if ui.visuals().dark_mode {
             Color32::from_additive_luminance(196)
         } else {

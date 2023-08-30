@@ -50,8 +50,8 @@ mod gui {
     use groove_core::traits::gui::Displays;
 
     impl Displays for Mixer {
-        fn uixx(&mut self, ui: &mut Ui) {
-            ui.label("I don't have anything!");
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+            ui.label("I don't have anything!")
         }
     }
 }

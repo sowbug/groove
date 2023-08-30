@@ -122,14 +122,14 @@ mod gui {
     use groove_core::traits::gui::Displays;
 
     impl Displays for Metronome {
-        fn uixx(&mut self, ui: &mut Ui) {
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
             ui.label(format!("BPM: {:0.1}", self.bpm()));
             ui.label(format!(
                 "Time Signature: {}/{}",
                 self.clock().time_signature().top,
                 self.clock().time_signature().bottom
             ));
-            ui.label(if self.is_playing() { "X" } else { " " });
+            ui.label(if self.is_playing() { "X" } else { " " })
         }
     }
 }

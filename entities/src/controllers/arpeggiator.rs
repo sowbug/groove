@@ -191,7 +191,7 @@ mod gui {
     use groove_core::traits::gui::Displays;
 
     impl Displays for Arpeggiator {
-        fn uixx(&mut self, ui: &mut Ui) -> egui::Response {
+        fn ui(&mut self, ui: &mut Ui) -> egui::Response {
             let alternatives = ["major", "minor"];
             let mut selected = 1;
             ComboBox::from_label("Scale")

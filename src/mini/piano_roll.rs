@@ -138,8 +138,8 @@ impl Default for Pattern {
     }
 }
 impl Displays for Pattern {
-    fn uixx(&mut self, ui: &mut Ui) {
-        self.ui_content(ui);
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        self.ui_content(ui)
     }
 }
 impl Pattern {

@@ -124,59 +124,52 @@ mod gui {
     use groove_core::{traits::gui::Displays, Normal};
 
     impl Displays for Compressor {
-        fn uixx(&mut self, ui: &mut Ui) {
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
             let mut threshold = self.threshold().value();
             let mut ratio = self.ratio();
             let mut attack = self.attack();
             let mut release = self.release();
-            if ui
-                .add(
-                    DragValue::new(&mut threshold)
-                        .fixed_decimals(2)
-                        .clamp_range(Normal::range())
-                        .speed(0.01)
-                        .prefix("Threshold: "),
-                )
-                .changed()
-            {
+            let threshold_response = ui.add(
+                DragValue::new(&mut threshold)
+                    .fixed_decimals(2)
+                    .clamp_range(Normal::range())
+                    .speed(0.01)
+                    .prefix("Threshold: "),
+            );
+            if threshold_response.changed() {
                 self.set_threshold(threshold.into());
             };
-            if ui
-                .add(
-                    DragValue::new(&mut ratio)
-                        .fixed_decimals(2)
-                        .clamp_range(Normal::range())
-                        .speed(0.01)
-                        .prefix("Ratio: "),
-                )
-                .changed()
-            {
+            let ratio_response = ui.add(
+                DragValue::new(&mut ratio)
+                    .fixed_decimals(2)
+                    .clamp_range(Normal::range())
+                    .speed(0.01)
+                    .prefix("Ratio: "),
+            );
+            if ratio_response.changed() {
                 self.set_ratio(ratio.into());
             };
-            if ui
-                .add(
-                    DragValue::new(&mut attack)
-                        .fixed_decimals(2)
-                        .clamp_range(Normal::range())
-                        .speed(0.01)
-                        .prefix("Attack: "),
-                )
-                .changed()
-            {
+            let attack_response = ui.add(
+                DragValue::new(&mut attack)
+                    .fixed_decimals(2)
+                    .clamp_range(Normal::range())
+                    .speed(0.01)
+                    .prefix("Attack: "),
+            );
+            if attack_response.changed() {
                 self.set_attack(attack.into());
             };
-            if ui
-                .add(
-                    DragValue::new(&mut release)
-                        .fixed_decimals(2)
-                        .clamp_range(Normal::range())
-                        .speed(0.01)
-                        .prefix("Release: "),
-                )
-                .changed()
-            {
+            let release_response = ui.add(
+                DragValue::new(&mut release)
+                    .fixed_decimals(2)
+                    .clamp_range(Normal::range())
+                    .speed(0.01)
+                    .prefix("Release: "),
+            );
+            if release_response.changed() {
                 self.set_release(release.into());
             };
+            threshold_response | ratio_response | attack_response | release_response
         }
     }
 }

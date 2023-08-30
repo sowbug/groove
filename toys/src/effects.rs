@@ -54,7 +54,7 @@ mod gui {
     use groove_core::traits::{gui::Displays, HasUid};
 
     impl Displays for ToyEffect {
-        fn uixx(&mut self, ui: &mut egui::Ui) -> egui::Response {
+        fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
             ui.label(self.name())
         }
     }

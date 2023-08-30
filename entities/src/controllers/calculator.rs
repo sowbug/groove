@@ -1359,7 +1359,7 @@ mod gui {
     }
 
     impl Displays for Calculator {
-        fn uixx(&mut self, ui: &mut Ui) -> egui::Response {
+        fn ui(&mut self, ui: &mut Ui) -> egui::Response {
             let highlighted_button = if self.engine.state() == &EngineState::Playing {
                 Some(self.current_step())
             } else {

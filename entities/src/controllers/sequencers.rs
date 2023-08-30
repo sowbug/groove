@@ -262,7 +262,7 @@ mod gui {
     use groove_core::traits::gui::Displays;
 
     impl Displays for Sequencer {
-        fn uixx(&mut self, ui: &mut Ui) {
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
             for (when, (channel, message)) in &self.events {
                 let has_played = when < &self.time_range.start;
                 let mut text = RichText::new(format!("{}: {} -> {:?}", when, channel, message));
@@ -271,6 +271,7 @@ mod gui {
                 }
                 ui.label(text);
             }
+            ui.label("TODO")
         }
     }
 }

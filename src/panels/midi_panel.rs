@@ -163,7 +163,7 @@ impl MidiPanel {
     }
 }
 impl Displays for MidiPanel {
-    fn uixx(&mut self, ui: &mut Ui) {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
         CollapsingHeader::new("MIDI")
             .default_open(true)
             .show(ui, |ui| {
@@ -231,6 +231,7 @@ impl Displays for MidiPanel {
                     });
                 }
                 ui.end_row();
-            });
+            })
+            .header_response
     }
 }

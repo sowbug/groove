@@ -16,10 +16,13 @@ pub enum PaletteAction {
 #[derive(Debug, Default)]
 pub struct PalettePanel {}
 impl Displays for PalettePanel {
-    fn uixx(&mut self, ui: &mut Ui) {
-        for name in EntityFactory::global().keys() {
-            ui.label(name.to_string());
-        }
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        ui.vertical(|ui| {
+            for name in EntityFactory::global().keys() {
+                ui.label(name.to_string());
+            }
+        })
+        .response
     }
 }
 impl PalettePanel {

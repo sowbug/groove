@@ -48,11 +48,9 @@ impl SettingsPanel {
     }
 }
 impl Displays for SettingsPanel {
-    fn uixx(&mut self, ui: &mut Ui) {
-        ui.label("Audio");
-        self.audio_panel.uixx(ui);
-        ui.label("MIDI");
-        self.midi_panel.uixx(ui);
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        let response =
+            ui.label("Audio") | self.audio_panel.ui(ui) | ui.label("MIDI") | self.midi_panel.ui(ui);
 
         {
             let mut debug_on_hover = ui.ctx().debug_on_hover();
@@ -60,5 +58,6 @@ impl Displays for SettingsPanel {
                 .on_hover_text("Show structure of the ui when you hover with the mouse");
             ui.ctx().set_debug_on_hover(debug_on_hover);
         }
+        response
     }
 }

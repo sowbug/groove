@@ -1185,7 +1185,7 @@ mod gui {
                     });
                     strip.cell(|ui| {
                         ui.label("I'm the signal!");
-                        self.gui.new_pattern.uixx(ui);
+                        self.gui.new_pattern.ui(ui);
                     });
                     strip.cell(|ui| {
                         ui.label("I'm the detail!");
@@ -1195,7 +1195,7 @@ mod gui {
     }
 
     impl Displays for Orchestrator {
-        fn uixx(&mut self, ui: &mut Ui) {
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
             ui.allocate_ui(
                 Vec2::new(ui.available_width(), 128.0 + 2.0),
                 |ui| match self.gui.mode {
@@ -1203,7 +1203,8 @@ mod gui {
                     GuiMode::Audio => self.ui_audio(ui),
                     GuiMode::Experimental => self.ui_experimental(ui),
                 },
-            );
+            )
+            .response
         }
     }
 
@@ -1232,7 +1233,7 @@ mod gui {
                 ui.label(entity.as_has_uid().name());
             }
             Entity::BiQuadFilterLowPass24db(e) => {
-                e.uixx(ui);
+                e.ui(ui);
             }
             Entity::BiQuadFilterLowShelf(e) => {
                 ui.label(entity.as_has_uid().name());
@@ -1244,7 +1245,7 @@ mod gui {
                 ui.label(entity.as_has_uid().name());
             }
             Entity::Bitcrusher(e) => {
-                e.uixx(ui);
+                e.ui(ui);
             }
             Entity::Chorus(e) => {
                 ui.label(entity.as_has_uid().name());
@@ -1253,7 +1254,7 @@ mod gui {
                 ui.label(entity.as_has_uid().name());
             }
             Entity::Compressor(e) => {
-                e.uixx(ui);
+                e.ui(ui);
             }
             Entity::ControlTrip(e) => {
                 ui.label(entity.as_has_uid().name());
@@ -1271,22 +1272,22 @@ mod gui {
                 ui.label(entity.as_has_uid().name());
             }
             Entity::Gain(e) => {
-                e.uixx(ui);
+                e.ui(ui);
             }
             Entity::LfoController(e) => {
-                e.uixx(ui);
+                e.ui(ui);
             }
             Entity::Limiter(e) => {
-                e.uixx(ui);
+                e.ui(ui);
             }
             Entity::Metronome(e) => {
-                e.uixx(ui);
+                e.ui(ui);
             }
             Entity::Mixer(e) => {
-                e.uixx(ui);
+                e.ui(ui);
             }
             Entity::PatternManager(e) => {
-                e.uixx(ui);
+                e.ui(ui);
             }
             Entity::Reverb(e) => {
                 ui.label(entity.as_has_uid().name());
@@ -1295,7 +1296,7 @@ mod gui {
                 ui.label(entity.as_has_uid().name());
             }
             Entity::Sequencer(e) => {
-                e.uixx(ui);
+                e.ui(ui);
             }
             Entity::SignalPassthroughController(e) => {
                 ui.label(entity.as_has_uid().name());
@@ -1322,9 +1323,11 @@ mod gui {
                 ui.label(entity.as_has_uid().name());
             }
             Entity::WelshSynth(e) => {
-                e.uixx(ui);
+                e.ui(ui);
             }
-            Entity::Integrated(e) => e.uixx(ui),
+            Entity::Integrated(e) => {
+                e.ui(ui);
+            }
         }
     }
 }

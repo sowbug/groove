@@ -879,7 +879,7 @@ mod gui {
     };
 
     impl Displays for BeatValue {
-        fn uixx(&mut self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
+        fn ui(&mut self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
             ui.allocate_ui(Vec2::new(60.0, 24.0), |ui| {
                 Self::show_beat_value(ui, &format!("{} beats", BeatValue::divisor(self.clone())));
             })

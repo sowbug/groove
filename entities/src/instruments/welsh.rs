@@ -458,7 +458,7 @@ mod gui {
     use groove_core::{instruments::Synthesizer, traits::gui::Displays};
 
     impl Displays for WelshSynth {
-        fn uixx(&mut self, ui: &mut Ui) -> Response {
+        fn ui(&mut self, ui: &mut Ui) -> Response {
             // TODO: LED should be a reusable widget
             const LED_SIZE: Vec2 = Vec2::splat(5.0);
             let (rect, response) = ui.allocate_exact_size(LED_SIZE, Sense::hover());
@@ -530,7 +530,7 @@ mod gui {
                 .default_open(true)
                 .id_source(ui.next_auto_id())
                 .show(ui, |ui| {
-                    let filter_changed = self.filter.show_with_result(ui);
+                    let filter_changed = self.filter.ui(ui).changed();
                     let filter_envelope_changed = self.filter_envelope.show(ui);
                     if filter_changed || filter_envelope_changed {
                         synth.voices_mut().for_each(|v| {

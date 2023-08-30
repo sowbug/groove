@@ -287,7 +287,7 @@ mod gui {
     use groove_core::traits::{gui::Displays, HasUid};
 
     impl Displays for ControlTrip {
-        fn uixx(&mut self, ui: &mut Ui) -> Response {
+        fn ui(&mut self, ui: &mut Ui) -> Response {
             ui.label(self.name())
         }
     }

@@ -1258,85 +1258,76 @@ mod gui {
     use groove_core::{traits::gui::Displays, FrequencyHz};
 
     impl Displays for BiQuadFilterAllPass {
-        fn uixx(&mut self, ui: &mut Ui) {
-            ui.label(self.name());
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+            ui.label(self.name())
         }
     }
 
     impl Displays for BiQuadFilterLowPass12db {
-        fn uixx(&mut self, ui: &mut Ui) {
-            ui.label(self.name());
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+            ui.label(self.name())
         }
     }
 
     impl Displays for BiQuadFilterHighPass {
-        fn uixx(&mut self, ui: &mut Ui) {
-            ui.label(self.name());
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+            ui.label(self.name())
         }
     }
 
     impl Displays for BiQuadFilterHighShelf {
-        fn uixx(&mut self, ui: &mut Ui) {
-            ui.label(self.name());
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+            ui.label(self.name())
         }
     }
 
     impl Displays for BiQuadFilterPeakingEq {
-        fn uixx(&mut self, ui: &mut Ui) {
-            ui.label(self.name());
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+            ui.label(self.name())
         }
     }
 
     impl Displays for BiQuadFilterBandPass {
-        fn uixx(&mut self, ui: &mut Ui) {
-            ui.label(self.name());
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+            ui.label(self.name())
         }
     }
 
     impl Displays for BiQuadFilterBandStop {
-        fn uixx(&mut self, ui: &mut Ui) {
-            ui.label(self.name());
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+            ui.label(self.name())
         }
     }
 
     impl Displays for BiQuadFilterLowShelf {
-        fn uixx(&mut self, ui: &mut Ui) {
-            ui.label(self.name());
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+            ui.label(self.name())
         }
     }
 
     impl Displays for BiQuadFilterNone {
-        fn uixx(&mut self, ui: &mut Ui) {
-            ui.label(self.name());
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+            ui.label(self.name())
         }
     }
 
     impl Displays for BiQuadFilterLowPass24db {
-        fn uixx(&mut self, ui: &mut Ui) {
-            let _ = self.show_with_result(ui);
-        }
-    }
-
-    impl BiQuadFilterLowPass24db {
-        pub fn show_with_result(&mut self, ui: &mut Ui) -> bool {
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
             let mut changed = false;
             let mut cutoff = self.cutoff().value();
             let mut pbr = self.passband_ripple();
-            if ui
-                .add(Slider::new(&mut cutoff, FrequencyHz::range()).text("Cutoff"))
-                .changed()
-            {
+            let cutoff_response =
+                ui.add(Slider::new(&mut cutoff, FrequencyHz::range()).text("Cutoff"));
+            if cutoff_response.changed() {
                 self.set_cutoff(cutoff.into());
                 changed = true;
             };
-            if ui
-                .add(Slider::new(&mut pbr, 0.0..=10.0).text("Passband"))
-                .changed()
-            {
+            let passband_response = ui.add(Slider::new(&mut pbr, 0.0..=10.0).text("Passband"));
+            if passband_response.changed() {
                 self.set_passband_ripple(pbr);
                 changed = true;
             };
-            changed
+            cutoff_response | passband_response
         }
     }
 }

@@ -165,7 +165,7 @@ impl Preferences {
     }
 }
 impl Displays for Preferences {
-    fn uixx(&mut self, ui: &mut Ui) {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
         CollapsingHeader::new("General")
             .default_open(true)
             .show(ui, |ui| {
@@ -178,6 +178,7 @@ impl Displays for Preferences {
                 {
                     self.mark_dirty();
                 }
-            });
+            })
+            .header_response
     }
 }

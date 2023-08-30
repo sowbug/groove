@@ -19,7 +19,7 @@ use groove::{
     },
     EntityFactory,
 };
-use groove_core::{midi::MidiNote, time::MusicalTime, traits::gui::DisplaysWithResponse};
+use groove_core::{midi::MidiNote, time::MusicalTime, traits::gui::Displays};
 use std::ops::Range;
 
 #[derive(Debug)]
@@ -35,7 +35,7 @@ impl Default for ArrangementLegendSettings {
         }
     }
 }
-impl DisplaysWithResponse for ArrangementLegendSettings {
+impl Displays for ArrangementLegendSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
         ui.allocate_ui(ui.available_size(), |ui| {
             ui.checkbox(&mut self.hide, "Hide Arrangement Legend");
@@ -66,7 +66,7 @@ impl Default for ArrangementSettings {
         }
     }
 }
-impl DisplaysWithResponse for ArrangementSettings {
+impl Displays for ArrangementSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
         ui.allocate_ui(ui.available_size(), |ui| {
             ui.checkbox(&mut self.hide, "Hide Arrangement");
@@ -174,7 +174,7 @@ impl FillWidget {
         Self {}
     }
 }
-impl DisplaysWithResponse for FillWidget {
+impl Displays for FillWidget {
     fn ui(&mut self, ui: &mut Ui) -> Response {
         // let desired_size = ui.available_size();
         // ui.set_min_size(desired_size);
@@ -234,7 +234,7 @@ impl Default for PatternIconSettings {
         }
     }
 }
-impl DisplaysWithResponse for PatternIconSettings {
+impl Displays for PatternIconSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
         ui.allocate_ui(ui.available_size(), |ui| {
             ui.checkbox(&mut self.hide, "Hide Pattern Icon");
@@ -264,7 +264,7 @@ impl Default for ControlAtlasSettings {
         }
     }
 }
-impl DisplaysWithResponse for ControlAtlasSettings {
+impl Displays for ControlAtlasSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
         ui.allocate_ui(ui.available_size(), |ui| {
             ui.checkbox(&mut self.hide, "Hide ControlAtlas");

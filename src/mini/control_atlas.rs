@@ -3,7 +3,7 @@
 use crate::EntityFactory;
 use derive_builder::Builder;
 use eframe::{
-    egui::Sense,
+    egui::{Sense, Ui},
     emath::RectTransform,
     epaint::{pos2, vec2, Color32, Rect, Stroke},
 };
@@ -378,7 +378,7 @@ impl Default for ControlAtlas {
     }
 }
 impl Displays for ControlAtlas {
-    fn uixx(&mut self, ui: &mut eframe::egui::Ui) {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
         let (id, rect) = ui.allocate_space(vec2(ui.available_width(), 64.0));
         ui.allocate_ui_at_rect(rect, |ui| {
             ui.horizontal_top(|ui| {
@@ -391,21 +391,20 @@ impl Displays for ControlAtlas {
                 for trip in self.trips.iter_mut() {
                     ui.vertical(|ui| {
                         ui.allocate_ui_at_rect(rect, |ui| {
-                            trip.uixx(ui);
+                            trip.ui(ui);
                             if ui.button("x").clicked() {
                                 remove_uid = Some(trip.uid);
                             }
                         });
                     });
-                    trip.uixx(ui);
+                    trip.ui(ui);
                 }
                 if let Some(uid) = remove_uid {
                     self.remove_trip(uid);
                 }
             });
-        });
-        // for trip in self.trips.iter_mut() {
-        // }
+        })
+        .response
     }
 }
 impl HandlesMidi for ControlAtlas {}
@@ -488,7 +487,7 @@ impl ControlAtlas {
                             }
                         });
                     });
-                    trip.uixx(ui);
+                    trip.ui(ui);
                 }
                 if let Some(uid) = remove_uid {
                     self.remove_trip(uid);

@@ -180,7 +180,7 @@ mod gui {
     use groove_core::traits::gui::Displays;
 
     impl Displays for LfoController {
-        fn uixx(&mut self, ui: &mut Ui) -> Response {
+        fn ui(&mut self, ui: &mut Ui) -> Response {
             // TODO: come up with a better pattern for .changed() to happen at
             // the same level as whoever called show().
             if self.frequency.show(ui, Self::frequency_range()) {
@@ -189,7 +189,7 @@ mod gui {
             if self.waveform.show(ui).inner.is_some() {
                 self.set_waveform(self.waveform);
             }
-            self.waveform_widget.uixx(ui)
+            self.waveform_widget.ui(ui)
         }
     }
 }

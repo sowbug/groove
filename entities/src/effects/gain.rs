@@ -57,19 +57,18 @@ mod gui {
     use groove_core::{traits::gui::Displays, Normal};
 
     impl Displays for Gain {
-        fn uixx(&mut self, ui: &mut Ui) {
+        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
             let mut ceiling = self.ceiling().to_percentage();
-            if ui
-                .add(
-                    DragValue::new(&mut ceiling)
-                        .clamp_range(0.0..=100.0)
-                        .fixed_decimals(2)
-                        .suffix(" %"),
-                )
-                .changed()
-            {
+            let response = ui.add(
+                DragValue::new(&mut ceiling)
+                    .clamp_range(0.0..=100.0)
+                    .fixed_decimals(2)
+                    .suffix(" %"),
+            );
+            if response.changed() {
                 self.set_ceiling(Normal::from_percentage(ceiling));
             };
+            response
         }
     }
 }

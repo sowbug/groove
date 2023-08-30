@@ -343,7 +343,7 @@ impl Track {
 
                     if let Some(a) = Self::add_track_element(ui, 0, false, false, false, |ui| {
                         ui.allocate_ui(vec2(256.0, ui.available_height()), |ui| {
-                            self.sequencer.uixx(ui);
+                            self.sequencer.ui(ui);
                         });
                     }) {
                         action = Some(a);
@@ -362,7 +362,7 @@ impl Track {
                                 true,
                                 |ui| {
                                     if let Some(e) = self.thing_store.get_mut(uid) {
-                                        e.uixx(ui);
+                                        e.ui(ui);
                                     }
                                 },
                             ) {
@@ -383,7 +383,7 @@ impl Track {
                                 true,
                                 |ui| {
                                     if let Some(e) = self.thing_store.get_mut(uid) {
-                                        e.uixx(ui);
+                                        e.ui(ui);
                                     }
                                 },
                             ) {
@@ -404,7 +404,7 @@ impl Track {
                                 true,
                                 |ui| {
                                     if let Some(e) = self.thing_store.get_mut(uid) {
-                                        e.uixx(ui);
+                                        e.ui(ui);
                                     }
                                 },
                             ) {
@@ -576,7 +576,7 @@ impl Track {
                                         }
                                         _ => panic!(),
                                     }
-                                    self.control_atlas.uixx(ui);
+                                    self.control_atlas.ui(ui);
                                 });
                         }
 
@@ -708,7 +708,7 @@ impl Track {
                 egui::Window::new("Sequencer")
                     .open(&mut self.is_sequencer_open)
                     .show(ui.ctx(), |ui| {
-                        self.sequencer.uixx(ui);
+                        self.sequencer.ui(ui);
                     });
             } else {
                 Self::ui_device(ui, &mut self.sequencer, desired_size);
@@ -798,7 +798,7 @@ impl Track {
                 })
                 .inner_margin(2.0)
                 .show(ui, |ui| {
-                    thing.uixx(ui);
+                    thing.ui(ui);
                 });
         });
     }

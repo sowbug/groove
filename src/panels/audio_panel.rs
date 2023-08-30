@@ -162,7 +162,7 @@ impl OldAudioPanel {
     }
 }
 impl Displays for OldAudioPanel {
-    fn uixx(&mut self, ui: &mut Ui) {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
         CollapsingHeader::new("Audio")
             .default_open(true)
             .show(ui, |ui| {
@@ -170,7 +170,8 @@ impl Displays for OldAudioPanel {
                     ui.label(format!("Sample rate: {}", config.sample_rate()));
                     ui.label(format!("Channels: {}", config.channel_count()));
                 }
-            });
+            })
+            .header_response
     }
 }
 
@@ -280,7 +281,7 @@ impl AudioPanel {
     }
 }
 impl Displays for AudioPanel {
-    fn uixx(&mut self, ui: &mut Ui) {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
         CollapsingHeader::new("Audio")
             .default_open(true)
             .show(ui, |ui| {
@@ -288,6 +289,7 @@ impl Displays for AudioPanel {
                     ui.label(format!("Sample rate: {}", config.sample_rate()));
                     ui.label(format!("Channels: {}", config.channel_count()));
                 }
-            });
+            })
+            .header_response
     }
 }
