@@ -3,8 +3,8 @@
 use anyhow::anyhow;
 use eframe::{
     egui::{
-        self, vec2, warn_if_debug_build, Frame, Id, Label, Layout, Response, ScrollArea, Sense,
-        Slider, Ui,
+        self, vec2, warn_if_debug_build, CollapsingHeader, Frame, Id, Label, Layout, Response,
+        ScrollArea, Sense, Slider, Ui,
     },
     emath::{Align, RectTransform},
     epaint::{pos2, Color32, Rect, Rounding, Stroke},
@@ -14,8 +14,8 @@ use groove::{
     app_version,
     mini::{
         register_factory_entities,
-        widgets::{arrangement_legend, pattern_icon},
-        ControlAtlas, DragDropManager, DragDropSource, Note, PatternUid, FACTORY,
+        widgets::{grid, icon, legend},
+        ControlAtlas, DragDropManager, DragDropSource, Note, PatternUid, Sequencer, FACTORY,
     },
     EntityFactory,
 };
@@ -27,11 +27,14 @@ use groove_core::{
 use std::ops::Range;
 
 #[derive(Debug)]
-struct ArrangementLegendSettings {
+struct LegendSettings {
     hide: bool,
     range: Range<MusicalTime>,
 }
-impl Default for ArrangementLegendSettings {
+impl LegendSettings {
+    const NAME: &str = "Legend";
+}
+impl Default for LegendSettings {
     fn default() -> Self {
         Self {
             hide: Default::default(),
@@ -39,30 +42,35 @@ impl Default for ArrangementLegendSettings {
         }
     }
 }
-impl Displays for ArrangementLegendSettings {
+impl Displays for LegendSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
-        ui.allocate_ui(ui.available_size(), |ui| {
-            ui.checkbox(&mut self.hide, "Hide Arrangement Legend");
-            ui.label("start/end");
-            let mut range_start = self.range.start.total_beats();
-            let mut range_end = self.range.end.total_beats();
-            if ui.add(Slider::new(&mut range_start, 0..=128)).changed() {
-                self.range.start = MusicalTime::new_with_beats(range_start);
-            };
-            if ui.add(Slider::new(&mut range_end, 1..=256)).changed() {
-                self.range.end = MusicalTime::new_with_beats(range_end);
-            };
-        })
-        .response
+        CollapsingHeader::new(Self::NAME)
+            .show_background(true)
+            .show_unindented(ui, |ui| {
+                ui.checkbox(&mut self.hide, "Hide");
+                ui.label("View range");
+                let mut range_start = self.range.start.total_beats();
+                let mut range_end = self.range.end.total_beats();
+                if ui.add(Slider::new(&mut range_start, 0..=128)).changed() {
+                    self.range.start = MusicalTime::new_with_beats(range_start);
+                };
+                if ui.add(Slider::new(&mut range_end, 1..=256)).changed() {
+                    self.range.end = MusicalTime::new_with_beats(range_end);
+                };
+            })
+            .header_response
     }
 }
 
 #[derive(Debug)]
-struct ArrangementSettings {
+struct TimelineSettings {
     hide: bool,
     range: Range<MusicalTime>,
 }
-impl Default for ArrangementSettings {
+impl TimelineSettings {
+    const NAME: &str = "Timeline";
+}
+impl Default for TimelineSettings {
     fn default() -> Self {
         Self {
             hide: Default::default(),
@@ -70,31 +78,115 @@ impl Default for ArrangementSettings {
         }
     }
 }
-impl Displays for ArrangementSettings {
+impl Displays for TimelineSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
-        ui.allocate_ui(ui.available_size(), |ui| {
-            ui.checkbox(&mut self.hide, "Hide Arrangement");
-            ui.label("start/end");
-            let mut range_start = self.range.start.total_beats();
-            let mut range_end = self.range.end.total_beats();
-            if ui.add(Slider::new(&mut range_start, 0..=1024)).changed() {
-                self.range.start = MusicalTime::new_with_beats(range_start);
-            };
-            if ui.add(Slider::new(&mut range_end, 0..=1024)).changed() {
-                self.range.end = MusicalTime::new_with_beats(range_end);
-            };
-        })
-        .response
+        CollapsingHeader::new(Self::NAME)
+            .show_background(true)
+            .show_unindented(ui, |ui| {
+                ui.checkbox(&mut self.hide, "Hide");
+                ui.label("Range");
+                let mut range_start = self.range.start.total_beats();
+                let mut range_end = self.range.end.total_beats();
+                if ui.add(Slider::new(&mut range_start, 0..=1024)).changed() {
+                    self.range.start = MusicalTime::new_with_beats(range_start);
+                };
+                if ui.add(Slider::new(&mut range_end, 0..=1024)).changed() {
+                    self.range.end = MusicalTime::new_with_beats(range_end);
+                };
+            })
+            .header_response
+    }
+}
+
+fn timeline<'a>(
+    sequencer: &'a mut Sequencer,
+    control_atlas: &'a mut ControlAtlas,
+    range: Range<MusicalTime>,
+    view_range: Range<MusicalTime>,
+) -> impl eframe::egui::Widget + 'a {
+    move |ui: &mut eframe::egui::Ui| {
+        Timeline::new(sequencer, control_atlas)
+            .range(range)
+            .view_range(view_range)
+            .ui(ui)
+    }
+}
+
+/// Draws the content area of a Timeline, which is the view of a [Track].
+#[derive(Debug)]
+struct Timeline<'a> {
+    /// The full timespan of the project.
+    range: Range<MusicalTime>,
+
+    /// The part of the timeline that is viewable.
+    view_range: Range<MusicalTime>,
+
+    control_atlas: &'a mut ControlAtlas,
+    sequencer: &'a mut Sequencer,
+}
+impl<'a> DisplaysInTimeline for Timeline<'a> {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+        self.view_range = view_range.clone();
+    }
+}
+impl<'a> Displays for Timeline<'a> {
+    fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
+        let desired_size = vec2(ui.available_width(), 64.0);
+        let (_id, rect) = ui.allocate_space(desired_size);
+
+        let grid_response = ui
+            .allocate_ui_at_rect(rect, |ui| {
+                ui.add(grid(self.range.clone(), self.view_range.clone()))
+            })
+            .inner;
+        let control_atlas_response = ui
+            .allocate_ui_at_rect(rect, |ui| self.control_atlas.ui(ui))
+            .inner;
+        let sequencer_response = ui
+            .allocate_ui_at_rect(rect, |ui| self.sequencer.ui(ui))
+            .inner;
+        grid_response | control_atlas_response | sequencer_response
+    }
+}
+impl<'a> Timeline<'a> {
+    pub fn new(sequencer: &'a mut Sequencer, control_atlas: &'a mut ControlAtlas) -> Self {
+        Self {
+            range: Default::default(),
+            view_range: Default::default(),
+            sequencer,
+            control_atlas,
+        }
+    }
+    fn range(mut self, range: Range<MusicalTime>) -> Self {
+        self.range = range;
+        self
+    }
+
+    fn view_range(mut self, view_range: Range<MusicalTime>) -> Self {
+        self.set_view_range(&view_range);
+        self
+    }
+}
+
+fn timeline_old<'a>(
+    dnd: &'a DragDropManager,
+    range: Range<MusicalTime>,
+    handled_drop: &'a mut bool,
+) -> impl eframe::egui::Widget + 'a {
+    move |ui: &mut eframe::egui::Ui| {
+        TimelineOld::new(handled_drop)
+            .range(range)
+            .ui_content(ui, dnd)
     }
 }
 
 #[derive(Debug)]
-struct Arrangement<'a> {
+struct TimelineOld<'a> {
     // Whether a drop source is currently hovering over this widget.
     handled_drop: &'a mut bool,
     range: Range<MusicalTime>,
 }
-impl<'a> Arrangement<'a> {
+impl<'a> TimelineOld<'a> {
     fn new(handled_drop: &'a mut bool) -> Self {
         Self {
             handled_drop,
@@ -200,18 +292,6 @@ impl Displays for FillWidget {
     }
 }
 
-fn arrangement<'a>(
-    dnd: &'a DragDropManager,
-    range: Range<MusicalTime>,
-    handled_drop: &'a mut bool,
-) -> impl eframe::egui::Widget + 'a {
-    move |ui: &mut eframe::egui::Ui| {
-        Arrangement::new(handled_drop)
-            .range(range)
-            .ui_content(ui, dnd)
-    }
-}
-
 #[derive(Debug)]
 struct PatternIconSettings {
     hide: bool,
@@ -240,13 +320,16 @@ impl Default for PatternIconSettings {
 }
 impl Displays for PatternIconSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
-        ui.allocate_ui(ui.available_size(), |ui| {
-            ui.checkbox(&mut self.hide, "Hide Pattern Icon");
-        })
-        .response
+        CollapsingHeader::new(Self::NAME)
+            .show_background(true)
+            .show_unindented(ui, |ui| {
+                ui.checkbox(&mut self.hide, "Hide Pattern Icon");
+            })
+            .header_response
     }
 }
 impl PatternIconSettings {
+    const NAME: &str = "Pattern Icon";
     fn note(key: MidiNote, start: MusicalTime, duration: MusicalTime) -> Note {
         Note {
             key: key as u8,
@@ -258,45 +341,40 @@ impl PatternIconSettings {
 #[derive(Debug)]
 struct ControlAtlasSettings {
     hide: bool,
-    range: Range<MusicalTime>,
 }
 impl Default for ControlAtlasSettings {
     fn default() -> Self {
         Self {
             hide: Default::default(),
-            range: MusicalTime::START..MusicalTime::new_with_beats(128),
         }
     }
 }
 impl Displays for ControlAtlasSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
-        ui.allocate_ui(ui.available_size(), |ui| {
-            ui.checkbox(&mut self.hide, "Hide ControlAtlas");
-            ui.label("start/end");
-            let mut range_start = self.range.start.total_beats();
-            let mut range_end = self.range.end.total_beats();
-            if ui.add(Slider::new(&mut range_start, 0..=1024)).changed() {
-                self.range.start = MusicalTime::new_with_beats(range_start);
-            };
-            if ui.add(Slider::new(&mut range_end, 0..=1024)).changed() {
-                self.range.end = MusicalTime::new_with_beats(range_end);
-            };
-        })
-        .response
+        CollapsingHeader::new(Self::NAME)
+            .show_background(true)
+            .show_unindented(ui, |ui| {
+                ui.checkbox(&mut self.hide, "Hide");
+            })
+            .header_response
     }
+}
+impl ControlAtlasSettings {
+    const NAME: &str = "Control Atlas";
 }
 
 #[derive(Debug, Default)]
 struct Explorer {
     dnd: DragDropManager,
-    arrangement_legend: ArrangementLegendSettings,
+    legend: LegendSettings,
     pattern_icon: PatternIconSettings,
-    arrangement: ArrangementSettings,
+    timeline: TimelineSettings,
     control_atlas_settings: ControlAtlasSettings,
     control_atlas: ControlAtlas,
+    sequencer: Sequencer,
 }
 impl Explorer {
-    pub const APP_NAME: &str = "Explorer";
+    pub const NAME: &str = "Explorer";
 
     pub fn new(_cc: &CreationContext) -> Self {
         Self {
@@ -321,17 +399,10 @@ impl Explorer {
 
     fn show_left(&mut self, ui: &mut Ui) {
         ScrollArea::horizontal().show(ui, |ui| {
-            self.arrangement_legend.ui(ui);
-            ui.separator();
-
+            self.legend.ui(ui);
+            self.timeline.ui(ui);
             self.pattern_icon.ui(ui);
-            ui.separator();
-
-            self.arrangement.ui(ui);
-            ui.separator();
-
             self.control_atlas_settings.ui(ui);
-            ui.separator();
 
             let mut debug_on_hover = ui.ctx().debug_on_hover();
             ui.checkbox(&mut debug_on_hover, "🐛 Debug on hover")
@@ -349,37 +420,34 @@ impl Explorer {
             .stroke(ui.style().visuals.window_stroke)
             .show(ui, |ui| {
                 ScrollArea::vertical().show(ui, |ui| {
+                    ui.heading("Timeline");
+
                     // Legend
-                    if !self.arrangement_legend.hide {
-                        ui.add(arrangement_legend(self.arrangement_legend.range.clone()));
+                    if !self.legend.hide {
+                        ui.add(legend(self.legend.range.clone()));
                     }
-                    ui.separator();
 
-                    // Pattern Icon
-                    if !self.pattern_icon.hide {
-                        self.dnd.drag_source(
-                            ui,
-                            Id::new("pattern icon"),
-                            DragDropSource::Pattern(PatternUid(99)),
-                            |ui| {
-                                ui.add(pattern_icon(
-                                    self.pattern_icon.duration,
-                                    &self.pattern_icon.notes,
-                                ));
-                            },
-                        );
+                    if !self.timeline.hide {
+                        ui.add(timeline(
+                            &mut self.sequencer,
+                            &mut self.control_atlas,
+                            self.timeline.range.clone(),
+                            self.legend.range.clone(),
+                        ));
                     }
-                    ui.separator();
 
-                    // Arrangement
-                    if !self.arrangement.hide {
+                    ui.add_space(32.0);
+                    ui.heading("Widgets");
+
+                    // Old Timeline
+                    if !self.timeline.hide {
                         let mut handled_drop = false;
                         let response = self
                             .dnd
                             .drop_target(ui, true, |ui| {
-                                ui.add(arrangement(
+                                ui.add(timeline_old(
                                     &self.dnd,
-                                    self.arrangement.range.clone(),
+                                    self.timeline.range.clone(),
                                     &mut handled_drop,
                                 ));
                             })
@@ -397,15 +465,24 @@ impl Explorer {
                             eprintln!("Dropped on arrangement at beat {}", 2);
                         }
                     }
-                    ui.separator();
+
+                    // Pattern Icon
+                    if !self.pattern_icon.hide {
+                        self.dnd.drag_source(
+                            ui,
+                            Id::new("pattern icon"),
+                            DragDropSource::Pattern(PatternUid(99)),
+                            |ui| {
+                                ui.add(icon(self.pattern_icon.duration, &self.pattern_icon.notes));
+                            },
+                        );
+                    }
 
                     // Control Atlas
                     if !self.control_atlas_settings.hide {
-                        self.control_atlas
-                            .set_view_range(&self.arrangement_legend.range);
+                        self.control_atlas.set_view_range(&self.legend.range);
                         self.control_atlas.ui(ui);
                     }
-                    ui.separator();
 
                     // How big the paint surface should be
                     let desired_size = vec2(ui.available_width(), 64.0);
@@ -455,6 +532,8 @@ impl Explorer {
                     {
                         eprintln!("button #2 (passed to thing #2) clicked");
                     }
+
+                    ui.add(grid(self.timeline.range.clone(), self.legend.range.clone()));
                 });
             });
     }
@@ -509,7 +588,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     if let Err(e) = eframe::run_native(
-        Explorer::APP_NAME,
+        Explorer::NAME,
         options,
         Box::new(|cc| Box::new(Explorer::new(cc))),
     ) {

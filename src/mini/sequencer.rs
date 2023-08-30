@@ -3,7 +3,7 @@
 use super::{
     piano_roll::{Pattern, PatternUid, PianoRoll},
     selection_set::SelectionSet,
-    widgets::arrangement_space,
+    widgets::empty_space,
     DragDropManager, TrackUid, UidFactory,
 };
 use anyhow::anyhow;
@@ -280,7 +280,7 @@ impl Sequencer {
                     let half_range_size = MusicalTime::new_with_units(range_size.total_units() / 2);
                     let section_end = (time_pointer + half_range_size).min(viewable_time_range.end);
 
-                    ui.add(arrangement_space(
+                    ui.add(empty_space(
                         viewable_time_range.clone(),
                         time_pointer..section_end,
                     ));

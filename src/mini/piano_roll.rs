@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::{widgets::pattern_icon, DragDropManager, DragDropSource, SelectionSet, UidFactory};
+use super::{widgets::icon, DragDropManager, DragDropSource, SelectionSet, UidFactory};
 use anyhow::anyhow;
 use derive_builder::Builder;
 use eframe::{
@@ -533,10 +533,7 @@ impl PianoRoll {
                         let dnd_id = EguiId::new("piano roll").with(pattern_uid);
                         ddm.drag_source(ui, dnd_id, DragDropSource::Pattern(*pattern_uid), |ui| {
                             ui.set_max_width(icon_width);
-                            if ui
-                                .add(pattern_icon(pattern.duration(), pattern.notes()))
-                                .clicked()
-                            {
+                            if ui.add(icon(pattern.duration(), pattern.notes())).clicked() {
                                 eprintln!("clicked");
                             };
                         });

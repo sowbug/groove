@@ -7,7 +7,7 @@ use super::{
     selection_set::SelectionSet,
     track::{Track, TrackAction, TrackBuffer, TrackFactory, TrackTitle, TrackUiState, TrackUid},
     transport::{Transport, TransportBuilder},
-    widgets::arrangement_legend,
+    widgets::legend,
     DragDropManager, Key,
 };
 use anyhow::anyhow;
@@ -360,7 +360,7 @@ impl Orchestrator {
             ScrollArea::vertical()
                 .id_source("orchestrator-scroller")
                 .show(ui, |ui| {
-                    ui.add(arrangement_legend(viewable_time_range.clone()));
+                    ui.add(legend(viewable_time_range.clone()));
                     for track_uid in self.track_uids.iter() {
                         if let Some(track) = self.tracks.get_mut(track_uid) {
                             let track_ui_state = self
