@@ -268,22 +268,18 @@ impl Sequencer {
         ui: &mut Ui,
         dd: &mut DragDropManager,
         track_uid: TrackUid,
-        viewable_time_range: &Range<MusicalTime>,
+        view_range: &Range<MusicalTime>,
     ) -> (Response, Option<SequencerAction>) {
         (
             ui.horizontal_top(|ui| {
-                let mut time_pointer = viewable_time_range.start;
-                while time_pointer < viewable_time_range.end {
-                    let range_size = viewable_time_range.end
-                        - viewable_time_range.start
-                        - MusicalTime::new_with_units(1);
+                let mut time_pointer = view_range.start;
+                while time_pointer < view_range.end {
+                    let range_size =
+                        view_range.end - view_range.start - MusicalTime::new_with_units(1);
                     let half_range_size = MusicalTime::new_with_units(range_size.total_units() / 2);
-                    let section_end = (time_pointer + half_range_size).min(viewable_time_range.end);
+                    let section_end = (time_pointer + half_range_size).min(view_range.end);
 
-                    ui.add(empty_space(
-                        viewable_time_range.clone(),
-                        time_pointer..section_end,
-                    ));
+                    ui.add(empty_space(time_pointer..section_end, view_range.clone()));
                     time_pointer = section_end;
                 }
             })
@@ -299,7 +295,7 @@ impl Sequencer {
         ui: &mut Ui,
         dd: &mut DragDropManager,
         track_uid: TrackUid,
-        viewable_time_range: &Range<MusicalTime>,
+        view_range: &Range<MusicalTime>,
     ) -> (Response, Option<SequencerAction>) {
         let desired_size = ui.available_size();
         let (id, rect) = ui.allocate_space(desired_size);
@@ -307,8 +303,8 @@ impl Sequencer {
 
         let response = ui.interact(rect, id, Sense::click_and_drag());
 
-        let start_beat = viewable_time_range.start.total_beats();
-        let end_beat = viewable_time_range.end.total_beats();
+        let start_beat = view_range.start.total_beats();
+        let end_beat = view_range.end.total_beats();
         let to_screen = emath::RectTransform::from_to(
             Rect::from_x_y_ranges(start_beat as f32..=end_beat as f32, 0.0..=1.0),
             rect,
@@ -318,13 +314,12 @@ impl Sequencer {
 
         // This is a near copy of the label code in
         // Orchestrator::ui_arrangement_labels(). TODO refactor
-        let start_beat = viewable_time_range.start.total_beats();
-        let end_beat = viewable_time_range.end.total_beats();
+        let start_beat = view_range.start.total_beats();
+        let end_beat = view_range.end.total_beats();
         let beat_count = (end_beat - start_beat) as usize;
         let to_screen_beats = emath::RectTransform::from_to(
             Rect::from_x_y_ranges(
-                viewable_time_range.start.total_beats() as f32
-                    ..=viewable_time_range.end.total_beats() as f32,
+                view_range.start.total_beats() as f32..=view_range.end.total_beats() as f32,
                 0.0..=1.0,
             ),
             rect,
@@ -400,7 +395,7 @@ impl Sequencer {
                     // };
                 });
 
-                if dd.is_dropped(ui, r.response) {
+                if dd.is_dropped(ui, &r.response) {
                     eprintln!("dropped at track beat {beat}: {:#?}", dd.source());
                     dd.reset();
                 }

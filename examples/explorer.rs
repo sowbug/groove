@@ -14,7 +14,7 @@ use groove::{
     app_version,
     mini::{
         register_factory_entities,
-        widgets::{grid, icon, legend, wiggler},
+        widgets::{grid, icon, legend, pattern, wiggler},
         ControlAtlas, DragDropManager, DragDropSource, Note, PatternUid, Sequencer, DD_MANAGER,
         FACTORY,
     },
@@ -37,7 +37,7 @@ impl LegendSettings {
 
     fn show(&mut self, ui: &mut Ui) {
         if !self.hide {
-            ui.add(legend(self.range.clone()));
+            ui.add(legend(&mut self.range));
         }
     }
 }
@@ -87,17 +87,6 @@ impl TimelineSettings {
 
     fn show(&mut self, ui: &mut Ui) {
         if !self.hide {
-            ui.add(timeline(
-                &mut self.sequencer,
-                &mut self.control_atlas,
-                self.range.clone(),
-                self.view_range.clone(),
-            ));
-        }
-    }
-
-    fn old_show(&mut self, ui: &mut Ui) {
-        if !self.hide {
             let mut handled_drop = false;
 
             // We need to be careful with this MutexGuard. Our mutable
@@ -110,9 +99,17 @@ impl TimelineSettings {
             // happening by adding a reference to DragDropManager in the
             // drop_target closure.
             let mut dd = DragDropManager::global().lock().unwrap();
+
             let response = dd
                 .drop_target(ui, true, |ui, dd| {
-                    ui.add(timeline_old(dd, self.range.clone(), &mut handled_drop));
+                    ui.add(timeline(
+                        &mut self.sequencer,
+                        &mut self.control_atlas,
+                        self.range.clone(),
+                        self.view_range.clone(),
+                        dd,
+                        &mut handled_drop,
+                    ));
                 })
                 .response;
             if handled_drop {
@@ -122,8 +119,9 @@ impl TimelineSettings {
                 // cleanup is needed, because drop_target can't do it itself.
                 dd.reset();
             }
-            if dd.is_dropped(ui, response) && dd.source().is_some() {
+            if dd.is_dropped(ui, &response) && dd.source().is_some() {
                 dd.reset();
+                // TODO: calculate real number
                 eprintln!("Dropped on arrangement at beat {}", 2);
             }
         }
@@ -165,9 +163,11 @@ fn timeline<'a>(
     control_atlas: &'a mut ControlAtlas,
     range: Range<MusicalTime>,
     view_range: Range<MusicalTime>,
+    dd: &'a DragDropManager,
+    handled_drop: &'a mut bool,
 ) -> impl eframe::egui::Widget + 'a {
     move |ui: &mut eframe::egui::Ui| {
-        Timeline::new(sequencer, control_atlas)
+        Timeline::new(sequencer, control_atlas, dd, handled_drop)
             .range(range)
             .view_range(view_range)
             .ui(ui)
@@ -185,10 +185,14 @@ struct Timeline<'a> {
 
     control_atlas: &'a mut ControlAtlas,
     sequencer: &'a mut Sequencer,
+
+    dd: &'a DragDropManager,
+    handled_drop: &'a mut bool,
 }
 impl<'a> DisplaysInTimeline for Timeline<'a> {
     fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
         self.view_range = view_range.clone();
+        self.control_atlas.set_view_range(view_range);
     }
 }
 impl<'a> Displays for Timeline<'a> {
@@ -196,27 +200,44 @@ impl<'a> Displays for Timeline<'a> {
         let desired_size = vec2(ui.available_width(), 64.0);
         let (_id, rect) = ui.allocate_space(desired_size);
 
-        let grid_response = ui
-            .allocate_ui_at_rect(rect, |ui| {
-                ui.add(grid(self.range.clone(), self.view_range.clone()))
+        let response = self
+            .dd
+            .drop_target(ui, true, |ui, _| {
+                let grid_response = ui
+                    .allocate_ui_at_rect(rect, |ui| {
+                        ui.add(grid(self.range.clone(), self.view_range.clone()))
+                    })
+                    .inner;
+                let sequencer_response = ui
+                    .allocate_ui_at_rect(rect, |ui| self.sequencer.ui(ui))
+                    .inner;
+                let control_atlas_response = ui
+                    .allocate_ui_at_rect(rect, |ui| self.control_atlas.ui(ui))
+                    .inner;
+                grid_response | control_atlas_response | sequencer_response
             })
-            .inner;
-        let control_atlas_response = ui
-            .allocate_ui_at_rect(rect, |ui| self.control_atlas.ui(ui))
-            .inner;
-        let sequencer_response = ui
-            .allocate_ui_at_rect(rect, |ui| self.sequencer.ui(ui))
-            .inner;
-        grid_response | control_atlas_response | sequencer_response
+            .response;
+        if !*self.handled_drop && self.dd.is_dropped(ui, &response) {
+            *self.handled_drop = true;
+            eprintln!("Dropped on something");
+        }
+        response
     }
 }
 impl<'a> Timeline<'a> {
-    pub fn new(sequencer: &'a mut Sequencer, control_atlas: &'a mut ControlAtlas) -> Self {
+    pub fn new(
+        sequencer: &'a mut Sequencer,
+        control_atlas: &'a mut ControlAtlas,
+        dd: &'a DragDropManager,
+        handled_drop: &'a mut bool,
+    ) -> Self {
         Self {
             range: Default::default(),
             view_range: Default::default(),
             sequencer,
             control_atlas,
+            dd,
+            handled_drop,
         }
     }
     fn range(mut self, range: Range<MusicalTime>) -> Self {
@@ -230,125 +251,98 @@ impl<'a> Timeline<'a> {
     }
 }
 
-fn timeline_old<'a>(
-    dd: &'a DragDropManager,
-    range: Range<MusicalTime>,
-    handled_drop: &'a mut bool,
-) -> impl eframe::egui::Widget + 'a {
-    move |ui: &mut eframe::egui::Ui| TimelineOld::new(dd, handled_drop).range(range).ui(ui)
-}
+// fn timeline_old<'a>(
+//     dd: &'a DragDropManager,
+//     range: Range<MusicalTime>,
+//     handled_drop: &'a mut bool,
+// ) -> impl eframe::egui::Widget + 'a {
+//     move |ui: &mut eframe::egui::Ui| TimelineOld::new(dd, handled_drop).range(range).ui(ui)
+// }
 
-#[derive(Debug)]
-struct TimelineOld<'a> {
-    dd: &'a DragDropManager,
-    // Whether a drop source is currently hovering over this widget.
-    handled_drop: &'a mut bool,
-    range: Range<MusicalTime>,
-}
-impl<'a> TimelineOld<'a> {
-    fn new(dd: &'a DragDropManager, handled_drop: &'a mut bool) -> Self {
-        Self {
-            dd,
-            handled_drop,
-            range: MusicalTime::START..MusicalTime::new_with_beats(128),
-        }
-    }
-    fn range(mut self, range: Range<MusicalTime>) -> Self {
-        self.range = range;
-        self
-    }
-}
-impl<'a> Displays for TimelineOld<'a> {
-    fn ui(&mut self, ui: &mut Ui) -> Response {
-        let desired_size = vec2(ui.available_width(), 64.0);
-        let (rect, response) = ui.allocate_exact_size(desired_size, Sense::click_and_drag());
-        if response.clicked() {
-            eprintln!("the empty space got a click");
-        }
+// #[derive(Debug)]
+// struct TimelineOld<'a> {
+//     dd: &'a DragDropManager,
+//     // Whether a drop source is currently hovering over this widget.
+//     handled_drop: &'a mut bool,
+//     range: Range<MusicalTime>,
+// }
+// impl<'a> TimelineOld<'a> {
+//     fn new(dd: &'a DragDropManager, handled_drop: &'a mut bool) -> Self {
+//         Self {
+//             dd,
+//             handled_drop,
+//             range: MusicalTime::START..MusicalTime::new_with_beats(128),
+//         }
+//     }
+//     fn range(mut self, range: Range<MusicalTime>) -> Self {
+//         self.range = range;
+//         self
+//     }
+// }
+// impl<'a> Displays for TimelineOld<'a> {
+//     fn ui(&mut self, ui: &mut Ui) -> Response {
+//         let desired_size = vec2(ui.available_width(), 64.0);
+//         let (rect, response) = ui.allocate_exact_size(desired_size, Sense::click_and_drag());
+//         if response.clicked() {
+//             eprintln!("the empty space got a click");
+//         }
 
-        let to_screen = RectTransform::from_to(
-            eframe::epaint::Rect::from_x_y_ranges(
-                self.range.start.total_beats() as f32..=self.range.end.total_beats() as f32,
-                0.0..=1.0,
-            ),
-            rect,
-        );
+//         let to_screen = RectTransform::from_to(
+//             eframe::epaint::Rect::from_x_y_ranges(
+//                 self.range.start.total_beats() as f32..=self.range.end.total_beats() as f32,
+//                 0.0..=1.0,
+//             ),
+//             rect,
+//         );
 
-        let painter = ui.painter_at(rect);
-        // This could have been done as just "rect", but I wanted to make sure
-        // to_screen is working and that everyone's using it.
-        let painting_rect = Rect::from_two_pos(
-            to_screen * pos2(self.range.start.total_beats() as f32, 0.0),
-            to_screen * pos2(self.range.end.total_beats() as f32, 1.0),
-        );
-        painter.rect(
-            painting_rect,
-            Rounding::same(2.0),
-            Color32::LIGHT_GRAY,
-            Stroke::default(),
-        );
+//         let painter = ui.painter_at(rect);
+//         // This could have been done as just "rect", but I wanted to make sure
+//         // to_screen is working and that everyone's using it.
+//         let painting_rect = Rect::from_two_pos(
+//             to_screen * pos2(self.range.start.total_beats() as f32, 0.0),
+//             to_screen * pos2(self.range.end.total_beats() as f32, 1.0),
+//         );
+//         painter.rect(
+//             painting_rect,
+//             Rounding::same(2.0),
+//             Color32::LIGHT_GRAY,
+//             Stroke::default(),
+//         );
 
-        for i in 0..10 {
-            let pattern_start = MusicalTime::new_with_beats(i * 8);
-            let pattern_end = MusicalTime::new_with_beats(i * 8 + 4);
+//         for i in 0..10 {
+//             let pattern_start = MusicalTime::new_with_beats(i * 8);
+//             let pattern_end = MusicalTime::new_with_beats(i * 8 + 4);
 
-            let pattern_start_beats = pattern_start.total_beats();
-            let pattern_end_beats = pattern_end.total_beats();
+//             let pattern_start_beats = pattern_start.total_beats();
+//             let pattern_end_beats = pattern_end.total_beats();
 
-            let pattern_rect = Rect::from_two_pos(
-                to_screen * pos2(pattern_start_beats as f32, 0.0),
-                to_screen * pos2(pattern_end_beats as f32, 1.0),
-            );
+//             let pattern_rect = Rect::from_two_pos(
+//                 to_screen * pos2(pattern_start_beats as f32, 0.0),
+//                 to_screen * pos2(pattern_end_beats as f32, 1.0),
+//             );
 
-            let _ = ui
-                .allocate_ui_at_rect(pattern_rect, |ui| {
-                    let response = self
-                        .dd
-                        .drop_target(ui, true, |ui, _| ui.add(fill_widget()))
-                        .response;
-                    if !*self.handled_drop && self.dd.is_dropped(ui, response) {
-                        *self.handled_drop = true;
-                        eprintln!("Dropped on arranged pattern {i}");
-                    }
-                })
-                .response;
-        }
+//             let _ = ui
+//                 .allocate_ui_at_rect(pattern_rect, |ui| {
+//                     let response = self
+//                         .dd
+//                         .drop_target(ui, true, |ui, _| {
+//                             ui.add(pattern(
+//                                 pattern_start..pattern_end,
+//                                 pattern_start..pattern_end,
+//                             ))
+//                         })
+//                         .response;
+//                     if !*self.handled_drop && self.dd.is_dropped(ui, response) {
+//                         *self.handled_drop = true;
+//                         eprintln!("Dropped on arranged pattern {i}");
+//                     }
+//                 })
+//                 .response;
+//         }
 
-        response
-    }
-}
-
-fn fill_widget() -> impl eframe::egui::Widget {
-    move |ui: &mut eframe::egui::Ui| FillWidget::new().ui(ui)
-}
-
-struct FillWidget {}
-impl FillWidget {
-    fn new() -> Self {
-        Self {}
-    }
-}
-impl Displays for FillWidget {
-    fn ui(&mut self, ui: &mut Ui) -> Response {
-        // let desired_size = ui.available_size();
-        // ui.set_min_size(desired_size);
-        // ui.set_max_size(desired_size);
-        let desired_size = ui.available_size();
-        let (rect, response) = ui.allocate_exact_size(desired_size, Sense::click_and_drag());
-
-        let painter = ui.painter_at(rect);
-        painter.rect(
-            rect,
-            Rounding::same(2.0),
-            Color32::DARK_GREEN,
-            Stroke {
-                width: 1.0,
-                color: Color32::LIGHT_GREEN,
-            },
-        );
-        response
-    }
-}
+//         response
+//     }
+// }
 
 #[derive(Debug)]
 struct GridSettings {
@@ -585,59 +579,6 @@ impl Explorer {
                     self.pattern_icon.show(ui);
                     self.control_atlas.show(ui);
                     self.wiggler.show(ui);
-
-                    self.timeline.old_show(ui);
-
-                    if false {
-                        // How big the paint surface should be
-                        let desired_size = vec2(ui.available_width(), 64.0);
-                        // Ask Ui to turn that Vec2 into a laid-out area
-                        let (_id, rect) = ui.allocate_space(desired_size);
-                        // Get the portion of the Ui painter corresponding to the area we want to paint
-                        let painter = ui.painter_at(rect);
-
-                        // Example of painting within the region
-                        // For easier painting, use the to_screen approach to transform local coords to the screen rect as
-                        // demonstrated in https://github.com/emilk/egui/blob/master/crates/egui_demo_lib/src/demo/paint_bezier.rs#L72
-                        painter.rect_filled(rect, Rounding::default(), Color32::DARK_GRAY);
-
-                        // Now ask Ui to allocate a rect that's the same as the one we just painted on,
-                        // and set the cursor to the start of that region.
-                        if ui
-                            .allocate_ui_at_rect(rect, |ui| {
-                                ui.allocate_response(ui.available_size(), Sense::click())
-                            })
-                            .inner
-                            .clicked()
-                        {
-                            eprintln!("space #1 clicked");
-                        }
-
-                        if ui
-                            .allocate_ui_at_rect(rect, |ui| {
-                                ui.add(Label::new(
-                                    "I'm a widget being drawn on top of a painted surface!",
-                                ));
-                                ui.button("#1")
-                            })
-                            .inner
-                            .clicked()
-                        {
-                            eprintln!("button #1 (passed to thing #1) clicked");
-                        };
-
-                        if ui
-                            .allocate_ui_at_rect(rect, |ui| {
-                                ui.label("I'm writing over everything");
-                                ui.separator();
-                                ui.button("#2")
-                            })
-                            .inner
-                            .clicked()
-                        {
-                            eprintln!("button #2 (passed to thing #2) clicked");
-                        }
-                    }
                 });
             });
     }

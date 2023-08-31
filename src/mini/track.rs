@@ -261,13 +261,13 @@ impl Track {
     fn show_midi(
         &mut self,
         ui: &mut Ui,
-        viewable_time_range: &Range<MusicalTime>,
+        view_range: &Range<MusicalTime>,
     ) -> (Response, Option<SequencerAction>) {
-        //        self.sequencer.ui_arrangement(ui, viewable_time_range)
+        //        self.sequencer.ui_arrangement(ui, view_range)
         panic!()
     }
 
-    fn show_audio(&self, ui: &mut Ui, _viewable_time_range: &Range<MusicalTime>) -> Response {
+    fn show_audio(&self, ui: &mut Ui, _view_range: &Range<MusicalTime>) -> Response {
         ui.add(wiggler())
     }
 
@@ -417,7 +417,7 @@ impl Track {
     pub fn show(
         &mut self,
         ui: &mut Ui,
-        viewable_time_range: &Range<MusicalTime>,
+        view_range: &Range<MusicalTime>,
     ) -> (Response, Option<TrackAction>) {
         let mut action = None;
 
@@ -440,10 +440,10 @@ impl Track {
             .inner;
         match self.ty {
             TrackType::Midi => {
-                self.show_midi(ui, viewable_time_range);
+                self.show_midi(ui, view_range);
             }
             TrackType::Audio => {
-                self.show_audio(ui, viewable_time_range);
+                self.show_audio(ui, view_range);
             }
             TrackType::Aux => {
                 // For now, the title bar is enough for a aux track, which holds only effects.
@@ -461,7 +461,7 @@ impl Track {
         &mut self,
         ui: &mut Ui,
         dd: &mut DragDropManager,
-        viewable_time_range: &Range<MusicalTime>,
+        view_range: &Range<MusicalTime>,
         ui_state: TrackUiState,
         is_selected: bool,
     ) -> (Response, Option<TrackAction>) {
@@ -518,7 +518,7 @@ impl Track {
                                         TrackType::Midi => self.ui_contents_midi(
                                             ui,
                                             dd,
-                                            viewable_time_range,
+                                            view_range,
                                             ui_state,
                                             is_selected,
                                         ),
@@ -621,13 +621,11 @@ impl Track {
         &mut self,
         ui: &mut Ui,
         dd: &mut DragDropManager,
-        viewable_time_range: &Range<MusicalTime>,
+        view_range: &Range<MusicalTime>,
         _ui_state: TrackUiState,
         _is_selected: bool,
     ) {
-        let (_response, _action) =
-            self.sequencer
-                .ui_arrangement(ui, dd, self.uid, viewable_time_range);
+        let (_response, _action) = self.sequencer.ui_arrangement(ui, dd, self.uid, view_range);
     }
 
     /// Renders an audio [Track]'s arrangement view, which is an overview of some or
@@ -689,8 +687,7 @@ impl Track {
 
             // super::drag_drop::DragDropTarget::Track(self.uid),
 
-            // TODO lazy clone
-            if dd.is_dropped(ui, r.response.clone()) {
+            if dd.is_dropped(ui, &r.response) {
                 if let Some(source) = dd.source() {
                     match source {
                         DragDropSource::NewDevice(key) => {

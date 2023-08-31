@@ -156,7 +156,7 @@ impl DragDropManager {
         ui.memory(|mem| mem.is_anything_being_dragged())
     }
 
-    pub fn is_dropped(&self, ui: &mut Ui, response: eframe::egui::Response) -> bool {
+    pub fn is_dropped(&self, ui: &mut Ui, response: &eframe::egui::Response) -> bool {
         self.is_anything_being_dragged(ui)
             && response.hovered()
             && ui.input(|i| i.pointer.any_released())

@@ -346,7 +346,7 @@ impl Orchestrator {
         track_selection_set: &SelectionSet<TrackUid>,
     ) -> Option<OrchestratorAction> {
         let mut action = None;
-        let viewable_time_range = MusicalTime::new_with_beats(0)..MusicalTime::new_with_beats(128);
+        let mut view_range = MusicalTime::new_with_beats(0)..MusicalTime::new_with_beats(128);
         let total_height = ui.available_height();
 
         egui::TopBottomPanel::bottom("orchestrator-piano-roll")
@@ -360,7 +360,7 @@ impl Orchestrator {
             ScrollArea::vertical()
                 .id_source("orchestrator-scroller")
                 .show(ui, |ui| {
-                    ui.add(legend(viewable_time_range.clone()));
+                    ui.add(legend(&mut view_range));
                     for track_uid in self.track_uids.iter() {
                         if let Some(track) = self.tracks.get_mut(track_uid) {
                             let track_ui_state = self
@@ -375,7 +375,7 @@ impl Orchestrator {
                                 let (response, action_opt) = track.show_2(
                                     ui,
                                     dd,
-                                    &viewable_time_range,
+                                    &view_range,
                                     track_ui_state,
                                     track_selection_set.contains(track_uid),
                                 );
@@ -430,7 +430,7 @@ impl Orchestrator {
     fn ui_arrangement<'a>(
         &mut self,
         ui: &mut Ui,
-        viewable_time_range: &Range<MusicalTime>,
+        view_range: &Range<MusicalTime>,
         track_selection_set: &SelectionSet<TrackUid>,
     ) -> Option<OrchestratorAction> {
         let mut action = None;
@@ -440,8 +440,7 @@ impl Orchestrator {
             let (_id, rect) = ui.allocate_space(vec2(ui.available_width(), LEGEND_HEIGHT));
             let to_screen_beats = emath::RectTransform::from_to(
                 Rect::from_x_y_ranges(
-                    viewable_time_range.start.total_beats() as f32
-                        ..=viewable_time_range.end.total_beats() as f32,
+                    view_range.start.total_beats() as f32..=view_range.end.total_beats() as f32,
                     0.0..=1.0,
                 ),
                 rect,
@@ -449,8 +448,7 @@ impl Orchestrator {
             let text_bottom = rect.bottom() - 1.0;
 
             // Add labels at top
-            let shapes =
-                self.ui_arrangement_labels(ui, to_screen_beats, text_bottom, viewable_time_range);
+            let shapes = self.ui_arrangement_labels(ui, to_screen_beats, text_bottom, view_range);
             ui.painter().extend(shapes);
 
             // Non-aux tracks are first, then aux tracks
@@ -477,7 +475,7 @@ impl Orchestrator {
                                 color: Color32::YELLOW,
                             })
                             .show(ui, |ui| {
-                                let (response, a) = track.show(ui, viewable_time_range);
+                                let (response, a) = track.show(ui, view_range);
                                 if let Some(a) = a {
                                     track_action = Some(a);
                                 }
@@ -505,11 +503,11 @@ impl Orchestrator {
         ui: &mut Ui,
         to_screen_beats: emath::RectTransform,
         text_bottom: f32,
-        viewable_time_range: &Range<MusicalTime>,
+        view_range: &Range<MusicalTime>,
     ) -> Vec<Shape> {
         let mut shapes = vec![];
-        let start_beat = viewable_time_range.start.total_beats();
-        let end_beat = viewable_time_range.end.total_beats();
+        let start_beat = view_range.start.total_beats();
+        let end_beat = view_range.end.total_beats();
 
         let font_id = FontId::proportional(12.0);
         let beat_count = (end_beat - start_beat) as usize;

@@ -397,37 +397,41 @@ impl Default for ControlAtlas {
 impl DisplaysInTimeline for ControlAtlas {
     fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
         self.e.view_range = view_range.clone();
+        for trip in self.trips.iter_mut() {
+            trip.set_view_range(view_range);
+        }
     }
 }
 impl Displays for ControlAtlas {
     fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
         let (id, rect) = ui.allocate_space(vec2(ui.available_width(), 64.0));
-        ui.allocate_ui_at_rect(rect, |ui| {
-            ui.horizontal_top(|ui| {
-                if ui.button("Add trip").clicked() {
-                    let mut trip = ControlTripBuilder::default().build().unwrap();
-                    trip.set_uid(EntityFactory::global().mint_uid());
-                    self.add_trip(trip);
-                }
+        let response = ui
+            .allocate_ui_at_rect(rect, |ui| {
                 let mut remove_uid = None;
                 for trip in self.trips.iter_mut() {
-                    ui.vertical(|ui| {
-                        ui.allocate_ui_at_rect(rect, |ui| {
-                            trip.set_view_range(&self.e.view_range);
-                            trip.ui(ui);
-                            if ui.button("x").clicked() {
-                                remove_uid = Some(trip.uid);
-                            }
-                        });
+                    ui.allocate_ui_at_rect(rect, |ui| {
+                        trip.set_view_range(&self.e.view_range);
+                        trip.ui(ui);
+                        if ui.button("x").clicked() {
+                            remove_uid = Some(trip.uid);
+                        }
                     });
-                    trip.ui(ui);
                 }
+                //                ui.label(format!("there are {} trips", self.trips.len()));
                 if let Some(uid) = remove_uid {
                     self.remove_trip(uid);
                 }
-            });
-        })
-        .response
+            })
+            .response;
+        let response = response.context_menu(|ui| {
+            if ui.button("Add trip").clicked() {
+                ui.close_menu();
+                let mut trip = ControlTripBuilder::default().build().unwrap();
+                trip.set_uid(EntityFactory::global().mint_uid());
+                self.add_trip(trip);
+            }
+        });
+        response
     }
 }
 impl HandlesMidi for ControlAtlas {}

@@ -15,9 +15,11 @@ use groove_core::{
 };
 use std::ops::Range;
 
-/// Wraps a [Legend] as an [eframe::egui::Widget].
-pub fn legend(view_range: std::ops::Range<MusicalTime>) -> impl eframe::egui::Widget {
-    move |ui: &mut eframe::egui::Ui| Legend::default().view_range(view_range).ui(ui)
+/// Wraps a [Legend] as an [eframe::egui::Widget]. Mutates the given view_range.
+pub fn legend<'a>(
+    view_range: &'a mut std::ops::Range<MusicalTime>,
+) -> impl eframe::egui::Widget + 'a {
+    move |ui: &mut eframe::egui::Ui| Legend::new(view_range).ui(ui)
 }
 
 /// Wraps a [Grid] as an [eframe::egui::Widget].
@@ -30,36 +32,30 @@ pub fn grid(
 
 /// Wraps a [Pattern] as an [eframe::egui::Widget].
 pub fn pattern(
-    view_range: std::ops::Range<MusicalTime>,
     range: std::ops::Range<MusicalTime>,
+    view_range: std::ops::Range<MusicalTime>,
 ) -> impl eframe::egui::Widget {
-    move |ui: &mut eframe::egui::Ui| Pattern::new().view_range(view_range).range(range).ui(ui)
+    move |ui: &mut eframe::egui::Ui| Pattern::new().range(range).view_range(view_range).ui(ui)
 }
 
 /// Wraps an [EmptySpace] as an [eframe::egui::Widget].
 pub fn empty_space(
-    arrangement_range: std::ops::Range<MusicalTime>,
     range: std::ops::Range<MusicalTime>,
+    view_range: std::ops::Range<MusicalTime>,
 ) -> impl eframe::egui::Widget {
-    move |ui: &mut eframe::egui::Ui| {
-        EmptySpace::new()
-            .view_range(arrangement_range)
-            .range(range)
-            .ui(ui)
-    }
+    move |ui: &mut eframe::egui::Ui| EmptySpace::new().range(range).view_range(view_range).ui(ui)
 }
 
 /// An egui widget that draws a legend on the horizontal axis of the timeline
 /// view.
-#[derive(Debug, Default)]
-pub struct Legend {
+#[derive(Debug)]
+pub struct Legend<'a> {
     /// The GUI view's time range.
-    view_range: Range<MusicalTime>,
+    view_range: &'a mut Range<MusicalTime>,
 }
-impl Legend {
-    fn view_range(mut self, view_range: std::ops::Range<groove_core::time::MusicalTime>) -> Self {
-        self.set_view_range(&view_range);
-        self
+impl<'a> Legend<'a> {
+    fn new(view_range: &'a mut std::ops::Range<groove_core::time::MusicalTime>) -> Self {
+        Self { view_range }
     }
 
     fn steps(
@@ -69,17 +65,18 @@ impl Legend {
         let step = (beat_count as f32).log10().round() as usize;
         (view_range.start.total_beats()..view_range.end.total_beats()).step_by(step * 2)
     }
-}
-impl DisplaysInTimeline for Legend {
-    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
-        self.view_range = view_range.clone();
+
+    fn set_view_range(
+        &mut self,
+        view_range: &'a mut std::ops::Range<groove_core::time::MusicalTime>,
+    ) {
+        self.view_range = view_range;
     }
 }
-impl Displays for Legend {
+impl<'a> Displays for Legend<'a> {
     fn ui(&mut self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
         let desired_size = vec2(ui.available_width(), ui.spacing().interact_size.y);
-        let (rect, response) =
-            ui.allocate_exact_size(desired_size, eframe::egui::Sense::click_and_drag());
+        let (rect, response) = ui.allocate_exact_size(desired_size, eframe::egui::Sense::click());
         let to_screen = RectTransform::from_to(
             eframe::epaint::Rect::from_x_y_ranges(
                 self.view_range.start.total_beats() as f32
@@ -105,6 +102,21 @@ impl Displays for Legend {
             [rect.left_bottom(), rect.right_bottom()],
             ui.style().noninteractive().fg_stroke,
         );
+
+        let response = response.context_menu(|ui| {
+            if ui.button("Start x2").clicked() {
+                self.view_range.start = self.view_range.start * 2;
+                ui.close_menu();
+            }
+            if ui.button("Start x0.5").clicked() {
+                self.view_range.start = self.view_range.start / 2;
+                ui.close_menu();
+            }
+            if ui.button("Start +4").clicked() {
+                self.view_range.start = self.view_range.start + MusicalTime::new_with_beats(4);
+                ui.close_menu();
+            }
+        });
 
         response
     }
@@ -209,8 +221,15 @@ impl Displays for Pattern {
         let (rect, response) =
             ui.allocate_exact_size(desired_size, eframe::egui::Sense::click_and_drag());
         // skip interaction
-        ui.painter()
-            .rect(rect, Rounding::default(), Color32::BLACK, Stroke::default());
+        ui.painter().rect(
+            rect,
+            Rounding::default(),
+            Color32::BLACK,
+            Stroke {
+                width: 1.0,
+                color: Color32::YELLOW,
+            },
+        );
         ui.painter().line_segment(
             [rect.right_top(), rect.left_bottom()],
             Stroke {
@@ -220,15 +239,6 @@ impl Displays for Pattern {
         );
         ui.painter().line_segment(
             [rect.left_top(), rect.right_bottom()],
-            Stroke {
-                width: 1.0,
-                color: Color32::YELLOW,
-            },
-        );
-        ui.painter().rect(
-            rect,
-            Rounding::none(),
-            Color32::BLACK,
             Stroke {
                 width: 1.0,
                 color: Color32::YELLOW,

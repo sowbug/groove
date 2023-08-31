@@ -11,7 +11,7 @@ use groove_proc_macros::{Control, Params, Uid};
 use std::{
     cmp::Ordering,
     fmt::Display,
-    ops::{Add, AddAssign, Mul, Range, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, Mul, Range, Sub, SubAssign},
 };
 use strum_macros::{FromRepr, IntoStaticStr};
 
@@ -757,6 +757,15 @@ impl Mul<usize> for MusicalTime {
     fn mul(self, rhs: usize) -> Self::Output {
         Self {
             units: self.units * rhs,
+        }
+    }
+}
+impl Div<usize> for MusicalTime {
+    type Output = Self;
+
+    fn div(self, rhs: usize) -> Self::Output {
+        Self {
+            units: self.units / rhs,
         }
     }
 }
