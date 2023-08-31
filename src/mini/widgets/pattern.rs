@@ -8,19 +8,20 @@ use eframe::{
 };
 use groove_core::{time::MusicalTime, traits::gui::Displays};
 
+/// Wraps an [Icon] as an [eframe::egui::Widget].
+pub fn icon(duration: MusicalTime, notes: &[Note]) -> impl eframe::egui::Widget + '_ {
+    move |ui: &mut eframe::egui::Ui| Icon::new().duration(duration).notes(notes).ui(ui)
+}
+
 /// Displays an iconic representation of a sequence of [Note]s (that might be in
 /// a [crate::mini::piano_roll::Pattern]). Intended to be a drag-and-drop
 /// source.
-pub fn icon(duration: MusicalTime, notes: &[Note]) -> impl eframe::egui::Widget + '_ {
-    move |ui: &mut eframe::egui::Ui| PatternIcon::new().duration(duration).notes(notes).ui(ui)
-}
-
 #[derive(Debug, Default)]
-pub struct PatternIcon<'a> {
+pub struct Icon<'a> {
     duration: MusicalTime,
     notes: &'a [Note],
 }
-impl<'a> PatternIcon<'a> {
+impl<'a> Icon<'a> {
     pub fn new() -> Self {
         Default::default()
     }
@@ -33,7 +34,7 @@ impl<'a> PatternIcon<'a> {
         self
     }
 }
-impl<'a> Displays for PatternIcon<'a> {
+impl<'a> Displays for Icon<'a> {
     fn ui(&mut self, ui: &mut Ui) -> Response {
         let desired_size = ui.spacing().interact_size.y * eframe::egui::vec2(3.0, 3.0);
         let (rect, response) =

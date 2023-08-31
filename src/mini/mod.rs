@@ -3,7 +3,7 @@
 pub use control_atlas::{
     ControlAtlas, ControlStep, ControlStepBuilder, ControlTrip, ControlTripBuilder, ControlTripPath,
 };
-pub use drag_drop::{DragDropManager, DragDropSource};
+pub use drag_drop::{DragDropManager, DragDropSource, DD_MANAGER};
 pub use entities::register_factory_entities;
 pub use entity_factory::{EntityFactory, Key, FACTORY};
 pub use orchestrator::{Orchestrator, OrchestratorAction, OrchestratorBuilder};

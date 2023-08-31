@@ -16,7 +16,10 @@ use eframe::{
 use egui_toast::{Toast, ToastOptions, Toasts};
 use groove::{
     app_version,
-    mini::{register_factory_entities, DragDropManager, EntityFactory, Key, Orchestrator, FACTORY},
+    mini::{
+        register_factory_entities, DragDropManager, EntityFactory, Key, Orchestrator, DD_MANAGER,
+        FACTORY,
+    },
     panels::{
         AudioPanelEvent, ControlPanel, ControlPanelAction, MidiPanelEvent, NeedsAudioFn,
         OrchestratorEvent, OrchestratorInput, OrchestratorPanel, PaletteAction, PalettePanel,
@@ -684,10 +687,19 @@ fn main() -> anyhow::Result<()> {
         ..Default::default()
     };
 
-    let factory = register_factory_entities(EntityFactory::default());
-    if FACTORY.set(factory).is_err() {
-        return Err(anyhow!("Couldn't initialize EntityFactory"));
+    if FACTORY
+        .set(register_factory_entities(EntityFactory::default()))
+        .is_err()
+    {
+        return Err(anyhow!("Couldn't set EntityFactory once_cell"));
     }
+    if DD_MANAGER
+        .set(Mutex::new(DragDropManager::default()))
+        .is_err()
+    {
+        return Err(anyhow!("Couldn't set DragDropManager once_cell"));
+    }
+
     if let Err(e) = eframe::run_native(
         MiniDaw::APP_NAME,
         options,

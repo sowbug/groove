@@ -8,15 +8,14 @@ use super::{
     midi_router::MidiRouter,
     piano_roll::PianoRoll,
     sequencer::{Sequencer, SequencerAction},
+    widgets::wiggler,
     DragDropManager, DragDropSource, Key,
 };
 use anyhow::anyhow;
 use eframe::{
     egui::{self, Frame, Layout, Margin, Response, Sense, TextFormat, Ui},
-    emath::{self, Align},
-    epaint::{
-        pos2, text::LayoutJob, vec2, Color32, FontId, Pos2, Rect, Shape, Stroke, TextShape, Vec2,
-    },
+    emath::Align,
+    epaint::{text::LayoutJob, vec2, Color32, FontId, Shape, Stroke, TextShape, Vec2},
 };
 use groove_core::{
     control::ControlValue,
@@ -258,54 +257,6 @@ impl Track {
         (left, right)
     }
 
-    fn draw_temp_squiggles(&self, ui: &mut Ui) -> Response {
-        ui.ctx().request_repaint();
-
-        let color = if ui.visuals().dark_mode {
-            Color32::from_additive_luminance(196)
-        } else {
-            Color32::from_black_alpha(240)
-        };
-
-        let (response, painter) =
-            ui.allocate_painter(vec2(ui.available_width(), 64.0), Sense::click());
-
-        let time = ui.input(|i| i.time);
-        let to_screen = emath::RectTransform::from_to(
-            Rect::from_x_y_ranges(0.0..=1.0, -1.0..=1.0),
-            response.rect,
-        );
-
-        let mut shapes = vec![];
-
-        for &mode in &[2, 3, 5] {
-            let mode = mode as f64;
-            let n = 120;
-            let speed = 1.5;
-
-            let points: Vec<Pos2> = (0..=n)
-                .map(|i| {
-                    let t = i as f64 / (n as f64);
-                    let amp = (time * speed * mode).sin() / mode;
-                    let y = amp * (t * std::f64::consts::TAU / 2.0 * mode).sin();
-                    to_screen * pos2(t as f32, y as f32)
-                })
-                .collect();
-
-            let thickness = 10.0 / mode as f32;
-            shapes.push(Shape::line(points, Stroke::new(thickness, color)));
-        }
-
-        shapes.push(Shape::LineSegment {
-            points: [to_screen * pos2(0.0, 1.0), to_screen * pos2(1.0, 1.0)],
-            stroke: Stroke { width: 1.0, color },
-        });
-
-        painter.extend(shapes);
-
-        response
-    }
-
     #[deprecated]
     fn show_midi(
         &mut self,
@@ -317,7 +268,7 @@ impl Track {
     }
 
     fn show_audio(&self, ui: &mut Ui, _viewable_time_range: &Range<MusicalTime>) -> Response {
-        self.draw_temp_squiggles(ui)
+        ui.add(wiggler())
     }
 
     /// Shows the detail view for the selected track.
@@ -682,13 +633,7 @@ impl Track {
     /// Renders an audio [Track]'s arrangement view, which is an overview of some or
     /// all of the track's project timeline.
     fn ui_contents_audio(&mut self, ui: &mut Ui, _ui_state: TrackUiState, _is_selected: bool) {
-        ui.allocate_ui_with_layout(
-            ui.available_size(),
-            Layout::centered_and_justified(egui::Direction::LeftToRight),
-            |ui| {
-                self.draw_temp_squiggles(ui);
-            },
-        );
+        ui.add(wiggler());
     }
 
     #[must_use]

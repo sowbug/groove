@@ -1,12 +1,17 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use std::sync::Mutex;
 use super::{entity_factory::Key, piano_roll::PatternUid, TrackUid};
 use eframe::{
     egui::{CursorIcon, Id as EguiId, InnerResponse, LayerId, Order, Sense, Ui},
     epaint::{self, Rect, Shape, Vec2},
 };
 use groove_core::time::MusicalTime;
+use once_cell::sync::OnceCell;
 use strum_macros::Display;
+
+/// The one and only DragDropManager. Access it with `DragDropManager::global()`.
+pub static DD_MANAGER: OnceCell<Mutex<DragDropManager>> = OnceCell::new();
 
 #[allow(missing_docs)]
 #[derive(Debug, Display)]
@@ -30,6 +35,13 @@ pub struct DragDropManager {
 }
 #[allow(missing_docs)]
 impl DragDropManager {
+    /// Provides the one and only [DragDropManager].
+    pub fn global() -> &'static Mutex<Self> {
+        DD_MANAGER
+            .get()
+            .expect("DragDropManager has not been initialized")
+    }
+
     pub fn reset(&mut self) {
         self.source = None;
     }

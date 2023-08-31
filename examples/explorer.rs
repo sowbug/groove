@@ -14,8 +14,9 @@ use groove::{
     app_version,
     mini::{
         register_factory_entities,
-        widgets::{grid, icon, legend},
-        ControlAtlas, DragDropManager, DragDropSource, Note, PatternUid, Sequencer, FACTORY,
+        widgets::{grid, icon, legend, wiggler},
+        ControlAtlas, DragDropManager, DragDropSource, Note, PatternUid, Sequencer, DD_MANAGER,
+        FACTORY,
     },
     EntityFactory,
 };
@@ -24,7 +25,7 @@ use groove_core::{
     time::MusicalTime,
     traits::gui::{Displays, DisplaysInTimeline},
 };
-use std::ops::Range;
+use std::{ops::Range, sync::Mutex};
 
 #[derive(Debug)]
 struct LegendSettings {
@@ -33,6 +34,12 @@ struct LegendSettings {
 }
 impl LegendSettings {
     const NAME: &str = "Legend";
+
+    fn show(&mut self, ui: &mut Ui) {
+        if !self.hide {
+            ui.add(legend(self.range.clone()));
+        }
+    }
 }
 impl Default for LegendSettings {
     fn default() -> Self {
@@ -66,15 +73,67 @@ impl Displays for LegendSettings {
 struct TimelineSettings {
     hide: bool,
     range: Range<MusicalTime>,
+    view_range: Range<MusicalTime>,
+    control_atlas: ControlAtlas,
+    sequencer: Sequencer,
+}
+impl DisplaysInTimeline for TimelineSettings {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+        self.view_range = view_range.clone();
+    }
 }
 impl TimelineSettings {
     const NAME: &str = "Timeline";
+
+    fn show(&mut self, ui: &mut Ui) {
+        if !self.hide {
+            ui.add(timeline(
+                &mut self.sequencer,
+                &mut self.control_atlas,
+                self.range.clone(),
+                self.view_range.clone(),
+            ));
+        }
+    }
+
+    fn old_show(&mut self, ui: &mut Ui) {
+        if !self.hide {
+            let mut handled_drop = false;
+            let response = DragDropManager::global()
+                .lock()
+                .unwrap()
+                .drop_target(ui, true, |ui| {
+                    ui.add(timeline_old(self.range.clone(), &mut handled_drop));
+                })
+                .response;
+            if handled_drop {
+                // Because we call drop_target within something that
+                // calls drag_source, drop_target must take a
+                // non-mut dnd. Which means that drop_target needs
+                // to communicate to the caller that cleanup is
+                // needed, because drop_target can't do it itself.
+                DragDropManager::global().lock().unwrap().reset();
+            }
+            if DragDropManager::global()
+                .lock()
+                .unwrap()
+                .is_dropped(ui, response)
+                && DragDropManager::global().lock().unwrap().source().is_some()
+            {
+                DragDropManager::global().lock().unwrap().reset();
+                eprintln!("Dropped on arrangement at beat {}", 2);
+            }
+        }
+    }
 }
 impl Default for TimelineSettings {
     fn default() -> Self {
         Self {
             hide: Default::default(),
             range: MusicalTime::START..MusicalTime::new_with_beats(128),
+            view_range: MusicalTime::START..MusicalTime::new_with_beats(128),
+            control_atlas: Default::default(),
+            sequencer: Default::default(),
         }
     }
 }
@@ -169,15 +228,10 @@ impl<'a> Timeline<'a> {
 }
 
 fn timeline_old<'a>(
-    dnd: &'a DragDropManager,
     range: Range<MusicalTime>,
     handled_drop: &'a mut bool,
 ) -> impl eframe::egui::Widget + 'a {
-    move |ui: &mut eframe::egui::Ui| {
-        TimelineOld::new(handled_drop)
-            .range(range)
-            .ui_content(ui, dnd)
-    }
+    move |ui: &mut eframe::egui::Ui| TimelineOld::new(handled_drop).range(range).ui(ui)
 }
 
 #[derive(Debug)]
@@ -197,12 +251,9 @@ impl<'a> TimelineOld<'a> {
         self.range = range;
         self
     }
-
-    fn ui_content(self, ui: &mut Ui, dnd: &DragDropManager) -> Response {
-        let Self {
-            handled_drop,
-            range,
-        } = self;
+}
+impl<'a> Displays for TimelineOld<'a> {
+    fn ui(&mut self, ui: &mut Ui) -> Response {
         let desired_size = vec2(ui.available_width(), 64.0);
         let (rect, response) = ui.allocate_exact_size(desired_size, Sense::click_and_drag());
         if response.clicked() {
@@ -211,7 +262,7 @@ impl<'a> TimelineOld<'a> {
 
         let to_screen = RectTransform::from_to(
             eframe::epaint::Rect::from_x_y_ranges(
-                range.start.total_beats() as f32..=range.end.total_beats() as f32,
+                self.range.start.total_beats() as f32..=self.range.end.total_beats() as f32,
                 0.0..=1.0,
             ),
             rect,
@@ -221,8 +272,8 @@ impl<'a> TimelineOld<'a> {
         // This could have been done as just "rect", but I wanted to make sure
         // to_screen is working and that everyone's using it.
         let painting_rect = Rect::from_two_pos(
-            to_screen * pos2(range.start.total_beats() as f32, 0.0),
-            to_screen * pos2(range.end.total_beats() as f32, 1.0),
+            to_screen * pos2(self.range.start.total_beats() as f32, 0.0),
+            to_screen * pos2(self.range.end.total_beats() as f32, 1.0),
         );
         painter.rect(
             painting_rect,
@@ -245,11 +296,18 @@ impl<'a> TimelineOld<'a> {
 
             let _ = ui
                 .allocate_ui_at_rect(pattern_rect, |ui| {
-                    let response = dnd
+                    let response = DragDropManager::global()
+                        .lock()
+                        .unwrap()
                         .drop_target(ui, true, |ui| ui.add(fill_widget()))
                         .response;
-                    if !*handled_drop && dnd.is_dropped(ui, response) {
-                        *handled_drop = true;
+                    if !*self.handled_drop
+                        && DragDropManager::global()
+                            .lock()
+                            .unwrap()
+                            .is_dropped(ui, response)
+                    {
+                        *self.handled_drop = true;
                         eprintln!("Dropped on arranged pattern {i}");
                     }
                 })
@@ -289,6 +347,46 @@ impl Displays for FillWidget {
             },
         );
         response
+    }
+}
+
+#[derive(Debug)]
+struct GridSettings {
+    hide: bool,
+    range: Range<MusicalTime>,
+    view_range: Range<MusicalTime>,
+}
+impl GridSettings {
+    const NAME: &str = "Grid";
+
+    fn show(&mut self, ui: &mut Ui) {
+        if !self.hide {
+            ui.add(grid(self.range.clone(), self.view_range.clone()));
+        }
+    }
+}
+impl Default for GridSettings {
+    fn default() -> Self {
+        Self {
+            hide: Default::default(),
+            range: MusicalTime::START..MusicalTime::new_with_beats(128),
+            view_range: MusicalTime::START..MusicalTime::new_with_beats(128),
+        }
+    }
+}
+impl DisplaysInTimeline for GridSettings {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+        self.view_range = view_range.clone();
+    }
+}
+impl Displays for GridSettings {
+    fn ui(&mut self, ui: &mut Ui) -> egui::Response {
+        CollapsingHeader::new(Self::NAME)
+            .show_background(true)
+            .show_unindented(ui, |ui| {
+                ui.checkbox(&mut self.hide, "Hide");
+            })
+            .header_response
     }
 }
 
@@ -336,18 +434,26 @@ impl PatternIconSettings {
             range: start..start + duration,
         }
     }
-}
 
-#[derive(Debug)]
-struct ControlAtlasSettings {
-    hide: bool,
-}
-impl Default for ControlAtlasSettings {
-    fn default() -> Self {
-        Self {
-            hide: Default::default(),
+    fn show(&mut self, ui: &mut Ui) {
+        // Pattern Icon
+        if !self.hide {
+            DragDropManager::global().lock().unwrap().drag_source(
+                ui,
+                Id::new("pattern icon"),
+                DragDropSource::Pattern(PatternUid(99)),
+                |ui| {
+                    ui.add(icon(self.duration, &self.notes));
+                },
+            );
         }
     }
+}
+
+#[derive(Debug, Default)]
+struct ControlAtlasSettings {
+    hide: bool,
+    control_atlas: ControlAtlas,
 }
 impl Displays for ControlAtlasSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
@@ -359,19 +465,61 @@ impl Displays for ControlAtlasSettings {
             .header_response
     }
 }
+impl DisplaysInTimeline for ControlAtlasSettings {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+        self.control_atlas.set_view_range(view_range);
+    }
+}
 impl ControlAtlasSettings {
     const NAME: &str = "Control Atlas";
+
+    fn show(&mut self, ui: &mut Ui) {
+        if !self.hide {
+            self.control_atlas.ui(ui);
+        }
+    }
+}
+
+#[derive(Debug)]
+struct WigglerSettings {
+    hide: bool,
+}
+impl Default for WigglerSettings {
+    fn default() -> Self {
+        Self {
+            hide: Default::default(),
+        }
+    }
+}
+impl Displays for WigglerSettings {
+    fn ui(&mut self, ui: &mut Ui) -> egui::Response {
+        CollapsingHeader::new(Self::NAME)
+            .show_background(true)
+            .show_unindented(ui, |ui| {
+                ui.checkbox(&mut self.hide, "Hide");
+            })
+            .header_response
+    }
+}
+impl WigglerSettings {
+    const NAME: &str = "Wiggler";
+
+    fn show(&mut self, ui: &mut Ui) {
+        if !self.hide {
+            ui.add(wiggler());
+        }
+    }
 }
 
 #[derive(Debug, Default)]
 struct Explorer {
     dnd: DragDropManager,
     legend: LegendSettings,
+    grid: GridSettings,
     pattern_icon: PatternIconSettings,
     timeline: TimelineSettings,
-    control_atlas_settings: ControlAtlasSettings,
-    control_atlas: ControlAtlas,
-    sequencer: Sequencer,
+    control_atlas: ControlAtlasSettings,
+    wiggler: WigglerSettings,
 }
 impl Explorer {
     pub const NAME: &str = "Explorer";
@@ -383,9 +531,7 @@ impl Explorer {
     }
 
     fn show_top(&mut self, ui: &mut Ui) {
-        ui.label("top");
-        ui.separator();
-        ui.label("top 2");
+        ui.label("This is the top section");
     }
 
     fn show_bottom(&mut self, ui: &mut Ui) {
@@ -401,14 +547,19 @@ impl Explorer {
         ScrollArea::horizontal().show(ui, |ui| {
             self.legend.ui(ui);
             self.timeline.ui(ui);
+            self.grid.ui(ui);
             self.pattern_icon.ui(ui);
-            self.control_atlas_settings.ui(ui);
-
-            let mut debug_on_hover = ui.ctx().debug_on_hover();
-            ui.checkbox(&mut debug_on_hover, "🐛 Debug on hover")
-                .on_hover_text("Show structure of the ui when you hover with the mouse");
-            ui.ctx().set_debug_on_hover(debug_on_hover);
+            self.control_atlas.ui(ui);
+            self.wiggler.ui(ui);
+            self.debug_ui(ui);
         });
+    }
+
+    fn debug_ui(&mut self, ui: &mut Ui) {
+        let mut debug_on_hover = ui.ctx().debug_on_hover();
+        ui.checkbox(&mut debug_on_hover, "🐛 Debug on hover")
+            .on_hover_text("Show structure of the ui when you hover with the mouse");
+        ui.ctx().set_debug_on_hover(debug_on_hover);
     }
 
     fn show_right(&mut self, ui: &mut Ui) {
@@ -420,120 +571,74 @@ impl Explorer {
             .stroke(ui.style().visuals.window_stroke)
             .show(ui, |ui| {
                 ScrollArea::vertical().show(ui, |ui| {
+                    self.timeline.set_view_range(&self.legend.range);
+                    self.control_atlas.set_view_range(&self.legend.range);
+                    self.grid.set_view_range(&self.legend.range);
+
                     ui.heading("Timeline");
-
-                    // Legend
-                    if !self.legend.hide {
-                        ui.add(legend(self.legend.range.clone()));
-                    }
-
-                    if !self.timeline.hide {
-                        ui.add(timeline(
-                            &mut self.sequencer,
-                            &mut self.control_atlas,
-                            self.timeline.range.clone(),
-                            self.legend.range.clone(),
-                        ));
-                    }
-
+                    self.legend.show(ui);
+                    self.timeline.show(ui);
                     ui.add_space(32.0);
+
                     ui.heading("Widgets");
 
-                    // Old Timeline
-                    if !self.timeline.hide {
-                        let mut handled_drop = false;
-                        let response = self
-                            .dnd
-                            .drop_target(ui, true, |ui| {
-                                ui.add(timeline_old(
-                                    &self.dnd,
-                                    self.timeline.range.clone(),
-                                    &mut handled_drop,
-                                ));
+                    self.grid.show(ui);
+                    self.pattern_icon.show(ui);
+                    self.control_atlas.show(ui);
+                    self.wiggler.show(ui);
+
+                    //   self.timeline.old_show(ui);
+
+                    if false {
+                        // How big the paint surface should be
+                        let desired_size = vec2(ui.available_width(), 64.0);
+                        // Ask Ui to turn that Vec2 into a laid-out area
+                        let (_id, rect) = ui.allocate_space(desired_size);
+                        // Get the portion of the Ui painter corresponding to the area we want to paint
+                        let painter = ui.painter_at(rect);
+
+                        // Example of painting within the region
+                        // For easier painting, use the to_screen approach to transform local coords to the screen rect as
+                        // demonstrated in https://github.com/emilk/egui/blob/master/crates/egui_demo_lib/src/demo/paint_bezier.rs#L72
+                        painter.rect_filled(rect, Rounding::default(), Color32::DARK_GRAY);
+
+                        // Now ask Ui to allocate a rect that's the same as the one we just painted on,
+                        // and set the cursor to the start of that region.
+                        if ui
+                            .allocate_ui_at_rect(rect, |ui| {
+                                ui.allocate_response(ui.available_size(), Sense::click())
                             })
-                            .response;
-                        if handled_drop {
-                            // Because we call drop_target within something that
-                            // calls drag_source, drop_target must take a
-                            // non-mut dnd. Which means that drop_target needs
-                            // to communicate to the caller that cleanup is
-                            // needed, because drop_target can't do it itself.
-                            self.dnd.reset();
+                            .inner
+                            .clicked()
+                        {
+                            eprintln!("space #1 clicked");
                         }
-                        if self.dnd.is_dropped(ui, response) && self.dnd.source().is_some() {
-                            self.dnd.reset();
-                            eprintln!("Dropped on arrangement at beat {}", 2);
+
+                        if ui
+                            .allocate_ui_at_rect(rect, |ui| {
+                                ui.add(Label::new(
+                                    "I'm a widget being drawn on top of a painted surface!",
+                                ));
+                                ui.button("#1")
+                            })
+                            .inner
+                            .clicked()
+                        {
+                            eprintln!("button #1 (passed to thing #1) clicked");
+                        };
+
+                        if ui
+                            .allocate_ui_at_rect(rect, |ui| {
+                                ui.label("I'm writing over everything");
+                                ui.separator();
+                                ui.button("#2")
+                            })
+                            .inner
+                            .clicked()
+                        {
+                            eprintln!("button #2 (passed to thing #2) clicked");
                         }
                     }
-
-                    // Pattern Icon
-                    if !self.pattern_icon.hide {
-                        self.dnd.drag_source(
-                            ui,
-                            Id::new("pattern icon"),
-                            DragDropSource::Pattern(PatternUid(99)),
-                            |ui| {
-                                ui.add(icon(self.pattern_icon.duration, &self.pattern_icon.notes));
-                            },
-                        );
-                    }
-
-                    // Control Atlas
-                    if !self.control_atlas_settings.hide {
-                        self.control_atlas.set_view_range(&self.legend.range);
-                        self.control_atlas.ui(ui);
-                    }
-
-                    // How big the paint surface should be
-                    let desired_size = vec2(ui.available_width(), 64.0);
-                    // Ask Ui to turn that Vec2 into a laid-out area
-                    let (_id, rect) = ui.allocate_space(desired_size);
-                    // Get the portion of the Ui painter corresponding to the area we want to paint
-                    let painter = ui.painter_at(rect);
-
-                    // Example of painting within the region
-                    // For easier painting, use the to_screen approach to transform local coords to the screen rect as
-                    // demonstrated in https://github.com/emilk/egui/blob/master/crates/egui_demo_lib/src/demo/paint_bezier.rs#L72
-                    painter.rect_filled(rect, Rounding::default(), Color32::DARK_GRAY);
-
-                    // Now ask Ui to allocate a rect that's the same as the one we just painted on,
-                    // and set the cursor to the start of that region.
-                    if ui
-                        .allocate_ui_at_rect(rect, |ui| {
-                            ui.allocate_response(ui.available_size(), Sense::click())
-                        })
-                        .inner
-                        .clicked()
-                    {
-                        eprintln!("space #1 clicked");
-                    }
-
-                    if ui
-                        .allocate_ui_at_rect(rect, |ui| {
-                            ui.add(Label::new(
-                                "I'm a widget being drawn on top of a painted surface!",
-                            ));
-                            ui.button("#1")
-                        })
-                        .inner
-                        .clicked()
-                    {
-                        eprintln!("button #1 (passed to thing #1) clicked");
-                    };
-
-                    if ui
-                        .allocate_ui_at_rect(rect, |ui| {
-                            ui.label("I'm writing over everything");
-                            ui.separator();
-                            ui.button("#2")
-                        })
-                        .inner
-                        .clicked()
-                    {
-                        eprintln!("button #2 (passed to thing #2) clicked");
-                    }
-
-                    ui.add(grid(self.timeline.range.clone(), self.legend.range.clone()));
                 });
             });
     }
@@ -582,9 +687,17 @@ fn main() -> anyhow::Result<()> {
         ..Default::default()
     };
 
-    let factory = register_factory_entities(EntityFactory::default());
-    if FACTORY.set(factory).is_err() {
+    if FACTORY
+        .set(register_factory_entities(EntityFactory::default()))
+        .is_err()
+    {
         return Err(anyhow!("Couldn't initialize EntityFactory"));
+    }
+    if DD_MANAGER
+        .set(Mutex::new(DragDropManager::default()))
+        .is_err()
+    {
+        return Err(anyhow!("Couldn't set DragDropManager once_cell"));
     }
 
     if let Err(e) = eframe::run_native(
