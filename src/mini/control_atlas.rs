@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use super::rng::Rng;
 use crate::EntityFactory;
 use derive_builder::Builder;
 use eframe::{
@@ -18,33 +19,23 @@ use groove_core::{
 };
 use groove_proc_macros::{IsController, Uid};
 use serde::{Deserialize, Serialize};
-use std::{
-    ops::{Range, RangeInclusive},
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::ops::{Range, RangeInclusive};
 
 impl ControlTripBuilder {
     fn random_trip(&mut self, start: MusicalTime) -> &mut Self {
-        // This is an awful source of entropy, but it's fine for this use case
-        // where we just want a different fake ControlTrip each time.
-        let mut rng = oorandom::Rand64::new(
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos(),
-        );
+        let mut rng = Rng::default();
 
         let mut pos = start;
-        for _ in 0..rng.rand_range(3..8) {
+        for _ in 0..rng.0.rand_range(5..8) {
             self.step(
                 ControlStepBuilder::default()
                     .time(pos)
                     .path(ControlTripPath::Flat)
-                    .value(ControlValue(rng.rand_float()))
+                    .value(ControlValue(rng.0.rand_float()))
                     .build()
                     .unwrap(),
             );
-            pos += MusicalTime::new_with_beats(rng.rand_range(4..12) as usize);
+            pos += MusicalTime::new_with_beats(rng.0.rand_range(4..12) as usize);
         }
         self
     }
@@ -399,7 +390,7 @@ impl DisplaysInTimeline for ControlAtlas {
 }
 impl Displays for ControlAtlas {
     fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-        let (id, rect) = ui.allocate_space(vec2(ui.available_width(), 64.0));
+        let (_id, rect) = ui.allocate_space(vec2(ui.available_width(), 64.0));
         let response = ui
             .allocate_ui_at_rect(rect, |ui| {
                 let mut remove_uid = None;

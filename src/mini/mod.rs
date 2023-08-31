@@ -30,10 +30,12 @@ mod humidifier;
 mod midi_router;
 mod orchestrator;
 mod piano_roll;
+mod rng;
 mod selection_set;
 mod sequencer;
 mod track;
 mod transport;
+
 /// egui widgets
 pub mod widgets;
 
