@@ -30,11 +30,11 @@ impl PalettePanel {
     pub fn show_with_action(
         &mut self,
         ui: &mut Ui,
-        ddm: &mut DragDropManager,
+        dd: &mut DragDropManager,
     ) -> Option<PaletteAction> {
         let action = None;
         for key in EntityFactory::global().sorted_keys() {
-            ddm.drag_source(
+            dd.drag_source(
                 ui,
                 EguiId::new(key),
                 DragDropSource::NewDevice(key.clone()),

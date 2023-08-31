@@ -99,28 +99,31 @@ impl TimelineSettings {
     fn old_show(&mut self, ui: &mut Ui) {
         if !self.hide {
             let mut handled_drop = false;
-            let response = DragDropManager::global()
-                .lock()
-                .unwrap()
-                .drop_target(ui, true, |ui| {
-                    ui.add(timeline_old(self.range.clone(), &mut handled_drop));
+
+            // We need to be careful with this MutexGuard. Our mutable
+            // operation, reset(), happens in this block, and our other usage of
+            // dd is drop_target(), which takes only &self. Where things can go
+            // wrong are (1) we want to create a drag source here, which is
+            // possible but tricky because it's an &mut self, or (2) someone we
+            // call tries to call DragDropManager::global().lock(), which would
+            // cause a deadlock. I have tried to reduce the risk of that
+            // happening by adding a reference to DragDropManager in the
+            // drop_target closure.
+            let mut dd = DragDropManager::global().lock().unwrap();
+            let response = dd
+                .drop_target(ui, true, |ui, dd| {
+                    ui.add(timeline_old(dd, self.range.clone(), &mut handled_drop));
                 })
                 .response;
             if handled_drop {
-                // Because we call drop_target within something that
-                // calls drag_source, drop_target must take a
-                // non-mut dnd. Which means that drop_target needs
-                // to communicate to the caller that cleanup is
-                // needed, because drop_target can't do it itself.
-                DragDropManager::global().lock().unwrap().reset();
+                // Because we call drop_target within something that calls
+                // drag_source, drop_target must take a non-mut dd. Which means
+                // that drop_target needs to communicate to the caller that
+                // cleanup is needed, because drop_target can't do it itself.
+                dd.reset();
             }
-            if DragDropManager::global()
-                .lock()
-                .unwrap()
-                .is_dropped(ui, response)
-                && DragDropManager::global().lock().unwrap().source().is_some()
-            {
-                DragDropManager::global().lock().unwrap().reset();
+            if dd.is_dropped(ui, response) && dd.source().is_some() {
+                dd.reset();
                 eprintln!("Dropped on arrangement at beat {}", 2);
             }
         }
@@ -228,21 +231,24 @@ impl<'a> Timeline<'a> {
 }
 
 fn timeline_old<'a>(
+    dd: &'a DragDropManager,
     range: Range<MusicalTime>,
     handled_drop: &'a mut bool,
 ) -> impl eframe::egui::Widget + 'a {
-    move |ui: &mut eframe::egui::Ui| TimelineOld::new(handled_drop).range(range).ui(ui)
+    move |ui: &mut eframe::egui::Ui| TimelineOld::new(dd, handled_drop).range(range).ui(ui)
 }
 
 #[derive(Debug)]
 struct TimelineOld<'a> {
+    dd: &'a DragDropManager,
     // Whether a drop source is currently hovering over this widget.
     handled_drop: &'a mut bool,
     range: Range<MusicalTime>,
 }
 impl<'a> TimelineOld<'a> {
-    fn new(handled_drop: &'a mut bool) -> Self {
+    fn new(dd: &'a DragDropManager, handled_drop: &'a mut bool) -> Self {
         Self {
+            dd,
             handled_drop,
             range: MusicalTime::START..MusicalTime::new_with_beats(128),
         }
@@ -296,17 +302,11 @@ impl<'a> Displays for TimelineOld<'a> {
 
             let _ = ui
                 .allocate_ui_at_rect(pattern_rect, |ui| {
-                    let response = DragDropManager::global()
-                        .lock()
-                        .unwrap()
-                        .drop_target(ui, true, |ui| ui.add(fill_widget()))
+                    let response = self
+                        .dd
+                        .drop_target(ui, true, |ui, _| ui.add(fill_widget()))
                         .response;
-                    if !*self.handled_drop
-                        && DragDropManager::global()
-                            .lock()
-                            .unwrap()
-                            .is_dropped(ui, response)
-                    {
+                    if !*self.handled_drop && self.dd.is_dropped(ui, response) {
                         *self.handled_drop = true;
                         eprintln!("Dropped on arranged pattern {i}");
                     }
@@ -513,7 +513,6 @@ impl WigglerSettings {
 
 #[derive(Debug, Default)]
 struct Explorer {
-    dnd: DragDropManager,
     legend: LegendSettings,
     grid: GridSettings,
     pattern_icon: PatternIconSettings,
@@ -587,7 +586,7 @@ impl Explorer {
                     self.control_atlas.show(ui);
                     self.wiggler.show(ui);
 
-                    //   self.timeline.old_show(ui);
+                    self.timeline.old_show(ui);
 
                     if false {
                         // How big the paint surface should be
@@ -645,7 +644,7 @@ impl Explorer {
 }
 impl eframe::App for Explorer {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.dnd.reset();
+        DragDropManager::global().lock().unwrap().reset();
         let top = egui::TopBottomPanel::top("top-panel")
             .resizable(false)
             .exact_height(64.0);

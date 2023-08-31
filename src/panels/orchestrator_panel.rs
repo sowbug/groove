@@ -290,10 +290,10 @@ impl OrchestratorPanel {
     }
 
     /// Renders the panel.
-    pub fn show(&mut self, ui: &mut Ui, ddm: &mut DragDropManager, is_control_only_down: bool) {
+    pub fn show(&mut self, ui: &mut Ui, dd: &mut DragDropManager, is_control_only_down: bool) {
         let mut o = self.orchestrator.lock().unwrap();
         let tss = self.track_selection_set.lock().unwrap().clone();
-        if let Some(action) = o.show_2(ui, ddm, &tss) {
+        if let Some(action) = o.show_2(ui, dd, &tss) {
             match action {
                 OrchestratorAction::ClickTrack(track_uid) => {
                     self.track_selection_set

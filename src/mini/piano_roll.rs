@@ -508,7 +508,7 @@ impl PianoRoll {
         self.uids_to_patterns.get_mut(pattern_uid)
     }
 
-    fn carousel_ui(&mut self, ui: &mut Ui, ddm: &mut DragDropManager) {
+    fn carousel_ui(&mut self, ui: &mut Ui, dd: &mut DragDropManager) {
         // let carousel_size = vec2(ui.available_width(), 64.0);
         // let (carousel_rect, response) =
         //     ui.allocate_exact_size(carousel_size, Sense::click_and_drag());
@@ -530,8 +530,8 @@ impl PianoRoll {
                 let icon_width = ui.available_width() / self.ordered_pattern_uids.len() as f32;
                 for pattern_uid in self.ordered_pattern_uids.iter() {
                     if let Some(pattern) = self.uids_to_patterns.get_mut(pattern_uid) {
-                        let dnd_id = EguiId::new("piano roll").with(pattern_uid);
-                        ddm.drag_source(ui, dnd_id, DragDropSource::Pattern(*pattern_uid), |ui| {
+                        let dd_id = EguiId::new("piano roll").with(pattern_uid);
+                        dd.drag_source(ui, dd_id, DragDropSource::Pattern(*pattern_uid), |ui| {
                             ui.set_max_width(icon_width);
                             if ui.add(icon(pattern.duration(), pattern.notes())).clicked() {
                                 eprintln!("clicked");
@@ -543,24 +543,24 @@ impl PianoRoll {
         });
     }
 
-    pub fn show(&mut self, ui: &mut Ui, ddm: &mut DragDropManager) {
+    pub fn show(&mut self, ui: &mut Ui, dd: &mut DragDropManager) {
         ui.set_min_size(ui.available_size());
         ui.set_max_size(ui.available_size());
         ui.label(format!(
             "there are {} patterns",
             self.uids_to_patterns.len()
         ));
-        self.carousel_ui(ui, ddm);
+        self.carousel_ui(ui, dd);
 
         // let (response, painter) = ui.allocate_painter(carousel_size, Sense::click_and_drag());
         // let mut shapes = Vec::default();
         // for (index, pattern_uid) in self.ordered_pattern_uids.iter().enumerate() {
         //     if let Some(_) = self.uids_to_patterns.get(pattern_uid) {
-        //         let dnd_id = EguiId::new("piano roll").with(pattern_uid);
+        //         let dd_id = EguiId::new("piano roll").with(pattern_uid);
         //         let ul = to_screen * pos2(index as f32, 0.0);
         //         let br = to_screen * pos2(index as f32 + 1.0, 1.0);
         //         let rect = Rect::from_two_pos(ul, br).shrink2(vec2(1.0, 0.0));
-        //         ddm.drag_source(ui, dnd_id, DragDropSource::Pattern(*pattern_uid), |ui| {
+        //         dd.drag_source(ui, dd_id, DragDropSource::Pattern(*pattern_uid), |ui| {
         //             ui.add(pattern());
         //             // ui.set_max_size(ui.available_size());
         //             // ui.set_min_size(ui.available_size());

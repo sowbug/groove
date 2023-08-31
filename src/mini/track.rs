@@ -460,7 +460,7 @@ impl Track {
     pub fn show_2(
         &mut self,
         ui: &mut Ui,
-        ddm: &mut DragDropManager,
+        dd: &mut DragDropManager,
         viewable_time_range: &Range<MusicalTime>,
         ui_state: TrackUiState,
         is_selected: bool,
@@ -517,7 +517,7 @@ impl Track {
                                     match self.ty {
                                         TrackType::Midi => self.ui_contents_midi(
                                             ui,
-                                            ddm,
+                                            dd,
                                             viewable_time_range,
                                             ui_state,
                                             is_selected,
@@ -544,7 +544,7 @@ impl Track {
                                     .fill(Color32::from_gray(16))
                                     .show(ui, |ui| {
                                         if let Some(track_action) =
-                                            self.ui_device_view(ui, ui_state, ddm)
+                                            self.ui_device_view(ui, ui_state, dd)
                                         {
                                             action = Some(track_action);
                                         }
@@ -620,14 +620,14 @@ impl Track {
     fn ui_contents_midi(
         &mut self,
         ui: &mut Ui,
-        ddm: &mut DragDropManager,
+        dd: &mut DragDropManager,
         viewable_time_range: &Range<MusicalTime>,
         _ui_state: TrackUiState,
         _is_selected: bool,
     ) {
         let (_response, _action) =
             self.sequencer
-                .ui_arrangement(ui, ddm, self.uid, viewable_time_range);
+                .ui_arrangement(ui, dd, self.uid, viewable_time_range);
     }
 
     /// Renders an audio [Track]'s arrangement view, which is an overview of some or
@@ -641,7 +641,7 @@ impl Track {
         &mut self,
         ui: &mut Ui,
         ui_state: TrackUiState,
-        ddm: &mut DragDropManager,
+        dd: &mut DragDropManager,
     ) -> Option<TrackAction> {
         let mut action = None;
         let mut drag_and_drop_action = None;
@@ -665,7 +665,7 @@ impl Track {
                 Self::ui_device(ui, thing.as_mut(), desired_size);
             }
 
-            let can_accept = if let Some(source) = ddm.source() {
+            let can_accept = if let Some(source) = dd.source() {
                 match source {
                     DragDropSource::NewDevice(_) => true,
                     DragDropSource::Pattern(_) => false,
@@ -673,7 +673,7 @@ impl Track {
             } else {
                 false
             };
-            let mut r = ddm.drop_target(ui, can_accept, |ui| {
+            let mut r = dd.drop_target(ui, can_accept, |ui, dd| {
                 ui.allocate_ui_with_layout(
                     desired_size,
                     Layout::centered_and_justified(egui::Direction::LeftToRight),
@@ -690,13 +690,13 @@ impl Track {
             // super::drag_drop::DragDropTarget::Track(self.uid),
 
             // TODO lazy clone
-            if ddm.is_dropped(ui, r.response.clone()) {
-                if let Some(source) = ddm.source() {
+            if dd.is_dropped(ui, r.response.clone()) {
+                if let Some(source) = dd.source() {
                     match source {
                         DragDropSource::NewDevice(key) => {
                             drag_and_drop_action = Some(DragDropSource::NewDevice(key.clone()));
                             action = Some(TrackAction::NewDevice(self.uid, key.clone()));
-                            ddm.reset();
+                            dd.reset();
                         }
                         DragDropSource::Pattern(_) => eprintln!(
                             "nope - I'm a device drop target, not a pattern target {:?}",
@@ -721,7 +721,7 @@ impl Track {
 
         //                 // This is important to let the manager know that
         //                 // you've handled the drop.
-        //                 ddm.reset();
+        //                 dd.reset();
         //             }
         //             DragDropSource::Pattern(_) => eprintln!("I don't think so {:?}", dd_action),
         //         }

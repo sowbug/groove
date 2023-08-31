@@ -266,7 +266,7 @@ impl Sequencer {
     pub fn ui_arrangement(
         &mut self,
         ui: &mut Ui,
-        ddm: &mut DragDropManager,
+        dd: &mut DragDropManager,
         track_uid: TrackUid,
         viewable_time_range: &Range<MusicalTime>,
     ) -> (Response, Option<SequencerAction>) {
@@ -297,7 +297,7 @@ impl Sequencer {
     pub fn ui_arrangement_old(
         &mut self,
         ui: &mut Ui,
-        ddm: &mut DragDropManager,
+        dd: &mut DragDropManager,
         track_uid: TrackUid,
         viewable_time_range: &Range<MusicalTime>,
     ) -> (Response, Option<SequencerAction>) {
@@ -346,7 +346,7 @@ impl Sequencer {
                     to_screen_beats * pos2(beat as f32, 1.0),
                 ];
                 let hover_rect = Rect::from_two_pos(last_segment[0], this_segment[1]);
-                let can_accept = if let Some(source) = ddm.source() {
+                let can_accept = if let Some(source) = dd.source() {
                     match source {
                         super::DragDropSource::NewDevice(_) => false,
                         super::DragDropSource::Pattern(_) => true,
@@ -354,7 +354,7 @@ impl Sequencer {
                 } else {
                     false
                 };
-                let mut r = ddm.drop_target(ui, can_accept, |ui| {
+                let mut r = dd.drop_target(ui, can_accept, |ui, dd| {
                     ui.add(space())
                     // shapes.push(Shape::LineSegment {
                     //     points: this_segment,
@@ -400,9 +400,9 @@ impl Sequencer {
                     // };
                 });
 
-                if ddm.is_dropped(ui, r.response) {
-                    eprintln!("dropped at track beat {beat}: {:#?}", ddm.source());
-                    ddm.reset();
+                if dd.is_dropped(ui, r.response) {
+                    eprintln!("dropped at track beat {beat}: {:#?}", dd.source());
+                    dd.reset();
                 }
                 last_segment = this_segment;
             }

@@ -1,6 +1,5 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use std::sync::Mutex;
 use super::{entity_factory::Key, piano_roll::PatternUid, TrackUid};
 use eframe::{
     egui::{CursorIcon, Id as EguiId, InnerResponse, LayerId, Order, Sense, Ui},
@@ -8,6 +7,7 @@ use eframe::{
 };
 use groove_core::time::MusicalTime;
 use once_cell::sync::OnceCell;
+use std::sync::Mutex;
 use strum_macros::Display;
 
 /// The one and only DragDropManager. Access it with `DragDropManager::global()`.
@@ -93,7 +93,7 @@ impl DragDropManager {
         &self,
         ui: &mut Ui,
         can_accept_what_is_being_dragged: bool,
-        body: impl FnOnce(&mut Ui) -> R,
+        body: impl FnOnce(&mut Ui, &Self) -> R,
     ) -> InnerResponse<R> {
         // Is there any drag source at all?
         let is_anything_dragged = self.is_anything_being_dragged(ui);
@@ -110,7 +110,7 @@ impl DragDropManager {
 
         // Draw the potential target.
         let mut content_ui = ui.child_ui(inner_rect, *ui.layout());
-        let ret = body(&mut content_ui);
+        let ret = body(&mut content_ui, self);
 
         // I think but am not sure that this calculates the actual boundaries of
         // what the body drew.
