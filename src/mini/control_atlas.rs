@@ -18,7 +18,37 @@ use groove_core::{
 };
 use groove_proc_macros::{IsController, Uid};
 use serde::{Deserialize, Serialize};
-use std::ops::{Range, RangeInclusive};
+use std::{
+    ops::{Range, RangeInclusive},
+    time::{SystemTime, UNIX_EPOCH},
+};
+
+impl ControlTripBuilder {
+    fn random_trip(&mut self, start: MusicalTime) -> &mut Self {
+        // This is an awful source of entropy, but it's fine for this use case
+        // where we just want a different fake ControlTrip each time.
+        let mut rng = oorandom::Rand64::new(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+        );
+
+        let mut pos = start;
+        for _ in 0..rng.rand_range(3..8) {
+            self.step(
+                ControlStepBuilder::default()
+                    .time(pos)
+                    .path(ControlTripPath::Flat)
+                    .value(ControlValue(rng.rand_float()))
+                    .build()
+                    .unwrap(),
+            );
+            pos += MusicalTime::new_with_beats(rng.rand_range(4..12) as usize);
+        }
+        self
+    }
+}
 
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 /// Specifies what a [ControlStep]'s path should look like.
@@ -364,30 +394,7 @@ impl Default for ControlAtlas {
         };
         r.add_trip(
             ControlTripBuilder::default()
-                .step(
-                    ControlStepBuilder::default()
-                        .time(MusicalTime::DURATION_WHOLE)
-                        .path(ControlTripPath::Flat)
-                        .value(ControlValue(0.25))
-                        .build()
-                        .unwrap(),
-                )
-                .step(
-                    ControlStepBuilder::default()
-                        .time(MusicalTime::DURATION_WHOLE * 2)
-                        .path(ControlTripPath::Flat)
-                        .value(ControlValue(0.75))
-                        .build()
-                        .unwrap(),
-                )
-                .step(
-                    ControlStepBuilder::default()
-                        .time(MusicalTime::DURATION_WHOLE * 3)
-                        .path(ControlTripPath::Linear)
-                        .value(ControlValue(0.5))
-                        .build()
-                        .unwrap(),
-                )
+                .random_trip(MusicalTime::START)
                 .build()
                 .unwrap(),
         );
@@ -417,7 +424,6 @@ impl Displays for ControlAtlas {
                         }
                     });
                 }
-                //                ui.label(format!("there are {} trips", self.trips.len()));
                 if let Some(uid) = remove_uid {
                     self.remove_trip(uid);
                 }
@@ -426,7 +432,10 @@ impl Displays for ControlAtlas {
         let response = response.context_menu(|ui| {
             if ui.button("Add trip").clicked() {
                 ui.close_menu();
-                let mut trip = ControlTripBuilder::default().build().unwrap();
+                let mut trip = ControlTripBuilder::default()
+                    .random_trip(MusicalTime::START)
+                    .build()
+                    .unwrap();
                 trip.set_uid(EntityFactory::global().mint_uid());
                 self.add_trip(trip);
             }
