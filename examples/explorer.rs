@@ -3,18 +3,17 @@
 use anyhow::anyhow;
 use eframe::{
     egui::{
-        self, vec2, warn_if_debug_build, CollapsingHeader, Frame, Id, Label, Layout, Response,
-        ScrollArea, Sense, Slider, Ui,
+        self, vec2, warn_if_debug_build, CollapsingHeader, Frame, Id, Layout, ScrollArea, Slider,
+        Ui,
     },
-    emath::{Align, RectTransform},
-    epaint::{pos2, Color32, Rect, Rounding, Stroke},
+    emath::Align,
     CreationContext,
 };
 use groove::{
     app_version,
     mini::{
         register_factory_entities,
-        widgets::{grid, icon, legend, pattern, wiggler},
+        widgets::{grid, icon, legend, wiggler},
         ControlAtlas, DragDropManager, DragDropSource, Note, PatternUid, Sequencer, DD_MANAGER,
         FACTORY,
     },
@@ -193,6 +192,7 @@ impl<'a> DisplaysInTimeline for Timeline<'a> {
     fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
         self.view_range = view_range.clone();
         self.control_atlas.set_view_range(view_range);
+        self.sequencer.set_view_range(view_range);
     }
 }
 impl<'a> Displays for Timeline<'a> {
@@ -250,99 +250,6 @@ impl<'a> Timeline<'a> {
         self
     }
 }
-
-// fn timeline_old<'a>(
-//     dd: &'a DragDropManager,
-//     range: Range<MusicalTime>,
-//     handled_drop: &'a mut bool,
-// ) -> impl eframe::egui::Widget + 'a {
-//     move |ui: &mut eframe::egui::Ui| TimelineOld::new(dd, handled_drop).range(range).ui(ui)
-// }
-
-// #[derive(Debug)]
-// struct TimelineOld<'a> {
-//     dd: &'a DragDropManager,
-//     // Whether a drop source is currently hovering over this widget.
-//     handled_drop: &'a mut bool,
-//     range: Range<MusicalTime>,
-// }
-// impl<'a> TimelineOld<'a> {
-//     fn new(dd: &'a DragDropManager, handled_drop: &'a mut bool) -> Self {
-//         Self {
-//             dd,
-//             handled_drop,
-//             range: MusicalTime::START..MusicalTime::new_with_beats(128),
-//         }
-//     }
-//     fn range(mut self, range: Range<MusicalTime>) -> Self {
-//         self.range = range;
-//         self
-//     }
-// }
-// impl<'a> Displays for TimelineOld<'a> {
-//     fn ui(&mut self, ui: &mut Ui) -> Response {
-//         let desired_size = vec2(ui.available_width(), 64.0);
-//         let (rect, response) = ui.allocate_exact_size(desired_size, Sense::click_and_drag());
-//         if response.clicked() {
-//             eprintln!("the empty space got a click");
-//         }
-
-//         let to_screen = RectTransform::from_to(
-//             eframe::epaint::Rect::from_x_y_ranges(
-//                 self.range.start.total_beats() as f32..=self.range.end.total_beats() as f32,
-//                 0.0..=1.0,
-//             ),
-//             rect,
-//         );
-
-//         let painter = ui.painter_at(rect);
-//         // This could have been done as just "rect", but I wanted to make sure
-//         // to_screen is working and that everyone's using it.
-//         let painting_rect = Rect::from_two_pos(
-//             to_screen * pos2(self.range.start.total_beats() as f32, 0.0),
-//             to_screen * pos2(self.range.end.total_beats() as f32, 1.0),
-//         );
-//         painter.rect(
-//             painting_rect,
-//             Rounding::same(2.0),
-//             Color32::LIGHT_GRAY,
-//             Stroke::default(),
-//         );
-
-//         for i in 0..10 {
-//             let pattern_start = MusicalTime::new_with_beats(i * 8);
-//             let pattern_end = MusicalTime::new_with_beats(i * 8 + 4);
-
-//             let pattern_start_beats = pattern_start.total_beats();
-//             let pattern_end_beats = pattern_end.total_beats();
-
-//             let pattern_rect = Rect::from_two_pos(
-//                 to_screen * pos2(pattern_start_beats as f32, 0.0),
-//                 to_screen * pos2(pattern_end_beats as f32, 1.0),
-//             );
-
-//             let _ = ui
-//                 .allocate_ui_at_rect(pattern_rect, |ui| {
-//                     let response = self
-//                         .dd
-//                         .drop_target(ui, true, |ui, _| {
-//                             ui.add(pattern(
-//                                 pattern_start..pattern_end,
-//                                 pattern_start..pattern_end,
-//                             ))
-//                         })
-//                         .response;
-//                     if !*self.handled_drop && self.dd.is_dropped(ui, response) {
-//                         *self.handled_drop = true;
-//                         eprintln!("Dropped on arranged pattern {i}");
-//                     }
-//                 })
-//                 .response;
-//         }
-
-//         response
-//     }
-// }
 
 #[derive(Debug)]
 struct GridSettings {

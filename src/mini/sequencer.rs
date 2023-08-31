@@ -17,7 +17,10 @@ use eframe::{
 use groove_core::{
     midi::{new_note_off, new_note_on, MidiChannel, MidiMessage},
     time::{MusicalTime, TimeSignature},
-    traits::{gui::Displays, Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable},
+    traits::{
+        gui::{Displays, DisplaysInTimeline},
+        Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable,
+    },
     IsUid, Uid,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
@@ -121,6 +124,8 @@ pub struct SequencerEphemerals {
     is_performing: bool,
     // The source of [Pattern]s.
     piano_roll: Arc<RwLock<PianoRoll>>,
+
+    view_range: Range<MusicalTime>,
 }
 
 /// [Sequencer] converts a chain of [Pattern]s into MIDI notes according to a
@@ -590,16 +595,25 @@ impl Sequencer {
 }
 impl Displays for Sequencer {
     fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-        let height = ui.available_height();
-        ui.set_min_size(ui.available_size());
-        ui.set_max_size(ui.available_size());
-        if height <= 32.0 {
-            self.show_small(ui)
-        } else if height <= 128.0 {
-            self.show_medium(ui)
-        } else {
-            self.show_full(ui)
-        }
+        ui.allocate_ui(vec2(ui.available_width(), 64.0), |ui| {
+            self.arranged_patterns.values().for_each(|ap| {
+                if let Some(pattern) = self
+                    .e
+                    .piano_roll
+                    .read()
+                    .unwrap()
+                    .get_pattern(&ap.pattern_uid)
+                {
+                    ap.ui_content(ui, pattern, false);
+                }
+            })
+        })
+        .response
+    }
+}
+impl DisplaysInTimeline for Sequencer {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+        self.e.view_range = view_range.clone();
     }
 }
 impl HandlesMidi for Sequencer {}
