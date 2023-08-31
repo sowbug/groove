@@ -248,40 +248,28 @@ impl Displays for ControlTrip {
                     0.0
                 },
             );
+        let stroke = Stroke {
+            width: 1.0,
+            color: Color32::YELLOW,
+        };
         self.steps.iter_mut().for_each(|step| {
             let second_pos = to_screen * pos2(step.time.total_units() as f32, step.value.0 as f32);
             match step.path {
                 ControlTripPath::None => {}
                 ControlTripPath::Flat => {
-                    painter.line_segment(
-                        [pos, pos2(pos.x, second_pos.y)],
-                        Stroke {
-                            width: 1.0,
-                            color: Color32::YELLOW,
-                        },
-                    );
-                    painter.line_segment(
-                        [pos2(pos.x, second_pos.y), second_pos],
-                        Stroke {
-                            width: 1.0,
-                            color: Color32::YELLOW,
-                        },
-                    );
+                    painter.line_segment([pos, pos2(pos.x, second_pos.y)], stroke);
+                    painter.line_segment([pos2(pos.x, second_pos.y), second_pos], stroke);
                 }
                 ControlTripPath::Linear => {
-                    painter.line_segment(
-                        [pos, second_pos],
-                        Stroke {
-                            width: 1.0,
-                            color: Color32::YELLOW,
-                        },
-                    );
+                    painter.line_segment([pos, second_pos], stroke);
                 }
                 ControlTripPath::Logarithmic => todo!(),
                 ControlTripPath::Exponential => todo!(),
             }
             pos = second_pos;
         });
+        let second_pos_x_only = to_screen * pos2(self.e.view_range.end.total_units() as f32, 0.0);
+        painter.line_segment([pos, pos2(second_pos_x_only.x, pos.y)], stroke);
         response
     }
 }

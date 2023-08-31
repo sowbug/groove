@@ -180,7 +180,7 @@ impl Displays for Grid {
                 ],
                 stroke: Stroke {
                     width: 1.0,
-                    color: Color32::YELLOW,
+                    color: Color32::GRAY,
                 },
             });
         }
