@@ -248,7 +248,7 @@ impl Displays for ControlTrip {
                     0.0
                 },
             );
-        for step in self.steps.iter_mut() {
+        self.steps.iter_mut().for_each(|step| {
             let second_pos = to_screen * pos2(step.time.total_units() as f32, step.value.0 as f32);
             match step.path {
                 ControlTripPath::None => {}
@@ -281,7 +281,7 @@ impl Displays for ControlTrip {
                 ControlTripPath::Exponential => todo!(),
             }
             pos = second_pos;
-        }
+        });
         response
     }
 }
@@ -404,9 +404,9 @@ impl Default for ControlAtlas {
 impl DisplaysInTimeline for ControlAtlas {
     fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
         self.e.view_range = view_range.clone();
-        for trip in self.trips.iter_mut() {
-            trip.set_view_range(view_range);
-        }
+        self.trips.iter_mut().for_each(|t| {
+            t.set_view_range(view_range);
+        });
     }
 }
 impl Displays for ControlAtlas {
@@ -415,7 +415,7 @@ impl Displays for ControlAtlas {
         let response = ui
             .allocate_ui_at_rect(rect, |ui| {
                 let mut remove_uid = None;
-                for trip in self.trips.iter_mut() {
+                self.trips.iter_mut().for_each(|trip| {
                     ui.allocate_ui_at_rect(rect, |ui| {
                         trip.set_view_range(&self.e.view_range);
                         trip.ui(ui);
@@ -423,7 +423,7 @@ impl Displays for ControlAtlas {
                             remove_uid = Some(trip.uid);
                         }
                     });
-                }
+                });
                 if let Some(uid) = remove_uid {
                     self.remove_trip(uid);
                 }
