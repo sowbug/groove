@@ -58,7 +58,7 @@ impl DragDropManager {
             // It is. So let's mark that it's the one.
             debug_assert!(
                 !self.source.is_some(),
-                "If we are being dragged, then source should be None because we're about to set it"
+                "We are being dragged, so we'd like to set source. But someone else already did!"
             );
             self.source = Some(source);
 
