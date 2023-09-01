@@ -504,12 +504,14 @@ mod gui {
                     }
                 });
 
-            // TODO: this doesn't get propagated to the voices, because the single DCA will be responsible for turning mono voice output to stereo.
+            // TODO: this doesn't get propagated to the voices, because the
+            // single DCA will be responsible for turning mono voice output to
+            // stereo.
             CollapsingHeader::new("DCA")
                 .default_open(true)
                 .id_source(ui.next_auto_id())
                 .show(ui, |ui| {
-                    if self.dca.show(ui) {
+                    if self.dca.ui(ui).changed() {
                         synth.voices_mut().for_each(|v| {
                             v.dca.update_from_params(&self.dca.to_params());
                         })
@@ -519,7 +521,7 @@ mod gui {
                 .default_open(true)
                 .id_source(ui.next_auto_id())
                 .show(ui, |ui| {
-                    if self.amp_envelope.show(ui) {
+                    if self.amp_envelope.ui(ui).changed() {
                         synth.voices_mut().for_each(|v| {
                             v.amp_envelope_mut()
                                 .update_from_params(&self.amp_envelope.to_params());
@@ -531,7 +533,7 @@ mod gui {
                 .id_source(ui.next_auto_id())
                 .show(ui, |ui| {
                     let filter_changed = self.filter.ui(ui).changed();
-                    let filter_envelope_changed = self.filter_envelope.show(ui);
+                    let filter_envelope_changed = self.filter_envelope.ui(ui).changed();
                     if filter_changed || filter_envelope_changed {
                         synth.voices_mut().for_each(|v| {
                             v.filter_mut().update_from_params(&self.filter.to_params());

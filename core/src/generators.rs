@@ -890,6 +890,7 @@ impl Envelope {
 #[cfg(feature = "egui-framework")]
 mod gui {
     use super::{Envelope, Oscillator, Waveform};
+    use crate::traits::gui::Displays;
     use eframe::{
         egui::{ComboBox, DragValue, Frame, Sense, Ui},
         emath,
@@ -922,9 +923,8 @@ mod gui {
     }
 
     impl Envelope {
-        /// Returns which value changed, or usize::MAX if none changed. 0123 are ADSR
-        pub fn ui_content(&mut self, ui: &mut Ui) -> usize {
-            let (response, painter) =
+        pub fn ui_content(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+            let (mut response, painter) =
                 ui.allocate_painter(Vec2::new(ui.available_width(), 64.0), Sense::hover());
 
             let to_screen = emath::RectTransform::from_to(
@@ -1030,79 +1030,68 @@ mod gui {
             ));
             painter.extend(control_point_shapes);
 
-            which_changed
+            if which_changed != usize::MAX {
+                response.mark_changed();
+            }
+            response
         }
-
-        pub fn show(&mut self, ui: &mut Ui) -> bool {
-            let mut changed = false;
+    }
+    impl Displays for Envelope {
+        fn ui(&mut self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
             let mut attack = self.attack();
             let mut decay = self.decay();
             let mut sustain = self.sustain().to_percentage();
             let mut release = self.release();
 
-            Frame::canvas(ui.style()).show(ui, |ui| {
-                if self.ui_content(ui) != usize::MAX {
-                    changed = true;
-                }
-            });
-            if ui
-                .add(
-                    DragValue::new(&mut attack.0)
-                        .speed(0.1)
-                        .prefix("Attack: ")
-                        .clamp_range(0.0..=100.0)
-                        .suffix(" s"),
-                )
-                .changed()
-            {
+            let canvas_response = Frame::canvas(ui.style())
+                .show(ui, |ui| self.ui_content(ui))
+                .inner;
+            let attack_response = ui.add(
+                DragValue::new(&mut attack.0)
+                    .speed(0.1)
+                    .prefix("Attack: ")
+                    .clamp_range(0.0..=100.0)
+                    .suffix(" s"),
+            );
+            if attack_response.changed() {
                 self.set_attack(attack);
-                changed = true;
             }
             ui.end_row();
-            if ui
-                .add(
-                    DragValue::new(&mut decay.0)
-                        .speed(0.1)
-                        .prefix("Decay: ")
-                        .clamp_range(0.0..=100.0)
-                        .suffix(" s"),
-                )
-                .changed()
-            {
+            let decay_response = ui.add(
+                DragValue::new(&mut decay.0)
+                    .speed(0.1)
+                    .prefix("Decay: ")
+                    .clamp_range(0.0..=100.0)
+                    .suffix(" s"),
+            );
+            if decay_response.changed() {
                 self.set_decay(decay);
-                changed = true;
             }
             ui.end_row();
-            if ui
-                .add(
-                    DragValue::new(&mut sustain)
-                        .speed(0.1)
-                        .prefix("Sustain: ")
-                        .clamp_range(0.0..=100.0)
-                        .fixed_decimals(2)
-                        .suffix("%"),
-                )
-                .changed()
-            {
+            let sustain_response = ui.add(
+                DragValue::new(&mut sustain)
+                    .speed(0.1)
+                    .prefix("Sustain: ")
+                    .clamp_range(0.0..=100.0)
+                    .fixed_decimals(2)
+                    .suffix("%"),
+            );
+            if sustain_response.changed() {
                 self.set_sustain((sustain / 100.0).into());
-                changed = true;
             }
             ui.end_row();
-            if ui
-                .add(
-                    DragValue::new(&mut release.0)
-                        .speed(0.1)
-                        .prefix("Release: ")
-                        .clamp_range(0.0..=100.0)
-                        .suffix(" s"),
-                )
-                .changed()
-            {
+            let release_response = ui.add(
+                DragValue::new(&mut release.0)
+                    .speed(0.1)
+                    .prefix("Release: ")
+                    .clamp_range(0.0..=100.0)
+                    .suffix(" s"),
+            );
+            if release_response.changed() {
                 self.set_release(release);
-                changed = true;
             }
             ui.end_row();
-            changed
+            canvas_response | attack_response | decay_response | sustain_response | release_response
         }
     }
 }

@@ -770,7 +770,7 @@ impl Div<Ratio> for ParameterType {
 
 #[cfg(feature = "egui-framework")]
 mod gui {
-    use crate::{BipolarNormal, Dca, FrequencyHz, Normal};
+    use crate::{traits::gui::Displays, BipolarNormal, Dca, FrequencyHz, Normal};
     use eframe::egui::{DragValue, Slider, Ui};
     use std::ops::RangeInclusive;
 
@@ -793,35 +793,28 @@ mod gui {
             }
         }
     }
-    impl Dca {
-        pub fn show(&mut self, ui: &mut Ui) -> bool {
-            let mut changed = false;
+    impl Displays for Dca {
+        fn ui(&mut self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
             let mut gain = self.gain().value();
-            if ui
-                .add(
-                    Slider::new(&mut gain, Normal::range())
-                        .fixed_decimals(2)
-                        .text("Gain"),
-                )
-                .changed()
-            {
+            let gain_response = ui.add(
+                Slider::new(&mut gain, Normal::range())
+                    .fixed_decimals(2)
+                    .text("Gain"),
+            );
+            if gain_response.changed() {
                 self.set_gain(gain.into());
-                changed = true;
             };
 
             let mut pan = self.pan().value();
-            if ui
-                .add(
-                    Slider::new(&mut pan, BipolarNormal::range())
-                        .fixed_decimals(2)
-                        .text("Pan"),
-                )
-                .changed()
-            {
+            let pan_response = ui.add(
+                Slider::new(&mut pan, BipolarNormal::range())
+                    .fixed_decimals(2)
+                    .text("Pan"),
+            );
+            if pan_response.changed() {
                 self.set_pan(pan.into());
-                changed = true;
             };
-            changed
+            gain_response | pan_response
         }
     }
 }
