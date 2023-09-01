@@ -342,7 +342,6 @@ impl Orchestrator {
     pub fn show_2(
         &mut self,
         ui: &mut Ui,
-        dd: &mut DragDropManager,
         track_selection_set: &SelectionSet<TrackUid>,
     ) -> Option<OrchestratorAction> {
         let mut action = None;
@@ -353,7 +352,7 @@ impl Orchestrator {
             .resizable(true)
             .max_height(total_height / 2.0)
             .show(ui.ctx(), |ui| {
-                self.piano_roll.write().unwrap().show(ui, dd);
+                self.piano_roll.write().unwrap().show(ui);
             });
 
         egui::CentralPanel::default().show(ui.ctx(), |ui| {
@@ -374,7 +373,6 @@ impl Orchestrator {
                                 ui.set_min_size(desired_size);
                                 let (response, action_opt) = track.show_2(
                                     ui,
-                                    dd,
                                     &view_range,
                                     track_ui_state,
                                     track_selection_set.contains(track_uid),

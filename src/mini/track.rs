@@ -460,7 +460,6 @@ impl Track {
     pub fn show_2(
         &mut self,
         ui: &mut Ui,
-        dd: &mut DragDropManager,
         view_range: &Range<MusicalTime>,
         ui_state: TrackUiState,
         is_selected: bool,
@@ -517,7 +516,6 @@ impl Track {
                                     match self.ty {
                                         TrackType::Midi => self.ui_contents_midi(
                                             ui,
-                                            dd,
                                             view_range,
                                             ui_state,
                                             is_selected,
@@ -540,15 +538,9 @@ impl Track {
                                 color: Color32::DARK_GRAY,
                             })
                             .show(ui, |ui| {
-                                Frame::default()
-                                    .fill(Color32::from_gray(16))
-                                    .show(ui, |ui| {
-                                        if let Some(track_action) =
-                                            self.ui_device_view(ui, ui_state, dd)
-                                        {
-                                            action = Some(track_action);
-                                        }
-                                    });
+                                if let Some(track_action) = self.ui_device_view(ui, ui_state) {
+                                    action = Some(track_action);
+                                }
                             });
                     });
                     response
@@ -620,12 +612,11 @@ impl Track {
     fn ui_contents_midi(
         &mut self,
         ui: &mut Ui,
-        dd: &mut DragDropManager,
         view_range: &Range<MusicalTime>,
         _ui_state: TrackUiState,
         _is_selected: bool,
     ) {
-        let (_response, _action) = self.sequencer.ui_arrangement(ui, dd, self.uid, view_range);
+        let (_response, _action) = self.sequencer.ui_arrangement(ui, self.uid, view_range);
     }
 
     /// Renders an audio [Track]'s arrangement view, which is an overview of some or
@@ -635,12 +626,7 @@ impl Track {
     }
 
     #[must_use]
-    fn ui_device_view(
-        &mut self,
-        ui: &mut Ui,
-        ui_state: TrackUiState,
-        dd: &mut DragDropManager,
-    ) -> Option<TrackAction> {
+    fn ui_device_view(&mut self, ui: &mut Ui, ui_state: TrackUiState) -> Option<TrackAction> {
         let mut action = None;
         let mut drag_and_drop_action = None;
         let mut hovered = false;
@@ -663,6 +649,7 @@ impl Track {
                 Self::ui_device(ui, thing.as_mut(), desired_size);
             }
 
+            let mut dd = DragDropManager::global().lock().unwrap();
             let can_accept = if let Some(source) = dd.source() {
                 match source {
                     DragDropSource::NewDevice(_) => true,

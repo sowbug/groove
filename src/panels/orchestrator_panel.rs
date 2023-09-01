@@ -1,6 +1,6 @@
 use crate::mini::{
-    ChannelPair, DragDropManager, EntityFactory, Key, Orchestrator, OrchestratorAction,
-    OrchestratorBuilder, SelectionSet, TrackUid,
+    ChannelPair, EntityFactory, Key, Orchestrator, OrchestratorAction, OrchestratorBuilder,
+    SelectionSet, TrackUid,
 };
 use anyhow::{anyhow, Result};
 use crossbeam_channel::{Receiver, Sender};
@@ -290,10 +290,10 @@ impl OrchestratorPanel {
     }
 
     /// Renders the panel.
-    pub fn show(&mut self, ui: &mut Ui, dd: &mut DragDropManager, is_control_only_down: bool) {
+    pub fn show(&mut self, ui: &mut Ui, is_control_only_down: bool) {
         let mut o = self.orchestrator.lock().unwrap();
         let tss = self.track_selection_set.lock().unwrap().clone();
-        if let Some(action) = o.show_2(ui, dd, &tss) {
+        if let Some(action) = o.show_2(ui, &tss) {
             match action {
                 OrchestratorAction::ClickTrack(track_uid) => {
                     self.track_selection_set

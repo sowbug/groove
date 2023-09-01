@@ -508,7 +508,7 @@ impl PianoRoll {
         self.uids_to_patterns.get_mut(pattern_uid)
     }
 
-    fn carousel_ui(&mut self, ui: &mut Ui, dd: &mut DragDropManager) {
+    fn carousel_ui(&mut self, ui: &mut Ui) {
         // let carousel_size = vec2(ui.available_width(), 64.0);
         // let (carousel_rect, response) =
         //     ui.allocate_exact_size(carousel_size, Sense::click_and_drag());
@@ -528,6 +528,7 @@ impl PianoRoll {
             ui.set_height(64.0);
             if !self.ordered_pattern_uids.is_empty() {
                 let icon_width = ui.available_width() / self.ordered_pattern_uids.len() as f32;
+                let mut dd = DragDropManager::global().lock().unwrap();
                 for pattern_uid in self.ordered_pattern_uids.iter() {
                     if let Some(pattern) = self.uids_to_patterns.get_mut(pattern_uid) {
                         let dd_id = EguiId::new("piano roll").with(pattern_uid);
@@ -543,14 +544,14 @@ impl PianoRoll {
         });
     }
 
-    pub fn show(&mut self, ui: &mut Ui, dd: &mut DragDropManager) {
+    pub fn show(&mut self, ui: &mut Ui) {
         ui.set_min_size(ui.available_size());
         ui.set_max_size(ui.available_size());
         ui.label(format!(
             "there are {} patterns",
             self.uids_to_patterns.len()
         ));
-        self.carousel_ui(ui, dd);
+        self.carousel_ui(ui);
 
         // let (response, painter) = ui.allocate_painter(carousel_size, Sense::click_and_drag());
         // let mut shapes = Vec::default();

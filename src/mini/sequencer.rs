@@ -271,7 +271,6 @@ impl Sequencer {
     pub fn ui_arrangement(
         &mut self,
         ui: &mut Ui,
-        dd: &mut DragDropManager,
         track_uid: TrackUid,
         view_range: &Range<MusicalTime>,
     ) -> (Response, Option<SequencerAction>) {

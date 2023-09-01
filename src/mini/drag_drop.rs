@@ -14,7 +14,7 @@ use strum_macros::Display;
 pub static DD_MANAGER: OnceCell<Mutex<DragDropManager>> = OnceCell::new();
 
 #[allow(missing_docs)]
-#[derive(Debug, Display)]
+#[derive(Debug, Display, PartialEq, Eq)]
 pub enum DragDropSource {
     NewDevice(Key),
     Pattern(PatternUid),
@@ -54,12 +54,16 @@ impl DragDropManager {
         source: DragDropSource,
         body: impl FnOnce(&mut Ui),
     ) {
+        // This allows the app to avoid having to call reset() on every event
+        // loop iteration, and fixes the bug that a drop target could see only
+        // the drag sources that were instantiated earlier in the main event
+        // loop.
+        if !self.is_anything_being_dragged(ui) {
+            self.source = None;
+        }
+
         if ui.memory(|mem| mem.is_being_dragged(id)) {
             // It is. So let's mark that it's the one.
-            debug_assert!(
-                !self.source.is_some(),
-                "We are being dragged, so we'd like to set source. But someone else already did!"
-            );
             self.source = Some(source);
 
             // Indicate in UI that we're dragging.

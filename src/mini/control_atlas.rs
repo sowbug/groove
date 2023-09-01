@@ -390,36 +390,42 @@ impl DisplaysInTimeline for ControlAtlas {
 }
 impl Displays for ControlAtlas {
     fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-        let (_id, rect) = ui.allocate_space(vec2(ui.available_width(), 64.0));
-        let response = ui
-            .allocate_ui_at_rect(rect, |ui| {
-                let mut remove_uid = None;
-                self.trips.iter_mut().for_each(|trip| {
-                    ui.allocate_ui_at_rect(rect, |ui| {
-                        trip.set_view_range(&self.e.view_range);
-                        trip.ui(ui);
-                        if ui.button("x").clicked() {
-                            remove_uid = Some(trip.uid);
-                        }
+        // This push_id() was needed to avoid an ID conflict. I think it is
+        // because we're drawing widgets on top of each other, but I'm honestly
+        // not sure.
+        ui.push_id(ui.next_auto_id(), |ui| {
+            let (_id, rect) = ui.allocate_space(vec2(ui.available_width(), 64.0));
+            let response = ui
+                .allocate_ui_at_rect(rect, |ui| {
+                    let mut remove_uid = None;
+                    self.trips.iter_mut().for_each(|trip| {
+                        ui.allocate_ui_at_rect(rect, |ui| {
+                            trip.set_view_range(&self.e.view_range);
+                            trip.ui(ui);
+                            if ui.button("x").clicked() {
+                                remove_uid = Some(trip.uid);
+                            }
+                        });
                     });
-                });
-                if let Some(uid) = remove_uid {
-                    self.remove_trip(uid);
+                    if let Some(uid) = remove_uid {
+                        self.remove_trip(uid);
+                    }
+                })
+                .response;
+            let response = response.context_menu(|ui| {
+                if ui.button("Add trip").clicked() {
+                    ui.close_menu();
+                    let mut trip = ControlTripBuilder::default()
+                        .random_trip(MusicalTime::START)
+                        .build()
+                        .unwrap();
+                    trip.set_uid(EntityFactory::global().mint_uid());
+                    self.add_trip(trip);
                 }
-            })
-            .response;
-        let response = response.context_menu(|ui| {
-            if ui.button("Add trip").clicked() {
-                ui.close_menu();
-                let mut trip = ControlTripBuilder::default()
-                    .random_trip(MusicalTime::START)
-                    .build()
-                    .unwrap();
-                trip.set_uid(EntityFactory::global().mint_uid());
-                self.add_trip(trip);
-            }
-        });
-        response
+            });
+            response
+        })
+        .inner
     }
 }
 impl HandlesMidi for ControlAtlas {}

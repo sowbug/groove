@@ -492,7 +492,6 @@ impl Explorer {
 }
 impl eframe::App for Explorer {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        DragDropManager::global().lock().unwrap().reset();
         let top = egui::TopBottomPanel::top("top-panel")
             .resizable(false)
             .exact_height(64.0);

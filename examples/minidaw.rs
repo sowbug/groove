@@ -211,7 +211,6 @@ struct MiniDaw {
     settings_panel: SettingsPanel,
 
     exit_requested: bool,
-    drag_drop_manager: DragDropManager,
 
     toasts: Toasts,
 }
@@ -245,7 +244,6 @@ impl MiniDaw {
             settings_panel: SettingsPanel::new_with(Box::new(needs_audio)),
 
             exit_requested: Default::default(),
-            drag_drop_manager: Default::default(),
 
             toasts: Toasts::new()
                 .anchor(Align2::RIGHT_BOTTOM, (-10.0, -10.0))
@@ -563,10 +561,7 @@ impl MiniDaw {
 
     fn show_left(&mut self, ui: &mut Ui) {
         ScrollArea::horizontal().show(ui, |ui| {
-            if let Some(_action) = self
-                .palette_panel
-                .show_with_action(ui, &mut self.drag_drop_manager)
-            {
+            if let Some(_action) = self.palette_panel.show_with_action(ui) {
                 // these are inactive for now because we're skipping the drag/drop stuff.
                 //self.handle_palette_action(action);
             }
@@ -579,8 +574,7 @@ impl MiniDaw {
 
     fn show_center(&mut self, ui: &mut Ui, is_shift_only_down: bool) {
         ScrollArea::vertical().show(ui, |ui| {
-            self.orchestrator_panel
-                .show(ui, &mut self.drag_drop_manager, is_shift_only_down);
+            self.orchestrator_panel.show(ui, is_shift_only_down);
         });
     }
 
@@ -618,7 +612,6 @@ impl MiniDaw {
 impl eframe::App for MiniDaw {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.handle_message_channels();
-        self.drag_drop_manager.reset();
         self.update_window_title(frame);
 
         let mut is_control_only_down = false;
