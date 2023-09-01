@@ -6,7 +6,8 @@ use eframe::{
         self, vec2, warn_if_debug_build, CollapsingHeader, Frame, Id, Layout, ScrollArea, Slider,
         Ui,
     },
-    emath::Align,
+    emath::{Align, RectTransform},
+    epaint::Rect,
     CreationContext,
 };
 use groove::{
@@ -86,43 +87,12 @@ impl TimelineSettings {
 
     fn show(&mut self, ui: &mut Ui) {
         if !self.hide {
-            let mut handled_drop = false;
-
-            // We need to be careful with this MutexGuard. Our mutable
-            // operation, reset(), happens in this block, and our other usage of
-            // dd is drop_target(), which takes only &self. Where things can go
-            // wrong are (1) we want to create a drag source here, which is
-            // possible but tricky because it's an &mut self, or (2) someone we
-            // call tries to call DragDropManager::global().lock(), which would
-            // cause a deadlock. I have tried to reduce the risk of that
-            // happening by adding a reference to DragDropManager in the
-            // drop_target closure.
-            let mut dd = DragDropManager::global().lock().unwrap();
-
-            let response = dd
-                .drop_target(ui, true, |ui, dd| {
-                    ui.add(timeline(
-                        &mut self.sequencer,
-                        &mut self.control_atlas,
-                        self.range.clone(),
-                        self.view_range.clone(),
-                        dd,
-                        &mut handled_drop,
-                    ));
-                })
-                .response;
-            if handled_drop {
-                // Because we call drop_target within something that calls
-                // drag_source, drop_target must take a non-mut dd. Which means
-                // that drop_target needs to communicate to the caller that
-                // cleanup is needed, because drop_target can't do it itself.
-                dd.reset();
-            }
-            if dd.is_dropped(ui, &response) && dd.source().is_some() {
-                dd.reset();
-                // TODO: calculate real number
-                eprintln!("Dropped on arrangement at beat {}", 2);
-            }
+            ui.add(timeline(
+                &mut self.sequencer,
+                &mut self.control_atlas,
+                self.range.clone(),
+                self.view_range.clone(),
+            ));
         }
     }
 }
@@ -162,11 +132,9 @@ fn timeline<'a>(
     control_atlas: &'a mut ControlAtlas,
     range: Range<MusicalTime>,
     view_range: Range<MusicalTime>,
-    dd: &'a DragDropManager,
-    handled_drop: &'a mut bool,
 ) -> impl eframe::egui::Widget + 'a {
     move |ui: &mut eframe::egui::Ui| {
-        Timeline::new(sequencer, control_atlas, dd, handled_drop)
+        Timeline::new(sequencer, control_atlas)
             .range(range)
             .view_range(view_range)
             .ui(ui)
@@ -184,9 +152,6 @@ struct Timeline<'a> {
 
     control_atlas: &'a mut ControlAtlas,
     sequencer: &'a mut Sequencer,
-
-    dd: &'a DragDropManager,
-    handled_drop: &'a mut bool,
 }
 impl<'a> DisplaysInTimeline for Timeline<'a> {
     fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
@@ -197,12 +162,20 @@ impl<'a> DisplaysInTimeline for Timeline<'a> {
 }
 impl<'a> Displays for Timeline<'a> {
     fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
-        let desired_size = vec2(ui.available_width(), 64.0);
-        let (_id, rect) = ui.allocate_space(desired_size);
-
-        let response = self
-            .dd
+        let mut from_screen = RectTransform::identity(Rect::NOTHING);
+        let dd = DragDropManager::global().lock().unwrap();
+        let response = dd
             .drop_target(ui, true, |ui, _| {
+                let desired_size = vec2(ui.available_width(), 64.0);
+                let (_id, rect) = ui.allocate_space(desired_size);
+                from_screen = RectTransform::from_to(
+                    rect,
+                    Rect::from_x_y_ranges(
+                        self.view_range.start.total_units() as f32
+                            ..=self.view_range.end.total_units() as f32,
+                        rect.top()..=rect.bottom(),
+                    ),
+                );
                 let grid_response = ui
                     .allocate_ui_at_rect(rect, |ui| {
                         ui.add(grid(self.range.clone(), self.view_range.clone()))
@@ -217,27 +190,30 @@ impl<'a> Displays for Timeline<'a> {
                 grid_response | control_atlas_response | sequencer_response
             })
             .response;
-        if !*self.handled_drop && self.dd.is_dropped(ui, &response) {
-            *self.handled_drop = true;
-            eprintln!("Dropped on something");
+        if dd.is_dropped(ui, &response) && dd.source().is_some() {
+            if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
+                let time_pos = from_screen * pointer_pos;
+                let time = MusicalTime::new_with_units(time_pos.x as usize);
+                eprintln!(
+                    "Source {:?} dropped on timeline at point screen/view_range {:?}/{:?} -> {time}",
+                    dd.source().unwrap(),
+                    pointer_pos,
+                    from_screen * pointer_pos
+                );
+            } else {
+                eprintln!("Dropped on timeline at unknown position");
+            }
         }
         response
     }
 }
 impl<'a> Timeline<'a> {
-    pub fn new(
-        sequencer: &'a mut Sequencer,
-        control_atlas: &'a mut ControlAtlas,
-        dd: &'a DragDropManager,
-        handled_drop: &'a mut bool,
-    ) -> Self {
+    pub fn new(sequencer: &'a mut Sequencer, control_atlas: &'a mut ControlAtlas) -> Self {
         Self {
             range: Default::default(),
             view_range: Default::default(),
             sequencer,
             control_atlas,
-            dd,
-            handled_drop,
         }
     }
     fn range(mut self, range: Range<MusicalTime>) -> Self {
