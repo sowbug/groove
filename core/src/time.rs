@@ -543,6 +543,7 @@ impl Default for MusicalTime {
     }
 }
 impl MusicalTime {
+    /// A part is a sixteenth of a beat.
     pub const PARTS_IN_BEAT: usize = 16;
     pub const UNITS_IN_PART: usize = 4096;
     pub const UNITS_IN_BEAT: usize = Self::PARTS_IN_BEAT * Self::UNITS_IN_PART;
@@ -611,6 +612,7 @@ impl MusicalTime {
         self.units / Self::UNITS_IN_PART
     }
 
+    // A part is one sixteenth of a beat.
     pub fn parts(&self) -> usize {
         self.total_parts() % Self::PARTS_IN_BEAT
     }
@@ -706,6 +708,11 @@ impl MusicalTime {
 
     pub fn as_frames(&self, tempo: Tempo, sample_rate: SampleRate) -> usize {
         Self::units_to_frames(tempo, sample_rate, self.units)
+    }
+
+    // Actually just chopped to nearest part for now
+    pub fn quantized(&self) -> MusicalTime {
+        MusicalTime::new_with_parts(self.total_parts())
     }
 }
 impl Display for MusicalTime {

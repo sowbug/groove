@@ -124,31 +124,57 @@ impl ESSequencer {
             }
         })
     }
+
+    // This method is private because callers need to remember to call
+    // calculate_events() when they're done.
+    fn toggle_note(&mut self, note: Note) {
+        if self.notes.contains(&note) {
+            self.notes.retain(|n| n != &note);
+        } else {
+            self.notes.push(note);
+        }
+    }
 }
 impl Displays for ESSequencer {
     fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-        ui.allocate_ui(vec2(ui.available_width(), 64.0), |ui| {
-            let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::hover());
-            let x_range_f32 = self.e.view_range.start.total_units() as f32
-                ..=self.e.view_range.end.total_units() as f32;
-            let y_range = 0.0..=127.0;
-            let local_space_rect = Rect::from_x_y_ranges(x_range_f32, y_range);
-            let to_screen = RectTransform::from_to(local_space_rect, response.rect);
-            self.notes.iter().for_each(|note| {
-                painter.line_segment(
-                    [
-                        to_screen * pos2(note.range.start.total_units() as f32, note.key as f32),
-                        to_screen * pos2(note.range.end.total_units() as f32, note.key as f32),
-                    ],
-                    Stroke {
-                        width: 1.0,
-                        color: Color32::YELLOW,
-                    },
-                );
-            });
-            response
-        })
-        .inner
+        let response = ui
+            .allocate_ui(vec2(ui.available_width(), 64.0), |ui| {
+                let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click());
+                let x_range_f32 = self.e.view_range.start.total_units() as f32
+                    ..=self.e.view_range.end.total_units() as f32;
+                let y_range = 127.0..=0.0;
+                let local_space_rect = Rect::from_x_y_ranges(x_range_f32, y_range);
+                let to_screen = RectTransform::from_to(local_space_rect, response.rect);
+                let from_screen = to_screen.inverse();
+                self.notes.iter().for_each(|note| {
+                    painter.line_segment(
+                        [
+                            to_screen
+                                * pos2(note.range.start.total_units() as f32, note.key as f32),
+                            to_screen * pos2(note.range.end.total_units() as f32, note.key as f32),
+                        ],
+                        Stroke {
+                            width: 1.0,
+                            color: Color32::YELLOW,
+                        },
+                    );
+                });
+                if response.clicked() {
+                    if let Some(click_pos) = ui.ctx().pointer_interact_pos() {
+                        let local_pos = from_screen * click_pos;
+                        let time = MusicalTime::new_with_units(local_pos.x as usize).quantized();
+                        let key = local_pos.y as u8;
+                        let note = Note::new_with(key, time, MusicalTime::DURATION_QUARTER);
+                        eprintln!("Saw a click at time {time} and note {note:?}");
+                        self.toggle_note(note);
+                        self.calculate_events();
+                    }
+                }
+
+                response
+            })
+            .inner;
+        response
     }
 }
 impl DisplaysInTimeline for ESSequencer {

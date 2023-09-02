@@ -9,6 +9,7 @@ use eframe::{
     epaint::{pos2, vec2, Color32, Pos2, Rect, Rounding, Shape, Stroke, Vec2},
 };
 use groove_core::{
+    midi::MidiNote,
     time::{MusicalTime, TimeSignature},
     traits::gui::Displays,
     IsUid,
@@ -46,6 +47,23 @@ pub struct Note {
     pub key: u8,
     /// The range of time when this note should play.
     pub range: Range<MusicalTime>,
+}
+impl Note {
+    /// Creates a [Note] from a u8.
+    pub fn new_with(key: u8, start: MusicalTime, duration: MusicalTime) -> Self {
+        Self {
+            key,
+            range: start..(start + duration),
+        }
+    }
+
+    /// Creates a [Note] from a [MidiNote].
+    pub fn new_with_midi_note(key: MidiNote, start: MusicalTime, duration: MusicalTime) -> Self {
+        Self {
+            key: key as u8,
+            range: start..(start + duration),
+        }
+    }
 }
 
 /// A [Pattern] contains a musical sequence that is suitable for
@@ -634,13 +652,6 @@ mod tests {
             key: MidiNote::E4 as u8,
             range: MusicalTime::START..MusicalTime::DURATION_BREVE,
         };
-
-        pub fn new_with(key: MidiNote, start: MusicalTime, duration: MusicalTime) -> Self {
-            Self {
-                key: key as u8,
-                range: start..(start + duration),
-            }
-        }
     }
 
     impl PianoRoll {
@@ -652,17 +663,17 @@ mod tests {
             let pattern = match pattern_number {
                 0 => PatternBuilder::default()
                     .notes(vec![
-                        Note::new_with(
+                        Note::new_with_midi_note(
                             MidiNote::C4,
                             MusicalTime::TIME_ZERO,
                             MusicalTime::DURATION_WHOLE,
                         ),
-                        Note::new_with(
+                        Note::new_with_midi_note(
                             MidiNote::D4,
                             MusicalTime::TIME_END_OF_FIRST_BEAT,
                             MusicalTime::DURATION_WHOLE,
                         ),
-                        Note::new_with(
+                        Note::new_with_midi_note(
                             MidiNote::E4,
                             MusicalTime::TIME_END_OF_FIRST_BEAT * 2,
                             MusicalTime::DURATION_WHOLE,
@@ -671,17 +682,17 @@ mod tests {
                     .build(),
                 1 => PatternBuilder::default()
                     .notes(vec![
-                        Note::new_with(
+                        Note::new_with_midi_note(
                             MidiNote::C5,
                             MusicalTime::TIME_ZERO,
                             MusicalTime::DURATION_WHOLE,
                         ),
-                        Note::new_with(
+                        Note::new_with_midi_note(
                             MidiNote::D5,
                             MusicalTime::TIME_END_OF_FIRST_BEAT,
                             MusicalTime::DURATION_WHOLE,
                         ),
-                        Note::new_with(
+                        Note::new_with_midi_note(
                             MidiNote::E5,
                             MusicalTime::TIME_END_OF_FIRST_BEAT * 2,
                             MusicalTime::DURATION_WHOLE,
@@ -749,7 +760,7 @@ mod tests {
     #[test]
     fn pattern_one_long_note_is_one_bar() {
         let p = PatternBuilder::default()
-            .note(Note::new_with(
+            .note(Note::new_with_midi_note(
                 MidiNote::C0,
                 MusicalTime::new_with_beats(0),
                 MusicalTime::new_with_beats(4),
@@ -767,7 +778,7 @@ mod tests {
     fn pattern_one_beat_with_1_4_time_signature_is_one_bar() {
         let p = PatternBuilder::default()
             .time_signature(TimeSignature::new_with(1, 4).unwrap())
-            .note(Note::new_with(
+            .note(Note::new_with_midi_note(
                 MidiNote::C0,
                 MusicalTime::new_with_beats(0),
                 MusicalTime::new_with_beats(1),
@@ -784,17 +795,17 @@ mod tests {
     #[test]
     fn pattern_three_half_notes_is_one_bar() {
         let p = PatternBuilder::default()
-            .note(Note::new_with(
+            .note(Note::new_with_midi_note(
                 MidiNote::C0,
                 MusicalTime::new_with_beats(0),
                 MusicalTime::DURATION_HALF,
             ))
-            .note(Note::new_with(
+            .note(Note::new_with_midi_note(
                 MidiNote::C0,
                 MusicalTime::new_with_beats(1),
                 MusicalTime::DURATION_HALF,
             ))
-            .note(Note::new_with(
+            .note(Note::new_with_midi_note(
                 MidiNote::C0,
                 MusicalTime::new_with_beats(2),
                 MusicalTime::DURATION_HALF,
@@ -811,22 +822,22 @@ mod tests {
     #[test]
     fn pattern_four_whole_notes_is_one_bar() {
         let p = PatternBuilder::default()
-            .note(Note::new_with(
+            .note(Note::new_with_midi_note(
                 MidiNote::C0,
                 MusicalTime::new_with_beats(0),
                 MusicalTime::DURATION_WHOLE,
             ))
-            .note(Note::new_with(
+            .note(Note::new_with_midi_note(
                 MidiNote::C0,
                 MusicalTime::new_with_beats(1),
                 MusicalTime::DURATION_WHOLE,
             ))
-            .note(Note::new_with(
+            .note(Note::new_with_midi_note(
                 MidiNote::C0,
                 MusicalTime::new_with_beats(2),
                 MusicalTime::DURATION_WHOLE,
             ))
-            .note(Note::new_with(
+            .note(Note::new_with_midi_note(
                 MidiNote::C0,
                 MusicalTime::new_with_beats(3),
                 MusicalTime::DURATION_WHOLE,
@@ -843,27 +854,27 @@ mod tests {
     #[test]
     fn pattern_five_notes_is_two_bars() {
         let p = PatternBuilder::default()
-            .note(Note::new_with(
+            .note(Note::new_with_midi_note(
                 MidiNote::C0,
                 MusicalTime::new_with_beats(0),
                 MusicalTime::DURATION_WHOLE,
             ))
-            .note(Note::new_with(
+            .note(Note::new_with_midi_note(
                 MidiNote::C0,
                 MusicalTime::new_with_beats(1),
                 MusicalTime::DURATION_WHOLE,
             ))
-            .note(Note::new_with(
+            .note(Note::new_with_midi_note(
                 MidiNote::C0,
                 MusicalTime::new_with_beats(2),
                 MusicalTime::DURATION_WHOLE,
             ))
-            .note(Note::new_with(
+            .note(Note::new_with_midi_note(
                 MidiNote::C0,
                 MusicalTime::new_with_beats(3),
                 MusicalTime::DURATION_WHOLE,
             ))
-            .note(Note::new_with(
+            .note(Note::new_with_midi_note(
                 MidiNote::C0,
                 MusicalTime::new_with_beats(4),
                 MusicalTime::DURATION_SIXTEENTH,
@@ -920,7 +931,7 @@ mod tests {
             2,
             "remove_note() must specify the note correctly."
         );
-        p.remove_note(&Note::new_with(
+        p.remove_note(&Note::new_with_midi_note(
             MidiNote::C4,
             MusicalTime::new_with_beats(4),
             MusicalTime::DURATION_HALF,
@@ -998,7 +1009,7 @@ mod tests {
 
         assert!(p
             .move_and_resize_note(
-                &Note::new_with(
+                &Note::new_with_midi_note(
                     MidiNote::C4,
                     expected_range.start,
                     expected_range.end - expected_range.start,
