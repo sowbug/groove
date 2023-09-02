@@ -80,6 +80,7 @@ struct TimelineSettings {
     view_range: Range<MusicalTime>,
     control_atlas: ControlAtlas,
     sequencer: ESSequencer,
+    focused: FocusedComponent,
 }
 impl DisplaysInTimeline for TimelineSettings {
     fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
@@ -96,24 +97,34 @@ impl TimelineSettings {
                 &mut self.control_atlas,
                 self.range.clone(),
                 self.view_range.clone(),
+                self.focused,
             ));
         }
     }
 }
 impl Default for TimelineSettings {
     fn default() -> Self {
+        let mut sequencer = ESSequencerBuilder::default()
+            .random(MusicalTime::START..MusicalTime::new_with_beats(128))
+            .build()
+            .unwrap();
+        sequencer.after_deser(); // TODO LAME
         Self {
             hide: Default::default(),
             range: MusicalTime::START..MusicalTime::new_with_beats(128),
             view_range: MusicalTime::START..MusicalTime::new_with_beats(128),
             control_atlas: Default::default(),
-            sequencer: Default::default(),
+            sequencer,
+            focused: Default::default(),
         }
     }
 }
 impl Displays for TimelineSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
         ui.checkbox(&mut self.hide, "Hide");
+        if ui.button("Next").clicked() {
+            self.focused = self.focused.next();
+        }
         ui.label("Range");
         let mut range_start = self.range.start.total_beats();
         let mut range_end = self.range.end.total_beats();
@@ -134,12 +145,29 @@ fn timeline<'a>(
     control_atlas: &'a mut ControlAtlas,
     range: Range<MusicalTime>,
     view_range: Range<MusicalTime>,
+    focused: FocusedComponent,
 ) -> impl eframe::egui::Widget + 'a {
     move |ui: &mut eframe::egui::Ui| {
         Timeline::new(sequencer, control_atlas)
             .range(range)
             .view_range(view_range)
+            .focused(focused)
             .ui(ui)
+    }
+}
+
+#[derive(Debug, Default, Copy, Clone)]
+enum FocusedComponent {
+    #[default]
+    ControlAtlas,
+    Sequencer,
+}
+impl FocusedComponent {
+    fn next(&self) -> Self {
+        match self {
+            FocusedComponent::ControlAtlas => FocusedComponent::Sequencer,
+            FocusedComponent::Sequencer => FocusedComponent::ControlAtlas,
+        }
     }
 }
 
@@ -151,6 +179,9 @@ struct Timeline<'a> {
 
     /// The part of the timeline that is viewable.
     view_range: Range<MusicalTime>,
+
+    /// Which component is currently enabled,
+    focused: FocusedComponent,
 
     control_atlas: &'a mut ControlAtlas,
     sequencer: &'a mut ESSequencer,
@@ -178,18 +209,8 @@ impl<'a> Displays for Timeline<'a> {
                         rect.top()..=rect.bottom(),
                     ),
                 );
-                let grid_response = ui
-                    .allocate_ui_at_rect(rect, |ui| {
-                        ui.add(grid(self.range.clone(), self.view_range.clone()))
-                    })
-                    .inner;
-                let control_atlas_response = ui
-                    .allocate_ui_at_rect(rect, |ui| self.control_atlas.ui(ui))
-                    .inner;
-                let sequencer_response = ui
-                    .allocate_ui_at_rect(rect, |ui| self.sequencer.ui(ui))
-                    .inner;
-                grid_response | control_atlas_response | sequencer_response
+                self.ui_not_focused(ui, rect, self.focused);
+                self.ui_focused(ui, rect, self.focused)
             })
             .response;
         if dd.is_dropped(ui, &response) && dd.source().is_some() {
@@ -214,6 +235,7 @@ impl<'a> Timeline<'a> {
         Self {
             range: Default::default(),
             view_range: Default::default(),
+            focused: Default::default(),
             sequencer,
             control_atlas,
         }
@@ -226,6 +248,73 @@ impl<'a> Timeline<'a> {
     fn view_range(mut self, view_range: Range<MusicalTime>) -> Self {
         self.set_view_range(&view_range);
         self
+    }
+
+    fn focused(mut self, component: FocusedComponent) -> Self {
+        self.focused = component;
+        self
+    }
+
+    // Draws the Timeline component that is currently focused.
+    fn ui_focused(
+        &mut self,
+        ui: &mut egui::Ui,
+        rect: Rect,
+        component: FocusedComponent,
+    ) -> egui::Response {
+        match component {
+            FocusedComponent::ControlAtlas => {
+                ui.add_enabled_ui(true, |ui| {
+                    ui.allocate_ui_at_rect(rect, |ui| self.control_atlas.ui(ui))
+                        .inner
+                })
+                .inner
+            }
+            FocusedComponent::Sequencer => {
+                ui.add_enabled_ui(true, |ui| {
+                    ui.allocate_ui_at_rect(rect, |ui| self.sequencer.ui(ui))
+                        .inner
+                })
+                .inner
+            }
+        }
+    }
+
+    // Draws the Timeline components that are not currently focused.
+    fn ui_not_focused(
+        &mut self,
+        ui: &mut egui::Ui,
+        rect: Rect,
+        which: FocusedComponent,
+    ) -> egui::Response {
+        // The Grid is always disabled and drawn first.
+        let mut response = ui
+            .add_enabled_ui(false, |ui| {
+                ui.allocate_ui_at_rect(rect, |ui| {
+                    ui.add(grid(self.range.clone(), self.view_range.clone()))
+                })
+                .inner
+            })
+            .inner;
+
+        // Now go through and draw the components that are *not* enabled.
+        if !matches!(which, FocusedComponent::ControlAtlas) {
+            response |= ui
+                .add_enabled_ui(false, |ui| {
+                    ui.allocate_ui_at_rect(rect, |ui| self.control_atlas.ui(ui))
+                        .inner
+                })
+                .inner;
+        }
+        if !matches!(which, FocusedComponent::Sequencer) {
+            response |= ui
+                .add_enabled_ui(false, |ui| {
+                    ui.allocate_ui_at_rect(rect, |ui| self.sequencer.ui(ui))
+                        .inner
+                })
+                .inner;
+        }
+        response
     }
 }
 
@@ -369,23 +458,10 @@ impl SequencerSettings {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct ESSequencerSettings {
     hide: bool,
     sequencer: ESSequencer,
-}
-impl Default for ESSequencerSettings {
-    fn default() -> Self {
-        let mut sequencer = ESSequencerBuilder::default()
-            .random(MusicalTime::START..MusicalTime::new_with_beats(128))
-            .build()
-            .unwrap();
-        sequencer.after_deser(); // TODO LAME
-        Self {
-            hide: Default::default(),
-            sequencer,
-        }
-    }
 }
 impl Displays for ESSequencerSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {

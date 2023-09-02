@@ -221,7 +221,7 @@ impl DisplaysInTimeline for ControlTrip {
 }
 impl Displays for ControlTrip {
     fn ui(&mut self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
-        let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::hover());
+        let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click());
         let to_screen = RectTransform::from_to(
             Rect::from_x_y_ranges(
                 self.e.view_range.start.total_units() as f32
@@ -230,6 +230,10 @@ impl Displays for ControlTrip {
             ),
             response.rect,
         );
+
+        if response.clicked() {
+            eprintln!("I'm ControlAtlas and I saw a click");
+        }
         let mut pos = to_screen
             * pos2(
                 MusicalTime::START.total_units() as f32,
