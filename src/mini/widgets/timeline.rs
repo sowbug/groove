@@ -3,7 +3,7 @@
 use crate::mini::Note;
 use eframe::{
     egui::{Response, Ui},
-    epaint::{vec2, Color32, RectShape, Rounding, Shape, Stroke},
+    epaint::{vec2, RectShape, Shape},
 };
 use eframe::{
     emath::{Align2, RectTransform},
@@ -65,13 +65,6 @@ impl<'a> Legend<'a> {
         let step = (beat_count as f32).log10().round() as usize;
         (view_range.start.total_beats()..view_range.end.total_beats()).step_by(step * 2)
     }
-
-    fn set_view_range(
-        &mut self,
-        view_range: &'a mut std::ops::Range<groove_core::time::MusicalTime>,
-    ) {
-        self.view_range = view_range;
-    }
 }
 impl<'a> Displays for Legend<'a> {
     fn ui(&mut self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
@@ -87,7 +80,7 @@ impl<'a> Displays for Legend<'a> {
         );
 
         let font_id = FontId::proportional(12.0);
-        for (i, beat) in Self::steps(&self.view_range).enumerate() {
+        for beat in Self::steps(&self.view_range) {
             let beat_plus_one = beat + 1;
             let pos = to_screen * pos2(beat as f32, rect.top());
             ui.painter().text(
@@ -158,19 +151,13 @@ impl Displays for Grid {
             ),
             rect,
         );
+        let visuals = ui.ctx().style().visuals.widgets.noninteractive;
 
         let mut shapes = vec![Shape::Rect(RectShape::filled(
             rect,
-            Rounding::default(),
-            Color32::DARK_GRAY,
+            visuals.rounding,
+            visuals.bg_fill,
         ))];
-
-        ui.painter().rect(
-            rect,
-            Rounding::default(),
-            Color32::DARK_GRAY,
-            ui.style().noninteractive().bg_stroke,
-        );
 
         for x in Legend::steps(&self.view_range) {
             shapes.push(Shape::LineSegment {
@@ -178,10 +165,7 @@ impl Displays for Grid {
                     to_screen * pos2(x as f32, 0.0),
                     to_screen * pos2(x as f32, 1.0),
                 ],
-                stroke: Stroke {
-                    width: 1.0,
-                    color: Color32::GRAY,
-                },
+                stroke: visuals.fg_stroke,
             });
         }
         ui.painter().extend(shapes);
@@ -220,30 +204,19 @@ impl Displays for Pattern {
         let desired_size = ui.available_height() * eframe::egui::vec2(1.0, 1.0);
         let (rect, response) =
             ui.allocate_exact_size(desired_size, eframe::egui::Sense::click_and_drag());
+        let visuals = if ui.is_enabled() {
+            ui.ctx().style().visuals.widgets.active
+        } else {
+            ui.ctx().style().visuals.widgets.noninteractive
+        };
+
         // skip interaction
-        ui.painter().rect(
-            rect,
-            Rounding::default(),
-            Color32::BLACK,
-            Stroke {
-                width: 1.0,
-                color: Color32::YELLOW,
-            },
-        );
-        ui.painter().line_segment(
-            [rect.right_top(), rect.left_bottom()],
-            Stroke {
-                width: 1.0,
-                color: Color32::YELLOW,
-            },
-        );
-        ui.painter().line_segment(
-            [rect.left_top(), rect.right_bottom()],
-            Stroke {
-                width: 1.0,
-                color: Color32::YELLOW,
-            },
-        );
+        ui.painter()
+            .rect(rect, visuals.rounding, visuals.bg_fill, visuals.bg_stroke);
+        ui.painter()
+            .line_segment([rect.right_top(), rect.left_bottom()], visuals.bg_stroke);
+        ui.painter()
+            .line_segment([rect.left_top(), rect.right_bottom()], visuals.bg_stroke);
         response
     }
 }
@@ -285,32 +258,20 @@ impl Displays for EmptySpace {
         let desired_size = vec2(ui.available_width() * range_as_pct, ui.available_height());
         let (rect, response) =
             ui.allocate_exact_size(desired_size, eframe::egui::Sense::click_and_drag());
+
+        let visuals = if ui.is_enabled() {
+            ui.ctx().style().visuals.widgets.active
+        } else {
+            ui.ctx().style().visuals.widgets.noninteractive
+        };
+
         // skip interaction
         ui.painter()
-            .rect(rect, Rounding::default(), Color32::BLACK, Stroke::default());
-        ui.painter().line_segment(
-            [rect.right_top(), rect.left_bottom()],
-            Stroke {
-                width: 1.0,
-                color: Color32::YELLOW,
-            },
-        );
-        ui.painter().line_segment(
-            [rect.left_top(), rect.right_bottom()],
-            Stroke {
-                width: 1.0,
-                color: Color32::YELLOW,
-            },
-        );
-        ui.painter().rect(
-            rect,
-            Rounding::none(),
-            Color32::BLACK,
-            Stroke {
-                width: 1.0,
-                color: Color32::YELLOW,
-            },
-        );
+            .rect(rect, visuals.rounding, visuals.bg_fill, visuals.bg_stroke);
+        ui.painter()
+            .line_segment([rect.right_top(), rect.left_bottom()], visuals.fg_stroke);
+        ui.painter()
+            .line_segment([rect.left_top(), rect.right_bottom()], visuals.fg_stroke);
         response
     }
 }

@@ -6,7 +6,7 @@ use derive_builder::Builder;
 use eframe::{
     egui::{Sense, Ui},
     emath::RectTransform,
-    epaint::{pos2, vec2, Color32, Rect, Stroke},
+    epaint::{pos2, vec2, Rect},
 };
 use groove_core::{
     control::ControlValue,
@@ -243,9 +243,10 @@ impl Displays for ControlTrip {
                     0.0
                 },
             );
-        let stroke = Stroke {
-            width: 1.0,
-            color: Color32::YELLOW,
+        let stroke = if ui.is_enabled() {
+            ui.ctx().style().visuals.widgets.active.bg_stroke
+        } else {
+            ui.ctx().style().visuals.widgets.inactive.bg_stroke
         };
         self.steps.iter_mut().for_each(|step| {
             let second_pos = to_screen * pos2(step.time.total_units() as f32, step.value.0 as f32);

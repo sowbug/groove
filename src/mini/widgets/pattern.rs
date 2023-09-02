@@ -4,7 +4,6 @@ use crate::mini::Note;
 use eframe::{
     egui::{Response, Ui},
     emath::RectTransform,
-    epaint::{Color32, Rounding, Stroke},
 };
 use groove_core::{time::MusicalTime, traits::gui::Displays};
 
@@ -39,13 +38,16 @@ impl<'a> Displays for Icon<'a> {
         let desired_size = ui.spacing().interact_size.y * eframe::egui::vec2(3.0, 3.0);
         let (rect, response) =
             ui.allocate_exact_size(desired_size, eframe::egui::Sense::click_and_drag());
+
+        let visuals = if ui.is_enabled() {
+            ui.ctx().style().visuals.widgets.active
+        } else {
+            ui.ctx().style().visuals.widgets.inactive
+        };
+
         // skip interaction
-        ui.painter().rect(
-            rect,
-            Rounding::default(),
-            Color32::DARK_GRAY,
-            Stroke::default(),
-        );
+        ui.painter()
+            .rect(rect, visuals.rounding, visuals.bg_fill, visuals.bg_stroke);
         let to_screen = RectTransform::from_to(
             eframe::epaint::Rect::from_x_y_ranges(
                 MusicalTime::START.total_beats() as f32..=self.duration.total_beats() as f32,
@@ -63,13 +65,7 @@ impl<'a> Displays for Icon<'a> {
             } else {
                 eframe::epaint::pos2(p2.x + 1.0, p2.y)
             };
-            ui.painter().line_segment(
-                [p1, p2],
-                Stroke {
-                    width: 2.0,
-                    color: Color32::YELLOW,
-                },
-            );
+            ui.painter().line_segment([p1, p2], visuals.fg_stroke);
         }
 
         response

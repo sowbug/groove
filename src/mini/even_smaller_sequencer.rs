@@ -6,7 +6,7 @@ use derive_builder::Builder;
 use eframe::{
     egui::{Sense, Ui},
     emath::RectTransform,
-    epaint::{pos2, vec2, Color32, Rect, RectShape, Rounding, Shape, Stroke},
+    epaint::{pos2, vec2, Rect, RectShape, Shape},
 };
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
@@ -166,6 +166,11 @@ impl Displays for ESSequencer {
                     }
                 }
 
+                let visuals = if ui.is_enabled() {
+                    ui.ctx().style().visuals.widgets.active
+                } else {
+                    ui.ctx().style().visuals.widgets.inactive
+                };
                 // Generate all the note shapes
                 let shapes: Vec<Shape> = self
                     .notes
@@ -178,12 +183,9 @@ impl Displays for ESSequencer {
                                 to_screen
                                     * pos2(note.range.end.total_units() as f32, note.key as f32),
                             ),
-                            rounding: Rounding::none(),
-                            fill: Color32::YELLOW,
-                            stroke: Stroke {
-                                width: 1.0,
-                                color: Color32::YELLOW,
-                            },
+                            rounding: visuals.rounding,
+                            fill: visuals.bg_fill,
+                            stroke: visuals.fg_stroke,
                         })
                     })
                     .collect();
