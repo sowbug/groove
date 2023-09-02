@@ -79,7 +79,7 @@ struct TimelineSettings {
     range: Range<MusicalTime>,
     view_range: Range<MusicalTime>,
     control_atlas: ControlAtlas,
-    sequencer: Sequencer,
+    sequencer: ESSequencer,
 }
 impl DisplaysInTimeline for TimelineSettings {
     fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
@@ -130,7 +130,7 @@ impl Displays for TimelineSettings {
 }
 
 fn timeline<'a>(
-    sequencer: &'a mut Sequencer,
+    sequencer: &'a mut ESSequencer,
     control_atlas: &'a mut ControlAtlas,
     range: Range<MusicalTime>,
     view_range: Range<MusicalTime>,
@@ -153,7 +153,7 @@ struct Timeline<'a> {
     view_range: Range<MusicalTime>,
 
     control_atlas: &'a mut ControlAtlas,
-    sequencer: &'a mut Sequencer,
+    sequencer: &'a mut ESSequencer,
 }
 impl<'a> DisplaysInTimeline for Timeline<'a> {
     fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
@@ -183,11 +183,11 @@ impl<'a> Displays for Timeline<'a> {
                         ui.add(grid(self.range.clone(), self.view_range.clone()))
                     })
                     .inner;
-                let sequencer_response = ui
-                    .allocate_ui_at_rect(rect, |ui| self.sequencer.ui(ui))
-                    .inner;
                 let control_atlas_response = ui
                     .allocate_ui_at_rect(rect, |ui| self.control_atlas.ui(ui))
+                    .inner;
+                let sequencer_response = ui
+                    .allocate_ui_at_rect(rect, |ui| self.sequencer.ui(ui))
                     .inner;
                 grid_response | control_atlas_response | sequencer_response
             })
@@ -210,7 +210,7 @@ impl<'a> Displays for Timeline<'a> {
     }
 }
 impl<'a> Timeline<'a> {
-    pub fn new(sequencer: &'a mut Sequencer, control_atlas: &'a mut ControlAtlas) -> Self {
+    pub fn new(sequencer: &'a mut ESSequencer, control_atlas: &'a mut ControlAtlas) -> Self {
         Self {
             range: Default::default(),
             view_range: Default::default(),

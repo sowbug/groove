@@ -6,7 +6,7 @@ use derive_builder::Builder;
 use eframe::{
     egui::{Sense, Ui},
     emath::RectTransform,
-    epaint::{pos2, vec2, Color32, Rect, Stroke},
+    epaint::{pos2, vec2, Color32, Rect, RectShape, Rounding, Shape, Stroke},
 };
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
@@ -58,14 +58,18 @@ pub struct ESSequencerEphemerals {
 /// [ESSequencer] replays [MidiMessage]s according to [MusicalTime].
 #[derive(Debug, Default, Control, IsController, Params, Uid, Serialize, Deserialize, Builder)]
 pub struct ESSequencer {
+    #[allow(missing_docs)]
     #[builder(default)]
     uid: Uid,
+    #[allow(missing_docs)]
     #[builder(default)]
     midi_channel_out: MidiChannel,
 
+    /// The [Note]s to be sequenced.
     #[builder(default, setter(each(name = "note", into)))]
     notes: Vec<Note>,
 
+    /// The default time signature.
     #[builder(default)]
     time_signature: TimeSignature,
 
@@ -74,6 +78,7 @@ pub struct ESSequencer {
     e: ESSequencerEphemerals,
 }
 impl ESSequencer {
+    #[allow(dead_code)]
     fn cursor(&self) -> MusicalTime {
         self.e.cursor
     }
@@ -93,6 +98,7 @@ impl ESSequencer {
         Ok(pattern.duration())
     }
 
+    /// Adds the [Pattern] at the sequencer cursor, and advances the cursor.
     pub fn append_pattern(&mut self, pattern: &Pattern) -> anyhow::Result<()> {
         let position = self.e.cursor;
         let duration = self.insert_pattern(pattern, position)?;
@@ -142,34 +148,48 @@ impl Displays for ESSequencer {
                 let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click());
                 let x_range_f32 = self.e.view_range.start.total_units() as f32
                     ..=self.e.view_range.end.total_units() as f32;
-                let y_range = 127.0..=0.0;
+                let y_range = i8::MAX as f32..=u8::MIN as f32;
                 let local_space_rect = Rect::from_x_y_ranges(x_range_f32, y_range);
                 let to_screen = RectTransform::from_to(local_space_rect, response.rect);
                 let from_screen = to_screen.inverse();
-                self.notes.iter().for_each(|note| {
-                    painter.line_segment(
-                        [
-                            to_screen
-                                * pos2(note.range.start.total_units() as f32, note.key as f32),
-                            to_screen * pos2(note.range.end.total_units() as f32, note.key as f32),
-                        ],
-                        Stroke {
-                            width: 1.0,
-                            color: Color32::YELLOW,
-                        },
-                    );
-                });
+
+                // Check whether we edited the sequence
                 if response.clicked() {
                     if let Some(click_pos) = ui.ctx().pointer_interact_pos() {
                         let local_pos = from_screen * click_pos;
                         let time = MusicalTime::new_with_units(local_pos.x as usize).quantized();
                         let key = local_pos.y as u8;
                         let note = Note::new_with(key, time, MusicalTime::DURATION_QUARTER);
-                        eprintln!("Saw a click at time {time} and note {note:?}");
+                        eprintln!("Saw a click at {time}, note {note:?}");
                         self.toggle_note(note);
                         self.calculate_events();
                     }
                 }
+
+                // Generate all the note shapes
+                let shapes: Vec<Shape> = self
+                    .notes
+                    .iter()
+                    .map(|note| {
+                        Shape::Rect(RectShape {
+                            rect: Rect::from_two_pos(
+                                to_screen
+                                    * pos2(note.range.start.total_units() as f32, note.key as f32),
+                                to_screen
+                                    * pos2(note.range.end.total_units() as f32, note.key as f32),
+                            ),
+                            rounding: Rounding::none(),
+                            fill: Color32::YELLOW,
+                            stroke: Stroke {
+                                width: 1.0,
+                                color: Color32::YELLOW,
+                            },
+                        })
+                    })
+                    .collect();
+
+                // Paint all the shapes
+                painter.extend(shapes);
 
                 response
             })
