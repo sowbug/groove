@@ -1,5 +1,5 @@
 #!/bin/bash
 
 cargo fmt --all && \
-    cargo doc && \
+    cargo doc --no-deps --workspace --examples && \
     cargo test --workspace
