@@ -32,6 +32,8 @@ use groove_core::{
     },
 };
 use std::{ops::Range, sync::Mutex};
+use strum::EnumCount;
+use strum_macros::FromRepr;
 
 #[derive(Debug)]
 struct LegendSettings {
@@ -156,18 +158,15 @@ fn timeline<'a>(
     }
 }
 
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone, EnumCount, FromRepr)]
 enum FocusedComponent {
     #[default]
-    ControlAtlas,
     Sequencer,
+    ControlAtlas,
 }
 impl FocusedComponent {
     fn next(&self) -> Self {
-        match self {
-            FocusedComponent::ControlAtlas => FocusedComponent::Sequencer,
-            FocusedComponent::Sequencer => FocusedComponent::ControlAtlas,
-        }
+        FocusedComponent::from_repr((*self as usize + 1) % FocusedComponent::COUNT).unwrap()
     }
 }
 
@@ -209,7 +208,17 @@ impl<'a> Displays for Timeline<'a> {
                         rect.top()..=rect.bottom(),
                     ),
                 );
-                self.ui_not_focused(ui, rect, self.focused);
+
+                // What's going on here? To correctly capture Sense events, we
+                // need to draw only the UI that we consider active, or enabled,
+                // or focused, because egui does not seem to like widgets being
+                // drawn on top of each other. So we first draw the non-focused
+                // UI components, but wrapped in add_enabled_ui(false) so that
+                // egui won't try to sense them. Then we draw the one focused
+                // component normally.
+                ui.add_enabled_ui(false, |ui| {
+                    self.ui_not_focused(ui, rect, self.focused);
+                });
                 self.ui_focused(ui, rect, self.focused)
             })
             .response;
@@ -264,23 +273,18 @@ impl<'a> Timeline<'a> {
     ) -> egui::Response {
         match component {
             FocusedComponent::ControlAtlas => {
-                ui.add_enabled_ui(true, |ui| {
-                    ui.allocate_ui_at_rect(rect, |ui| self.control_atlas.ui(ui))
-                        .inner
-                })
-                .inner
+                ui.allocate_ui_at_rect(rect, |ui| self.control_atlas.ui(ui))
+                    .inner
             }
             FocusedComponent::Sequencer => {
-                ui.add_enabled_ui(true, |ui| {
-                    ui.allocate_ui_at_rect(rect, |ui| self.sequencer.ui(ui))
-                        .inner
-                })
-                .inner
+                ui.allocate_ui_at_rect(rect, |ui| self.sequencer.ui(ui))
+                    .inner
             }
         }
     }
 
-    // Draws the Timeline components that are not currently focused.
+    // Draws the Timeline components that are not currently focused. It's up to
+    // the caller to wrap in ui.add_enabled_ui().
     fn ui_not_focused(
         &mut self,
         ui: &mut egui::Ui,
@@ -289,29 +293,20 @@ impl<'a> Timeline<'a> {
     ) -> egui::Response {
         // The Grid is always disabled and drawn first.
         let mut response = ui
-            .add_enabled_ui(false, |ui| {
-                ui.allocate_ui_at_rect(rect, |ui| {
-                    ui.add(grid(self.range.clone(), self.view_range.clone()))
-                })
-                .inner
+            .allocate_ui_at_rect(rect, |ui| {
+                ui.add(grid(self.range.clone(), self.view_range.clone()))
             })
             .inner;
 
         // Now go through and draw the components that are *not* enabled.
         if !matches!(which, FocusedComponent::ControlAtlas) {
             response |= ui
-                .add_enabled_ui(false, |ui| {
-                    ui.allocate_ui_at_rect(rect, |ui| self.control_atlas.ui(ui))
-                        .inner
-                })
+                .allocate_ui_at_rect(rect, |ui| self.control_atlas.ui(ui))
                 .inner;
         }
         if !matches!(which, FocusedComponent::Sequencer) {
             response |= ui
-                .add_enabled_ui(false, |ui| {
-                    ui.allocate_ui_at_rect(rect, |ui| self.sequencer.ui(ui))
-                        .inner
-                })
+                .allocate_ui_at_rect(rect, |ui| self.sequencer.ui(ui))
                 .inner;
         }
         response
