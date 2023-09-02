@@ -1,5 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+//! The [MiniDaw] example is a minimal digital audio workstation, using the
+//! sound engine and some of the GUI components to create a simple
+//! music-production application.
+
 #![deny(rustdoc::broken_intra_doc_links)]
 
 use anyhow::anyhow;

@@ -1,5 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+//! The `minicli` example shows how to generate sound files from a serialized
+//! [Orchestrator].
+
 use clap::Parser;
 use groove::mini::Orchestrator;
 use regex::Regex;

@@ -6,6 +6,7 @@ pub use control_atlas::{
 pub use drag_drop::{DragDropManager, DragDropSource, DD_MANAGER};
 pub use entities::register_factory_entities;
 pub use entity_factory::{EntityFactory, Key, FACTORY};
+pub use even_smaller_sequencer::{ESSequencer, ESSequencerBuilder};
 pub use orchestrator::{Orchestrator, OrchestratorAction, OrchestratorBuilder};
 pub use piano_roll::{Note, Pattern, PatternBuilder, PatternUid};
 pub use selection_set::SelectionSet;
@@ -26,6 +27,7 @@ mod control_router;
 mod drag_drop;
 mod entities;
 mod entity_factory;
+mod even_smaller_sequencer;
 mod humidifier;
 mod midi_router;
 mod orchestrator;

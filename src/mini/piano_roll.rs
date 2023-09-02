@@ -67,8 +67,10 @@ pub struct Pattern {
     #[builder(setter(skip))]
     duration: MusicalTime,
 
-    /// The notes that make up this pattern. TODO: specify any ordering
-    /// restrictions.
+    /// The notes that make up this pattern. When it is in a [Pattern], a
+    /// [Note]'s range is relative to the start of the [Pattern]. For example, a
+    /// note that plays immediately would have a range start of zero. TODO:
+    /// specify any ordering restrictions.
     #[builder(default, setter(each(name = "note", into)))]
     notes: Vec<Note>,
 

@@ -1,5 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+//! The [Explorer] example is a sandbox for developing egui components and
+//! widgets.
+
 use anyhow::anyhow;
 use eframe::{
     egui::{
@@ -15,15 +18,18 @@ use groove::{
     mini::{
         register_factory_entities,
         widgets::{grid, icon, legend, wiggler},
-        ControlAtlas, DragDropManager, DragDropSource, Note, PatternUid, Sequencer, DD_MANAGER,
-        FACTORY,
+        ControlAtlas, DragDropManager, DragDropSource, ESSequencer, ESSequencerBuilder, Note,
+        PatternUid, Sequencer, DD_MANAGER, FACTORY,
     },
     EntityFactory,
 };
 use groove_core::{
     midi::MidiNote,
     time::MusicalTime,
-    traits::gui::{Displays, DisplaysInTimeline},
+    traits::{
+        gui::{Displays, DisplaysInTimeline},
+        Serializable,
+    },
 };
 use std::{ops::Range, sync::Mutex};
 
@@ -51,21 +57,19 @@ impl Default for LegendSettings {
 }
 impl Displays for LegendSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
-        CollapsingHeader::new(Self::NAME)
-            .show_background(true)
-            .show_unindented(ui, |ui| {
-                ui.checkbox(&mut self.hide, "Hide");
-                ui.label("View range");
-                let mut range_start = self.range.start.total_beats();
-                let mut range_end = self.range.end.total_beats();
-                if ui.add(Slider::new(&mut range_start, 0..=128)).changed() {
-                    self.range.start = MusicalTime::new_with_beats(range_start);
-                };
-                if ui.add(Slider::new(&mut range_end, 1..=256)).changed() {
-                    self.range.end = MusicalTime::new_with_beats(range_end);
-                };
-            })
-            .header_response
+        ui.checkbox(&mut self.hide, "Hide");
+        ui.label("View range");
+        let mut range_start = self.range.start.total_beats();
+        let mut range_end = self.range.end.total_beats();
+        let start_response = ui.add(Slider::new(&mut range_start, 0..=128));
+        if start_response.changed() {
+            self.range.start = MusicalTime::new_with_beats(range_start);
+        };
+        let end_response = ui.add(Slider::new(&mut range_end, 1..=256));
+        if end_response.changed() {
+            self.range.end = MusicalTime::new_with_beats(range_end);
+        };
+        start_response | end_response
     }
 }
 
@@ -109,21 +113,19 @@ impl Default for TimelineSettings {
 }
 impl Displays for TimelineSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
-        CollapsingHeader::new(Self::NAME)
-            .show_background(true)
-            .show_unindented(ui, |ui| {
-                ui.checkbox(&mut self.hide, "Hide");
-                ui.label("Range");
-                let mut range_start = self.range.start.total_beats();
-                let mut range_end = self.range.end.total_beats();
-                if ui.add(Slider::new(&mut range_start, 0..=1024)).changed() {
-                    self.range.start = MusicalTime::new_with_beats(range_start);
-                };
-                if ui.add(Slider::new(&mut range_end, 0..=1024)).changed() {
-                    self.range.end = MusicalTime::new_with_beats(range_end);
-                };
-            })
-            .header_response
+        ui.checkbox(&mut self.hide, "Hide");
+        ui.label("Range");
+        let mut range_start = self.range.start.total_beats();
+        let mut range_end = self.range.end.total_beats();
+        let start_response = ui.add(Slider::new(&mut range_start, 0..=1024));
+        if start_response.changed() {
+            self.range.start = MusicalTime::new_with_beats(range_start);
+        };
+        let end_response = ui.add(Slider::new(&mut range_end, 0..=1024));
+        if end_response.changed() {
+            self.range.end = MusicalTime::new_with_beats(range_end);
+        };
+        start_response | end_response
     }
 }
 
@@ -258,12 +260,7 @@ impl DisplaysInTimeline for GridSettings {
 }
 impl Displays for GridSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
-        CollapsingHeader::new(Self::NAME)
-            .show_background(true)
-            .show_unindented(ui, |ui| {
-                ui.checkbox(&mut self.hide, "Hide");
-            })
-            .header_response
+        ui.checkbox(&mut self.hide, "Hide")
     }
 }
 
@@ -295,12 +292,7 @@ impl Default for PatternIconSettings {
 }
 impl Displays for PatternIconSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
-        CollapsingHeader::new(Self::NAME)
-            .show_background(true)
-            .show_unindented(ui, |ui| {
-                ui.checkbox(&mut self.hide, "Hide Pattern Icon");
-            })
-            .header_response
+        ui.checkbox(&mut self.hide, "Hide Pattern Icon")
     }
 }
 impl PatternIconSettings {
@@ -334,12 +326,7 @@ struct ControlAtlasSettings {
 }
 impl Displays for ControlAtlasSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
-        CollapsingHeader::new(Self::NAME)
-            .show_background(true)
-            .show_unindented(ui, |ui| {
-                ui.checkbox(&mut self.hide, "Hide");
-            })
-            .header_response
+        ui.checkbox(&mut self.hide, "Hide")
     }
 }
 impl DisplaysInTimeline for ControlAtlasSettings {
@@ -357,6 +344,69 @@ impl ControlAtlasSettings {
     }
 }
 
+#[derive(Debug, Default)]
+struct SequencerSettings {
+    hide: bool,
+    sequencer: Sequencer,
+}
+impl Displays for SequencerSettings {
+    fn ui(&mut self, ui: &mut Ui) -> egui::Response {
+        ui.checkbox(&mut self.hide, "Hide")
+    }
+}
+impl DisplaysInTimeline for SequencerSettings {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+        self.sequencer.set_view_range(view_range);
+    }
+}
+impl SequencerSettings {
+    const NAME: &str = "Sequencer";
+
+    fn show(&mut self, ui: &mut Ui) {
+        if !self.hide {
+            self.sequencer.ui(ui);
+        }
+    }
+}
+
+#[derive(Debug)]
+struct ESSequencerSettings {
+    hide: bool,
+    sequencer: ESSequencer,
+}
+impl Default for ESSequencerSettings {
+    fn default() -> Self {
+        let mut sequencer = ESSequencerBuilder::default()
+            .random(MusicalTime::START..MusicalTime::new_with_beats(128))
+            .build()
+            .unwrap();
+        sequencer.after_deser(); // TODO LAME
+        Self {
+            hide: Default::default(),
+            sequencer,
+        }
+    }
+}
+impl Displays for ESSequencerSettings {
+    fn ui(&mut self, ui: &mut Ui) -> egui::Response {
+        ui.checkbox(&mut self.hide, "Hide")
+    }
+}
+impl DisplaysInTimeline for ESSequencerSettings {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+        self.sequencer.set_view_range(view_range);
+    }
+}
+impl ESSequencerSettings {
+    const NAME: &str = "Even Smaller Sequencer";
+
+    fn show(&mut self, ui: &mut Ui) {
+        if !self.hide {
+            self.sequencer.ui(ui);
+        }
+    }
+}
+
 #[derive(Debug)]
 struct WigglerSettings {
     hide: bool,
@@ -370,12 +420,7 @@ impl Default for WigglerSettings {
 }
 impl Displays for WigglerSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
-        CollapsingHeader::new(Self::NAME)
-            .show_background(true)
-            .show_unindented(ui, |ui| {
-                ui.checkbox(&mut self.hide, "Hide");
-            })
-            .header_response
+        ui.checkbox(&mut self.hide, "Hide")
     }
 }
 impl WigglerSettings {
@@ -395,6 +440,8 @@ struct Explorer {
     pattern_icon: PatternIconSettings,
     timeline: TimelineSettings,
     control_atlas: ControlAtlasSettings,
+    sequencer: SequencerSettings,
+    es_sequencer: ESSequencerSettings,
     wiggler: WigglerSettings,
 }
 impl Explorer {
@@ -421,14 +468,34 @@ impl Explorer {
 
     fn show_left(&mut self, ui: &mut Ui) {
         ScrollArea::horizontal().show(ui, |ui| {
-            self.legend.ui(ui);
-            self.timeline.ui(ui);
-            self.grid.ui(ui);
-            self.pattern_icon.ui(ui);
-            self.control_atlas.ui(ui);
-            self.wiggler.ui(ui);
+            Self::wrap_settings(LegendSettings::NAME, ui, |ui| self.legend.ui(ui));
+            Self::wrap_settings(TimelineSettings::NAME, ui, |ui| self.timeline.ui(ui));
+            Self::wrap_settings(GridSettings::NAME, ui, |ui| self.grid.ui(ui));
+            Self::wrap_settings(PatternIconSettings::NAME, ui, |ui| self.pattern_icon.ui(ui));
+            Self::wrap_settings(ControlAtlasSettings::NAME, ui, |ui| {
+                self.control_atlas.ui(ui)
+            });
+            Self::wrap_settings(SequencerSettings::NAME, ui, |ui| self.sequencer.ui(ui));
+            Self::wrap_settings(ESSequencerSettings::NAME, ui, |ui| self.es_sequencer.ui(ui));
+            Self::wrap_settings(WigglerSettings::NAME, ui, |ui| self.wiggler.ui(ui));
             self.debug_ui(ui);
         });
+    }
+
+    fn wrap_settings(
+        name: &str,
+        ui: &mut Ui,
+        add_body: impl FnOnce(&mut Ui) -> eframe::egui::Response,
+    ) {
+        CollapsingHeader::new(name)
+            .show_background(true)
+            .show_unindented(ui, add_body);
+    }
+
+    fn wrap_item(name: &str, ui: &mut Ui, add_body: impl FnOnce(&mut Ui)) {
+        ui.heading(name);
+        add_body(ui);
+        ui.separator();
     }
 
     fn debug_ui(&mut self, ui: &mut Ui) {
@@ -450,18 +517,28 @@ impl Explorer {
                     self.timeline.set_view_range(&self.legend.range);
                     self.control_atlas.set_view_range(&self.legend.range);
                     self.grid.set_view_range(&self.legend.range);
+                    self.sequencer.set_view_range(&self.legend.range);
+                    self.es_sequencer.set_view_range(&self.legend.range);
 
                     ui.heading("Timeline");
                     self.legend.show(ui);
                     self.timeline.show(ui);
                     ui.add_space(32.0);
 
-                    ui.heading("Widgets");
+                    ui.separator();
 
-                    self.grid.show(ui);
-                    self.pattern_icon.show(ui);
-                    self.control_atlas.show(ui);
-                    self.wiggler.show(ui);
+                    Self::wrap_item(GridSettings::NAME, ui, |ui| self.grid.show(ui));
+                    Self::wrap_item(PatternIconSettings::NAME, ui, |ui| {
+                        self.pattern_icon.show(ui)
+                    });
+                    Self::wrap_item(ControlAtlasSettings::NAME, ui, |ui| {
+                        self.control_atlas.show(ui)
+                    });
+                    Self::wrap_item(SequencerSettings::NAME, ui, |ui| self.sequencer.show(ui));
+                    Self::wrap_item(ESSequencerSettings::NAME, ui, |ui| {
+                        self.es_sequencer.show(ui)
+                    });
+                    Self::wrap_item(WigglerSettings::NAME, ui, |ui| self.wiggler.show(ui));
                 });
             });
     }
