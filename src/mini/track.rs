@@ -652,6 +652,7 @@ impl Track {
                 match source {
                     DragDropSource::NewDevice(_) => true,
                     DragDropSource::Pattern(_) => false,
+                    DragDropSource::ControlTrip(_) => false,
                 }
             } else {
                 false
@@ -684,6 +685,9 @@ impl Track {
                             "nope - I'm a device drop target, not a pattern target {:?}",
                             source
                         ),
+                        DragDropSource::ControlTrip(_) => {
+                            eprintln!("NOPE!")
+                        }
                     }
                 }
             }

@@ -1,10 +1,10 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::rng::Rng;
+use super::{rng::Rng, DragDropManager};
 use crate::EntityFactory;
 use derive_builder::Builder;
 use eframe::{
-    egui::{Sense, Ui},
+    egui::{Layout, Sense, Ui},
     emath::RectTransform,
     epaint::{pos2, vec2, Color32, Rect, Stroke},
 };
@@ -454,20 +454,39 @@ impl Displays for ControlAtlas {
                             trip.set_view_range(&self.e.view_range);
                             trip.ui(ui);
 
-                            // TODO: I don't know why this isn't flush with the
-                            // right side of the component.
-                            let remove_rect = Rect::from_points(&[
-                                rect.right_bottom(),
-                                pos2(
-                                    rect.right() - ui.ctx().style().spacing.interact_size.x,
-                                    rect.top(),
-                                ),
-                            ]);
+                            // Draw the trip controls.
                             if ui.is_enabled() {
-                                ui.allocate_ui_at_rect(remove_rect, |ui| {
-                                    if ui.button("x").clicked() {
-                                        remove_uid = Some(trip.uid);
-                                    }
+                                // TODO: I don't know why this isn't flush with
+                                // the right side of the component.
+                                let controls_rect = Rect::from_points(&[
+                                    rect.right_top(),
+                                    pos2(
+                                        rect.right()
+                                            - ui.ctx().style().spacing.interact_size.x * 2.0,
+                                        rect.top(),
+                                    ),
+                                ]);
+                                ui.allocate_ui_at_rect(controls_rect, |ui| {
+                                    ui.allocate_ui_with_layout(
+                                        ui.available_size(),
+                                        Layout::right_to_left(eframe::emath::Align::Center),
+                                        |ui| {
+                                            if ui.button("x").clicked() {
+                                                remove_uid = Some(trip.uid);
+                                            }
+                                            // TODO: this will be what you drag
+                                            // to things you want this trip to
+                                            // control
+                                            DragDropManager::drag_source(
+                                                ui,
+                                                ui.next_auto_id(),
+                                                super::DragDropSource::ControlTrip(trip.uid()),
+                                                |ui| {
+                                                    ui.label("S");
+                                                },
+                                            );
+                                        },
+                                    );
                                 });
                             }
                         });
