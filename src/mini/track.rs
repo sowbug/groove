@@ -629,7 +629,6 @@ impl Track {
     fn ui_device_view(&mut self, ui: &mut Ui, ui_state: TrackUiState) -> Option<TrackAction> {
         let mut action = None;
         let mut drag_and_drop_action = None;
-        let mut hovered = false;
         let desired_size = vec2(128.0, Self::device_view_height(ui_state));
 
         ui.horizontal(|ui| {
@@ -649,8 +648,7 @@ impl Track {
                 Self::ui_device(ui, thing.as_mut(), desired_size);
             }
 
-            let mut dd = DragDropManager::global().lock().unwrap();
-            let can_accept = if let Some(source) = dd.source() {
+            let can_accept = if let Some(source) = DragDropManager::source() {
                 match source {
                     DragDropSource::NewDevice(_) => true,
                     DragDropSource::Pattern(_) => false,
@@ -658,7 +656,7 @@ impl Track {
             } else {
                 false
             };
-            let mut r = dd.drop_target(ui, can_accept, |ui, dd| {
+            let mut r = DragDropManager::drop_target(ui, can_accept, |ui| {
                 ui.allocate_ui_with_layout(
                     desired_size,
                     Layout::centered_and_justified(egui::Direction::LeftToRight),
@@ -674,13 +672,13 @@ impl Track {
 
             // super::drag_drop::DragDropTarget::Track(self.uid),
 
-            if dd.is_dropped(ui, &r.response) {
-                if let Some(source) = dd.source() {
+            if DragDropManager::is_dropped(ui, &r.response) {
+                if let Some(source) = DragDropManager::source() {
                     match source {
                         DragDropSource::NewDevice(key) => {
                             drag_and_drop_action = Some(DragDropSource::NewDevice(key.clone()));
                             action = Some(TrackAction::NewDevice(self.uid, key.clone()));
-                            dd.reset();
+                            DragDropManager::reset();
                         }
                         DragDropSource::Pattern(_) => eprintln!(
                             "nope - I'm a device drop target, not a pattern target {:?}",

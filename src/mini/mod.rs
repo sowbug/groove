@@ -3,9 +3,9 @@
 pub use control_atlas::{
     ControlAtlas, ControlStep, ControlStepBuilder, ControlTrip, ControlTripBuilder, ControlTripPath,
 };
-pub use drag_drop::{DragDropManager, DragDropSource, DD_MANAGER};
+pub use drag_drop::{DragDropManager, DragDropSource};
 pub use entities::register_factory_entities;
-pub use entity_factory::{EntityFactory, Key, FACTORY};
+pub use entity_factory::{EntityFactory, Key};
 pub use even_smaller_sequencer::{ESSequencer, ESSequencerBuilder};
 pub use orchestrator::{Orchestrator, OrchestratorAction, OrchestratorBuilder};
 pub use piano_roll::{Note, Pattern, PatternBuilder, PatternUid};

@@ -548,16 +548,20 @@ impl PianoRoll {
             ui.set_height(64.0);
             if !self.ordered_pattern_uids.is_empty() {
                 let icon_width = ui.available_width() / self.ordered_pattern_uids.len() as f32;
-                let mut dd = DragDropManager::global().lock().unwrap();
                 for pattern_uid in self.ordered_pattern_uids.iter() {
                     if let Some(pattern) = self.uids_to_patterns.get_mut(pattern_uid) {
                         let dd_id = EguiId::new("piano roll").with(pattern_uid);
-                        dd.drag_source(ui, dd_id, DragDropSource::Pattern(*pattern_uid), |ui| {
-                            ui.set_max_width(icon_width);
-                            if ui.add(icon(pattern.duration(), pattern.notes())).clicked() {
-                                eprintln!("clicked");
-                            };
-                        });
+                        DragDropManager::drag_source(
+                            ui,
+                            dd_id,
+                            DragDropSource::Pattern(*pattern_uid),
+                            |ui| {
+                                ui.set_max_width(icon_width);
+                                if ui.add(icon(pattern.duration(), pattern.notes())).clicked() {
+                                    eprintln!("clicked");
+                                };
+                            },
+                        );
                     }
                 }
             }

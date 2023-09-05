@@ -297,7 +297,6 @@ impl Sequencer {
     pub fn ui_arrangement_old(
         &mut self,
         ui: &mut Ui,
-        dd: &mut DragDropManager,
         track_uid: TrackUid,
         view_range: &Range<MusicalTime>,
     ) -> (Response, Option<SequencerAction>) {
@@ -345,15 +344,16 @@ impl Sequencer {
                     to_screen_beats * pos2(beat as f32, 1.0),
                 ];
                 let hover_rect = Rect::from_two_pos(last_segment[0], this_segment[1]);
-                let can_accept = if let Some(source) = dd.source() {
-                    match source {
-                        super::DragDropSource::NewDevice(_) => false,
-                        super::DragDropSource::Pattern(_) => true,
-                    }
-                } else {
-                    false
-                };
-                let mut r = dd.drop_target(ui, can_accept, |ui, dd| {
+                // let can_accept = if let Some(source) = dd.source() {
+                //     match source {
+                //         super::DragDropSource::NewDevice(_) => false,
+                //         super::DragDropSource::Pattern(_) => true,
+                //     }
+                // } else {
+                //     false
+                // };
+                let can_accept = false; // TODO: commented out the block above here
+                let mut r = DragDropManager::drop_target(ui, can_accept, |ui| {
                     ui.add(space())
                     // shapes.push(Shape::LineSegment {
                     //     points: this_segment,
@@ -399,9 +399,10 @@ impl Sequencer {
                     // };
                 });
 
-                if dd.is_dropped(ui, &r.response) {
-                    eprintln!("dropped at track beat {beat}: {:#?}", dd.source());
-                    dd.reset();
+                if DragDropManager::is_dropped(ui, &r.response) {
+                    eprintln!("something happened");
+                    //                    eprintln!("dropped at track beat {beat}: {:#?}", dd.source());
+                    DragDropManager::reset();
                 }
                 last_segment = this_segment;
             }

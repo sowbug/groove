@@ -11,10 +11,10 @@ use std::sync::Mutex;
 use strum_macros::Display;
 
 /// The one and only DragDropManager. Access it with `DragDropManager::global()`.
-pub static DD_MANAGER: OnceCell<Mutex<DragDropManager>> = OnceCell::new();
+static DD_MANAGER: OnceCell<Mutex<DragDropManager>> = OnceCell::new();
 
 #[allow(missing_docs)]
-#[derive(Debug, Display, PartialEq, Eq)]
+#[derive(Clone, Debug, Display, PartialEq, Eq)]
 pub enum DragDropSource {
     NewDevice(Key),
     Pattern(PatternUid),
@@ -42,13 +42,12 @@ impl DragDropManager {
             .expect("DragDropManager has not been initialized")
     }
 
-    pub fn reset(&mut self) {
-        self.source = None;
+    pub fn reset() {
+        Self::global().lock().unwrap().source = None;
     }
 
     // These two functions are based on egui_demo_lib/src/demo/drag_and_drop.rs
     pub fn drag_source(
-        &mut self,
         ui: &mut Ui,
         id: EguiId,
         source: DragDropSource,
@@ -58,13 +57,13 @@ impl DragDropManager {
         // loop iteration, and fixes the bug that a drop target could see only
         // the drag sources that were instantiated earlier in the main event
         // loop.
-        if !self.is_anything_being_dragged(ui) {
-            self.source = None;
+        if !Self::is_anything_being_dragged(ui) {
+            Self::reset();
         }
 
         if ui.memory(|mem| mem.is_being_dragged(id)) {
             // It is. So let's mark that it's the one.
-            self.source = Some(source);
+            Self::global().lock().unwrap().source = Some(source);
 
             // Indicate in UI that we're dragging.
             ui.ctx().set_cursor_icon(CursorIcon::Grabbing);
@@ -94,13 +93,12 @@ impl DragDropManager {
     }
 
     pub fn drop_target<R>(
-        &self,
         ui: &mut Ui,
         can_accept_what_is_being_dragged: bool,
-        body: impl FnOnce(&mut Ui, &Self) -> R,
+        body: impl FnOnce(&mut Ui) -> R,
     ) -> InnerResponse<R> {
         // Is there any drag source at all?
-        let is_anything_dragged = self.is_anything_being_dragged(ui);
+        let is_anything_dragged = Self::is_anything_being_dragged(ui);
 
         // Carve out a UI-sized area but leave a bit of margin to draw DnD
         // highlight.
@@ -114,7 +112,7 @@ impl DragDropManager {
 
         // Draw the potential target.
         let mut content_ui = ui.child_ui(inner_rect, *ui.layout());
-        let ret = body(&mut content_ui, self);
+        let ret = body(&mut content_ui);
 
         // I think but am not sure that this calculates the actual boundaries of
         // what the body drew.
@@ -163,18 +161,26 @@ impl DragDropManager {
         InnerResponse::new(ret, response)
     }
 
-    fn is_anything_being_dragged(&self, ui: &mut Ui) -> bool {
+    fn is_anything_being_dragged(ui: &mut Ui) -> bool {
         ui.memory(|mem| mem.is_anything_being_dragged())
     }
 
-    pub fn is_dropped(&self, ui: &mut Ui, response: &eframe::egui::Response) -> bool {
-        self.is_anything_being_dragged(ui)
-            && response.hovered()
-            && ui.input(|i| i.pointer.any_released())
-            && self.source.is_some()
+    fn is_source_set() -> bool {
+        Self::global().lock().unwrap().source.is_some()
     }
 
-    pub fn source(&self) -> Option<&DragDropSource> {
-        self.source.as_ref()
+    pub fn is_dropped(ui: &mut Ui, response: &eframe::egui::Response) -> bool {
+        Self::is_anything_being_dragged(ui)
+            && response.hovered()
+            && ui.input(|i| i.pointer.any_released())
+            && Self::is_source_set()
+    }
+
+    pub fn source() -> Option<DragDropSource> {
+        Self::global().lock().unwrap().source.clone()
+    }
+
+    pub fn initialize(drag_drop_manager: Self) -> Result<(), Mutex<DragDropManager>> {
+        DD_MANAGER.set(Mutex::new(drag_drop_manager))
     }
 }

@@ -34,7 +34,7 @@ impl From<&str> for Key {
 type ThingFactoryFn = fn() -> Box<dyn Thing>;
 
 /// The one and only EntityFactory. Access it with `EntityFactory::global()`.
-pub static FACTORY: OnceCell<EntityFactory> = OnceCell::new();
+static FACTORY: OnceCell<EntityFactory> = OnceCell::new();
 
 /// [EntityFactory] accepts [Key]s and creates instruments, controllers, and
 /// effects. It makes sure every entity has a proper [Uid].
@@ -138,6 +138,11 @@ impl EntityFactory {
             panic!("sorted_keys() can be called only after registration is complete.")
         }
         &self.sorted_keys
+    }
+
+    /// Sets the singleton [EntityFactory].
+    pub fn initialize(entity_factory: Self) -> Result<(), Self> {
+        FACTORY.set(entity_factory)
     }
 }
 

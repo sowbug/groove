@@ -29,9 +29,8 @@ impl PalettePanel {
     /// Draws the panel.
     pub fn show_with_action(&mut self, ui: &mut Ui) -> Option<PaletteAction> {
         let action = None;
-        let mut dd = DragDropManager::global().lock().unwrap();
         for key in EntityFactory::global().sorted_keys() {
-            dd.drag_source(
+            DragDropManager::drag_source(
                 ui,
                 EguiId::new(key),
                 DragDropSource::NewDevice(key.clone()),

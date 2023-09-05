@@ -19,7 +19,7 @@ use groove::{
         register_factory_entities,
         widgets::{grid, icon, legend, wiggler},
         ControlAtlas, DragDropManager, DragDropSource, ESSequencer, ESSequencerBuilder, Note,
-        PatternUid, Sequencer, DD_MANAGER, FACTORY,
+        PatternUid, Sequencer,
     },
     EntityFactory,
 };
@@ -31,7 +31,7 @@ use groove_core::{
         Serializable,
     },
 };
-use std::{ops::Range, sync::Mutex};
+use std::ops::Range;
 use strum::EnumCount;
 use strum_macros::FromRepr;
 
@@ -195,40 +195,38 @@ impl<'a> DisplaysInTimeline for Timeline<'a> {
 impl<'a> Displays for Timeline<'a> {
     fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
         let mut from_screen = RectTransform::identity(Rect::NOTHING);
-        let dd = DragDropManager::global().lock().unwrap();
-        let response = dd
-            .drop_target(ui, true, |ui, _| {
-                let desired_size = vec2(ui.available_width(), 64.0);
-                let (_id, rect) = ui.allocate_space(desired_size);
-                from_screen = RectTransform::from_to(
-                    rect,
-                    Rect::from_x_y_ranges(
-                        self.view_range.start.total_units() as f32
-                            ..=self.view_range.end.total_units() as f32,
-                        rect.top()..=rect.bottom(),
-                    ),
-                );
+        let response = DragDropManager::drop_target(ui, true, |ui| {
+            let desired_size = vec2(ui.available_width(), 64.0);
+            let (_id, rect) = ui.allocate_space(desired_size);
+            from_screen = RectTransform::from_to(
+                rect,
+                Rect::from_x_y_ranges(
+                    self.view_range.start.total_units() as f32
+                        ..=self.view_range.end.total_units() as f32,
+                    rect.top()..=rect.bottom(),
+                ),
+            );
 
-                // What's going on here? To correctly capture Sense events, we
-                // need to draw only the UI that we consider active, or enabled,
-                // or focused, because egui does not seem to like widgets being
-                // drawn on top of each other. So we first draw the non-focused
-                // UI components, but wrapped in add_enabled_ui(false) so that
-                // egui won't try to sense them. Then we draw the one focused
-                // component normally.
-                ui.add_enabled_ui(false, |ui| {
-                    self.ui_not_focused(ui, rect, self.focused);
-                });
-                self.ui_focused(ui, rect, self.focused)
-            })
-            .response;
-        if dd.is_dropped(ui, &response) && dd.source().is_some() {
+            // What's going on here? To correctly capture Sense events, we
+            // need to draw only the UI that we consider active, or enabled,
+            // or focused, because egui does not seem to like widgets being
+            // drawn on top of each other. So we first draw the non-focused
+            // UI components, but wrapped in add_enabled_ui(false) so that
+            // egui won't try to sense them. Then we draw the one focused
+            // component normally.
+            ui.add_enabled_ui(false, |ui| {
+                self.ui_not_focused(ui, rect, self.focused);
+            });
+            self.ui_focused(ui, rect, self.focused)
+        })
+        .response;
+        if DragDropManager::is_dropped(ui, &response) {
             if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
                 let time_pos = from_screen * pointer_pos;
                 let time = MusicalTime::new_with_units(time_pos.x as usize);
                 eprintln!(
                     "Source {:?} dropped on timeline at point screen/view_range {:?}/{:?} -> {time}",
-                    dd.source().unwrap(),
+                    DragDropManager::source().unwrap(),
                     pointer_pos,
                     from_screen * pointer_pos
                 );
@@ -391,7 +389,7 @@ impl PatternIconSettings {
     fn show(&mut self, ui: &mut Ui) {
         // Pattern Icon
         if !self.hide {
-            DragDropManager::global().lock().unwrap().drag_source(
+            DragDropManager::drag_source(
                 ui,
                 Id::new("pattern icon"),
                 DragDropSource::Pattern(PatternUid(99)),
@@ -656,16 +654,10 @@ fn main() -> anyhow::Result<()> {
         ..Default::default()
     };
 
-    if FACTORY
-        .set(register_factory_entities(EntityFactory::default()))
-        .is_err()
-    {
+    if EntityFactory::initialize(register_factory_entities(EntityFactory::default())).is_err() {
         return Err(anyhow!("Couldn't initialize EntityFactory"));
     }
-    if DD_MANAGER
-        .set(Mutex::new(DragDropManager::default()))
-        .is_err()
-    {
+    if DragDropManager::initialize(DragDropManager::default()).is_err() {
         return Err(anyhow!("Couldn't set DragDropManager once_cell"));
     }
 
