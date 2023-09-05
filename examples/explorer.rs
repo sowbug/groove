@@ -6,20 +6,18 @@
 use anyhow::anyhow;
 use eframe::{
     egui::{
-        self, vec2, warn_if_debug_build, CollapsingHeader, Id, Layout, ScrollArea, Slider, Style,
-        Ui,
+        self, warn_if_debug_build, CollapsingHeader, Id, Layout, ScrollArea, Slider, Style, Ui,
     },
-    emath::{Align, RectTransform},
-    epaint::Rect,
+    emath::Align,
     CreationContext,
 };
 use groove::{
     app_version,
     mini::{
         register_factory_entities,
-        widgets::{grid, icon, legend, title_bar, wiggler},
-        ControlAtlas, DragDropEvent, DragDropManager, DragDropSource, ESSequencer,
-        ESSequencerBuilder, Note, PatternUid, Sequencer, TrackTitle, TrackUid,
+        widgets::{grid, icon, legend, timeline, title_bar, wiggler, FocusedComponent},
+        ControlAtlas, DragDropManager, DragDropSource, ESSequencer, ESSequencerBuilder, Note,
+        PatternUid, Sequencer, TrackTitle,
     },
     EntityFactory,
 };
@@ -32,8 +30,6 @@ use groove_core::{
     },
 };
 use std::ops::Range;
-use strum::EnumCount;
-use strum_macros::FromRepr;
 
 #[derive(Debug)]
 struct LegendSettings {
@@ -139,183 +135,6 @@ impl Displays for TimelineSettings {
             self.range.end = MusicalTime::new_with_beats(range_end);
         };
         start_response | end_response
-    }
-}
-
-fn timeline<'a>(
-    sequencer: &'a mut ESSequencer,
-    control_atlas: &'a mut ControlAtlas,
-    range: Range<MusicalTime>,
-    view_range: Range<MusicalTime>,
-    focused: FocusedComponent,
-) -> impl eframe::egui::Widget + 'a {
-    move |ui: &mut eframe::egui::Ui| {
-        Timeline::new(sequencer, control_atlas)
-            .range(range)
-            .view_range(view_range)
-            .focused(focused)
-            .ui(ui)
-    }
-}
-
-#[derive(Debug, Default, Copy, Clone, EnumCount, FromRepr)]
-enum FocusedComponent {
-    #[default]
-    Sequencer,
-    ControlAtlas,
-}
-impl FocusedComponent {
-    fn next(&self) -> Self {
-        FocusedComponent::from_repr((*self as usize + 1) % FocusedComponent::COUNT).unwrap()
-    }
-}
-
-/// Draws the content area of a Timeline, which is the view of a [Track].
-#[derive(Debug)]
-struct Timeline<'a> {
-    /// The full timespan of the project.
-    range: Range<MusicalTime>,
-
-    /// The part of the timeline that is viewable.
-    view_range: Range<MusicalTime>,
-
-    /// Which component is currently enabled,
-    focused: FocusedComponent,
-
-    control_atlas: &'a mut ControlAtlas,
-    sequencer: &'a mut ESSequencer,
-}
-impl<'a> DisplaysInTimeline for Timeline<'a> {
-    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
-        self.view_range = view_range.clone();
-        self.control_atlas.set_view_range(view_range);
-        self.sequencer.set_view_range(view_range);
-    }
-}
-impl<'a> Displays for Timeline<'a> {
-    fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
-        let mut from_screen = RectTransform::identity(Rect::NOTHING);
-        let response = DragDropManager::drop_target(ui, true, |ui| {
-            let desired_size = vec2(ui.available_width(), 64.0);
-            let (_id, rect) = ui.allocate_space(desired_size);
-            from_screen = RectTransform::from_to(
-                rect,
-                Rect::from_x_y_ranges(
-                    self.view_range.start.total_units() as f32
-                        ..=self.view_range.end.total_units() as f32,
-                    rect.top()..=rect.bottom(),
-                ),
-            );
-
-            // What's going on here? To correctly capture Sense events, we
-            // need to draw only the UI that we consider active, or enabled,
-            // or focused, because egui does not seem to like widgets being
-            // drawn on top of each other. So we first draw the non-focused
-            // UI components, but wrapped in add_enabled_ui(false) so that
-            // egui won't try to sense them. Then we draw the one focused
-            // component normally.
-            ui.add_enabled_ui(false, |ui| {
-                self.ui_not_focused(ui, rect, self.focused);
-            });
-            self.ui_focused(ui, rect, self.focused)
-        })
-        .response;
-        if DragDropManager::is_dropped(ui, &response) {
-            if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
-                let time_pos = from_screen * pointer_pos;
-                let time = MusicalTime::new_with_units(time_pos.x as usize);
-                if let Some(source) = DragDropManager::source() {
-                    let event = match source {
-                        DragDropSource::NewDevice(key) => {
-                            Some(DragDropEvent::AddDevicetoTrack(key, TrackUid(234)))
-                        }
-                        DragDropSource::Pattern(pattern_uid) => Some(
-                            DragDropEvent::AddPatternToTrack(pattern_uid, TrackUid(345), time),
-                        ),
-                        DragDropSource::ControlTrip(_uid) => None,
-                    };
-                    if let Some(event) = event {
-                        DragDropManager::enqueue_event(event);
-                    }
-                }
-            } else {
-                eprintln!("Dropped on timeline at unknown position");
-            }
-        }
-        response
-    }
-}
-impl<'a> Timeline<'a> {
-    pub fn new(sequencer: &'a mut ESSequencer, control_atlas: &'a mut ControlAtlas) -> Self {
-        Self {
-            range: Default::default(),
-            view_range: Default::default(),
-            focused: Default::default(),
-            sequencer,
-            control_atlas,
-        }
-    }
-    fn range(mut self, range: Range<MusicalTime>) -> Self {
-        self.range = range;
-        self
-    }
-
-    fn view_range(mut self, view_range: Range<MusicalTime>) -> Self {
-        self.set_view_range(&view_range);
-        self
-    }
-
-    fn focused(mut self, component: FocusedComponent) -> Self {
-        self.focused = component;
-        self
-    }
-
-    // Draws the Timeline component that is currently focused.
-    fn ui_focused(
-        &mut self,
-        ui: &mut egui::Ui,
-        rect: Rect,
-        component: FocusedComponent,
-    ) -> egui::Response {
-        match component {
-            FocusedComponent::ControlAtlas => {
-                ui.allocate_ui_at_rect(rect, |ui| self.control_atlas.ui(ui))
-                    .inner
-            }
-            FocusedComponent::Sequencer => {
-                ui.allocate_ui_at_rect(rect, |ui| self.sequencer.ui(ui))
-                    .inner
-            }
-        }
-    }
-
-    // Draws the Timeline components that are not currently focused. It's up to
-    // the caller to wrap in ui.add_enabled_ui().
-    fn ui_not_focused(
-        &mut self,
-        ui: &mut egui::Ui,
-        rect: Rect,
-        which: FocusedComponent,
-    ) -> egui::Response {
-        // The Grid is always disabled and drawn first.
-        let mut response = ui
-            .allocate_ui_at_rect(rect, |ui| {
-                ui.add(grid(self.range.clone(), self.view_range.clone()))
-            })
-            .inner;
-
-        // Now go through and draw the components that are *not* enabled.
-        if !matches!(which, FocusedComponent::ControlAtlas) {
-            response |= ui
-                .allocate_ui_at_rect(rect, |ui| self.control_atlas.ui(ui))
-                .inner;
-        }
-        if !matches!(which, FocusedComponent::Sequencer) {
-            response |= ui
-                .allocate_ui_at_rect(rect, |ui| self.sequencer.ui(ui))
-                .inner;
-        }
-        response
     }
 }
 
@@ -459,11 +278,23 @@ impl SequencerSettings {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct ESSequencerSettings {
     hide: bool,
     sequencer: ESSequencer,
 }
+impl Default for ESSequencerSettings {
+    fn default() -> Self {
+        Self {
+            hide: Default::default(),
+            sequencer: ESSequencerBuilder::default()
+                .random(MusicalTime::START..MusicalTime::new_with_beats(128))
+                .build()
+                .unwrap(),
+        }
+    }
+}
+
 impl Displays for ESSequencerSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
         ui.checkbox(&mut self.hide, "Hide")
@@ -543,10 +374,10 @@ impl WigglerSettings {
 struct Explorer {
     legend: LegendSettings,
     grid: GridSettings,
-    pattern_icon: PatternIconSettings,
     timeline: TimelineSettings,
     control_atlas: ControlAtlasSettings,
     sequencer: SequencerSettings,
+    pattern_icon: PatternIconSettings,
     es_sequencer: ESSequencerSettings,
     title_bar: TitleBarSettings,
     wiggler: WigglerSettings,
