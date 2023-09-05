@@ -22,10 +22,10 @@ pub enum DragDropSource {
 }
 
 #[allow(missing_docs)]
-#[derive(Debug, Display)]
-pub enum DragDropTarget {
-    Track(TrackUid),
-    TrackLocation(TrackUid, MusicalTime),
+#[derive(Clone, Debug, Display)]
+pub enum DragDropEvent {
+    AddDevicetoTrack(Key, TrackUid),
+    AddPatternToTrack(PatternUid, TrackUid, MusicalTime),
 }
 
 // TODO: a way to express rules about what can and can't be dropped
@@ -45,6 +45,10 @@ impl DragDropManager {
 
     pub fn reset() {
         Self::global().lock().unwrap().source = None;
+    }
+
+    pub fn enqueue_event(event: DragDropEvent) {
+        eprintln!("DnD event: {:?}", event);
     }
 
     // These two functions are based on egui_demo_lib/src/demo/drag_and_drop.rs
@@ -141,8 +145,6 @@ impl DragDropManager {
             fill = Color32::TRANSPARENT;
             stroke = Stroke::NONE;
         };
-
-        if is_anything_dragged && !can_accept_what_is_being_dragged {}
 
         // Update the background border based on target state.
         ui.painter().set(

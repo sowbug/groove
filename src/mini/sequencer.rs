@@ -272,18 +272,21 @@ impl Sequencer {
         &mut self,
         ui: &mut Ui,
         track_uid: TrackUid,
-        view_range: &Range<MusicalTime>,
     ) -> (Response, Option<SequencerAction>) {
         (
             ui.horizontal_top(|ui| {
-                let mut time_pointer = view_range.start;
-                while time_pointer < view_range.end {
-                    let range_size =
-                        view_range.end - view_range.start - MusicalTime::new_with_units(1);
+                let mut time_pointer = self.e.view_range.start;
+                while time_pointer < self.e.view_range.end {
+                    let range_size = self.e.view_range.end
+                        - self.e.view_range.start
+                        - MusicalTime::new_with_units(1);
                     let half_range_size = MusicalTime::new_with_units(range_size.total_units() / 2);
-                    let section_end = (time_pointer + half_range_size).min(view_range.end);
+                    let section_end = (time_pointer + half_range_size).min(self.e.view_range.end);
 
-                    ui.add(empty_space(time_pointer..section_end, view_range.clone()));
+                    ui.add(empty_space(
+                        time_pointer..section_end,
+                        self.e.view_range.clone(),
+                    ));
                     time_pointer = section_end;
                 }
             })

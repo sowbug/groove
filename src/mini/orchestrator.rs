@@ -8,14 +8,13 @@ use super::{
     track::{Track, TrackAction, TrackBuffer, TrackFactory, TrackTitle, TrackUiState, TrackUid},
     transport::{Transport, TransportBuilder},
     widgets::legend,
-    DragDropManager, Key,
+    Key,
 };
 use anyhow::anyhow;
 use derive_builder::Builder;
 use eframe::{
-    egui::{self, Frame, ScrollArea, Ui},
-    emath::{self, Align2},
-    epaint::{pos2, vec2, Color32, FontId, Rect, Shape, Stroke},
+    egui::{self, ScrollArea},
+    epaint::vec2,
 };
 use groove_audio::AudioQueue;
 use groove_core::{
@@ -23,6 +22,7 @@ use groove_core::{
     midi::{MidiChannel, MidiMessage, MidiMessagesFn},
     time::{MusicalTime, SampleRate, Tempo},
     traits::{
+        gui::{Displays, DisplaysInTimeline},
         Configurable, ControlEventsFn, Controllable, Controls, Generates,
         GeneratesToInternalBuffer, HandlesMidi, HasUid, Serializable, ThingEvent, Ticks,
     },
@@ -40,7 +40,7 @@ use std::{
 };
 
 /// Actions that [Orchestrator]'s UI might need the parent to perform.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum OrchestratorAction {
     /// A [Track] was clicked in the UI.
     ClickTrack(TrackUid),
@@ -59,6 +59,9 @@ pub struct OrchestratorEphemerals {
     events: Vec<(Uid, ThingEvent)>,
     is_finished: bool,
     is_performing: bool,
+    action: Option<OrchestratorAction>,
+    view_range: Range<MusicalTime>,
+    track_selection_set: SelectionSet<TrackUid>,
 }
 
 /// Owns all entities (instruments, controllers, and effects), and manages the
@@ -317,97 +320,6 @@ impl Orchestrator {
         self.title = title;
     }
 
-    /// Renders the project's GUI.
-    #[must_use]
-    #[deprecated]
-    pub fn show(
-        &mut self,
-        ui: &mut Ui,
-        track_selection_set: &SelectionSet<TrackUid>,
-    ) -> Option<OrchestratorAction> {
-        let action = self.ui_arrangement(
-            ui,
-            &(MusicalTime::new_with_beats(0)..MusicalTime::new_with_beats(128)),
-            track_selection_set,
-        );
-
-        if let Some(track_uid) = track_selection_set.single_selection() {
-            self.ui_detail(ui, track_uid);
-        }
-
-        action
-    }
-
-    /// Main entry point for egui rendering.
-    pub fn show_2(
-        &mut self,
-        ui: &mut Ui,
-        track_selection_set: &SelectionSet<TrackUid>,
-    ) -> Option<OrchestratorAction> {
-        let mut action = None;
-        let mut view_range = MusicalTime::new_with_beats(0)..MusicalTime::new_with_beats(128);
-        let total_height = ui.available_height();
-
-        egui::TopBottomPanel::bottom("orchestrator-piano-roll")
-            .resizable(true)
-            .max_height(total_height / 2.0)
-            .show(ui.ctx(), |ui| {
-                self.piano_roll.write().unwrap().show(ui);
-            });
-
-        egui::CentralPanel::default().show(ui.ctx(), |ui| {
-            ScrollArea::vertical()
-                .id_source("orchestrator-scroller")
-                .show(ui, |ui| {
-                    ui.add(legend(&mut view_range));
-                    for track_uid in self.track_uids.iter() {
-                        if let Some(track) = self.tracks.get_mut(track_uid) {
-                            let track_ui_state = self
-                                .track_ui_states
-                                .get(track_uid)
-                                .cloned()
-                                .unwrap_or_default();
-                            let height = Track::track_view_height(track.ty(), track_ui_state);
-                            let desired_size = vec2(ui.available_width(), height);
-                            ui.allocate_ui(desired_size, |ui| {
-                                ui.set_min_size(desired_size);
-                                let (response, action_opt) = track.show_2(
-                                    ui,
-                                    &view_range,
-                                    track_ui_state,
-                                    track_selection_set.contains(track_uid),
-                                );
-                                if let Some(a) = action_opt {
-                                    match a {
-                                        TrackAction::SetTitle(t) => {
-                                            track.set_title(t);
-                                        }
-                                        TrackAction::ToggleDisclosure => {
-                                            action = Some(OrchestratorAction::DoubleClickTrack(
-                                                *track_uid,
-                                            ));
-                                        }
-                                        TrackAction::NewDevice(track_uid, key) => {
-                                            action = Some(OrchestratorAction::NewDeviceForTrack(
-                                                track_uid, key,
-                                            ))
-                                        }
-                                    }
-                                }
-                                if response.double_clicked() {
-                                    action = Some(OrchestratorAction::DoubleClickTrack(*track_uid));
-                                } else if response.clicked() {
-                                    action = Some(OrchestratorAction::ClickTrack(*track_uid));
-                                }
-                            });
-                        }
-                    }
-                });
-        });
-
-        action
-    }
-
     /// Changes a [Track]'s UI state from collapsed to expanded.
     pub fn toggle_track_ui_state(&mut self, track_uid: &TrackUid) {
         let new_state = self
@@ -422,140 +334,6 @@ impl Orchestrator {
                 TrackUiState::Expanded => TrackUiState::Collapsed,
             },
         );
-    }
-
-    #[deprecated]
-    fn ui_arrangement<'a>(
-        &mut self,
-        ui: &mut Ui,
-        view_range: &Range<MusicalTime>,
-        track_selection_set: &SelectionSet<TrackUid>,
-    ) -> Option<OrchestratorAction> {
-        let mut action = None;
-
-        Frame::canvas(ui.style()).show(ui, |ui| {
-            const LEGEND_HEIGHT: f32 = 16.0;
-            let (_id, rect) = ui.allocate_space(vec2(ui.available_width(), LEGEND_HEIGHT));
-            let to_screen_beats = emath::RectTransform::from_to(
-                Rect::from_x_y_ranges(
-                    view_range.start.total_beats() as f32..=view_range.end.total_beats() as f32,
-                    0.0..=1.0,
-                ),
-                rect,
-            );
-            let text_bottom = rect.bottom() - 1.0;
-
-            // Add labels at top
-            let shapes = self.ui_arrangement_labels(ui, to_screen_beats, text_bottom, view_range);
-            ui.painter().extend(shapes);
-
-            // Non-aux tracks are first, then aux tracks
-            let uids: Vec<&TrackUid> = self
-                .track_uids
-                .iter()
-                .filter(|uid| !self.tracks.get(uid).unwrap().is_aux())
-                .chain(
-                    self.track_uids
-                        .iter()
-                        .filter(|uid| self.tracks.get(uid).unwrap().is_aux()),
-                )
-                .collect();
-            let uids: Vec<TrackUid> = uids.iter().map(|u| (*u).clone()).collect();
-
-            let mut track_action = None;
-            for uid in uids {
-                let is_selected = track_selection_set.contains(&uid);
-                if let Some(track) = self.get_track_mut(&uid) {
-                    ui.allocate_ui(vec2(ui.available_width(), 64.0), |ui| {
-                        Frame::default()
-                            .stroke(Stroke {
-                                width: if is_selected { 2.0 } else { 0.0 },
-                                color: Color32::YELLOW,
-                            })
-                            .show(ui, |ui| {
-                                let (response, a) = track.show(ui, view_range);
-                                if let Some(a) = a {
-                                    track_action = Some(a);
-                                }
-                                if response.clicked() {
-                                    action = Some(OrchestratorAction::ClickTrack(track.uid()))
-                                };
-                            })
-                    });
-                }
-            }
-            if let Some(track_action) = track_action {
-                match track_action {
-                    TrackAction::SetTitle(_title) => panic!(), //self.set_track_title(uid, title),
-                    TrackAction::ToggleDisclosure => todo!(),
-                    TrackAction::NewDevice(_track_uid, _key) => todo!(),
-                }
-            }
-        });
-        action
-    }
-
-    #[deprecated] // This has been moved to the ArrangementLegend widget.
-    fn ui_arrangement_labels(
-        &self,
-        ui: &mut Ui,
-        to_screen_beats: emath::RectTransform,
-        text_bottom: f32,
-        view_range: &Range<MusicalTime>,
-    ) -> Vec<Shape> {
-        let mut shapes = vec![];
-        let start_beat = view_range.start.total_beats();
-        let end_beat = view_range.end.total_beats();
-
-        let font_id = FontId::proportional(12.0);
-        let beat_count = (end_beat - start_beat) as usize;
-        let skip = if beat_count > 100 {
-            10
-        } else if beat_count > 10 {
-            2
-        } else {
-            1
-        };
-        for (i, beat) in (start_beat..end_beat).enumerate() {
-            if i != 0 && i != beat_count - 1 && i % skip != 0 {
-                continue;
-            }
-            let beat_plus_one = beat + 1;
-            let pos = to_screen_beats * pos2(beat as f32, 0.0);
-            let pos = pos2(pos.x, text_bottom);
-            ui.painter().text(
-                pos,
-                Align2::CENTER_BOTTOM,
-                format!("{beat_plus_one}"),
-                font_id.clone(),
-                Color32::YELLOW,
-            );
-        }
-
-        let left_x = (to_screen_beats * pos2(start_beat as f32, 0.0)).x;
-        let right_x = (to_screen_beats * pos2(end_beat as f32, 0.0)).x;
-        let line_points = [pos2(left_x, text_bottom), pos2(right_x, text_bottom)];
-
-        shapes.push(Shape::line_segment(
-            line_points,
-            Stroke {
-                color: Color32::YELLOW,
-                width: 1.0,
-            },
-        ));
-
-        shapes
-    }
-
-    fn ui_detail(&mut self, ui: &mut Ui, track_uid: &TrackUid) {
-        let bottom = egui::TopBottomPanel::bottom("orchestrator-bottom-panel").resizable(true);
-        bottom.show_inside(ui, |ui| {
-            if let Some(track) = self.tracks.get_mut(&track_uid) {
-                if let Some(_) = track.ui_detail(ui) {
-                    panic!("there are currently no TrackDetailActions");
-                }
-            }
-        });
     }
 
     fn new_track(&mut self, track: Track) -> anyhow::Result<TrackUid> {
@@ -674,6 +452,16 @@ impl Orchestrator {
                 amount: send_amount,
             },
         )
+    }
+
+    #[allow(missing_docs)]
+    pub fn action(&self) -> Option<OrchestratorAction> {
+        self.e.action.clone()
+    }
+
+    #[allow(missing_docs)]
+    pub fn set_track_selection_set(&mut self, track_selection_set: SelectionSet<TrackUid>) {
+        self.e.track_selection_set = track_selection_set;
     }
 }
 impl HasUid for Orchestrator {
@@ -876,6 +664,82 @@ impl Serializable for Orchestrator {
             t.set_piano_roll(Arc::clone(&self.piano_roll));
             t.after_deser();
         });
+    }
+}
+impl DisplaysInTimeline for Orchestrator {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+        self.e.view_range = view_range.clone();
+    }
+}
+impl Displays for Orchestrator {
+    fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
+        self.e.action = None;
+        let mut view_range = MusicalTime::new_with_beats(0)..MusicalTime::new_with_beats(128);
+        let total_height = ui.available_height();
+
+        egui::TopBottomPanel::bottom("orchestrator-piano-roll")
+            .resizable(true)
+            .max_height(total_height / 2.0)
+            .show(ui.ctx(), |ui| {
+                self.piano_roll.write().unwrap().show(ui);
+            });
+
+        egui::CentralPanel::default()
+            .show(ui.ctx(), |ui| {
+                ScrollArea::vertical()
+                    .id_source("orchestrator-scroller")
+                    .show(ui, |ui| {
+                        ui.add(legend(&mut view_range));
+                        for track_uid in self.track_uids.iter() {
+                            if let Some(track) = self.tracks.get_mut(track_uid) {
+                                let track_ui_state = self
+                                    .track_ui_states
+                                    .get(track_uid)
+                                    .cloned()
+                                    .unwrap_or_default();
+                                let height = Track::track_view_height(track.ty(), track_ui_state);
+                                let desired_size = vec2(ui.available_width(), height);
+                                ui.allocate_ui(desired_size, |ui| {
+                                    ui.set_min_size(desired_size);
+                                    track.set_is_selected(
+                                        self.e.track_selection_set.contains(track_uid),
+                                    );
+                                    track.set_ui_state(track_ui_state);
+                                    let response = track.ui(ui);
+                                    let action = track.action();
+
+                                    if let Some(action) = action {
+                                        match action {
+                                            TrackAction::SetTitle(t) => {
+                                                track.set_title(t);
+                                            }
+                                            TrackAction::ToggleDisclosure => {
+                                                self.e.action =
+                                                    Some(OrchestratorAction::DoubleClickTrack(
+                                                        *track_uid,
+                                                    ));
+                                            }
+                                            TrackAction::NewDevice(track_uid, key) => {
+                                                self.e.action =
+                                                    Some(OrchestratorAction::NewDeviceForTrack(
+                                                        track_uid, key,
+                                                    ))
+                                            }
+                                        }
+                                    }
+                                    if response.double_clicked() {
+                                        self.e.action =
+                                            Some(OrchestratorAction::DoubleClickTrack(*track_uid));
+                                    } else if response.clicked() {
+                                        self.e.action =
+                                            Some(OrchestratorAction::ClickTrack(*track_uid));
+                                    }
+                                });
+                            }
+                        }
+                    });
+            })
+            .response
     }
 }
 

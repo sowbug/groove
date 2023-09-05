@@ -18,8 +18,8 @@ use groove::{
     mini::{
         register_factory_entities,
         widgets::{grid, icon, legend, title_bar, wiggler},
-        ControlAtlas, DragDropManager, DragDropSource, ESSequencer, ESSequencerBuilder, Note,
-        PatternUid, Sequencer, TrackTitle,
+        ControlAtlas, DragDropEvent, DragDropManager, DragDropSource, ESSequencer,
+        ESSequencerBuilder, Note, PatternUid, Sequencer, TrackTitle, TrackUid,
     },
     EntityFactory,
 };
@@ -224,12 +224,20 @@ impl<'a> Displays for Timeline<'a> {
             if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
                 let time_pos = from_screen * pointer_pos;
                 let time = MusicalTime::new_with_units(time_pos.x as usize);
-                eprintln!(
-                    "Source {:?} dropped on timeline at point screen/view_range {:?}/{:?} -> {time}",
-                    DragDropManager::source().unwrap(),
-                    pointer_pos,
-                    from_screen * pointer_pos
-                );
+                if let Some(source) = DragDropManager::source() {
+                    let event = match source {
+                        DragDropSource::NewDevice(key) => {
+                            Some(DragDropEvent::AddDevicetoTrack(key, TrackUid(234)))
+                        }
+                        DragDropSource::Pattern(pattern_uid) => Some(
+                            DragDropEvent::AddPatternToTrack(pattern_uid, TrackUid(345), time),
+                        ),
+                        DragDropSource::ControlTrip(_uid) => None,
+                    };
+                    if let Some(event) = event {
+                        DragDropManager::enqueue_event(event);
+                    }
+                }
             } else {
                 eprintln!("Dropped on timeline at unknown position");
             }

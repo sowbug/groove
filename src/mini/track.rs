@@ -7,13 +7,13 @@ use super::{
     humidifier::Humidifier,
     midi_router::MidiRouter,
     piano_roll::PianoRoll,
-    sequencer::{Sequencer, SequencerAction},
+    sequencer::Sequencer,
     widgets::{title_bar, wiggler},
     DragDropManager, DragDropSource, Key,
 };
 use anyhow::anyhow;
 use eframe::{
-    egui::{self, Frame, Layout, Margin, Response, Sense, Ui},
+    egui::{self, Frame, Layout, Margin, Ui},
     emath::Align,
     epaint::{vec2, Color32, Stroke, Vec2},
 };
@@ -22,8 +22,9 @@ use groove_core::{
     midi::MidiChannel,
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
     traits::{
-        gui::Displays, Configurable, ControlEventsFn, Controls, GeneratesToInternalBuffer,
-        Serializable, Thing, ThingEvent, Ticks,
+        gui::{Displays, DisplaysInTimeline},
+        Configurable, ControlEventsFn, Controls, GeneratesToInternalBuffer, Serializable, Thing,
+        ThingEvent, Ticks,
     },
     IsUid, Normal, StereoSample, Uid,
 };
@@ -66,7 +67,7 @@ pub enum TrackElementAction {
 pub enum TrackDetailAction {}
 
 #[allow(missing_docs)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum TrackAction {
     SetTitle(TrackTitle),
     ToggleDisclosure,
@@ -156,6 +157,17 @@ pub enum TrackUiState {
     Expanded,
 }
 
+#[derive(Debug, Default)]
+pub struct TrackEphemerals {
+    buffer: TrackBuffer,
+    is_sequencer_open: bool,
+    piano_roll: Arc<RwLock<PianoRoll>>,
+    action: Option<TrackAction>,
+    view_range: Range<MusicalTime>,
+    is_selected: bool,
+    ui_state: TrackUiState,
+}
+
 /// A collection of instruments, effects, and controllers that combine to
 /// produce a single source of audio.
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -184,13 +196,7 @@ pub struct Track {
     humidifier: Humidifier,
 
     #[serde(skip)]
-    buffer: TrackBuffer,
-
-    #[serde(skip)]
-    is_sequencer_open: bool,
-
-    #[serde(skip)]
-    piano_roll: Arc<RwLock<PianoRoll>>,
+    e: TrackEphemerals,
 }
 impl Track {
     #[allow(missing_docs)]
@@ -254,20 +260,6 @@ impl Track {
         let left = index != 0;
         let right = len > 1 && index != len - 1;
         (left, right)
-    }
-
-    #[deprecated]
-    fn show_midi(
-        &mut self,
-        ui: &mut Ui,
-        view_range: &Range<MusicalTime>,
-    ) -> (Response, Option<SequencerAction>) {
-        //        self.sequencer.ui_arrangement(ui, view_range)
-        panic!()
-    }
-
-    fn show_audio(&self, ui: &mut Ui, _view_range: &Range<MusicalTime>) -> Response {
-        ui.add(wiggler())
     }
 
     /// Shows the detail view for the selected track.
@@ -410,146 +402,6 @@ impl Track {
         action
     }
 
-    #[must_use]
-    #[allow(missing_docs)]
-    #[deprecated]
-    pub fn show(
-        &mut self,
-        ui: &mut Ui,
-        view_range: &Range<MusicalTime>,
-    ) -> (Response, Option<TrackAction>) {
-        let mut action = None;
-
-        let response = Frame::default()
-            .fill(Color32::GRAY)
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    let mut title = self.title.0.clone();
-                    if ui.text_edit_singleline(&mut title).changed() {
-                        action = Some(TrackAction::SetTitle(TrackTitle(title)));
-                    };
-
-                    // This is the thing that senses a plain click and returns
-                    // the Response that tells the caller whether to select this
-                    // track.
-                    ui.allocate_response(ui.available_size_before_wrap(), Sense::click())
-                })
-                .inner
-            })
-            .inner;
-        match self.ty {
-            TrackType::Midi => {
-                self.show_midi(ui, view_range);
-            }
-            TrackType::Audio => {
-                self.show_audio(ui, view_range);
-            }
-            TrackType::Aux => {
-                // For now, the title bar is enough for a aux track, which holds only effects.
-            }
-        }
-        (response, action)
-    }
-
-    /// Main entry point for egui rendering. Returns a [Response] and an
-    /// optional [TrackAction] for cases where the [Response] can't represent
-    /// what happened.
-    #[must_use]
-    #[allow(missing_docs)]
-    pub fn show_2(
-        &mut self,
-        ui: &mut Ui,
-        view_range: &Range<MusicalTime>,
-        ui_state: TrackUiState,
-        is_selected: bool,
-    ) -> (Response, Option<TrackAction>) {
-        let mut action = None;
-
-        // The inner_margin() should be half of the Frame stroke width to leave
-        // room for it. Thanks vikrinox on the egui Discord.
-        let response = Frame::default()
-            .inner_margin(Margin::same(0.5))
-            .stroke(Stroke {
-                width: 1.0,
-                color: {
-                    if is_selected {
-                        Color32::YELLOW
-                    } else {
-                        Color32::DARK_GRAY
-                    }
-                },
-            })
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.set_min_height(Self::track_view_height(self.ty, ui_state));
-
-                    // The `Response` is based on the title bar, so
-                    // clicking/dragging on the title bar affects the `Track` as a
-                    // whole.
-                    let response = ui.add(title_bar(&mut self.title.0));
-
-                    // Take up all the space we're given, even if we can't fill
-                    // it with widget content.
-                    ui.set_min_size(ui.available_size());
-
-                    // The frames shouldn't have space between them.
-                    ui.style_mut().spacing.item_spacing = Vec2::ZERO;
-
-                    // Build the track content with the device view beneath it.
-                    ui.vertical(|ui| {
-                        // Only MIDI/audio tracks have content.
-                        if !matches!(self.ty, TrackType::Aux) {
-                            // Reserve space for the device view.
-                            ui.set_max_height(Self::arrangement_view_height(ui_state));
-
-                            // Draw the arrangement view.
-                            Frame::default()
-                                .inner_margin(Margin::same(0.5))
-                                .outer_margin(Margin::same(0.5))
-                                .stroke(Stroke {
-                                    width: 1.0,
-                                    color: Color32::DARK_GRAY,
-                                })
-                                .show(ui, |ui| {
-                                    ui.set_min_size(ui.available_size());
-                                    match self.ty {
-                                        TrackType::Midi => self.ui_contents_midi(
-                                            ui,
-                                            view_range,
-                                            ui_state,
-                                            is_selected,
-                                        ),
-                                        TrackType::Audio => {
-                                            self.ui_contents_audio(ui, ui_state, is_selected)
-                                        }
-                                        _ => panic!(),
-                                    }
-                                    self.control_atlas.ui(ui);
-                                });
-                        }
-
-                        // Now the device view.
-                        Frame::default()
-                            .inner_margin(Margin::same(0.5))
-                            .outer_margin(Margin::same(0.5))
-                            .stroke(Stroke {
-                                width: 1.0,
-                                color: Color32::DARK_GRAY,
-                            })
-                            .show(ui, |ui| {
-                                if let Some(track_action) = self.ui_device_view(ui, ui_state) {
-                                    action = Some(track_action);
-                                }
-                            });
-                    });
-                    response
-                })
-                .inner
-            })
-            .inner;
-        (response, action)
-    }
-
     pub(crate) fn track_view_height(track_type: TrackType, ui_state: TrackUiState) -> f32 {
         if matches!(track_type, TrackType::Aux) {
             Self::device_view_height(ui_state)
@@ -571,39 +423,33 @@ impl Track {
 
     /// Renders a MIDI [Track]'s arrangement view, which is an overview of some or
     /// all of the track's project timeline.
-    fn ui_contents_midi(
-        &mut self,
-        ui: &mut Ui,
-        view_range: &Range<MusicalTime>,
-        _ui_state: TrackUiState,
-        _is_selected: bool,
-    ) {
-        let (_response, _action) = self.sequencer.ui_arrangement(ui, self.uid, view_range);
+    fn ui_contents_midi(&mut self, ui: &mut Ui) {
+        let (_response, _action) = self.sequencer.ui_arrangement(ui, self.uid);
     }
 
     /// Renders an audio [Track]'s arrangement view, which is an overview of some or
     /// all of the track's project timeline.
-    fn ui_contents_audio(&mut self, ui: &mut Ui, _ui_state: TrackUiState, _is_selected: bool) {
+    fn ui_contents_audio(&mut self, ui: &mut Ui) {
         ui.add(wiggler());
     }
 
     #[must_use]
-    fn ui_device_view(&mut self, ui: &mut Ui, ui_state: TrackUiState) -> Option<TrackAction> {
+    fn ui_device_view(&mut self, ui: &mut Ui) -> Option<TrackAction> {
         let mut action = None;
         let mut drag_and_drop_action = None;
-        let desired_size = vec2(128.0, Self::device_view_height(ui_state));
+        let desired_size = vec2(128.0, Self::device_view_height(self.e.ui_state));
 
         ui.horizontal(|ui| {
-            if self.is_sequencer_open {
+            if self.e.is_sequencer_open {
                 egui::Window::new("Sequencer")
-                    .open(&mut self.is_sequencer_open)
+                    .open(&mut self.e.is_sequencer_open)
                     .show(ui.ctx(), |ui| {
                         self.sequencer.ui(ui);
                     });
             } else {
                 Self::ui_device(ui, &mut self.sequencer, desired_size);
                 if ui.button("open").clicked() {
-                    self.is_sequencer_open = !self.is_sequencer_open;
+                    self.e.is_sequencer_open = !self.e.is_sequencer_open;
                 }
             }
             for thing in self.thing_store.iter_mut() {
@@ -619,7 +465,7 @@ impl Track {
             } else {
                 false
             };
-            let mut r = DragDropManager::drop_target(ui, can_accept, |ui| {
+            let r = DragDropManager::drop_target(ui, can_accept, |ui| {
                 ui.allocate_ui_with_layout(
                     desired_size,
                     Layout::centered_and_justified(egui::Direction::LeftToRight),
@@ -653,29 +499,7 @@ impl Track {
                     }
                 }
             }
-
-            // if r.response.hovered() {
-            //     hovered = true;
-            // }
         });
-
-        // //        if hovered {
-        // //            eprintln!("hovered {:?}", drag_and_drop_action);
-        // if let Some(dd_action) = drag_and_drop_action {
-        //     if ui.input(|i| i.pointer.any_released()) {
-        //         match dd_action {
-        //             DragDropSource::NewDevice(key) => {
-        //                 action = Some(TrackAction::NewDevice(self.uid, key));
-
-        //                 // This is important to let the manager know that
-        //                 // you've handled the drop.
-        //                 dd.reset();
-        //             }
-        //             DragDropSource::Pattern(_) => eprintln!("I don't think so {:?}", dd_action),
-        //         }
-        //     }
-        // }
-        // //    }
 
         action
     }
@@ -747,7 +571,7 @@ impl Track {
 
     #[allow(missing_docs)]
     pub fn set_piano_roll(&mut self, piano_roll: Arc<RwLock<PianoRoll>>) {
-        self.piano_roll = Arc::clone(&piano_roll);
+        self.e.piano_roll = Arc::clone(&piano_roll);
         self.sequencer.set_piano_roll(piano_roll);
     }
 
@@ -798,26 +622,41 @@ impl Track {
 
     /// Returns an immutable reference to the internal buffer.
     pub fn buffer(&self) -> &TrackBuffer {
-        &self.buffer
+        &self.e.buffer
     }
 
     /// Returns a writable version of the internal buffer.
     pub fn buffer_mut(&mut self) -> &mut TrackBuffer {
-        &mut self.buffer
+        &mut self.e.buffer
     }
 
     /// Returns the [ControlAtlas].
     pub fn control_atlas_mut(&mut self) -> &mut ControlAtlas {
         &mut self.control_atlas
     }
+
+    #[allow(missing_docs)]
+    pub fn action(&self) -> Option<TrackAction> {
+        self.e.action.clone()
+    }
+
+    #[allow(missing_docs)]
+    pub fn set_is_selected(&mut self, selected: bool) {
+        self.e.is_selected = selected;
+    }
+
+    #[allow(missing_docs)]
+    pub fn set_ui_state(&mut self, ui_state: TrackUiState) {
+        self.e.ui_state = ui_state;
+    }
 }
 impl GeneratesToInternalBuffer<StereoSample> for Track {
     fn generate_batch_values(&mut self, len: usize) -> usize {
-        if len > self.buffer.0.len() {
+        if len > self.e.buffer.0.len() {
             eprintln!(
                 "requested {} samples but buffer is only len {}",
                 len,
-                self.buffer.0.len()
+                self.e.buffer.0.len()
             );
             return 0;
         }
@@ -825,7 +664,7 @@ impl GeneratesToInternalBuffer<StereoSample> for Track {
         if !self.is_aux() {
             // We're a regular track. Start with a fresh buffer and let each
             // instrument do its thing.
-            self.buffer.0.fill(StereoSample::SILENCE);
+            self.e.buffer.0.fill(StereoSample::SILENCE);
         } else {
             // We're an aux track. We leave the internal buffer as-is, with the
             // expectation that the caller has already filled it with the signal
@@ -838,7 +677,7 @@ impl GeneratesToInternalBuffer<StereoSample> for Track {
                     // Note that we're expecting everyone to ADD to the buffer,
                     // not to overwrite! TODO: convert all instruments to have
                     // internal buffers
-                    e.generate_batch_values(&mut self.buffer.0);
+                    e.generate_batch_values(&mut self.e.buffer.0);
                 }
             }
         }
@@ -851,7 +690,7 @@ impl GeneratesToInternalBuffer<StereoSample> for Track {
                     if humidity == Normal::zero() {
                         continue;
                     }
-                    for sample in self.buffer.0.iter_mut() {
+                    for sample in self.e.buffer.0.iter_mut() {
                         *sample = self.humidifier.transform_audio(
                             humidity,
                             *sample,
@@ -865,11 +704,11 @@ impl GeneratesToInternalBuffer<StereoSample> for Track {
         // See #146 TODO - at this point we might want to gather any events
         // produced during the effects stage.
 
-        self.buffer.0.len()
+        self.e.buffer.0.len()
     }
 
     fn values(&self) -> &[StereoSample] {
-        &self.buffer.0
+        &self.e.buffer.0
     }
 }
 impl Ticks for Track {
@@ -880,7 +719,6 @@ impl Ticks for Track {
 impl Configurable for Track {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sequencer.update_sample_rate(sample_rate);
-
         self.control_atlas.update_sample_rate(sample_rate);
         self.thing_store.update_sample_rate(sample_rate);
     }
@@ -921,7 +759,7 @@ impl HandlesMidi for Track {
     }
 }
 impl Controls for Track {
-    fn update_time(&mut self, range: &std::ops::Range<groove_core::time::MusicalTime>) {
+    fn update_time(&mut self, range: &Range<MusicalTime>) {
         self.sequencer.update_time(range);
         self.control_atlas.update_time(range);
         self.thing_store.update_time(range);
@@ -976,6 +814,94 @@ impl Serializable for Track {
     fn after_deser(&mut self) {
         self.sequencer.after_deser();
         self.thing_store.after_deser();
+    }
+}
+impl DisplaysInTimeline for Track {
+    fn set_view_range(&mut self, view_range: &Range<MusicalTime>) {
+        self.sequencer.set_view_range(view_range);
+        self.e.view_range = view_range.clone();
+    }
+}
+impl Displays for Track {
+    fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
+        self.e.action = None;
+
+        // The inner_margin() should be half of the Frame stroke width to leave
+        // room for it. Thanks vikrinox on the egui Discord.
+        let response = Frame::default()
+            .inner_margin(Margin::same(0.5))
+            .stroke(Stroke {
+                width: 1.0,
+                color: {
+                    if self.e.is_selected {
+                        Color32::YELLOW
+                    } else {
+                        Color32::DARK_GRAY
+                    }
+                },
+            })
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.set_min_height(Self::track_view_height(self.ty, self.e.ui_state));
+
+                    // The `Response` is based on the title bar, so
+                    // clicking/dragging on the title bar affects the `Track` as a
+                    // whole.
+                    let response = ui.add(title_bar(&mut self.title.0));
+
+                    // Take up all the space we're given, even if we can't fill
+                    // it with widget content.
+                    ui.set_min_size(ui.available_size());
+
+                    // The frames shouldn't have space between them.
+                    ui.style_mut().spacing.item_spacing = Vec2::ZERO;
+
+                    // Build the track content with the device view beneath it.
+                    ui.vertical(|ui| {
+                        // Only MIDI/audio tracks have content.
+                        if !matches!(self.ty, TrackType::Aux) {
+                            // Reserve space for the device view.
+                            ui.set_max_height(Self::arrangement_view_height(self.e.ui_state));
+
+                            // Draw the arrangement view.
+                            Frame::default()
+                                .inner_margin(Margin::same(0.5))
+                                .outer_margin(Margin::same(0.5))
+                                .stroke(Stroke {
+                                    width: 1.0,
+                                    color: Color32::DARK_GRAY,
+                                })
+                                .show(ui, |ui| {
+                                    ui.set_min_size(ui.available_size());
+                                    match self.ty {
+                                        TrackType::Midi => self.ui_contents_midi(ui),
+                                        TrackType::Audio => self.ui_contents_audio(ui),
+                                        _ => panic!(),
+                                    }
+                                    self.control_atlas.ui(ui);
+                                });
+                        }
+
+                        // Now the device view.
+                        Frame::default()
+                            .inner_margin(Margin::same(0.5))
+                            .outer_margin(Margin::same(0.5))
+                            .stroke(Stroke {
+                                width: 1.0,
+                                color: Color32::DARK_GRAY,
+                            })
+                            .show(ui, |ui| {
+                                if let Some(track_action) = self.ui_device_view(ui) {
+                                    self.e.action = Some(track_action);
+                                }
+                            });
+                    });
+                    response
+                })
+                .inner
+            })
+            .inner;
+        response
     }
 }
 

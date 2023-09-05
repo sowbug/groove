@@ -8,7 +8,7 @@ use eframe::egui::Ui;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::Tempo,
-    traits::{Configurable, Controls, HandlesMidi, Serializable},
+    traits::{gui::Displays, Configurable, Controls, HandlesMidi, Serializable},
 };
 use std::{
     path::PathBuf,
@@ -292,8 +292,9 @@ impl OrchestratorPanel {
     /// Renders the panel.
     pub fn show(&mut self, ui: &mut Ui, is_control_only_down: bool) {
         let mut o = self.orchestrator.lock().unwrap();
-        let tss = self.track_selection_set.lock().unwrap().clone();
-        if let Some(action) = o.show_2(ui, &tss) {
+        o.set_track_selection_set(self.track_selection_set.lock().unwrap().clone());
+        o.ui(ui);
+        if let Some(action) = o.action() {
             match action {
                 OrchestratorAction::ClickTrack(track_uid) => {
                     self.track_selection_set
