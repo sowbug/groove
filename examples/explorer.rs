@@ -17,9 +17,9 @@ use groove::{
     app_version,
     mini::{
         register_factory_entities,
-        widgets::{grid, icon, legend, wiggler},
+        widgets::{grid, icon, legend, title_bar, wiggler},
         ControlAtlas, DragDropManager, DragDropSource, ESSequencer, ESSequencerBuilder, Note,
-        PatternUid, Sequencer,
+        PatternUid, Sequencer, TrackTitle,
     },
     EntityFactory,
 };
@@ -477,6 +477,35 @@ impl ESSequencerSettings {
 }
 
 #[derive(Debug)]
+struct TitleBarSettings {
+    hide: bool,
+    title: TrackTitle,
+}
+impl Default for TitleBarSettings {
+    fn default() -> Self {
+        Self {
+            hide: Default::default(),
+            title: Default::default(),
+        }
+    }
+}
+impl Displays for TitleBarSettings {
+    fn ui(&mut self, ui: &mut Ui) -> egui::Response {
+        ui.checkbox(&mut self.hide, "Hide");
+        ui.text_edit_singleline(&mut self.title.0)
+    }
+}
+impl TitleBarSettings {
+    const NAME: &str = "Title Bar";
+
+    fn show(&mut self, ui: &mut Ui) {
+        if !self.hide {
+            ui.add(title_bar(&mut self.title.0));
+        }
+    }
+}
+
+#[derive(Debug)]
 struct WigglerSettings {
     hide: bool,
 }
@@ -511,6 +540,7 @@ struct Explorer {
     control_atlas: ControlAtlasSettings,
     sequencer: SequencerSettings,
     es_sequencer: ESSequencerSettings,
+    title_bar: TitleBarSettings,
     wiggler: WigglerSettings,
 }
 impl Explorer {
@@ -546,6 +576,7 @@ impl Explorer {
             });
             Self::wrap_settings(SequencerSettings::NAME, ui, |ui| self.sequencer.ui(ui));
             Self::wrap_settings(ESSequencerSettings::NAME, ui, |ui| self.es_sequencer.ui(ui));
+            Self::wrap_settings(TitleBarSettings::NAME, ui, |ui| self.title_bar.ui(ui));
             Self::wrap_settings(WigglerSettings::NAME, ui, |ui| self.wiggler.ui(ui));
             self.debug_ui(ui);
         });
@@ -607,6 +638,7 @@ impl Explorer {
             Self::wrap_item(ESSequencerSettings::NAME, ui, |ui| {
                 self.es_sequencer.show(ui)
             });
+            Self::wrap_item(TitleBarSettings::NAME, ui, |ui| self.title_bar.show(ui));
             Self::wrap_item(WigglerSettings::NAME, ui, |ui| self.wiggler.show(ui));
         });
     }

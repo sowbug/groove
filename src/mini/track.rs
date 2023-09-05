@@ -8,14 +8,14 @@ use super::{
     midi_router::MidiRouter,
     piano_roll::PianoRoll,
     sequencer::{Sequencer, SequencerAction},
-    widgets::wiggler,
+    widgets::{title_bar, wiggler},
     DragDropManager, DragDropSource, Key,
 };
 use anyhow::anyhow;
 use eframe::{
-    egui::{self, Frame, Layout, Margin, Response, Sense, TextFormat, Ui},
+    egui::{self, Frame, Layout, Margin, Response, Sense, Ui},
     emath::Align,
-    epaint::{text::LayoutJob, vec2, Color32, FontId, Shape, Stroke, TextShape, Vec2},
+    epaint::{vec2, Color32, Stroke, Vec2},
 };
 use groove_core::{
     control::ControlValue,
@@ -29,7 +29,6 @@ use groove_core::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    f32::consts::PI,
     fmt::Display,
     ops::Range,
     option::Option,
@@ -487,7 +486,7 @@ impl Track {
                     // The `Response` is based on the title bar, so
                     // clicking/dragging on the title bar affects the `Track` as a
                     // whole.
-                    let response = self.ui_title(ui);
+                    let response = ui.add(title_bar(&mut self.title.0));
 
                     // Take up all the space we're given, even if we can't fill
                     // it with widget content.
@@ -549,43 +548,6 @@ impl Track {
             })
             .inner;
         (response, action)
-    }
-
-    fn ui_title(&mut self, ui: &mut Ui) -> Response {
-        let available_size = vec2(16.0, ui.available_height());
-        ui.set_min_size(available_size);
-        Frame::default()
-            .outer_margin(Margin::same(1.0))
-            .inner_margin(Margin::same(0.0))
-            .fill(Color32::DARK_GRAY)
-            .show(ui, |ui| {
-                ui.allocate_ui(available_size, |ui| {
-                    let mut job = LayoutJob::default();
-                    job.append(
-                        self.title.0.as_str(),
-                        1.0,
-                        TextFormat {
-                            color: Color32::YELLOW,
-                            font_id: FontId::proportional(12.0),
-                            valign: Align::Center,
-                            ..Default::default()
-                        },
-                    );
-                    let galley = ui.ctx().fonts(|f| f.layout_job(job));
-                    let (response, painter) = ui.allocate_painter(available_size, Sense::click());
-                    let t = Shape::Text(TextShape {
-                        pos: response.rect.left_bottom(),
-                        galley,
-                        underline: Stroke::default(),
-                        override_text_color: None,
-                        angle: 2.0 * PI * 0.75,
-                    });
-                    painter.add(t);
-                    response
-                })
-                .inner
-            })
-            .inner
     }
 
     pub(crate) fn track_view_height(track_type: TrackType, ui_state: TrackUiState) -> f32 {
