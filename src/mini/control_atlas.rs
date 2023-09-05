@@ -407,8 +407,22 @@ impl Displays for ControlAtlas {
                         ui.allocate_ui_at_rect(rect, |ui| {
                             trip.set_view_range(&self.e.view_range);
                             trip.ui(ui);
-                            if ui.button("x").clicked() {
-                                remove_uid = Some(trip.uid);
+
+                            // TODO: I don't know why this isn't flush with the
+                            // right side of the component.
+                            let remove_rect = Rect::from_points(&[
+                                rect.right_bottom(),
+                                pos2(
+                                    rect.right() - ui.ctx().style().spacing.interact_size.x,
+                                    rect.top(),
+                                ),
+                            ]);
+                            if ui.is_enabled() {
+                                ui.allocate_ui_at_rect(remove_rect, |ui| {
+                                    if ui.button("x").clicked() {
+                                        remove_uid = Some(trip.uid);
+                                    }
+                                });
                             }
                         });
                     });
@@ -417,17 +431,21 @@ impl Displays for ControlAtlas {
                     }
                 })
                 .response;
-            let response = response.context_menu(|ui| {
-                if ui.button("Add trip").clicked() {
-                    ui.close_menu();
-                    let mut trip = ControlTripBuilder::default()
-                        .random_trip(MusicalTime::START)
-                        .build()
-                        .unwrap();
-                    trip.set_uid(EntityFactory::global().mint_uid());
-                    self.add_trip(trip);
-                }
-            });
+            let response = if ui.is_enabled() {
+                response.context_menu(|ui| {
+                    if ui.button("Add trip").clicked() {
+                        ui.close_menu();
+                        let mut trip = ControlTripBuilder::default()
+                            .random_trip(MusicalTime::START)
+                            .build()
+                            .unwrap();
+                        trip.set_uid(EntityFactory::global().mint_uid());
+                        self.add_trip(trip);
+                    }
+                })
+            } else {
+                response
+            };
             response
         })
         .inner
