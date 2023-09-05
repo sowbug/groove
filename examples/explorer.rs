@@ -6,8 +6,8 @@
 use anyhow::anyhow;
 use eframe::{
     egui::{
-        self, vec2, warn_if_debug_build, CollapsingHeader, Frame, Id, Layout, ScrollArea, Slider,
-        Style, Ui,
+        self, vec2, warn_if_debug_build, CollapsingHeader, Id, Layout, ScrollArea, Slider, Style,
+        Ui,
     },
     emath::{Align, RectTransform},
     epaint::Rect,
@@ -587,37 +587,30 @@ impl Explorer {
     }
 
     fn show_center(&mut self, ui: &mut Ui) {
-        Frame::default()
-            .stroke(ui.style().visuals.window_stroke)
-            .show(ui, |ui| {
-                ScrollArea::vertical().show(ui, |ui| {
-                    self.timeline.set_view_range(&self.legend.range);
-                    self.control_atlas.set_view_range(&self.legend.range);
-                    self.grid.set_view_range(&self.legend.range);
-                    self.sequencer.set_view_range(&self.legend.range);
-                    self.es_sequencer.set_view_range(&self.legend.range);
+        ScrollArea::vertical().show(ui, |ui| {
+            self.timeline.set_view_range(&self.legend.range);
+            self.control_atlas.set_view_range(&self.legend.range);
+            self.grid.set_view_range(&self.legend.range);
+            self.sequencer.set_view_range(&self.legend.range);
+            self.es_sequencer.set_view_range(&self.legend.range);
 
-                    ui.heading("Timeline");
-                    self.legend.show(ui);
-                    self.timeline.show(ui);
-                    ui.add_space(32.0);
+            ui.heading("Timeline");
+            self.legend.show(ui);
+            self.timeline.show(ui);
 
-                    ui.separator();
-
-                    Self::wrap_item(GridSettings::NAME, ui, |ui| self.grid.show(ui));
-                    Self::wrap_item(PatternIconSettings::NAME, ui, |ui| {
-                        self.pattern_icon.show(ui)
-                    });
-                    Self::wrap_item(ControlAtlasSettings::NAME, ui, |ui| {
-                        self.control_atlas.show(ui)
-                    });
-                    Self::wrap_item(SequencerSettings::NAME, ui, |ui| self.sequencer.show(ui));
-                    Self::wrap_item(ESSequencerSettings::NAME, ui, |ui| {
-                        self.es_sequencer.show(ui)
-                    });
-                    Self::wrap_item(WigglerSettings::NAME, ui, |ui| self.wiggler.show(ui));
-                });
+            Self::wrap_item(GridSettings::NAME, ui, |ui| self.grid.show(ui));
+            Self::wrap_item(PatternIconSettings::NAME, ui, |ui| {
+                self.pattern_icon.show(ui)
             });
+            Self::wrap_item(ControlAtlasSettings::NAME, ui, |ui| {
+                self.control_atlas.show(ui)
+            });
+            Self::wrap_item(SequencerSettings::NAME, ui, |ui| self.sequencer.show(ui));
+            Self::wrap_item(ESSequencerSettings::NAME, ui, |ui| {
+                self.es_sequencer.show(ui)
+            });
+            Self::wrap_item(WigglerSettings::NAME, ui, |ui| self.wiggler.show(ui));
+        });
     }
 }
 impl eframe::App for Explorer {

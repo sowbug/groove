@@ -3,7 +3,7 @@
 use super::{entity_factory::Key, piano_roll::PatternUid, TrackUid};
 use eframe::{
     egui::{CursorIcon, Id as EguiId, InnerResponse, LayerId, Order, Sense, Ui},
-    epaint::{self, Rect, Shape, Vec2},
+    epaint::{self, Color32, Rect, Shape, Stroke, Vec2},
 };
 use groove_core::time::MusicalTime;
 use once_cell::sync::OnceCell;
@@ -133,10 +133,17 @@ impl DragDropManager {
         };
         let mut fill = style.bg_fill;
         let mut stroke = style.bg_stroke;
-        if is_anything_dragged && !can_accept_what_is_being_dragged {
-            fill = ui.visuals().gray_out(fill);
-            stroke.color = ui.visuals().gray_out(stroke.color);
-        }
+        if is_anything_dragged {
+            if !can_accept_what_is_being_dragged {
+                fill = ui.visuals().gray_out(fill);
+                stroke.color = ui.visuals().gray_out(stroke.color);
+            }
+        } else {
+            fill = Color32::TRANSPARENT;
+            stroke = Stroke::NONE;
+        };
+
+        if is_anything_dragged && !can_accept_what_is_being_dragged {}
 
         // Update the background border based on target state.
         ui.painter().set(
