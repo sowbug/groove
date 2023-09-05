@@ -6,7 +6,7 @@ use derive_builder::Builder;
 use eframe::{
     egui::{Sense, Ui},
     emath::RectTransform,
-    epaint::{pos2, vec2, Rect},
+    epaint::{pos2, vec2, Color32, Rect, Stroke},
 };
 use groove_core::{
     control::ControlValue,
@@ -55,6 +55,17 @@ pub enum ControlTripPath {
     Logarithmic,
     /// Curved. Starts out changing slowly and ends up changing quickly.
     Exponential,
+}
+impl ControlTripPath {
+    fn next(&self) -> Self {
+        match self {
+            ControlTripPath::None => ControlTripPath::None,
+            ControlTripPath::Flat => ControlTripPath::Linear,
+            ControlTripPath::Linear => ControlTripPath::Flat,
+            ControlTripPath::Logarithmic => ControlTripPath::Logarithmic,
+            ControlTripPath::Exponential => ControlTripPath::Exponential,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -231,9 +242,7 @@ impl Displays for ControlTrip {
             response.rect,
         );
 
-        if response.clicked() {
-            eprintln!("I'm ControlAtlas and I saw a click");
-        }
+        // The first step always starts at the left of the view range.
         let mut pos = to_screen
             * pos2(
                 MusicalTime::START.total_units() as f32,
@@ -248,8 +257,47 @@ impl Displays for ControlTrip {
         } else {
             ui.ctx().style().visuals.widgets.inactive.bg_stroke
         };
-        self.steps.iter_mut().for_each(|step| {
-            let second_pos = to_screen * pos2(step.time.total_units() as f32, step.value.0 as f32);
+        let steps_len = self.steps.len();
+        self.steps.iter_mut().enumerate().for_each(|(index, step)| {
+            // Get the next step position, adjusting if it's the last one.
+            let second_pos = if index + 1 == steps_len {
+                let value = pos.y;
+                // Last step. Extend to end of view range.
+                let mut tmp_pos = to_screen * pos2(self.e.view_range.end.total_units() as f32, 0.0);
+                tmp_pos.y = value;
+                tmp_pos
+            } else {
+                // Not last step. Get the actual value.
+                to_screen * pos2(step.time.total_units() as f32, step.value.0 as f32)
+            };
+
+            // If we're hovering over this step, highlight it.
+            let stroke = if response.hovered() {
+                if let Some(hover_pos) = ui.ctx().pointer_interact_pos() {
+                    if hover_pos.x >= pos.x && hover_pos.x < second_pos.x {
+                        if response.clicked() {
+                            let from_screen = to_screen.inverse();
+                            let hover_pos_local = from_screen * hover_pos;
+                            (*step).value = ControlValue::from(hover_pos_local.y);
+                        } else if response.secondary_clicked() {
+                            step.path = step.path.next();
+                        }
+
+                        Stroke {
+                            width: stroke.width * 2.0,
+                            color: Color32::YELLOW,
+                        }
+                    } else {
+                        stroke
+                    }
+                } else {
+                    stroke
+                }
+            } else {
+                stroke
+            };
+
+            // Draw according to the step type.
             match step.path {
                 ControlTripPath::None => {}
                 ControlTripPath::Flat => {
@@ -264,8 +312,6 @@ impl Displays for ControlTrip {
             }
             pos = second_pos;
         });
-        let second_pos_x_only = to_screen * pos2(self.e.view_range.end.total_units() as f32, 0.0);
-        painter.line_segment([pos, pos2(second_pos_x_only.x, pos.y)], stroke);
         response
     }
 }
