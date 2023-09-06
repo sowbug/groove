@@ -11,7 +11,6 @@ use std::collections::HashMap;
 pub struct ControlRouter {
     uid_to_control: HashMap<Uid, Vec<(Uid, ControlIndex)>>,
 }
-#[allow(dead_code)]
 impl ControlRouter {
     pub fn link_control(&mut self, source_uid: Uid, target_uid: Uid, control_index: ControlIndex) {
         self.uid_to_control

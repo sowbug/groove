@@ -18,7 +18,6 @@ impl Humidifier {
         }
     }
 
-    #[allow(dead_code)]
     pub fn set_humidity_by_uid(&mut self, uid: Uid, humidity: Normal) {
         self.uid_to_humidity.insert(uid, humidity);
     }

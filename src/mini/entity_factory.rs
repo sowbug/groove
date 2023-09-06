@@ -162,7 +162,6 @@ impl ThingStore {
         self.things.insert(thing.uid(), thing);
         Ok(uid)
     }
-    #[allow(dead_code)]
     pub fn get(&self, uid: &Uid) -> Option<&Box<dyn Thing>> {
         self.things.get(uid)
     }

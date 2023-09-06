@@ -23,7 +23,6 @@ impl MidiRouter {
     }
 
     /// Connect an entity to the given MIDI channel.
-    #[allow(dead_code)]
     pub fn connect(&mut self, receiver_uid: Uid, channel: MidiChannel) {
         self.midi_channel_to_receiver_uid
             .entry(channel)
