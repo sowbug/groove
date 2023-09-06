@@ -4,7 +4,7 @@ use super::{piano_roll::Pattern, rng::Rng, Note};
 use btreemultimap::BTreeMultiMap;
 use derive_builder::Builder;
 use eframe::{
-    egui::{Sense, Ui},
+    egui::{style::WidgetVisuals, Sense, Ui},
     emath::RectTransform,
     epaint::{pos2, vec2, Rect, RectShape, Shape},
 };
@@ -22,6 +22,17 @@ use serde::{Deserialize, Serialize};
 use std::ops::Range;
 
 impl ESSequencerBuilder {
+    /// Builds the [ESSequencer].
+    pub fn build(&self) -> Result<ESSequencer, ESSequencerBuilderError> {
+        match self.build_from_builder() {
+            Ok(mut s) => {
+                s.after_deser();
+                Ok(s)
+            }
+            Err(e) => Err(e),
+        }
+    }
+
     /// Produces a random sequence of quarter-note notes. For debugging.
     pub fn random(&mut self, range: Range<MusicalTime>) -> &mut Self {
         let mut rng = Rng::default();
@@ -57,6 +68,7 @@ pub struct ESSequencerEphemerals {
 
 /// [ESSequencer] replays [MidiMessage]s according to [MusicalTime].
 #[derive(Debug, Default, Control, IsController, Params, Uid, Serialize, Deserialize, Builder)]
+#[builder(build_fn(private, name = "build_from_builder"))]
 pub struct ESSequencer {
     #[allow(missing_docs)]
     #[builder(default)]
@@ -68,6 +80,10 @@ pub struct ESSequencer {
     /// The [Note]s to be sequenced.
     #[builder(default, setter(each(name = "note", into)))]
     notes: Vec<Note>,
+
+    /// The [Pattern]s to be sequenced.
+    #[builder(default, setter(each(name = "pattern", into)))]
+    patterns: Vec<(MusicalTime, Pattern)>,
 
     /// The default time signature.
     #[builder(default)]
@@ -83,18 +99,15 @@ impl ESSequencer {
         self.e.cursor
     }
 
-    /// Returns the duration of the inserted pattern.
+    /// Adds the [Pattern] at the specified location. Returns the duration of
+    /// the inserted pattern.
     pub fn insert_pattern(
         &mut self,
         pattern: &Pattern,
         position: MusicalTime,
     ) -> anyhow::Result<MusicalTime> {
-        pattern.notes().iter().for_each(|note| {
-            self.notes.push(Note {
-                key: note.key,
-                range: (note.range.start + position)..(note.range.end + position),
-            });
-        });
+        self.patterns.push((position, pattern.clone()));
+        self.calculate_events();
         Ok(pattern.duration())
     }
 
@@ -103,32 +116,65 @@ impl ESSequencer {
         let position = self.e.cursor;
         let duration = self.insert_pattern(pattern, position)?;
         self.e.cursor += duration;
+        Ok(())
+    }
+
+    /// Adds the [Note] at the specified location.
+    pub fn insert_note(&mut self, note: &Note, position: MusicalTime) -> anyhow::Result<()> {
+        self.notes.push(Note {
+            key: note.key,
+            range: (note.range.start + position)..(note.range.end + position),
+        });
         self.calculate_events();
         Ok(())
+    }
+
+    /// Adds the [Note] at the sequencer cursor, and advances the cursor.
+    pub fn append_note(&mut self, note: &Note) -> anyhow::Result<()> {
+        let position = self.e.cursor;
+        self.insert_note(note, position)?;
+        self.e.cursor += MusicalTime::new_with_beats(1);
+        Ok(())
+    }
+
+    fn insert_note_as_event(&mut self, note: &Note) {
+        self.e.events.insert(
+            note.range.start,
+            MidiMessage::NoteOn {
+                key: note.key.into(),
+                vel: 127.into(),
+            },
+        );
+        self.e.events.insert(
+            note.range.end,
+            MidiMessage::NoteOff {
+                key: note.key.into(),
+                vel: 0.into(),
+            },
+        );
+        if note.range.end > self.e.final_event_time {
+            self.e.final_event_time = note.range.end;
+        }
     }
 
     fn calculate_events(&mut self) {
         self.e.events.clear();
         self.e.final_event_time = MusicalTime::START;
-        self.notes.iter().for_each(|note| {
-            self.e.events.insert(
-                note.range.start,
-                MidiMessage::NoteOn {
-                    key: note.key.into(),
-                    vel: 127.into(),
-                },
-            );
-            self.e.events.insert(
-                note.range.end,
-                MidiMessage::NoteOff {
-                    key: note.key.into(),
-                    vel: 0.into(),
-                },
-            );
-            if note.range.end > self.e.final_event_time {
-                self.e.final_event_time = note.range.end;
-            }
-        })
+
+        self.notes.clone().iter().for_each(|note| {
+            self.insert_note_as_event(note);
+        });
+        self.patterns
+            .clone()
+            .iter()
+            .for_each(|(position, pattern)| {
+                pattern.notes().iter().for_each(|note| {
+                    self.insert_note_as_event(&Note {
+                        key: note.key,
+                        range: (note.range.start + *position)..(note.range.end + *position),
+                    });
+                });
+            });
     }
 
     // This method is private because callers need to remember to call
@@ -139,6 +185,23 @@ impl ESSequencer {
         } else {
             self.notes.push(note);
         }
+    }
+
+    fn shape_for_note(
+        &self,
+        to_screen: &RectTransform,
+        visuals: &WidgetVisuals,
+        note: &Note,
+    ) -> Shape {
+        Shape::Rect(RectShape {
+            rect: Rect::from_two_pos(
+                to_screen * pos2(note.range.start.total_units() as f32, note.key as f32),
+                to_screen * pos2(note.range.end.total_units() as f32, note.key as f32),
+            ),
+            rounding: visuals.rounding,
+            fill: visuals.bg_fill,
+            stroke: visuals.fg_stroke,
+        })
     }
 }
 impl Displays for ESSequencer {
@@ -171,27 +234,33 @@ impl Displays for ESSequencer {
                 } else {
                     ui.ctx().style().visuals.widgets.inactive
                 };
+
                 // Generate all the note shapes
-                let shapes: Vec<Shape> = self
+                let note_shapes: Vec<Shape> = self
                     .notes
                     .iter()
-                    .map(|note| {
-                        Shape::Rect(RectShape {
-                            rect: Rect::from_two_pos(
-                                to_screen
-                                    * pos2(note.range.start.total_units() as f32, note.key as f32),
-                                to_screen
-                                    * pos2(note.range.end.total_units() as f32, note.key as f32),
-                            ),
-                            rounding: visuals.rounding,
-                            fill: visuals.bg_fill,
-                            stroke: visuals.fg_stroke,
-                        })
-                    })
+                    .map(|note| self.shape_for_note(&to_screen, &visuals, note))
                     .collect();
 
+                // Generate all the pattern note shapes
+                let pattern_shapes: Vec<Shape> =
+                    self.patterns
+                        .iter()
+                        .fold(Vec::default(), |mut v, (position, pattern)| {
+                            pattern.notes().iter().for_each(|note| {
+                                let note = Note {
+                                    key: note.key,
+                                    range: (note.range.start + *position)
+                                        ..(note.range.end + *position),
+                                };
+                                v.push(self.shape_for_note(&to_screen, &visuals, &note));
+                            });
+                            v
+                        });
+
                 // Paint all the shapes
-                painter.extend(shapes);
+                painter.extend(note_shapes);
+                painter.extend(pattern_shapes);
 
                 response
             })
@@ -260,19 +329,69 @@ mod tests {
 
     #[test]
     fn adding_notes_translates_to_events() {
-        let mut s = ESSequencer::default();
-        let pattern = PatternBuilder::default()
+        let mut s = ESSequencerBuilder::default()
             .note(Note {
-                key: 1,
-                range: MusicalTime::START..MusicalTime::START + MusicalTime::DURATION_QUARTER,
+                key: 69,
+                range: MusicalTime::DURATION_WHOLE
+                    ..MusicalTime::DURATION_WHOLE + MusicalTime::DURATION_QUARTER,
             })
             .build()
             .unwrap();
-        assert!(s.append_pattern(&pattern).is_ok());
+        s.after_deser();
         assert_eq!(
             s.e.events.len(),
             2,
             "Adding one note should create two events"
+        );
+
+        let _ = s.append_note(&Note {
+            key: 70,
+            range: MusicalTime::DURATION_WHOLE
+                ..MusicalTime::DURATION_WHOLE + MusicalTime::DURATION_QUARTER,
+        });
+        assert_eq!(
+            s.e.events.len(),
+            4,
+            "Adding a second note should create two more events"
+        );
+    }
+
+    #[test]
+    fn adding_patterns_translates_to_events() {
+        let mut s = ESSequencerBuilder::default()
+            .pattern((
+                MusicalTime::DURATION_QUARTER,
+                PatternBuilder::default()
+                    .note(Note {
+                        key: 1,
+                        range: MusicalTime::START
+                            ..MusicalTime::START + MusicalTime::DURATION_QUARTER,
+                    })
+                    .build()
+                    .unwrap(),
+            ))
+            .build()
+            .unwrap();
+        s.after_deser();
+        assert_eq!(
+            s.e.events.len(),
+            2,
+            "Adding a pattern with one note should create two events"
+        );
+
+        let _ = s.append_pattern(
+            &PatternBuilder::default()
+                .note(Note {
+                    key: 1,
+                    range: MusicalTime::START..MusicalTime::START + MusicalTime::DURATION_QUARTER,
+                })
+                .build()
+                .unwrap(),
+        );
+        assert_eq!(
+            s.e.events.len(),
+            4,
+            "Appending another pattern with one note should create two more events"
         );
     }
 }

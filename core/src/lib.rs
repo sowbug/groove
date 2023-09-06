@@ -502,7 +502,7 @@ impl Mul<Self> for Normal {
     }
 }
 
-pub trait IsUid: Eq + Hash + Clone {
+pub trait IsUid: Eq + Hash + Clone + Copy {
     fn increment(&mut self) -> &Self;
 }
 

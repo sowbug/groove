@@ -16,18 +16,15 @@ use groove::{
     mini::{
         register_factory_entities,
         widgets::{grid, icon, legend, timeline, title_bar, wiggler, FocusedComponent},
-        ControlAtlas, DragDropManager, DragDropSource, ESSequencer, ESSequencerBuilder, Note,
-        PatternUid, Sequencer, TrackTitle,
+        ControlAtlas, DragDropEvent, DragDropManager, DragDropSource, ESSequencer,
+        ESSequencerBuilder, Note, PatternUid, PianoRoll, Sequencer, TrackTitle, TrackUid,
     },
     EntityFactory,
 };
 use groove_core::{
     midi::MidiNote,
     time::MusicalTime,
-    traits::{
-        gui::{Displays, DisplaysInTimeline},
-        Serializable,
-    },
+    traits::gui::{Displays, DisplaysInTimeline},
 };
 use std::ops::Range;
 
@@ -74,6 +71,7 @@ impl Displays for LegendSettings {
 #[derive(Debug)]
 struct TimelineSettings {
     hide: bool,
+    track_uid: TrackUid,
     range: Range<MusicalTime>,
     view_range: Range<MusicalTime>,
     control_atlas: ControlAtlas,
@@ -91,6 +89,7 @@ impl TimelineSettings {
     fn show(&mut self, ui: &mut Ui) {
         if !self.hide {
             ui.add(timeline(
+                self.track_uid,
                 &mut self.sequencer,
                 &mut self.control_atlas,
                 self.range.clone(),
@@ -102,13 +101,13 @@ impl TimelineSettings {
 }
 impl Default for TimelineSettings {
     fn default() -> Self {
-        let mut sequencer = ESSequencerBuilder::default()
+        let sequencer = ESSequencerBuilder::default()
             .random(MusicalTime::START..MusicalTime::new_with_beats(128))
             .build()
             .unwrap();
-        sequencer.after_deser(); // TODO LAME
         Self {
             hide: Default::default(),
+            track_uid: TrackUid(123),
             range: MusicalTime::START..MusicalTime::new_with_beats(128),
             view_range: MusicalTime::START..MusicalTime::new_with_beats(128),
             control_atlas: Default::default(),
@@ -178,6 +177,7 @@ struct PatternIconSettings {
     hide: bool,
     duration: MusicalTime,
     notes: Vec<Note>,
+    is_selected: bool,
 }
 impl Default for PatternIconSettings {
     fn default() -> Self {
@@ -196,12 +196,14 @@ impl Default for PatternIconSettings {
                     MusicalTime::DURATION_WHOLE,
                 ),
             ],
+            is_selected: Default::default(),
         }
     }
 }
 impl Displays for PatternIconSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
         ui.checkbox(&mut self.hide, "Hide Pattern Icon")
+            | ui.checkbox(&mut self.is_selected, "Show selected")
     }
 }
 impl PatternIconSettings {
@@ -221,7 +223,7 @@ impl PatternIconSettings {
                 Id::new("pattern icon"),
                 DragDropSource::Pattern(PatternUid(99)),
                 |ui| {
-                    ui.add(icon(self.duration, &self.notes));
+                    ui.add(icon(self.duration, &self.notes, self.is_selected));
                 },
             );
         }
@@ -344,6 +346,26 @@ impl TitleBarSettings {
     }
 }
 
+#[derive(Debug, Default)]
+struct PianoRollSettings {
+    hide: bool,
+    piano_roll: PianoRoll,
+}
+impl Displays for PianoRollSettings {
+    fn ui(&mut self, ui: &mut Ui) -> egui::Response {
+        ui.checkbox(&mut self.hide, "Hide")
+    }
+}
+impl PianoRollSettings {
+    const NAME: &str = "Piano Roll";
+
+    fn show(&mut self, ui: &mut Ui) {
+        if !self.hide {
+            self.piano_roll.ui(ui);
+        }
+    }
+}
+
 #[derive(Debug)]
 struct WigglerSettings {
     hide: bool,
@@ -377,9 +399,10 @@ struct Explorer {
     timeline: TimelineSettings,
     control_atlas: ControlAtlasSettings,
     sequencer: SequencerSettings,
-    pattern_icon: PatternIconSettings,
     es_sequencer: ESSequencerSettings,
+    pattern_icon: PatternIconSettings,
     title_bar: TitleBarSettings,
+    piano_roll: PianoRollSettings,
     wiggler: WigglerSettings,
 }
 impl Explorer {
@@ -408,6 +431,7 @@ impl Explorer {
         ScrollArea::horizontal().show(ui, |ui| {
             Self::wrap_settings(LegendSettings::NAME, ui, |ui| self.legend.ui(ui));
             Self::wrap_settings(TimelineSettings::NAME, ui, |ui| self.timeline.ui(ui));
+            Self::wrap_settings(PianoRollSettings::NAME, ui, |ui| self.piano_roll.ui(ui));
             Self::wrap_settings(GridSettings::NAME, ui, |ui| self.grid.ui(ui));
             Self::wrap_settings(PatternIconSettings::NAME, ui, |ui| self.pattern_icon.ui(ui));
             Self::wrap_settings(ControlAtlasSettings::NAME, ui, |ui| {
@@ -466,6 +490,8 @@ impl Explorer {
             self.legend.show(ui);
             self.timeline.show(ui);
 
+            Self::wrap_item(PianoRollSettings::NAME, ui, |ui| self.piano_roll.show(ui));
+
             Self::wrap_item(GridSettings::NAME, ui, |ui| self.grid.show(ui));
             Self::wrap_item(PatternIconSettings::NAME, ui, |ui| {
                 self.pattern_icon.show(ui)
@@ -514,6 +540,24 @@ impl eframe::App for Explorer {
         });
         center.show(ctx, |ui| {
             self.show_center(ui);
+        });
+
+        // TODO: this is bad design because it does non-GUI processing during
+        // the update() method.
+        let events = DragDropManager::take_and_clear_events();
+        events.iter().for_each(|e| match e {
+            DragDropEvent::AddDeviceToTrack(key, track_uid) => {
+                eprintln!("DragDropEvent::AddDeviceToTrack {key} {track_uid}")
+            }
+            DragDropEvent::AddPatternToTrack(pattern_uid, track_uid, position) => {
+                eprintln!(
+                    "DragDropEvent::AddPatternToTrack {pattern_uid} {track_uid} {position:?}"
+                );
+                if let Some(pattern) = self.piano_roll.piano_roll.get_pattern(pattern_uid) {
+                    eprintln!("got pattern");
+                    let _ = self.timeline.sequencer.insert_pattern(pattern, *position);
+                }
+            }
         });
     }
 }

@@ -300,7 +300,7 @@ impl OrchestratorPanel {
                     self.track_selection_set
                         .lock()
                         .unwrap()
-                        .click(track_uid, is_control_only_down);
+                        .click(&track_uid, is_control_only_down);
                 }
                 OrchestratorAction::DoubleClickTrack(track_uid) => {
                     o.toggle_track_ui_state(&track_uid);

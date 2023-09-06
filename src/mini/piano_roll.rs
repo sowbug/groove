@@ -1,6 +1,10 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::{widgets::icon, DragDropManager, DragDropSource, SelectionSet, UidFactory};
+use super::{
+    rng::Rng,
+    widgets::{draggable_icon, icon},
+    DragDropManager, DragDropSource, SelectionSet, UidFactory,
+};
 use anyhow::anyhow;
 use derive_builder::Builder;
 use eframe::{
@@ -11,7 +15,7 @@ use eframe::{
 use groove_core::{
     midi::MidiNote,
     time::{MusicalTime, TimeSignature},
-    traits::gui::Displays,
+    traits::{gui::Displays, Serializable},
     IsUid,
 };
 use serde::{Deserialize, Serialize};
@@ -71,7 +75,7 @@ impl Note {
 /// [TimeSignature]. All the notes should fit into the pattern's duration, and
 /// the duration should be a round multiple of the length implied by the time
 /// signature.
-#[derive(Debug, Serialize, Deserialize, Builder)]
+#[derive(Clone, Debug, Serialize, Deserialize, Builder)]
 #[builder(build_fn(private, name = "build_from_builder"))]
 pub struct Pattern {
     /// The pattern's [TimeSignature].
@@ -103,11 +107,25 @@ impl PatternBuilder {
     pub fn build(&self) -> Result<Pattern, PatternBuilderError> {
         match self.build_from_builder() {
             Ok(mut s) => {
-                s.post_build();
+                s.after_deser();
                 Ok(s)
             }
             Err(e) => Err(e),
         }
+    }
+
+    fn random(&mut self) -> &mut Self {
+        let mut rng = Rng::default();
+
+        for _ in 0..rng.0.rand_range(8..16) {
+            let start = MusicalTime::new_with_parts(rng.0.rand_range(0..64) as usize);
+            let duration = MusicalTime::DURATION_QUARTER;
+            self.note(Note {
+                key: rng.0.rand_range(32..96) as u8,
+                range: start..start + duration,
+            });
+        }
+        self
     }
 
     /// Given a sequence of MIDI note numbers and an optional grid value that
@@ -153,7 +171,7 @@ impl Default for Pattern {
             notes: Default::default(),
             note_selection_set: Default::default(),
         };
-        r.post_build();
+        r.after_deser();
         r
     }
 }
@@ -235,11 +253,12 @@ impl Displays for Pattern {
         response
     }
 }
-impl Pattern {
-    fn post_build(&mut self) {
+impl Serializable for Pattern {
+    fn after_deser(&mut self) {
         self.refresh_internals();
     }
-
+}
+impl Pattern {
     /// Returns the number of notes in the pattern.
     #[allow(dead_code)]
     pub fn note_count(&self) -> usize {
@@ -474,7 +493,6 @@ pub struct PianoRoll {
     uids_to_patterns: HashMap<PatternUid, Pattern>,
     ordered_pattern_uids: Vec<PatternUid>,
     pattern_selection_set: SelectionSet<PatternUid>,
-    i_am_the_one: bool,
 }
 impl Default for PianoRoll {
     fn default() -> Self {
@@ -483,10 +501,9 @@ impl Default for PianoRoll {
             uids_to_patterns: Default::default(),
             ordered_pattern_uids: Default::default(),
             pattern_selection_set: Default::default(),
-            i_am_the_one: false,
         };
         for _ in 0..16 {
-            let _ = r.insert(PatternBuilder::default().build().unwrap());
+            let _ = r.insert(PatternBuilder::default().random().build().unwrap());
         }
         let pattern = r.uids_to_patterns.get_mut(&PatternUid(2)).unwrap();
         pattern.add_note(Note {
@@ -502,12 +519,7 @@ impl Default for PianoRoll {
     }
 }
 impl PianoRoll {
-    // TODO: remove this once you have a coherent story for ensuring that
-    // everyone gets the same reference to the one serialized instance.
-    pub fn set_the_one(&mut self) {
-        self.i_am_the_one = true;
-    }
-
+    /// Adds a [Pattern]. Returns its [PatternUid].
     pub fn insert(&mut self, pattern: Pattern) -> PatternUid {
         let uid = self.uid_factory.next();
         self.uids_to_patterns.insert(uid, pattern);
@@ -515,67 +527,60 @@ impl PianoRoll {
         uid
     }
 
+    /// Removes the [Pattern] having the given [PatternUid], if any.
     pub fn remove(&mut self, pattern_uid: &PatternUid) {
         self.uids_to_patterns.remove(pattern_uid);
         self.ordered_pattern_uids.retain(|uid| uid != pattern_uid);
     }
 
+    /// Returns a reference to the specified [Pattern].
     pub fn get_pattern(&self, pattern_uid: &PatternUid) -> Option<&Pattern> {
         self.uids_to_patterns.get(pattern_uid)
     }
 
+    /// Returns a mutable reference to the specified [Pattern].
     pub fn get_pattern_mut(&mut self, pattern_uid: &PatternUid) -> Option<&mut Pattern> {
         self.uids_to_patterns.get_mut(pattern_uid)
     }
 
-    fn carousel_ui(&mut self, ui: &mut Ui) {
-        // let carousel_size = vec2(ui.available_width(), 64.0);
-        // let (carousel_rect, response) =
-        //     ui.allocate_exact_size(carousel_size, Sense::click_and_drag());
-        // let carousel_location = Rect::from_two_pos(
-        //     pos2(response.rect.left() + 5.0, response.rect.top() + 5.0),
-        //     pos2(
-        //         response.rect.right() - 5.0,
-        //         response.rect.top() + 5.0 + 32.0,
-        //     ),
-        // );
-        // let to_screen = RectTransform::from_to(
-        //     Rect::from_x_y_ranges(0.0..=(self.ordered_pattern_uids.len() as f32), 0.0..=1.0),
-        //     response.rect,
-        // );
+    fn ui_carousel(&mut self, ui: &mut Ui) -> Response {
         ui.horizontal_top(|ui| {
+            let icon_width = ui.available_width() / self.ordered_pattern_uids.len() as f32;
             ui.set_max_width(ui.available_width());
             ui.set_height(64.0);
-            if !self.ordered_pattern_uids.is_empty() {
-                let icon_width = ui.available_width() / self.ordered_pattern_uids.len() as f32;
-                for pattern_uid in self.ordered_pattern_uids.iter() {
+            self.ordered_pattern_uids.iter().for_each(|pattern_uid| {
+                ui.vertical(|ui| {
+                    ui.set_max_width(icon_width);
                     if let Some(pattern) = self.uids_to_patterns.get_mut(pattern_uid) {
-                        let dd_id = EguiId::new("piano roll").with(pattern_uid);
-                        DragDropManager::drag_source(
-                            ui,
-                            dd_id,
-                            DragDropSource::Pattern(*pattern_uid),
-                            |ui| {
-                                ui.set_max_width(icon_width);
-                                if ui.add(icon(pattern.duration(), pattern.notes())).clicked() {
-                                    eprintln!("clicked");
-                                };
-                            },
-                        );
+                        if ui
+                            .add(icon(
+                                pattern.duration(),
+                                pattern.notes(),
+                                self.pattern_selection_set.contains(pattern_uid),
+                            ))
+                            .clicked()
+                        {
+                            self.pattern_selection_set.click(pattern_uid, false);
+                        };
                     }
-                }
-            }
-        });
+                    let dd_id = EguiId::new("piano roll").with(pattern_uid);
+                    DragDropManager::drag_source(
+                        ui,
+                        dd_id,
+                        DragDropSource::Pattern(*pattern_uid),
+                        |ui| {
+                            ui.add(draggable_icon());
+                        },
+                    );
+                });
+            });
+        })
+        .response
     }
-
-    pub fn show(&mut self, ui: &mut Ui) {
-        ui.set_min_size(ui.available_size());
-        ui.set_max_size(ui.available_size());
-        ui.label(format!(
-            "there are {} patterns",
-            self.uids_to_patterns.len()
-        ));
-        self.carousel_ui(ui);
+}
+impl Displays for PianoRoll {
+    fn ui(&mut self, ui: &mut Ui) -> Response {
+        self.ui_carousel(ui)
 
         // let (response, painter) = ui.allocate_painter(carousel_size, Sense::click_and_drag());
         // let mut shapes = Vec::default();

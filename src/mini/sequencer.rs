@@ -832,11 +832,11 @@ mod tests {
         let uid0 = s.arrange_pattern(&puid0, 1).unwrap();
         assert_eq!(s.arranged_patterns.len(), 2);
 
-        s.arranged_pattern_selection_set.click(uid1, false);
+        s.arranged_pattern_selection_set.click(&uid1, false);
         s.remove_selected_arranged_patterns();
         assert_eq!(s.arranged_patterns.len(), 1);
 
-        s.arranged_pattern_selection_set.click(uid0, false);
+        s.arranged_pattern_selection_set.click(&uid0, false);
         s.remove_selected_arranged_patterns();
         assert!(s.arranged_patterns.is_empty());
     }
@@ -854,22 +854,22 @@ mod tests {
 
         assert!(s.arranged_pattern_selection_set.is_empty());
 
-        s.arranged_pattern_selection_set.click(uid0, false);
+        s.arranged_pattern_selection_set.click(&uid0, false);
         assert_eq!(s.arranged_pattern_selection_set.len(), 1);
         assert!(s.arranged_pattern_selection_set.contains(&uid0));
         assert!(!s.arranged_pattern_selection_set.contains(&uid1));
 
-        s.arranged_pattern_selection_set.click(uid1, true);
+        s.arranged_pattern_selection_set.click(&uid1, true);
         assert_eq!(s.arranged_pattern_selection_set.len(), 2);
         assert!(s.arranged_pattern_selection_set.contains(&uid0));
         assert!(s.arranged_pattern_selection_set.contains(&uid1));
 
-        s.arranged_pattern_selection_set.click(uid1, true);
+        s.arranged_pattern_selection_set.click(&uid1, true);
         assert_eq!(s.arranged_pattern_selection_set.len(), 1);
         assert!(s.arranged_pattern_selection_set.contains(&uid0));
         assert!(!s.arranged_pattern_selection_set.contains(&uid1));
 
-        s.arranged_pattern_selection_set.click(uid1, false);
+        s.arranged_pattern_selection_set.click(&uid1, false);
         assert_eq!(s.arranged_pattern_selection_set.len(), 1);
         assert!(!s.arranged_pattern_selection_set.contains(&uid0));
         assert!(s.arranged_pattern_selection_set.contains(&uid1));

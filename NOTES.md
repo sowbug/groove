@@ -1,5 +1,11 @@
 # Notes
 
+## TODOs
+
+- Try dragging a pattern onto the sequencer and see it stamp itself into the
+  sequence. Then hover over patterns vs notes and see that you can delete a
+  pattern of notes as a group
+
 ## egui research
 
 A widget is a lightweight reusable GUI component that is intended to be

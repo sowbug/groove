@@ -24,7 +24,7 @@ pub enum DragDropSource {
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Display)]
 pub enum DragDropEvent {
-    AddDevicetoTrack(Key, TrackUid),
+    AddDeviceToTrack(Key, TrackUid),
     AddPatternToTrack(PatternUid, TrackUid, MusicalTime),
 }
 
@@ -33,6 +33,7 @@ pub enum DragDropEvent {
 #[derive(Debug, Default)]
 pub struct DragDropManager {
     source: Option<DragDropSource>,
+    events: Vec<DragDropEvent>,
 }
 #[allow(missing_docs)]
 impl DragDropManager {
@@ -48,7 +49,14 @@ impl DragDropManager {
     }
 
     pub fn enqueue_event(event: DragDropEvent) {
-        eprintln!("DnD event: {:?}", event);
+        Self::global().lock().unwrap().events.push(event);
+    }
+
+    pub fn take_and_clear_events() -> Vec<DragDropEvent> {
+        let mut drag_drop_manager = Self::global().lock().unwrap();
+        let events = drag_drop_manager.events.clone();
+        drag_drop_manager.events.clear();
+        events.into_iter().rev().collect()
     }
 
     // These two functions are based on egui_demo_lib/src/demo/drag_and_drop.rs

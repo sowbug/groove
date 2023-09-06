@@ -112,7 +112,7 @@ pub struct Orchestrator {
 }
 impl Default for Orchestrator {
     fn default() -> Self {
-        let r = Self {
+        Self {
             title: None,
             transport: TransportBuilder::default()
                 .uid(Self::TRANSPORT_UID)
@@ -127,9 +127,7 @@ impl Default for Orchestrator {
             bus_station: Default::default(),
 
             e: Default::default(),
-        };
-        r.piano_roll.write().unwrap().set_the_one();
-        r
+        }
     }
 }
 impl Orchestrator {
@@ -681,7 +679,7 @@ impl Displays for Orchestrator {
             .resizable(true)
             .max_height(total_height / 2.0)
             .show(ui.ctx(), |ui| {
-                self.piano_roll.write().unwrap().show(ui);
+                self.piano_roll.write().unwrap().ui(ui);
             });
 
         egui::CentralPanel::default()

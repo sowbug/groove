@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use std::ops::{Range, RangeInclusive};
 
 impl ControlTripBuilder {
-    fn random_trip(&mut self, start: MusicalTime) -> &mut Self {
+    fn random(&mut self, start: MusicalTime) -> &mut Self {
         let mut rng = Rng::default();
 
         let mut pos = start;
@@ -424,7 +424,7 @@ impl Default for ControlAtlas {
         };
         r.add_trip(
             ControlTripBuilder::default()
-                .random_trip(MusicalTime::START)
+                .random(MusicalTime::START)
                 .build()
                 .unwrap(),
         );
@@ -501,7 +501,7 @@ impl Displays for ControlAtlas {
                     if ui.button("Add trip").clicked() {
                         ui.close_menu();
                         let mut trip = ControlTripBuilder::default()
-                            .random_trip(MusicalTime::START)
+                            .random(MusicalTime::START)
                             .build()
                             .unwrap();
                         trip.set_uid(EntityFactory::global().mint_uid());

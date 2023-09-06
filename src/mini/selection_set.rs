@@ -66,21 +66,21 @@ impl<T: IsUid> SelectionSet<T> {
     /// it know the topology of the set, so it doesn't have any way of
     /// determining how to select all the items between two items. If this is
     /// interesting in the future, then add it.
-    pub fn click(&mut self, uid: T, modify_selection_set: bool) {
-        let is_selected = self.contains(&uid);
+    pub fn click(&mut self, uid: &T, modify_selection_set: bool) {
+        let is_selected = self.contains(uid);
         if modify_selection_set {
             // The user is holding down the control key. This means that the
             // indicated item's selection state should be toggled, but the rest
             // of the items in the set shouldn't change.
             if is_selected {
-                self.remove(&uid);
+                self.remove(uid);
             } else {
-                self.insert(uid);
+                self.insert(*uid);
             }
         } else {
             // A plain click with no modifier keys. Just select this item.
             self.clear();
-            self.insert(uid);
+            self.insert(*uid);
         }
     }
 
@@ -116,21 +116,21 @@ mod tests {
         st.clear();
         assert!(st.is_empty());
 
-        st.click(uid2048, false);
+        st.click(&uid2048, false);
         assert_eq!(st.len(), 1);
         assert!(st.contains(&uid2048));
         assert!(!st.contains(&uid2049));
 
-        st.click(uid2049, true);
+        st.click(&uid2049, true);
         assert_eq!(st.len(), 2);
         assert!(st.contains(&uid2048));
         assert!(st.contains(&uid2049));
 
-        st.click(uid2049, true);
+        st.click(&uid2049, true);
         assert!(st.contains(&uid2048));
         assert!(!st.contains(&uid2049));
 
-        st.click(uid2048, true);
+        st.click(&uid2048, true);
         assert!(st.is_empty());
 
         assert!(st.single_selection().is_none());

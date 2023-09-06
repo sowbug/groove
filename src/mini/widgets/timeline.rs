@@ -18,6 +18,7 @@ use strum_macros::FromRepr;
 
 /// Wraps a [Timeline] as an [eframe::egui::Widget]. Mutates the given view_range.
 pub fn timeline<'a>(
+    track_uid: TrackUid,
     sequencer: &'a mut ESSequencer,
     control_atlas: &'a mut ControlAtlas,
     range: Range<MusicalTime>,
@@ -25,7 +26,7 @@ pub fn timeline<'a>(
     focused: FocusedComponent,
 ) -> impl eframe::egui::Widget + 'a {
     move |ui: &mut eframe::egui::Ui| {
-        Timeline::new(sequencer, control_atlas)
+        Timeline::new(track_uid, sequencer, control_atlas)
             .range(range)
             .view_range(view_range)
             .focused(focused)
@@ -256,6 +257,8 @@ impl FocusedComponent {
 /// Draws the content area of a Timeline, which is the view of a [Track].
 #[derive(Debug)]
 struct Timeline<'a> {
+    track_uid: TrackUid,
+
     /// The full timespan of the project.
     range: Range<MusicalTime>,
 
@@ -310,10 +313,10 @@ impl<'a> Displays for Timeline<'a> {
                 if let Some(source) = DragDropManager::source() {
                     let event = match source {
                         DragDropSource::NewDevice(key) => {
-                            Some(DragDropEvent::AddDevicetoTrack(key, TrackUid(234)))
+                            Some(DragDropEvent::AddDeviceToTrack(key, self.track_uid))
                         }
                         DragDropSource::Pattern(pattern_uid) => Some(
-                            DragDropEvent::AddPatternToTrack(pattern_uid, TrackUid(345), time),
+                            DragDropEvent::AddPatternToTrack(pattern_uid, self.track_uid, time),
                         ),
                         DragDropSource::ControlTrip(_uid) => None,
                     };
@@ -329,8 +332,13 @@ impl<'a> Displays for Timeline<'a> {
     }
 }
 impl<'a> Timeline<'a> {
-    pub fn new(sequencer: &'a mut ESSequencer, control_atlas: &'a mut ControlAtlas) -> Self {
+    pub fn new(
+        track_uid: TrackUid,
+        sequencer: &'a mut ESSequencer,
+        control_atlas: &'a mut ControlAtlas,
+    ) -> Self {
         Self {
+            track_uid,
             range: Default::default(),
             view_range: Default::default(),
             focused: Default::default(),
