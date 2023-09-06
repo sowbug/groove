@@ -77,24 +77,22 @@ impl<'a> Displays for Icon<'a> {
         }
         let to_screen = RectTransform::from_to(
             eframe::epaint::Rect::from_x_y_ranges(
-                MusicalTime::START.total_beats() as f32..=self.duration.total_beats() as f32,
+                MusicalTime::START.total_parts() as f32..=self.duration.total_parts() as f32,
                 128.0..=0.0,
             ),
             rect,
         );
         for note in self.notes {
             let key = note.key as f32;
-            let p1 = to_screen * eframe::epaint::pos2(note.range.start.total_beats() as f32, key);
-            let p2 =
-                to_screen * eframe::epaint::pos2(note.range.end.total_beats() as f32, key + 1.0);
-            let p2 = if p1.x != p2.x {
-                p2
-            } else {
-                eframe::epaint::pos2(p2.x + 1.0, p2.y)
-            };
+            let p1 = to_screen * eframe::epaint::pos2(note.range.start.total_parts() as f32, key);
+            let mut p2 = to_screen * eframe::epaint::pos2(note.range.end.total_parts() as f32, key);
+
+            // Even very short notes should be visible.
+            if p1.x == p2.x {
+                p2.x += 1.0;
+            }
             ui.painter().line_segment([p1, p2], visuals.fg_stroke);
         }
-
         response
     }
 }
