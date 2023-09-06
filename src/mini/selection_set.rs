@@ -78,9 +78,12 @@ impl<T: IsUid> SelectionSet<T> {
                 self.insert(*uid);
             }
         } else {
-            // A plain click with no modifier keys. Just select this item.
+            // A plain click with no modifier keys. Just toggle this item's
+            // selection state.
             self.clear();
-            self.insert(*uid);
+            if !is_selected {
+                self.insert(*uid);
+            }
         }
     }
 
