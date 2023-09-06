@@ -8,7 +8,7 @@ use super::{
     midi_router::MidiRouter,
     piano_roll::PianoRoll,
     sequencer::Sequencer,
-    widgets::{title_bar, wiggler},
+    widgets::{placeholder, track},
     DragDropManager, DragDropSource, Key,
 };
 use anyhow::anyhow;
@@ -430,7 +430,7 @@ impl Track {
     /// Renders an audio [Track]'s arrangement view, which is an overview of some or
     /// all of the track's project timeline.
     fn ui_contents_audio(&mut self, ui: &mut Ui) {
-        ui.add(wiggler());
+        ui.add(placeholder::wiggler());
     }
 
     #[must_use]
@@ -847,7 +847,7 @@ impl Displays for Track {
                     // The `Response` is based on the title bar, so
                     // clicking/dragging on the title bar affects the `Track` as a
                     // whole.
-                    let response = ui.add(title_bar(&mut self.title.0));
+                    let response = ui.add(track::title_bar(&mut self.title.0));
 
                     // Take up all the space we're given, even if we can't fill
                     // it with widget content.

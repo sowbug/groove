@@ -16,7 +16,7 @@ use std::ops::Range;
 use strum::EnumCount;
 use strum_macros::FromRepr;
 
-/// Wraps a [Timeline] as an [eframe::egui::Widget]. Mutates the given view_range.
+/// Wraps a [Timeline] as a [Widget](eframe::egui::Widget). Mutates the given view_range.
 pub fn timeline<'a>(
     track_uid: TrackUid,
     sequencer: &'a mut ESSequencer,
@@ -34,14 +34,14 @@ pub fn timeline<'a>(
     }
 }
 
-/// Wraps a [Legend] as an [eframe::egui::Widget]. Mutates the given view_range.
+/// Wraps a [Legend] as a [Widget](eframe::egui::Widget). Mutates the given view_range.
 pub fn legend<'a>(
     view_range: &'a mut std::ops::Range<MusicalTime>,
 ) -> impl eframe::egui::Widget + 'a {
     move |ui: &mut eframe::egui::Ui| Legend::new(view_range).ui(ui)
 }
 
-/// Wraps a [Grid] as an [eframe::egui::Widget].
+/// Wraps a [Grid] as a [Widget](eframe::egui::Widget).
 pub fn grid(
     range: std::ops::Range<MusicalTime>,
     view_range: std::ops::Range<MusicalTime>,
@@ -49,7 +49,7 @@ pub fn grid(
     move |ui: &mut eframe::egui::Ui| Grid::default().range(range).view_range(view_range).ui(ui)
 }
 
-/// Wraps an [EmptySpace] as an [eframe::egui::Widget].
+/// Wraps an [EmptySpace] as a [Widget](eframe::egui::Widget).
 pub fn empty_space(
     range: std::ops::Range<MusicalTime>,
     view_range: std::ops::Range<MusicalTime>,

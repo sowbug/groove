@@ -103,6 +103,10 @@ pub enum MidiNote {
     D6 = 86,
     G9 = 127,
 }
+impl MidiNote {
+    pub const MIN: MidiNote = Self::C0;
+    pub const MAX: MidiNote = Self::G9;
+}
 
 pub fn note_to_frequency(note: u8) -> FrequencyHz {
     (2.0_f64.powf((note as ParameterType - 69.0) / 12.0) * 440.0).into()

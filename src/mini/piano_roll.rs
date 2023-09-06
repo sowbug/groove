@@ -2,13 +2,13 @@
 
 use super::{
     rng::Rng,
-    widgets::{draggable_icon, icon},
-    DragDropManager, DragDropSource, SelectionSet, UidFactory,
+    widgets::pattern::{self, grid},
+    SelectionSet, UidFactory,
 };
 use anyhow::anyhow;
 use derive_builder::Builder;
 use eframe::{
-    egui::{Id as EguiId, Response, Sense, Ui},
+    egui::{Response, Sense, Ui},
     emath::RectTransform,
     epaint::{pos2, Color32, Pos2, Rect, RectShape, Rounding, Shape, Stroke},
 };
@@ -463,48 +463,15 @@ impl PianoRoll {
         self.uids_to_patterns.get_mut(pattern_uid)
     }
 
-    fn ui_carousel(&mut self, ui: &mut Ui) -> Response {
-        ui.horizontal_top(|ui| {
-            let icon_width = ui.available_width() / self.ordered_pattern_uids.len() as f32;
-            ui.set_max_width(ui.available_width());
-            ui.set_height(64.0);
-            self.ordered_pattern_uids.iter().for_each(|pattern_uid| {
-                ui.vertical(|ui| {
-                    ui.set_max_width(icon_width);
-                    if let Some(pattern) = self.uids_to_patterns.get(pattern_uid) {
-                        if ui
-                            .add(icon(
-                                pattern.duration(),
-                                pattern.notes(),
-                                self.pattern_selection_set.contains(pattern_uid),
-                            ))
-                            .clicked()
-                        {
-                            self.pattern_selection_set.click(pattern_uid, false);
-                        };
-                    }
-                    let dd_id = EguiId::new("piano roll").with(pattern_uid);
-                    DragDropManager::drag_source(
-                        ui,
-                        dd_id,
-                        DragDropSource::Pattern(*pattern_uid),
-                        |ui| {
-                            ui.add(draggable_icon());
-                        },
-                    );
-                });
-            });
-        })
-        .response
-    }
-
     fn ui_pattern_edit(&mut self, ui: &mut Ui) -> Response {
         if let Some(pattern_uid) = self.pattern_selection_set.single_selection() {
-            ui.label(format!(
-                "I am here and the selected pattern is {pattern_uid}"
-            ));
             if let Some(pattern) = self.uids_to_patterns.get_mut(pattern_uid) {
-                return pattern.ui(ui);
+                let (_id, rect) = ui.allocate_space(ui.available_size_before_wrap());
+                ui.add_enabled_ui(false, |ui| {
+                    ui.allocate_ui_at_rect(rect, |ui| ui.add(grid(pattern.duration)))
+                        .inner
+                });
+                return ui.allocate_ui_at_rect(rect, |ui| pattern.ui(ui)).inner;
             }
         }
         ui.label("nothing selected")
@@ -513,7 +480,11 @@ impl PianoRoll {
 impl Displays for PianoRoll {
     fn ui(&mut self, ui: &mut Ui) -> Response {
         ui.vertical(|ui| {
-            self.ui_carousel(ui);
+            ui.add(pattern::carousel(
+                &self.ordered_pattern_uids,
+                &self.uids_to_patterns,
+                &mut self.pattern_selection_set,
+            ));
             self.ui_pattern_edit(ui);
         })
         .response

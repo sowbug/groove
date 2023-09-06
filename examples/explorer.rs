@@ -15,7 +15,7 @@ use groove::{
     app_version,
     mini::{
         register_factory_entities,
-        widgets::{grid, icon, legend, timeline, title_bar, wiggler, FocusedComponent},
+        widgets::{pattern, placeholder, timeline, track},
         ControlAtlas, DragDropEvent, DragDropManager, DragDropSource, ESSequencer,
         ESSequencerBuilder, Note, PatternUid, PianoRoll, Sequencer, TrackTitle, TrackUid,
     },
@@ -38,7 +38,7 @@ impl LegendSettings {
 
     fn show(&mut self, ui: &mut Ui) {
         if !self.hide {
-            ui.add(legend(&mut self.range));
+            ui.add(timeline::legend(&mut self.range));
         }
     }
 }
@@ -76,7 +76,7 @@ struct TimelineSettings {
     view_range: Range<MusicalTime>,
     control_atlas: ControlAtlas,
     sequencer: ESSequencer,
-    focused: FocusedComponent,
+    focused: timeline::FocusedComponent,
 }
 impl DisplaysInTimeline for TimelineSettings {
     fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
@@ -88,7 +88,7 @@ impl TimelineSettings {
 
     fn show(&mut self, ui: &mut Ui) {
         if !self.hide {
-            ui.add(timeline(
+            ui.add(timeline::timeline(
                 self.track_uid,
                 &mut self.sequencer,
                 &mut self.control_atlas,
@@ -148,7 +148,7 @@ impl GridSettings {
 
     fn show(&mut self, ui: &mut Ui) {
         if !self.hide {
-            ui.add(grid(self.range.clone(), self.view_range.clone()));
+            ui.add(timeline::grid(self.range.clone(), self.view_range.clone()));
         }
     }
 }
@@ -223,7 +223,7 @@ impl PatternIconSettings {
                 Id::new("pattern icon"),
                 DragDropSource::Pattern(PatternUid(99)),
                 |ui| {
-                    ui.add(icon(self.duration, &self.notes, self.is_selected));
+                    ui.add(pattern::icon(self.duration, &self.notes, self.is_selected));
                 },
             );
         }
@@ -341,7 +341,7 @@ impl TitleBarSettings {
 
     fn show(&mut self, ui: &mut Ui) {
         if !self.hide {
-            ui.add(title_bar(&mut self.title.0));
+            ui.add(track::title_bar(&mut self.title.0));
         }
     }
 }
@@ -387,7 +387,7 @@ impl WigglerSettings {
 
     fn show(&mut self, ui: &mut Ui) {
         if !self.hide {
-            ui.add(wiggler());
+            ui.add(placeholder::wiggler());
         }
     }
 }

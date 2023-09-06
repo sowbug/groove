@@ -7,7 +7,7 @@ use super::{
     selection_set::SelectionSet,
     track::{Track, TrackAction, TrackBuffer, TrackFactory, TrackTitle, TrackUiState, TrackUid},
     transport::{Transport, TransportBuilder},
-    widgets::legend,
+    widgets::timeline,
     Key,
 };
 use anyhow::anyhow;
@@ -687,7 +687,7 @@ impl Displays for Orchestrator {
                 ScrollArea::vertical()
                     .id_source("orchestrator-scroller")
                     .show(ui, |ui| {
-                        ui.add(legend(&mut view_range));
+                        ui.add(timeline::legend(&mut view_range));
                         for track_uid in self.track_uids.iter() {
                             if let Some(track) = self.tracks.get_mut(track_uid) {
                                 let track_ui_state = self

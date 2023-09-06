@@ -7,7 +7,7 @@ use eframe::{
 };
 use groove_core::traits::gui::Displays;
 
-/// Wraps a [Wiggler] as an [eframe::egui::Widget].
+/// Wraps a [Wiggler] as a [Widget](eframe::egui::Widget).
 pub fn wiggler() -> impl eframe::egui::Widget {
     move |ui: &mut eframe::egui::Ui| Wiggler::new().ui(ui)
 }
