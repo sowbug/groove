@@ -14,7 +14,7 @@ use groove_core::{
 };
 use std::ops::Range;
 use strum::EnumCount;
-use strum_macros::FromRepr;
+use strum_macros::{EnumCount, FromRepr};
 
 /// Wraps a [Timeline] as a [Widget](eframe::egui::Widget). Mutates the given view_range.
 pub fn timeline<'a>(
