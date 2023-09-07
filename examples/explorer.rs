@@ -9,6 +9,7 @@ use eframe::{
         self, warn_if_debug_build, CollapsingHeader, Id, Layout, ScrollArea, Slider, Style, Ui,
     },
     emath::Align,
+    epaint::vec2,
     CreationContext,
 };
 use groove::{
@@ -17,7 +18,8 @@ use groove::{
         register_factory_entities,
         widgets::{pattern, placeholder, timeline, track},
         ControlAtlas, DragDropEvent, DragDropManager, DragDropSource, ESSequencer,
-        ESSequencerBuilder, Note, PatternUid, PianoRoll, Sequencer, TrackTitle, TrackUid,
+        ESSequencerBuilder, Note, PatternUid, PianoRoll, Sequencer, ThingStore, TrackTitle,
+        TrackUid,
     },
     EntityFactory,
 };
@@ -25,6 +27,7 @@ use groove_core::{
     midi::MidiNote,
     time::MusicalTime,
     traits::gui::{Displays, DisplaysInTimeline},
+    Uid,
 };
 use std::ops::Range;
 
@@ -134,6 +137,103 @@ impl Displays for TimelineSettings {
             self.range.end = MusicalTime::new_with_beats(range_end);
         };
         start_response | end_response
+    }
+}
+
+/// Wraps a [DeviceChain] as a [Widget](eframe::egui::Widget). Mutates many things.
+pub fn device_chain<'a>(
+    track_uid: TrackUid,
+    store: &'a mut ThingStore,
+    controllers: &'a mut Vec<Uid>,
+    instruments: &'a mut Vec<Uid>,
+    effects: &'a mut Vec<Uid>,
+) -> impl eframe::egui::Widget + 'a {
+    move |ui: &mut eframe::egui::Ui| {
+        DeviceChain::new(track_uid, store, controllers, instruments, effects).ui(ui)
+    }
+}
+
+#[derive(Debug)]
+struct DeviceChain<'a> {
+    track_uid: TrackUid,
+    store: &'a mut ThingStore,
+    controllers: &'a mut Vec<Uid>,
+    instruments: &'a mut Vec<Uid>,
+    effects: &'a mut Vec<Uid>,
+}
+impl<'a> DeviceChain<'a> {
+    fn new(
+        track_uid: TrackUid,
+        store: &'a mut ThingStore,
+        controllers: &'a mut Vec<Uid>,
+        instruments: &'a mut Vec<Uid>,
+        effects: &'a mut Vec<Uid>,
+    ) -> Self {
+        Self {
+            track_uid,
+            store,
+            controllers,
+            instruments,
+            effects,
+        }
+    }
+}
+impl<'a> Displays for DeviceChain<'a> {
+    fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
+        ui.label("Coming soon!")
+    }
+}
+
+#[derive(Debug, Default)]
+struct DeviceChainSettings {
+    hide: bool,
+    is_large_size: bool,
+    track_uid: TrackUid,
+    store: ThingStore,
+    controllers: Vec<Uid>,
+    instruments: Vec<Uid>,
+    effects: Vec<Uid>,
+}
+impl DeviceChainSettings {
+    const NAME: &str = "Device Chain";
+
+    fn show(&mut self, ui: &mut Ui) {
+        if !self.hide {
+            ui.add(device_chain(
+                self.track_uid,
+                &mut self.store,
+                &mut self.controllers,
+                &mut self.instruments,
+                &mut self.effects,
+            ));
+        }
+    }
+}
+impl Displays for DeviceChainSettings {
+    fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
+        let desired_size = if self.is_large_size {
+            vec2(ui.available_width(), 256.0)
+        } else {
+            vec2(ui.available_width(), 32.0)
+        };
+        ui.allocate_ui(desired_size, |ui| {
+            ui.horizontal_top(|ui| {
+                for thing in self.store.iter_mut() {
+                    thing.ui(ui);
+                }
+                let response = DragDropManager::drop_target(ui, true, |ui| ui.label("+")).response;
+                if DragDropManager::is_dropped(ui, &response) {
+                    if let Some(source) = DragDropManager::source() {
+                        match source {
+                            DragDropSource::NewDevice(key) => eprintln!("new device {key}"),
+                            DragDropSource::Pattern(_) => todo!(),
+                            DragDropSource::ControlTrip(_) => todo!(),
+                        }
+                    }
+                }
+            })
+        })
+        .response
     }
 }
 
@@ -397,6 +497,7 @@ struct Explorer {
     legend: LegendSettings,
     grid: GridSettings,
     timeline: TimelineSettings,
+    device_chain: DeviceChainSettings,
     control_atlas: ControlAtlasSettings,
     sequencer: SequencerSettings,
     es_sequencer: ESSequencerSettings,
@@ -431,6 +532,7 @@ impl Explorer {
         ScrollArea::horizontal().show(ui, |ui| {
             Self::wrap_settings(LegendSettings::NAME, ui, |ui| self.legend.ui(ui));
             Self::wrap_settings(TimelineSettings::NAME, ui, |ui| self.timeline.ui(ui));
+            Self::wrap_settings(DeviceChainSettings::NAME, ui, |ui| self.device_chain.ui(ui));
             Self::wrap_settings(PianoRollSettings::NAME, ui, |ui| self.piano_roll.ui(ui));
             Self::wrap_settings(GridSettings::NAME, ui, |ui| self.grid.ui(ui));
             Self::wrap_settings(PatternIconSettings::NAME, ui, |ui| self.pattern_icon.ui(ui));
@@ -489,6 +591,10 @@ impl Explorer {
             ui.heading("Timeline");
             self.legend.show(ui);
             self.timeline.show(ui);
+
+            Self::wrap_item(DeviceChainSettings::NAME, ui, |ui| {
+                self.device_chain.show(ui)
+            });
 
             Self::wrap_item(PianoRollSettings::NAME, ui, |ui| self.piano_roll.show(ui));
 

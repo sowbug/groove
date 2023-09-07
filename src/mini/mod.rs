@@ -5,7 +5,7 @@ pub use control_atlas::{
 };
 pub use drag_drop::{DragDropEvent, DragDropManager, DragDropSource};
 pub use entities::register_factory_entities;
-pub use entity_factory::{EntityFactory, Key};
+pub use entity_factory::{EntityFactory, Key, ThingStore};
 pub use even_smaller_sequencer::{ESSequencer, ESSequencerBuilder};
 pub use orchestrator::{Orchestrator, OrchestratorAction, OrchestratorBuilder};
 pub use piano_roll::{Note, Pattern, PatternBuilder, PatternUid, PianoRoll};
