@@ -32,12 +32,14 @@ impl BusStation {
         self.send_routes.iter()
     }
 
+    #[allow(dead_code)]
     pub(crate) fn remove_send_route(&mut self, track_uid: &TrackUid, aux_track_uid: &TrackUid) {
         if let Some(routes) = self.send_routes.get_mut(&track_uid) {
             routes.retain(|route| route.aux_track_uid != *aux_track_uid);
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn remove_track_sends(&mut self, track_uid: &TrackUid) {
         self.send_routes.retain(|uid, _| track_uid != uid);
         self.send_routes.entry(*track_uid).or_default();
@@ -45,6 +47,7 @@ impl BusStation {
 
     // If we want this method to be immutable and cheap, then we can't guarantee
     // that it will return a Vec. Such is life.
+    #[allow(dead_code)]
     pub(crate) fn sends_for(&self, track_uid: &TrackUid) -> Option<&Vec<BusRoute>> {
         self.send_routes.get(track_uid)
     }
