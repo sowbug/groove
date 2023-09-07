@@ -543,7 +543,8 @@ impl eframe::App for Explorer {
         });
 
         // TODO: this is bad design because it does non-GUI processing during
-        // the update() method.
+        // the update() method. It's OK here because this is a widget explorer,
+        // not a time-critical app.
         let events = DragDropManager::take_and_clear_events();
         events.iter().for_each(|e| match e {
             DragDropEvent::AddDeviceToTrack(key, track_uid) => {
@@ -554,7 +555,6 @@ impl eframe::App for Explorer {
                     "DragDropEvent::AddPatternToTrack {pattern_uid} {track_uid} {position:?}"
                 );
                 if let Some(pattern) = self.piano_roll.piano_roll.get_pattern(pattern_uid) {
-                    eprintln!("got pattern");
                     let _ = self.timeline.sequencer.insert_pattern(pattern, *position);
                 }
             }
