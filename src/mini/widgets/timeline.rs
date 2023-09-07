@@ -192,6 +192,7 @@ pub struct EmptySpace {
     view_range: Range<MusicalTime>,
     range: Range<MusicalTime>,
 }
+#[allow(missing_docs)]
 impl EmptySpace {
     pub fn new() -> Self {
         Default::default()
@@ -281,7 +282,8 @@ impl<'a> DisplaysInTimeline for Timeline<'a> {
 impl<'a> Displays for Timeline<'a> {
     fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
         let mut from_screen = RectTransform::identity(Rect::NOTHING);
-        let response = DragDropManager::drop_target(ui, true, |ui| {
+        let can_accept = self.check_drag_source();
+        let response = DragDropManager::drop_target(ui, can_accept, |ui| {
             let desired_size = vec2(ui.available_width(), 64.0);
             let (_id, rect) = ui.allocate_space(desired_size);
             from_screen = RectTransform::from_to(
@@ -407,5 +409,17 @@ impl<'a> Timeline<'a> {
                 .inner;
         }
         response
+    }
+
+    // Looks at what's being dragged, if anything, and updates any state needed
+    // to handle it. Returns whether we are interested in this drag source.
+    fn check_drag_source(&mut self) -> bool {
+        if let Some(source) = DragDropManager::source() {
+            if matches!(source, DragDropSource::Pattern(_)) {
+                self.focused = FocusedComponent::Sequencer;
+                return true;
+            }
+        }
+        false
     }
 }
