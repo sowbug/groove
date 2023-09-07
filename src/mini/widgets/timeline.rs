@@ -14,7 +14,7 @@ use groove_core::{
 };
 use std::ops::Range;
 use strum::EnumCount;
-use strum_macros::{EnumCount, FromRepr};
+use strum_macros::{EnumCount as EnumCountMacro, FromRepr};
 
 /// Wraps a [Timeline] as a [Widget](eframe::egui::Widget). Mutates the given view_range.
 pub fn timeline<'a>(
@@ -241,7 +241,7 @@ impl Displays for EmptySpace {
     }
 }
 
-#[derive(Debug, Default, Copy, Clone, EnumCount, FromRepr)]
+#[derive(Debug, Default, Copy, Clone, EnumCountMacro, FromRepr)]
 #[allow(missing_docs)]
 pub enum FocusedComponent {
     #[default]
