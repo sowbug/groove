@@ -268,8 +268,7 @@ impl<'a> DeviceChain<'a> {
                 DragDropSource::NewDevice(key) => {
                     *self.action = Some(DeviceChainAction::NewDevice(key))
                 }
-                DragDropSource::Pattern(_) => todo!(),
-                DragDropSource::ControlTrip(_) => todo!(),
+                _ => {}
             }
         }
     }
