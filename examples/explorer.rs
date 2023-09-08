@@ -26,7 +26,10 @@ use groove::{
 use groove_core::{
     midi::MidiNote,
     time::MusicalTime,
-    traits::gui::{Displays, DisplaysInTimeline},
+    traits::{
+        gui::{Displays, DisplaysInTimeline},
+        Thing,
+    },
     Uid,
 };
 use std::ops::Range;
@@ -326,6 +329,21 @@ impl DeviceChainSettings {
 
     fn check_and_reset_action(&mut self) -> Option<DeviceChainAction> {
         self.action.take()
+    }
+
+    // This duplicates some code in Orchestrator.
+    pub fn append_thing(&mut self, thing: Box<dyn Thing>) -> anyhow::Result<Uid> {
+        let uid = thing.uid();
+        if thing.as_controller().is_some() {
+            self.controllers.push(uid);
+        }
+        if thing.as_effect().is_some() {
+            self.effects.push(uid);
+        }
+        if thing.as_instrument().is_some() {
+            self.instruments.push(uid);
+        }
+        self.store.add(thing)
     }
 }
 impl Displays for DeviceChainSettings {
@@ -755,7 +773,14 @@ impl eframe::App for Explorer {
         // the update() method. It's OK here because this is a widget explorer,
         // not a time-critical app.
         if let Some(action) = self.device_chain.check_and_reset_action() {
-            eprintln!("DeviceChainAction: {:?}", action);
+            match action {
+                DeviceChainAction::NewDevice(key) => {
+                    eprintln!("DeviceChainAction::NewDevice({key})");
+                    if let Some(thing) = EntityFactory::global().new_thing(&key) {
+                        let _ = self.device_chain.append_thing(thing);
+                    }
+                }
+            }
         }
         let events = DragDropManager::take_and_clear_events();
         events.iter().for_each(|e| match e {
