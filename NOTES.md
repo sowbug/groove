@@ -46,6 +46,16 @@ show() is more consistent (part of the Demo trait): `fn show(&mut self, ctx: &Co
 The sample custom widget (toggle) has a wrapper that implements `Widget`, but
 I'm not totally sure how it works.
 
+11 Sep 2023: an advantage of a widget is that it lives for only one frame. This
+means that if you hand it a reference, it's a lot easier to reason about its
+scope. This might mean that even components should have a "shadow widget" that
+takes (1) a mut reference to the component, and (2) whatever other references it
+needs just for drawing. The downside is that we lose the standardized Displays
+trait in things that we were calling "components," and make the app rendering
+code a little more complicated. But that complication should be exactly offset
+by the simpler setup of the component in the first place (since we no longer
+have to give the component the long-lived reference).
+
 ## painting one thing over another thing
 
 ```rust

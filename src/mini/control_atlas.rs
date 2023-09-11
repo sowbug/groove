@@ -1,28 +1,27 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::{rng::Rng, DragDropManager};
-use crate::EntityFactory;
+use super::rng::Rng;
 use derive_builder::Builder;
-use eframe::{
-    egui::{Layout, Sense, Ui},
-    emath::RectTransform,
-    epaint::{pos2, vec2, Color32, Rect, Stroke},
-};
+use eframe::egui::Ui;
 use groove_core::{
     control::ControlValue,
     time::MusicalTime,
     traits::{
         gui::{Displays, DisplaysInTimeline},
-        Configurable, ControlEventsFn, Controls, HandlesMidi, HasUid, Serializable, ThingEvent,
+        Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable, ThingEvent,
     },
     Uid,
 };
 use groove_proc_macros::{IsController, Uid};
 use serde::{Deserialize, Serialize};
-use std::ops::{Range, RangeInclusive};
+use std::{
+    ops::{Range, RangeInclusive},
+    vec::Vec,
+};
 
 impl ControlTripBuilder {
-    fn random(&mut self, start: MusicalTime) -> &mut Self {
+    /// Generates a random [ControlTrip]. For development/prototyping only.
+    pub fn random(&mut self, start: MusicalTime) -> &mut Self {
         let mut rng = Rng::default();
 
         let mut pos = start;
@@ -57,7 +56,8 @@ pub enum ControlTripPath {
     Exponential,
 }
 impl ControlTripPath {
-    fn next(&self) -> Self {
+    /// Returns the next enum, wrapping to zero if needed.
+    pub fn next(&self) -> Self {
         match self {
             ControlTripPath::None => ControlTripPath::None,
             ControlTripPath::Flat => ControlTripPath::Linear,
@@ -224,6 +224,14 @@ impl ControlTrip {
             }
         }
     }
+
+    pub(crate) fn steps(&mut self) -> &[ControlStep] {
+        &self.steps
+    }
+
+    pub(crate) fn steps_mut(&mut self) -> &mut Vec<ControlStep> {
+        &mut self.steps
+    }
 }
 impl DisplaysInTimeline for ControlTrip {
     fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
@@ -231,88 +239,8 @@ impl DisplaysInTimeline for ControlTrip {
     }
 }
 impl Displays for ControlTrip {
-    fn ui(&mut self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
-        let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click());
-        let to_screen = RectTransform::from_to(
-            Rect::from_x_y_ranges(
-                self.e.view_range.start.total_units() as f32
-                    ..=self.e.view_range.end.total_units() as f32,
-                ControlValue::MAX.0 as f32..=ControlValue::MIN.0 as f32,
-            ),
-            response.rect,
-        );
-
-        // The first step always starts at the left of the view range.
-        let mut pos = to_screen
-            * pos2(
-                MusicalTime::START.total_units() as f32,
-                if let Some(step) = self.steps.first() {
-                    step.value.0 as f32
-                } else {
-                    0.0
-                },
-            );
-        let stroke = if ui.is_enabled() {
-            ui.ctx().style().visuals.widgets.active.bg_stroke
-        } else {
-            ui.ctx().style().visuals.widgets.inactive.bg_stroke
-        };
-        let steps_len = self.steps.len();
-        self.steps.iter_mut().enumerate().for_each(|(index, step)| {
-            // Get the next step position, adjusting if it's the last one.
-            let second_pos = if index + 1 == steps_len {
-                let value = pos.y;
-                // Last step. Extend to end of view range.
-                let mut tmp_pos = to_screen * pos2(self.e.view_range.end.total_units() as f32, 0.0);
-                tmp_pos.y = value;
-                tmp_pos
-            } else {
-                // Not last step. Get the actual value.
-                to_screen * pos2(step.time.total_units() as f32, step.value.0 as f32)
-            };
-
-            // If we're hovering over this step, highlight it.
-            let stroke = if response.hovered() {
-                if let Some(hover_pos) = ui.ctx().pointer_interact_pos() {
-                    if hover_pos.x >= pos.x && hover_pos.x < second_pos.x {
-                        if response.clicked() {
-                            let from_screen = to_screen.inverse();
-                            let hover_pos_local = from_screen * hover_pos;
-                            (*step).value = ControlValue::from(hover_pos_local.y);
-                        } else if response.secondary_clicked() {
-                            step.path = step.path.next();
-                        }
-
-                        Stroke {
-                            width: stroke.width * 2.0,
-                            color: Color32::YELLOW,
-                        }
-                    } else {
-                        stroke
-                    }
-                } else {
-                    stroke
-                }
-            } else {
-                stroke
-            };
-
-            // Draw according to the step type.
-            match step.path {
-                ControlTripPath::None => {}
-                ControlTripPath::Flat => {
-                    painter.line_segment([pos, pos2(pos.x, second_pos.y)], stroke);
-                    painter.line_segment([pos2(pos.x, second_pos.y), second_pos], stroke);
-                }
-                ControlTripPath::Linear => {
-                    painter.line_segment([pos, second_pos], stroke);
-                }
-                ControlTripPath::Logarithmic => todo!(),
-                ControlTripPath::Exponential => todo!(),
-            }
-            pos = second_pos;
-        });
-        response
+    fn ui(&mut self, _ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
+        unimplemented!("Use the trip widget rather than calling this directly")
     }
 }
 impl HandlesMidi for ControlTrip {}
@@ -392,18 +320,12 @@ impl Serializable for ControlTrip {}
 #[derive(Serialize, Deserialize, Debug, Default, Builder, Clone)]
 pub struct ControlStep {
     /// The initial value of this step.
-    value: ControlValue,
+    pub value: ControlValue,
     /// When this step begins.
-    time: MusicalTime,
+    pub time: MusicalTime,
     /// How the step should progress to the next step. If this step is the last
     /// in a trip, then it's ControlPath::Flat.
-    path: ControlTripPath,
-}
-
-#[derive(Debug, Default)]
-pub struct ControlAtlasEphemerals {
-    range: Range<MusicalTime>,
-    view_range: Range<MusicalTime>,
+    pub path: ControlTripPath,
 }
 
 /// A [ControlAtlas] manages a group of [ControlTrip]s. (An atlas is a book of
@@ -412,15 +334,12 @@ pub struct ControlAtlasEphemerals {
 pub struct ControlAtlas {
     uid: Uid,
     trips: Vec<ControlTrip>,
-    #[serde(skip)]
-    e: ControlAtlasEphemerals,
 }
 impl Default for ControlAtlas {
     fn default() -> Self {
         let mut r = Self {
             uid: Default::default(),
             trips: Default::default(),
-            e: Default::default(),
         };
         r.add_trip(
             ControlTripBuilder::default()
@@ -431,95 +350,14 @@ impl Default for ControlAtlas {
         r
     }
 }
-impl DisplaysInTimeline for ControlAtlas {
-    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
-        self.e.view_range = view_range.clone();
-        self.trips.iter_mut().for_each(|t| {
-            t.set_view_range(view_range);
-        });
-    }
-}
 impl Displays for ControlAtlas {
-    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-        // This push_id() was needed to avoid an ID conflict. I think it is
-        // because we're drawing widgets on top of each other, but I'm honestly
-        // not sure.
-        ui.push_id(ui.next_auto_id(), |ui| {
-            let (_id, rect) = ui.allocate_space(vec2(ui.available_width(), 64.0));
-            let response = ui
-                .allocate_ui_at_rect(rect, |ui| {
-                    let mut remove_uid = None;
-                    self.trips.iter_mut().for_each(|trip| {
-                        ui.allocate_ui_at_rect(rect, |ui| {
-                            trip.set_view_range(&self.e.view_range);
-                            trip.ui(ui);
-
-                            // Draw the trip controls.
-                            if ui.is_enabled() {
-                                // TODO: I don't know why this isn't flush with
-                                // the right side of the component.
-                                let controls_rect = Rect::from_points(&[
-                                    rect.right_top(),
-                                    pos2(
-                                        rect.right()
-                                            - ui.ctx().style().spacing.interact_size.x * 2.0,
-                                        rect.top(),
-                                    ),
-                                ]);
-                                ui.allocate_ui_at_rect(controls_rect, |ui| {
-                                    ui.allocate_ui_with_layout(
-                                        ui.available_size(),
-                                        Layout::right_to_left(eframe::emath::Align::Center),
-                                        |ui| {
-                                            if ui.button("x").clicked() {
-                                                remove_uid = Some(trip.uid);
-                                            }
-                                            // TODO: this will be what you drag
-                                            // to things you want this trip to
-                                            // control
-                                            DragDropManager::drag_source(
-                                                ui,
-                                                ui.next_auto_id(),
-                                                super::DragDropSource::ControlTrip(trip.uid()),
-                                                |ui| {
-                                                    ui.label("S");
-                                                },
-                                            );
-                                        },
-                                    );
-                                });
-                            }
-                        });
-                    });
-                    if let Some(uid) = remove_uid {
-                        self.remove_trip(uid);
-                    }
-                })
-                .response;
-            let response = if ui.is_enabled() {
-                response.context_menu(|ui| {
-                    if ui.button("Add trip").clicked() {
-                        ui.close_menu();
-                        let mut trip = ControlTripBuilder::default()
-                            .random(MusicalTime::START)
-                            .build()
-                            .unwrap();
-                        trip.set_uid(EntityFactory::global().mint_uid());
-                        self.add_trip(trip);
-                    }
-                })
-            } else {
-                response
-            };
-            response
-        })
-        .inner
+    fn ui(&mut self, _ui: &mut Ui) -> eframe::egui::Response {
+        unimplemented!("Use the atlas widget rather than calling this directly")
     }
 }
 impl HandlesMidi for ControlAtlas {}
 impl Controls for ControlAtlas {
     fn update_time(&mut self, range: &Range<MusicalTime>) {
-        self.e.range = range.clone();
         self.trips.iter_mut().for_each(|t| t.update_time(range));
     }
 
@@ -573,8 +411,14 @@ impl ControlAtlas {
         self.trips.push(trip);
     }
 
-    fn remove_trip(&mut self, uid: Uid) {
+    /// Removes the given [ControlTrip] from this atlas.
+    pub fn remove_trip(&mut self, uid: Uid) {
         self.trips.retain(|t| t.uid != uid);
+    }
+
+    #[allow(missing_docs)]
+    pub fn trips_mut(&mut self) -> &mut Vec<ControlTrip> {
+        &mut self.trips
     }
 }
 

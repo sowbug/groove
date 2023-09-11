@@ -16,7 +16,7 @@ use groove::{
     app_version,
     mini::{
         register_factory_entities,
-        widgets::{pattern, placeholder, timeline, track},
+        widgets::{control, pattern, placeholder, timeline, track},
         ControlAtlas, DragDropEvent, DragDropManager, DragDropSource, ESSequencer,
         ESSequencerBuilder, Note, PatternUid, PianoRoll, Sequencer, ThingStore, TrackTitle,
         TrackUid,
@@ -454,6 +454,7 @@ impl PatternIconSettings {
 struct ControlAtlasSettings {
     hide: bool,
     control_atlas: ControlAtlas,
+    view_range: Range<MusicalTime>,
 }
 impl Displays for ControlAtlasSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
@@ -462,7 +463,7 @@ impl Displays for ControlAtlasSettings {
 }
 impl DisplaysInTimeline for ControlAtlasSettings {
     fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
-        self.control_atlas.set_view_range(view_range);
+        self.view_range = view_range.clone();
     }
 }
 impl ControlAtlasSettings {
@@ -470,7 +471,11 @@ impl ControlAtlasSettings {
 
     fn show(&mut self, ui: &mut Ui) {
         if !self.hide {
-            self.control_atlas.ui(ui);
+            ui.add(control::atlas(
+                &mut self.control_atlas,
+                self.view_range.clone(),
+                "TODO",
+            ));
         }
     }
 }

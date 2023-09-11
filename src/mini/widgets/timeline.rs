@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use super::control::atlas;
 use crate::mini::{
     ControlAtlas, DragDropEvent, DragDropManager, DragDropSource, ESSequencer, TrackUid,
 };
@@ -275,7 +276,6 @@ struct Timeline<'a> {
 impl<'a> DisplaysInTimeline for Timeline<'a> {
     fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
         self.view_range = view_range.clone();
-        self.control_atlas.set_view_range(view_range);
         self.sequencer.set_view_range(view_range);
     }
 }
@@ -372,8 +372,14 @@ impl<'a> Timeline<'a> {
     ) -> egui::Response {
         match component {
             FocusedComponent::ControlAtlas => {
-                ui.allocate_ui_at_rect(rect, |ui| self.control_atlas.ui(ui))
-                    .inner
+                ui.allocate_ui_at_rect(rect, |ui| {
+                    ui.add(atlas(
+                        self.control_atlas,
+                        self.view_range.clone(),
+                        "TODO - ui_focused",
+                    ))
+                })
+                .inner
             }
             FocusedComponent::Sequencer => {
                 ui.allocate_ui_at_rect(rect, |ui| self.sequencer.ui(ui))
@@ -400,7 +406,13 @@ impl<'a> Timeline<'a> {
         // Now go through and draw the components that are *not* enabled.
         if !matches!(which, FocusedComponent::ControlAtlas) {
             response |= ui
-                .allocate_ui_at_rect(rect, |ui| self.control_atlas.ui(ui))
+                .allocate_ui_at_rect(rect, |ui| {
+                    ui.add(atlas(
+                        self.control_atlas,
+                        self.view_range.clone(),
+                        "TODO - ui_not_focused",
+                    ))
+                })
                 .inner;
         }
         if !matches!(which, FocusedComponent::Sequencer) {
