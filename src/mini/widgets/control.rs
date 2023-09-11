@@ -68,18 +68,7 @@ impl<'a> Displays for Atlas<'a> {
                     let mut remove_uid = None;
                     self.control_atlas.trips_mut().iter_mut().for_each(|mut t| {
                         ui.allocate_ui_at_rect(rect, |ui| {
-                            let label =
-                                if let Some(links) = self.control_router.control_links(t.uid()) {
-                                    format!("There are {} links", links.len())
-                                } else {
-                                    String::from("no links")
-                                };
-                            ui.add(trip(
-                                &mut t,
-                                self.control_router,
-                                &label,
-                                self.view_range.clone(),
-                            ));
+                            ui.add(trip(&mut t, self.control_router, self.view_range.clone()));
 
                             // Draw the trip controls.
                             if ui.is_enabled() {
@@ -148,15 +137,9 @@ impl<'a> Displays for Atlas<'a> {
 fn trip<'a>(
     trip: &'a mut ControlTrip,
     control_router: &'a mut ControlRouter,
-
-    label: &'a str,
     view_range: Range<MusicalTime>,
 ) -> impl eframe::egui::Widget + 'a {
-    move |ui: &mut eframe::egui::Ui| {
-        Trip::new(trip, control_router, view_range)
-            .label(label)
-            .ui(ui)
-    }
+    move |ui: &mut eframe::egui::Ui| Trip::new(trip, control_router, view_range).ui(ui)
 }
 
 #[derive(Debug)]
@@ -164,7 +147,6 @@ struct Trip<'a> {
     control_trip: &'a mut ControlTrip,
     control_router: &'a mut ControlRouter,
     view_range: Range<MusicalTime>,
-    label: String,
 }
 impl<'a> Trip<'a> {
     fn new(
@@ -176,12 +158,7 @@ impl<'a> Trip<'a> {
             control_trip,
             control_router,
             view_range,
-            label: String::from("todo!()"),
         }
-    }
-    fn label(mut self, label: &str) -> Self {
-        self.label = String::from(label);
-        self
     }
 }
 impl<'a> Displays for Trip<'a> {
@@ -273,8 +250,19 @@ impl<'a> Displays for Trip<'a> {
             });
 
         if ui.is_enabled() {
+            let label =
+                if let Some(links) = self.control_router.control_links(self.control_trip.uid()) {
+                    let link_texts = links.iter().fold(Vec::default(), |mut v, (uid, index)| {
+                        // TODO: this can be a descriptive list of controlled things
+                        v.push(format!("{uid}-{index:?} "));
+                        v
+                    });
+                    link_texts.join("/")
+                } else {
+                    String::from("none")
+                };
             if ui
-                .allocate_ui_at_rect(response.rect, |ui| ui.button(&self.label))
+                .allocate_ui_at_rect(response.rect, |ui| ui.button(&label))
                 .inner
                 .clicked()
             {
