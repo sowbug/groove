@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::control::atlas;
+use super::{control::atlas, controllers::es_sequencer};
 use crate::mini::{
     ControlAtlas, DragDropEvent, DragDropManager, DragDropSource, ESSequencer, TrackUid,
 };
@@ -276,7 +276,6 @@ struct Timeline<'a> {
 impl<'a> DisplaysInTimeline for Timeline<'a> {
     fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
         self.view_range = view_range.clone();
-        self.sequencer.set_view_range(view_range);
     }
 }
 impl<'a> Displays for Timeline<'a> {
@@ -382,8 +381,10 @@ impl<'a> Timeline<'a> {
                 .inner
             }
             FocusedComponent::Sequencer => {
-                ui.allocate_ui_at_rect(rect, |ui| self.sequencer.ui(ui))
-                    .inner
+                ui.allocate_ui_at_rect(rect, |ui| {
+                    ui.add(es_sequencer(&mut self.sequencer, self.view_range.clone()))
+                })
+                .inner
             }
         }
     }
@@ -417,7 +418,9 @@ impl<'a> Timeline<'a> {
         }
         if !matches!(which, FocusedComponent::Sequencer) {
             response |= ui
-                .allocate_ui_at_rect(rect, |ui| self.sequencer.ui(ui))
+                .allocate_ui_at_rect(rect, |ui| {
+                    ui.add(es_sequencer(&mut self.sequencer, self.view_range.clone()))
+                })
                 .inner;
         }
         response

@@ -3,18 +3,11 @@
 use super::{piano_roll::Pattern, rng::Rng, Note};
 use btreemultimap::BTreeMultiMap;
 use derive_builder::Builder;
-use eframe::{
-    egui::{style::WidgetVisuals, Sense, Ui},
-    emath::RectTransform,
-    epaint::{pos2, vec2, Rect, RectShape, Shape},
-};
+use eframe::egui::Ui;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::{MusicalTime, TimeSignature},
-    traits::{
-        gui::{Displays, DisplaysInTimeline},
-        Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable,
-    },
+    traits::{gui::Displays, Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable},
     Uid,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
@@ -61,9 +54,6 @@ pub struct ESSequencerEphemerals {
     cursor: MusicalTime,
     // Whether we're performing, in the [Performs] sense.
     is_performing: bool,
-
-    // DisplaysInTimeline
-    view_range: Range<MusicalTime>,
 }
 
 /// [ESSequencer] replays [MidiMessage]s according to [MusicalTime].
@@ -157,7 +147,8 @@ impl ESSequencer {
         }
     }
 
-    fn calculate_events(&mut self) {
+    // TODO: can we reduce visibility?
+    pub(crate) fn calculate_events(&mut self) {
         self.e.events.clear();
         self.e.final_event_time = MusicalTime::START;
 
@@ -179,7 +170,7 @@ impl ESSequencer {
 
     // This method is private because callers need to remember to call
     // calculate_events() when they're done.
-    fn toggle_note(&mut self, note: Note) {
+    pub(crate) fn toggle_note(&mut self, note: Note) {
         if self.notes.contains(&note) {
             self.notes.retain(|n| n != &note);
         } else {
@@ -187,90 +178,19 @@ impl ESSequencer {
         }
     }
 
-    fn shape_for_note(
-        &self,
-        to_screen: &RectTransform,
-        visuals: &WidgetVisuals,
-        note: &Note,
-    ) -> Shape {
-        Shape::Rect(RectShape {
-            rect: Rect::from_two_pos(
-                to_screen * pos2(note.range.start.total_units() as f32, note.key as f32),
-                to_screen * pos2(note.range.end.total_units() as f32, note.key as f32),
-            ),
-            rounding: visuals.rounding,
-            fill: visuals.bg_fill,
-            stroke: visuals.fg_stroke,
-        })
+    #[allow(missing_docs)]
+    pub fn notes(&self) -> &[Note] {
+        self.notes.as_ref()
+    }
+
+    #[allow(missing_docs)]
+    pub fn patterns(&self) -> &[(MusicalTime, Pattern)] {
+        self.patterns.as_ref()
     }
 }
 impl Displays for ESSequencer {
-    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-        let response = ui
-            .allocate_ui(vec2(ui.available_width(), 64.0), |ui| {
-                let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click());
-                let x_range_f32 = self.e.view_range.start.total_units() as f32
-                    ..=self.e.view_range.end.total_units() as f32;
-                let y_range = i8::MAX as f32..=u8::MIN as f32;
-                let local_space_rect = Rect::from_x_y_ranges(x_range_f32, y_range);
-                let to_screen = RectTransform::from_to(local_space_rect, response.rect);
-                let from_screen = to_screen.inverse();
-
-                // Check whether we edited the sequence
-                if response.clicked() {
-                    if let Some(click_pos) = ui.ctx().pointer_interact_pos() {
-                        let local_pos = from_screen * click_pos;
-                        let time = MusicalTime::new_with_units(local_pos.x as usize).quantized();
-                        let key = local_pos.y as u8;
-                        let note = Note::new_with(key, time, MusicalTime::DURATION_QUARTER);
-                        eprintln!("Saw a click at {time}, note {note:?}");
-                        self.toggle_note(note);
-                        self.calculate_events();
-                    }
-                }
-
-                let visuals = if ui.is_enabled() {
-                    ui.ctx().style().visuals.widgets.active
-                } else {
-                    ui.ctx().style().visuals.widgets.inactive
-                };
-
-                // Generate all the note shapes
-                let note_shapes: Vec<Shape> = self
-                    .notes
-                    .iter()
-                    .map(|note| self.shape_for_note(&to_screen, &visuals, note))
-                    .collect();
-
-                // Generate all the pattern note shapes
-                let pattern_shapes: Vec<Shape> =
-                    self.patterns
-                        .iter()
-                        .fold(Vec::default(), |mut v, (position, pattern)| {
-                            pattern.notes().iter().for_each(|note| {
-                                let note = Note {
-                                    key: note.key,
-                                    range: (note.range.start + *position)
-                                        ..(note.range.end + *position),
-                                };
-                                v.push(self.shape_for_note(&to_screen, &visuals, &note));
-                            });
-                            v
-                        });
-
-                // Paint all the shapes
-                painter.extend(note_shapes);
-                painter.extend(pattern_shapes);
-
-                response
-            })
-            .inner;
-        response
-    }
-}
-impl DisplaysInTimeline for ESSequencer {
-    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
-        self.e.view_range = view_range.clone();
+    fn ui(&mut self, _ui: &mut Ui) -> eframe::egui::Response {
+        unimplemented!("use es_sequencer widget instead")
     }
 }
 impl HandlesMidi for ESSequencer {}

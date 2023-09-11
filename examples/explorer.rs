@@ -16,7 +16,7 @@ use groove::{
     app_version,
     mini::{
         register_factory_entities,
-        widgets::{control, pattern, placeholder, timeline, track},
+        widgets::{control, controllers::es_sequencer, pattern, placeholder, timeline, track},
         ControlAtlas, DragDropEvent, DragDropManager, DragDropSource, ESSequencer,
         ESSequencerBuilder, Note, PatternUid, PianoRoll, Sequencer, ThingStore, TrackTitle,
         TrackUid,
@@ -509,6 +509,7 @@ impl SequencerSettings {
 struct ESSequencerSettings {
     hide: bool,
     sequencer: ESSequencer,
+    view_range: Range<MusicalTime>,
 }
 impl Default for ESSequencerSettings {
     fn default() -> Self {
@@ -518,6 +519,7 @@ impl Default for ESSequencerSettings {
                 .random(MusicalTime::START..MusicalTime::new_with_beats(128))
                 .build()
                 .unwrap(),
+            view_range: Default::default(),
         }
     }
 }
@@ -529,7 +531,7 @@ impl Displays for ESSequencerSettings {
 }
 impl DisplaysInTimeline for ESSequencerSettings {
     fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
-        self.sequencer.set_view_range(view_range);
+        self.view_range = view_range.clone();
     }
 }
 impl ESSequencerSettings {
@@ -537,7 +539,7 @@ impl ESSequencerSettings {
 
     fn show(&mut self, ui: &mut Ui) {
         if !self.hide {
-            self.sequencer.ui(ui);
+            ui.add(es_sequencer(&mut self.sequencer, self.view_range.clone()));
         }
     }
 }
