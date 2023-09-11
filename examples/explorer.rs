@@ -285,9 +285,14 @@ impl<'a> Displays for DeviceChain<'a> {
         };
         ui.allocate_ui(desired_size, |ui| {
             ui.horizontal_top(|ui| {
-                for thing in self.store.iter_mut() {
-                    thing.ui(ui);
-                }
+                self.controllers
+                    .iter()
+                    .chain(self.instruments.iter().chain(self.effects.iter()))
+                    .for_each(|uid| {
+                        if let Some(entity) = self.store.get_mut(uid) {
+                            entity.ui(ui);
+                        }
+                    });
                 let response =
                     DragDropManager::drop_target(ui, self.can_accept(), |ui| ui.label("+"))
                         .response;
