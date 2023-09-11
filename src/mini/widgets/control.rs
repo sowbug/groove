@@ -278,6 +278,9 @@ impl<'a> Displays for Trip<'a> {
                 .inner
                 .clicked()
             {
+                // TODO: this is incomplete. It's a placeholder while I figure
+                // out the best way to present this information (it might
+                // actually be DnD rather than menu-driven).
                 self.control_router.link_control(
                     self.control_trip.uid(),
                     Uid(234),
