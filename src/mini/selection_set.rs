@@ -1,9 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use std::collections::{hash_set::Iter, HashSet};
-
 use groove_core::IsUid;
 use serde::{Deserialize, Serialize};
+use std::collections::{hash_set::Iter, HashSet};
 
 /// A utility class to help manage selection sets of things that implement the
 /// [IsUid] trait.
