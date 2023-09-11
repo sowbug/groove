@@ -1,5 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+/// Contains widgets that help visualize audio.
+pub mod audio;
+
 /// Contains widgets related to automation/control.
 pub mod control;
 

@@ -6,7 +6,8 @@
 use anyhow::anyhow;
 use eframe::{
     egui::{
-        self, warn_if_debug_build, CollapsingHeader, Id, Layout, ScrollArea, Slider, Style, Ui,
+        self, warn_if_debug_build, CollapsingHeader, DragValue, Id, Layout, ScrollArea, Slider,
+        Style, Ui,
     },
     emath::Align,
     epaint::vec2,
@@ -16,7 +17,9 @@ use groove::{
     app_version,
     mini::{
         register_factory_entities,
-        widgets::{control, controllers::es_sequencer, pattern, placeholder, timeline, track},
+        widgets::{
+            audio, control, controllers::es_sequencer, pattern, placeholder, timeline, track,
+        },
         ControlAtlas, ControlRouter, DragDropEvent, DragDropManager, DragDropSource, ESSequencer,
         ESSequencerBuilder, Note, PatternUid, PianoRoll, Sequencer, ThingStore, TrackTitle,
         TrackUid,
@@ -30,7 +33,7 @@ use groove_core::{
         gui::{Displays, DisplaysInTimeline},
         Thing,
     },
-    Uid,
+    Sample, Uid,
 };
 use std::ops::Range;
 
@@ -623,6 +626,47 @@ impl WigglerSettings {
     }
 }
 
+#[derive(Debug)]
+struct TimeDomainSettings {
+    hide: bool,
+    max_width: f32,
+    max_height: f32,
+    samples: [Sample; 256],
+    cursor: usize,
+}
+impl Default for TimeDomainSettings {
+    fn default() -> Self {
+        Self {
+            hide: Default::default(),
+            max_width: 128.0,
+            max_height: 64.0,
+            samples: audio::TimeDomain::init_random_samples(),
+            cursor: Default::default(),
+        }
+    }
+}
+impl Displays for TimeDomainSettings {
+    fn ui(&mut self, ui: &mut Ui) -> egui::Response {
+        ui.checkbox(&mut self.hide, "Hide")
+            | ui.add(DragValue::new(&mut self.max_width).prefix("width: "))
+            | ui.add(DragValue::new(&mut self.max_height).prefix("height: "))
+    }
+}
+impl TimeDomainSettings {
+    const NAME: &str = "Audio Time Domain";
+
+    fn show(&mut self, ui: &mut Ui) {
+        if !self.hide {
+            ui.scope(|ui| {
+                ui.set_max_width(self.max_width);
+                ui.set_max_height(self.max_height);
+                ui.add(audio::time_domain(&self.samples, self.cursor));
+                self.cursor += 1;
+            });
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 struct Explorer {
     legend: LegendSettings,
@@ -637,6 +681,7 @@ struct Explorer {
     title_bar: TitleBarSettings,
     piano_roll: PianoRollSettings,
     wiggler: WigglerSettings,
+    time_domain: TimeDomainSettings,
 }
 impl Explorer {
     pub const NAME: &str = "Explorer";
@@ -662,6 +707,7 @@ impl Explorer {
 
     fn show_left(&mut self, ui: &mut Ui) {
         ScrollArea::horizontal().show(ui, |ui| {
+            Self::wrap_settings(TimeDomainSettings::NAME, ui, |ui| self.time_domain.ui(ui));
             Self::wrap_settings(LegendSettings::NAME, ui, |ui| self.legend.ui(ui));
             Self::wrap_settings(TimelineSettings::NAME, ui, |ui| self.timeline.ui(ui));
             Self::wrap_settings(DevicePaletteSettings::NAME, ui, |ui| {
@@ -722,6 +768,8 @@ impl Explorer {
             self.grid.set_view_range(&self.legend.range);
             self.sequencer.set_view_range(&self.legend.range);
             self.es_sequencer.set_view_range(&self.legend.range);
+
+            Self::wrap_item(TimeDomainSettings::NAME, ui, |ui| self.time_domain.show(ui));
 
             ui.heading("Timeline");
             self.legend.show(ui);
