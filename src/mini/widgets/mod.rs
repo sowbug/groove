@@ -6,6 +6,9 @@ pub mod control;
 /// Contains widgets that support Controller views.
 pub mod controllers;
 
+/// Various widgets used throughout the system.
+pub mod core;
+
 /// Contains widgets related to [Pattern](crate::mini::piano_roll::Pattern)s and
 /// [PianoRoll](crate::mini::piano_roll::PianoRoll).
 pub mod pattern;

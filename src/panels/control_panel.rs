@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::mini::Transport;
+use crate::mini::{widgets::core::transport, Transport};
 use eframe::egui::{DragValue, Ui};
 use groove_core::{
     time::PerfectTimeUnit,
@@ -38,6 +38,8 @@ pub enum ControlPanelAction {
 #[derive(Debug, Default)]
 pub struct ControlPanel {
     /// A local cached copy of [Transport].
+    // TODO: this is awful. I think it goes away when we factor out ui() and
+    // make it into a temp reference
     transport_copy: Transport,
 }
 impl ControlPanel {
@@ -45,7 +47,7 @@ impl ControlPanel {
     pub fn show_with_action(&mut self, ui: &mut Ui) -> Option<ControlPanelAction> {
         let mut action = None;
         ui.horizontal_centered(|ui| {
-            self.transport_copy.ui(ui);
+            ui.add(transport(&mut self.transport_copy));
             if ui.button("play").clicked() {
                 action = Some(ControlPanelAction::Play);
             }

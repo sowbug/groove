@@ -1,11 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use derive_builder::Builder;
-use eframe::{
-    egui::{Label, Layout, RichText, TextStyle, Ui},
-    emath::Align,
-    epaint::vec2,
-};
+use eframe::egui::Ui;
 use groove_core::{
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
     traits::{gui::Displays, Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable},
@@ -40,7 +36,7 @@ pub struct Transport {
     /// The current beats per minute.
     #[control]
     #[builder(default)]
-    tempo: Tempo,
+    pub(crate) tempo: Tempo,
 
     #[serde(skip)]
     #[builder(setter(skip))]
@@ -96,24 +92,8 @@ impl Transport {
     }
 }
 impl Displays for Transport {
-    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-        ui.allocate_ui(vec2(72.0, 20.0), |ui| {
-            ui.set_min_width(128.0);
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.add(Label::new(
-                    RichText::new(format!("{:0.2}", self.tempo)).text_style(TextStyle::Monospace),
-                ));
-            });
-        })
-        .response
-            | ui.allocate_ui(vec2(72.0, 20.0), |ui| {
-                ui.set_min_width(128.0);
-                ui.add(Label::new(
-                    RichText::new(format!("{}", self.e.current_time))
-                        .text_style(TextStyle::Monospace),
-                ));
-            })
-            .response
+    fn ui(&mut self, _ui: &mut Ui) -> eframe::egui::Response {
+        unimplemented!("use transport widget instead")
     }
 }
 impl Serializable for Transport {}

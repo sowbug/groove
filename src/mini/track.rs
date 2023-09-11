@@ -8,7 +8,7 @@ use super::{
     midi_router::MidiRouter,
     piano_roll::PianoRoll,
     sequencer::Sequencer,
-    widgets::{placeholder, track},
+    widgets::{control, placeholder, track},
     DragDropManager, DragDropSource, Key,
 };
 use anyhow::anyhow;
@@ -878,7 +878,11 @@ impl Displays for Track {
                                         TrackType::Audio => self.ui_contents_audio(ui),
                                         _ => panic!(),
                                     }
-                                    self.control_atlas.ui(ui);
+                                    ui.add(control::atlas(
+                                        &mut self.control_atlas,
+                                        self.e.view_range.clone(),
+                                        "todo Track::ui()",
+                                    ));
                                 });
                         }
 
