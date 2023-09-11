@@ -880,8 +880,8 @@ impl Displays for Track {
                                     }
                                     ui.add(control::atlas(
                                         &mut self.control_atlas,
+                                        &mut self.control_router,
                                         self.e.view_range.clone(),
-                                        "todo Track::ui()",
                                     ));
                                 });
                         }

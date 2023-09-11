@@ -2,62 +2,53 @@
 
 use crate::{
     mini::{
-        ControlAtlas, ControlTrip, ControlTripBuilder, ControlTripPath, DragDropManager,
-        DragDropSource,
+        control_router::ControlRouter, ControlAtlas, ControlTrip, ControlTripBuilder,
+        ControlTripPath, DragDropManager, DragDropSource,
     },
     EntityFactory,
 };
 use eframe::{
     egui::{self, Layout, Sense},
-    emath::{Align2, RectTransform},
-    epaint::{pos2, vec2, Color32, FontId, Rect, Stroke},
+    emath::RectTransform,
+    epaint::{pos2, vec2, Color32, Rect, Stroke},
 };
 use groove_core::{
-    control::ControlValue,
+    control::{ControlIndex, ControlValue},
     time::MusicalTime,
     traits::{
         gui::{Displays, DisplaysInTimeline},
         HasUid,
     },
+    Uid,
 };
 use std::ops::Range;
 
 /// Wraps a [ControlAtlas] as a [Widget](eframe::egui::Widget).
 pub fn atlas<'a>(
     control_atlas: &'a mut ControlAtlas,
-    view_range: Range<MusicalTime>,
-    label: &'a str,
-) -> impl eframe::egui::Widget + 'a {
-    move |ui: &mut eframe::egui::Ui| Atlas::new(control_atlas, view_range).label(label).ui(ui)
-}
-
-/// Wraps a [ControlTrip] as a [Widget](eframe::egui::Widget).
-fn trip<'a>(
-    trip: &'a mut ControlTrip,
-    label: &'a str,
+    control_router: &'a mut ControlRouter,
     view_range: Range<MusicalTime>,
 ) -> impl eframe::egui::Widget + 'a {
-    move |ui: &mut eframe::egui::Ui| Trip::new(trip, view_range).label(label).ui(ui)
+    move |ui: &mut eframe::egui::Ui| Atlas::new(control_atlas, control_router, view_range).ui(ui)
 }
 
 #[derive(Debug)]
 struct Atlas<'a> {
     control_atlas: &'a mut ControlAtlas,
+    control_router: &'a mut ControlRouter,
     view_range: Range<MusicalTime>,
-    label: String,
 }
 impl<'a> Atlas<'a> {
-    fn new(control_atlas: &'a mut ControlAtlas, view_range: Range<MusicalTime>) -> Self {
+    fn new(
+        control_atlas: &'a mut ControlAtlas,
+        control_router: &'a mut ControlRouter,
+        view_range: Range<MusicalTime>,
+    ) -> Self {
         Self {
             control_atlas,
+            control_router,
             view_range,
-            label: String::from("todo!()"),
         }
-    }
-
-    fn label(mut self, label: &str) -> Self {
-        self.label = String::from(label);
-        self
     }
 }
 impl<'a> DisplaysInTimeline for Atlas<'a> {
@@ -77,8 +68,18 @@ impl<'a> Displays for Atlas<'a> {
                     let mut remove_uid = None;
                     self.control_atlas.trips_mut().iter_mut().for_each(|mut t| {
                         ui.allocate_ui_at_rect(rect, |ui| {
-                            let label = format!("{} {}", self.label, t.uid());
-                            ui.add(trip(&mut t, &label, self.view_range.clone()));
+                            let label =
+                                if let Some(links) = self.control_router.control_links(t.uid()) {
+                                    format!("There are {} links", links.len())
+                                } else {
+                                    String::from("no links")
+                                };
+                            ui.add(trip(
+                                &mut t,
+                                self.control_router,
+                                &label,
+                                self.view_range.clone(),
+                            ));
 
                             // Draw the trip controls.
                             if ui.is_enabled() {
@@ -143,16 +144,37 @@ impl<'a> Displays for Atlas<'a> {
     }
 }
 
+/// Wraps a [ControlTrip] as a [Widget](eframe::egui::Widget).
+fn trip<'a>(
+    trip: &'a mut ControlTrip,
+    control_router: &'a mut ControlRouter,
+
+    label: &'a str,
+    view_range: Range<MusicalTime>,
+) -> impl eframe::egui::Widget + 'a {
+    move |ui: &mut eframe::egui::Ui| {
+        Trip::new(trip, control_router, view_range)
+            .label(label)
+            .ui(ui)
+    }
+}
+
 #[derive(Debug)]
 struct Trip<'a> {
     control_trip: &'a mut ControlTrip,
+    control_router: &'a mut ControlRouter,
     view_range: Range<MusicalTime>,
     label: String,
 }
 impl<'a> Trip<'a> {
-    fn new(control_trip: &'a mut ControlTrip, view_range: Range<MusicalTime>) -> Self {
+    fn new(
+        control_trip: &'a mut ControlTrip,
+        control_router: &'a mut ControlRouter,
+        view_range: Range<MusicalTime>,
+    ) -> Self {
         Self {
             control_trip,
+            control_router,
             view_range,
             label: String::from("todo!()"),
         }
@@ -250,13 +272,19 @@ impl<'a> Displays for Trip<'a> {
                 pos = second_pos;
             });
 
-        painter.text(
-            response.rect.left_top(),
-            Align2::LEFT_TOP,
-            self.label.clone(),
-            FontId::proportional(9.0),
-            ui.ctx().style().visuals.text_color(),
-        );
+        if ui.is_enabled() {
+            if ui
+                .allocate_ui_at_rect(response.rect, |ui| ui.button(&self.label))
+                .inner
+                .clicked()
+            {
+                self.control_router.link_control(
+                    self.control_trip.uid(),
+                    Uid(234),
+                    ControlIndex(456),
+                );
+            }
+        }
 
         response
     }

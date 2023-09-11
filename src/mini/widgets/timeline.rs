@@ -2,7 +2,8 @@
 
 use super::{control::atlas, controllers::es_sequencer};
 use crate::mini::{
-    ControlAtlas, DragDropEvent, DragDropManager, DragDropSource, ESSequencer, TrackUid,
+    control_router::ControlRouter, ControlAtlas, DragDropEvent, DragDropManager, DragDropSource,
+    ESSequencer, TrackUid,
 };
 use eframe::{
     egui::{self, vec2, Response, Ui},
@@ -22,12 +23,13 @@ pub fn timeline<'a>(
     track_uid: TrackUid,
     sequencer: &'a mut ESSequencer,
     control_atlas: &'a mut ControlAtlas,
+    control_router: &'a mut ControlRouter,
     range: Range<MusicalTime>,
     view_range: Range<MusicalTime>,
     focused: FocusedComponent,
 ) -> impl eframe::egui::Widget + 'a {
     move |ui: &mut eframe::egui::Ui| {
-        Timeline::new(track_uid, sequencer, control_atlas)
+        Timeline::new(track_uid, sequencer, control_atlas, control_router)
             .range(range)
             .view_range(view_range)
             .focused(focused)
@@ -271,6 +273,7 @@ struct Timeline<'a> {
     focused: FocusedComponent,
 
     control_atlas: &'a mut ControlAtlas,
+    control_router: &'a mut ControlRouter,
     sequencer: &'a mut ESSequencer,
 }
 impl<'a> DisplaysInTimeline for Timeline<'a> {
@@ -337,6 +340,7 @@ impl<'a> Timeline<'a> {
         track_uid: TrackUid,
         sequencer: &'a mut ESSequencer,
         control_atlas: &'a mut ControlAtlas,
+        control_router: &'a mut ControlRouter,
     ) -> Self {
         Self {
             track_uid,
@@ -345,6 +349,7 @@ impl<'a> Timeline<'a> {
             focused: Default::default(),
             sequencer,
             control_atlas,
+            control_router,
         }
     }
     fn range(mut self, range: Range<MusicalTime>) -> Self {
@@ -374,8 +379,8 @@ impl<'a> Timeline<'a> {
                 ui.allocate_ui_at_rect(rect, |ui| {
                     ui.add(atlas(
                         self.control_atlas,
+                        self.control_router,
                         self.view_range.clone(),
-                        "TODO - ui_focused",
                     ))
                 })
                 .inner
@@ -410,8 +415,8 @@ impl<'a> Timeline<'a> {
                 .allocate_ui_at_rect(rect, |ui| {
                     ui.add(atlas(
                         self.control_atlas,
+                        self.control_router,
                         self.view_range.clone(),
-                        "TODO - ui_not_focused",
                     ))
                 })
                 .inner;

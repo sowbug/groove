@@ -17,7 +17,7 @@ use groove::{
     mini::{
         register_factory_entities,
         widgets::{control, controllers::es_sequencer, pattern, placeholder, timeline, track},
-        ControlAtlas, DragDropEvent, DragDropManager, DragDropSource, ESSequencer,
+        ControlAtlas, ControlRouter, DragDropEvent, DragDropManager, DragDropSource, ESSequencer,
         ESSequencerBuilder, Note, PatternUid, PianoRoll, Sequencer, ThingStore, TrackTitle,
         TrackUid,
     },
@@ -81,6 +81,7 @@ struct TimelineSettings {
     range: Range<MusicalTime>,
     view_range: Range<MusicalTime>,
     control_atlas: ControlAtlas,
+    control_router: ControlRouter,
     sequencer: ESSequencer,
     focused: timeline::FocusedComponent,
 }
@@ -98,6 +99,7 @@ impl TimelineSettings {
                 self.track_uid,
                 &mut self.sequencer,
                 &mut self.control_atlas,
+                &mut self.control_router,
                 self.range.clone(),
                 self.view_range.clone(),
                 self.focused,
@@ -117,6 +119,7 @@ impl Default for TimelineSettings {
             range: MusicalTime::START..MusicalTime::new_with_beats(128),
             view_range: MusicalTime::START..MusicalTime::new_with_beats(128),
             control_atlas: Default::default(),
+            control_router: Default::default(),
             sequencer,
             focused: Default::default(),
         }
@@ -454,6 +457,7 @@ impl PatternIconSettings {
 struct ControlAtlasSettings {
     hide: bool,
     control_atlas: ControlAtlas,
+    control_router: ControlRouter,
     view_range: Range<MusicalTime>,
 }
 impl Displays for ControlAtlasSettings {
@@ -473,8 +477,8 @@ impl ControlAtlasSettings {
         if !self.hide {
             ui.add(control::atlas(
                 &mut self.control_atlas,
+                &mut self.control_router,
                 self.view_range.clone(),
-                "TODO",
             ));
         }
     }
