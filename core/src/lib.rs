@@ -174,6 +174,12 @@ impl From<BipolarNormal> for Sample {
         Sample(value.0)
     }
 }
+impl From<Normal> for Sample {
+    fn from(value: Normal) -> Self {
+        let as_bipolar_normal: BipolarNormal = value.into();
+        Sample::from(as_bipolar_normal)
+    }
+}
 
 // TODO: I'm not convinced this is useful.
 /// [MonoSample] is a single-channel sample. It exists separately from [Sample]

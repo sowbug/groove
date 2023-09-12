@@ -18,7 +18,10 @@ use groove::{
     mini::{
         register_factory_entities,
         widgets::{
-            audio, control, controllers::es_sequencer, pattern, placeholder, timeline, track,
+            audio::{self, CircularSampleBuffer},
+            control,
+            controllers::es_sequencer,
+            pattern, placeholder, timeline, track,
         },
         ControlAtlas, ControlRouter, DragDropEvent, DragDropManager, DragDropSource, ESSequencer,
         ESSequencerBuilder, Note, PatternUid, PianoRoll, Sequencer, ThingStore, TrackTitle,
@@ -618,8 +621,7 @@ struct TimeDomainSettings {
     hide: bool,
     max_width: f32,
     max_height: f32,
-    samples: SampleClip,
-    cursor: usize,
+    buffer: CircularSampleBuffer,
 }
 impl Default for TimeDomainSettings {
     fn default() -> Self {
@@ -627,8 +629,7 @@ impl Default for TimeDomainSettings {
             hide: Default::default(),
             max_width: 128.0,
             max_height: 64.0,
-            samples: Default::default(),
-            cursor: Default::default(),
+            buffer: CircularSampleBuffer::new(256),
         }
     }
 }
@@ -644,12 +645,13 @@ impl TimeDomainSettings {
     const NAME: &str = "Audio Time Domain";
 
     fn show(&mut self, ui: &mut Ui) {
+        self.buffer.add_some_noise();
         if !self.hide {
             ui.scope(|ui| {
                 ui.set_max_width(self.max_width);
                 ui.set_max_height(self.max_height);
-                ui.add(audio::time_domain(&self.samples.0, self.cursor));
-                self.cursor += 1;
+                let (buffer, cursor) = self.buffer.get();
+                ui.add(audio::time_domain(buffer, cursor));
             });
         }
     }
@@ -660,7 +662,7 @@ struct FrequencyDomainSettings {
     hide: bool,
     max_width: f32,
     max_height: f32,
-    samples: SampleClip,
+    buffer: CircularSampleBuffer,
 }
 impl Default for FrequencyDomainSettings {
     fn default() -> Self {
@@ -668,7 +670,7 @@ impl Default for FrequencyDomainSettings {
             hide: Default::default(),
             max_width: 128.0,
             max_height: 64.0,
-            samples: Default::default(),
+            buffer: CircularSampleBuffer::new(256),
         }
     }
 }
@@ -683,11 +685,13 @@ impl FrequencyDomainSettings {
     const NAME: &str = "Audio Frequency Domain";
 
     fn show(&mut self, ui: &mut Ui) {
+        self.buffer.add_some_noise();
         if !self.hide {
             ui.scope(|ui| {
                 ui.set_max_width(self.max_width);
                 ui.set_max_height(self.max_height);
-                ui.add(audio::frequency_domain(&self.samples.0));
+                let (buffer, _) = self.buffer.get();
+                ui.add(audio::frequency_domain(buffer));
             });
         }
     }

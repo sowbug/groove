@@ -46,7 +46,7 @@ rayon = "1.7"
 regex = "1.7"
 serde = { version = "1.0", features = ["derive", "rc"], optional = true }
 serde_json = "1.0"
-spectrum-analyzer = { version = "1.2", optional = true }
+spectrum-analyzer = { version = "1.2" }
 strum = "0.25"
 strum_macros = "0.25"
 typetag = "0.2"
@@ -103,15 +103,15 @@ egui-framework = [
     "groove-core/egui-framework",
     "groove-egui",
     "groove-entities/egui-framework",
-    "groove-orchestration/egui-framework"
+    "groove-orchestration/egui-framework",
 ]
 serialization = [
     "serde",
     "groove-core/serialization",
     "groove-entities/serialization",
-    "groove-orchestration/serialization"
+    "groove-orchestration/serialization",
 ]
-visualization = ["dep:plotters", "dep:spectrum-analyzer"]
+visualization = ["dep:plotters"]
 
 [build-dependencies]
 clap_mangen = "0.2.12"
@@ -121,7 +121,7 @@ clap = { version = "4.0", features = ["derive"] }
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
     "apt -qq update",
-    "apt -y install pkg-config libfontconfig-dev:$CROSS_DEB_ARCH libasound2-dev:$CROSS_DEB_ARCH"
+    "apt -y install pkg-config libfontconfig-dev:$CROSS_DEB_ARCH libasound2-dev:$CROSS_DEB_ARCH",
 ]
 # See https://github.com/iced-rs/iced/blob/master/Cross.toml
 image = "ghcr.io/iced-rs/aarch64:latest"
@@ -131,7 +131,7 @@ xargo = false
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
     "apt -qq update",
-    "apt -y install pkg-config libfontconfig-dev:$CROSS_DEB_ARCH libasound2-dev:$CROSS_DEB_ARCH"
+    "apt -y install pkg-config libfontconfig-dev:$CROSS_DEB_ARCH libasound2-dev:$CROSS_DEB_ARCH",
 ]
 # See https://github.com/iced-rs/iced/blob/master/Cross.toml
 image = "ghcr.io/iced-rs/armv7:latest"
