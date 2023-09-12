@@ -1,3 +1,6 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
+use crate::core_crate_name;
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
@@ -6,8 +9,6 @@ use syn::{
     parse_macro_input, Attribute, Data, DataStruct, DeriveInput, Fields, Ident, Lit, Meta,
     NestedMeta,
 };
-
-use crate::core_crate_name;
 
 // TODO: see
 // https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=03943d1dfbf41bd63878bfccb1c64670
