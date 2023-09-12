@@ -23,7 +23,7 @@ pub(crate) fn transform_linear_to_mma_convex(linear_value: f64) -> f64 {
 #[cfg(test)]
 pub mod tests {
     use crate::{
-        entities::Entity,
+        entities::EntityObsolete,
         tests::DEFAULT_MIDI_TICKS_PER_SECOND,
         util::{transform_linear_to_mma_concave, transform_linear_to_mma_convex},
         Orchestrator,
@@ -56,10 +56,10 @@ pub mod tests {
         o.update_sample_rate(SampleRate::DEFAULT);
 
         // A simple audio source.
-        let synth_uid = o.add(Entity::DebugSynth(Box::new(DebugSynth::new())));
+        let synth_uid = o.add(EntityObsolete::DebugSynth(Box::new(DebugSynth::new())));
 
         // A simple effect.
-        let effect_uid = o.add(Entity::ToyEffect(Box::new(ToyEffect::default())));
+        let effect_uid = o.add(EntityObsolete::ToyEffect(Box::new(ToyEffect::default())));
 
         // Connect the audio's output to the effect's input.
         assert!(o.patch(synth_uid, effect_uid).is_ok());
@@ -68,12 +68,14 @@ pub mod tests {
         let _ = o.connect_to_main_mixer(effect_uid);
 
         // Run the main loop for a while.
-        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
-            duration: MusicalTimeParams {
-                units: MusicalTime::beats_to_units(4),
-                ..Default::default()
+        let _ = o.add(EntityObsolete::Timer(Box::new(Timer::new_with(
+            &TimerParams {
+                duration: MusicalTimeParams {
+                    units: MusicalTime::beats_to_units(4),
+                    ..Default::default()
+                },
             },
-        }))));
+        ))));
 
         // Gather the audio output.
         let mut sample_buffer = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
@@ -108,23 +110,25 @@ pub mod tests {
         o.update_sample_rate(SampleRate::DEFAULT);
 
         // The synth's frequency is modulated by the LFO.
-        let synth_1_uid = o.add(Entity::DebugSynth(Box::new(DebugSynth::new())));
+        let synth_1_uid = o.add(EntityObsolete::DebugSynth(Box::new(DebugSynth::new())));
         let lfo = LfoController::new_with(&LfoControllerParams {
             waveform: Waveform::Sine,
             frequency: FrequencyHz::from(2.0),
         });
-        let lfo_uid = o.add(Entity::LfoController(Box::new(lfo)));
+        let lfo_uid = o.add(EntityObsolete::LfoController(Box::new(lfo)));
         let _ = o.link_control_by_name(lfo_uid, synth_1_uid, "oscillator");
 
         // We'll hear the synth's audio output.
         let _ = o.connect_to_main_mixer(synth_1_uid);
 
-        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
-            duration: MusicalTimeParams {
-                units: MusicalTime::beats_to_units(4),
-                ..Default::default()
+        let _ = o.add(EntityObsolete::Timer(Box::new(Timer::new_with(
+            &TimerParams {
+                duration: MusicalTimeParams {
+                    units: MusicalTime::beats_to_units(4),
+                    ..Default::default()
+                },
             },
-        }))));
+        ))));
 
         // Gather the audio output.
         let mut sample_buffer = [StereoSample::SILENCE; 12];
@@ -157,19 +161,18 @@ pub mod tests {
         o.update_sample_rate(SampleRate::DEFAULT);
 
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
-        let instrument_uid = o.add(Entity::ToyInstrument(Box::new(ToyInstrument::new_with(
-            &ToyInstrumentParams {
+        let instrument_uid = o.add(EntityObsolete::ToyInstrument(Box::new(
+            ToyInstrument::new_with(&ToyInstrumentParams {
                 fake_value: Normal::from(0.34598),
                 dca: DcaParams {
                     gain: Default::default(),
                     pan: Default::default(),
                 },
-            },
-        ))));
-        let arpeggiator_uid = o.add(Entity::ToyController(Box::new(ToyController::new_with(
-            &ToyControllerParams {},
-            TEST_MIDI_CHANNEL,
-        ))));
+            }),
+        )));
+        let arpeggiator_uid = o.add(EntityObsolete::ToyController(Box::new(
+            ToyController::new_with(&ToyControllerParams {}, TEST_MIDI_CHANNEL),
+        )));
 
         // We'll hear the instrument.
         assert!(o.connect_to_main_mixer(instrument_uid).is_ok());
@@ -179,12 +182,14 @@ pub mod tests {
         o.connect_midi_downstream(instrument_uid, TEST_MIDI_CHANNEL);
         o.connect_midi_downstream(arpeggiator_uid, ARP_MIDI_CHANNEL);
 
-        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
-            duration: MusicalTimeParams {
-                units: MusicalTime::beats_to_units(4),
-                ..Default::default()
+        let _ = o.add(EntityObsolete::Timer(Box::new(Timer::new_with(
+            &TimerParams {
+                duration: MusicalTimeParams {
+                    units: MusicalTime::beats_to_units(4),
+                    ..Default::default()
+                },
             },
-        }))));
+        ))));
 
         // Everything is hooked up. Let's run it and hear what we got.
         let mut sample_buffer = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
@@ -271,11 +276,11 @@ pub mod tests {
         o.update_sample_rate(SampleRate::DEFAULT);
 
         // A simple audio source.
-        let entity_groove = Entity::DebugSynth(Box::new(DebugSynth::new()));
+        let entity_groove = EntityObsolete::DebugSynth(Box::new(DebugSynth::new()));
         let synth_uid = o.add(entity_groove);
 
         // A simple effect.
-        let effect_uid = o.add(Entity::ToyEffect(Box::new(ToyEffect::default())));
+        let effect_uid = o.add(EntityObsolete::ToyEffect(Box::new(ToyEffect::default())));
 
         // Connect the audio's output to the effect's input.
         assert!(o.patch(synth_uid, effect_uid).is_ok());
@@ -284,12 +289,14 @@ pub mod tests {
         let _ = o.connect_to_main_mixer(effect_uid);
 
         // Run the main loop for a while.
-        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
-            duration: MusicalTimeParams {
-                units: MusicalTime::beats_to_units(4),
-                ..Default::default()
+        let _ = o.add(EntityObsolete::Timer(Box::new(Timer::new_with(
+            &TimerParams {
+                duration: MusicalTimeParams {
+                    units: MusicalTime::beats_to_units(4),
+                    ..Default::default()
+                },
             },
-        }))));
+        ))));
 
         // Gather the audio output.
         let mut sample_buffer = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];

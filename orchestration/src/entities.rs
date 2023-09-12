@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-//! An [Entity] wraps a musical device, giving it the ability to be managed by
+//! An [EntityObsolete] wraps a musical device, giving it the ability to be managed by
 //! [crate::Orchestrator] and automated by other devices in the system.
 
 #[cfg(feature = "iced-framework")]

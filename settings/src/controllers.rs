@@ -7,7 +7,7 @@ use groove_entities::controllers::{
     LfoController, LfoControllerParams, MidiChannelParams, SignalPassthroughController,
     ToyController, ToyControllerParams,
 };
-use groove_orchestration::Entity;
+use groove_orchestration::EntityObsolete;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "iced-framework")]
@@ -124,7 +124,7 @@ impl ControllerSettings {
     pub(crate) fn instantiate(
         &self,
         load_only_test_entities: bool,
-    ) -> (MidiChannel, MidiChannel, Entity) {
+    ) -> (MidiChannel, MidiChannel, EntityObsolete) {
         if load_only_test_entities {
             let (midi_input_channel, midi_output_channel) = match self {
                 ControllerSettings::Test(
@@ -166,7 +166,7 @@ impl ControllerSettings {
             return (
                 *midi_input_channel,
                 *midi_output_channel,
-                Entity::ToyController(Box::new(ToyController::new_with(
+                EntityObsolete::ToyController(Box::new(ToyController::new_with(
                     &ToyControllerParams {},
                     *midi_output_channel,
                 ))),
@@ -176,7 +176,7 @@ impl ControllerSettings {
             ControllerSettings::Test(midi) => (
                 midi.midi_in,
                 midi.midi_out,
-                Entity::ToyController(Box::new(ToyController::new_with(
+                EntityObsolete::ToyController(Box::new(ToyController::new_with(
                     &ToyControllerParams {},
                     midi.midi_out,
                 ))),
@@ -184,22 +184,27 @@ impl ControllerSettings {
             ControllerSettings::Arpeggiator(midi, params) => (
                 midi.midi_in,
                 midi.midi_out,
-                Entity::Arpeggiator(Box::new(Arpeggiator::new_with(&params, midi.midi_out))),
+                EntityObsolete::Arpeggiator(Box::new(Arpeggiator::new_with(
+                    &params,
+                    midi.midi_out,
+                ))),
             ),
             ControllerSettings::LfoController(midi, params) => (
                 midi.midi_in,
                 midi.midi_out,
-                Entity::LfoController(Box::new(LfoController::new_with(&params))),
+                EntityObsolete::LfoController(Box::new(LfoController::new_with(&params))),
             ),
             ControllerSettings::SignalPassthroughController(midi) => (
                 midi.midi_in,
                 midi.midi_out,
-                Entity::SignalPassthroughController(Box::new(SignalPassthroughController::new())),
+                EntityObsolete::SignalPassthroughController(Box::new(
+                    SignalPassthroughController::new(),
+                )),
             ),
             ControllerSettings::Calculator(midi, _params) => (
                 midi.midi_in,
                 midi.midi_out,
-                Entity::Integrated(Box::new(Calculator::default())),
+                EntityObsolete::Integrated(Box::new(Calculator::default())),
             ),
         }
     }

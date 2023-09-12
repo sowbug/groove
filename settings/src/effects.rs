@@ -10,7 +10,7 @@ use groove_entities::effects::{
     BitcrusherParams, Chorus, ChorusParams, Compressor, CompressorParams, Delay, DelayParams, Gain,
     GainParams, Limiter, LimiterParams, Mixer, MixerParams, Reverb, ReverbParams,
 };
-use groove_orchestration::Entity;
+use groove_orchestration::EntityObsolete;
 use groove_toys::{ToyEffect, ToyEffectParams};
 use serde::{Deserialize, Serialize};
 
@@ -57,55 +57,63 @@ pub enum EffectSettings {
 }
 
 impl EffectSettings {
-    pub(crate) fn instantiate(&self, load_only_test_entities: bool) -> Entity {
+    pub(crate) fn instantiate(&self, load_only_test_entities: bool) -> EntityObsolete {
         if load_only_test_entities {
-            return Entity::ToyEffect(Box::new(ToyEffect::default()));
+            return EntityObsolete::ToyEffect(Box::new(ToyEffect::default()));
         }
         match self {
             EffectSettings::Toy(params) => {
-                Entity::ToyEffect(Box::new(ToyEffect::new_with(&params)))
+                EntityObsolete::ToyEffect(Box::new(ToyEffect::new_with(&params)))
             }
-            EffectSettings::Mixer(params) => Entity::Mixer(Box::new(Mixer::new_with(&params))),
+            EffectSettings::Mixer(params) => {
+                EntityObsolete::Mixer(Box::new(Mixer::new_with(&params)))
+            }
             EffectSettings::Limiter(params) => {
-                Entity::Limiter(Box::new(Limiter::new_with(&params)))
+                EntityObsolete::Limiter(Box::new(Limiter::new_with(&params)))
             }
-            EffectSettings::Gain(params) => Entity::Gain(Box::new(Gain::new_with(&params))),
+            EffectSettings::Gain(params) => EntityObsolete::Gain(Box::new(Gain::new_with(&params))),
             EffectSettings::Bitcrusher(params) => {
-                Entity::Bitcrusher(Box::new(Bitcrusher::new_with(&params)))
+                EntityObsolete::Bitcrusher(Box::new(Bitcrusher::new_with(&params)))
             }
             EffectSettings::Compressor(params) => {
-                Entity::Compressor(Box::new(Compressor::new_with(&params)))
+                EntityObsolete::Compressor(Box::new(Compressor::new_with(&params)))
             }
-            EffectSettings::FilterLowPass12db(params) => Entity::BiQuadFilterLowPass12db(Box::new(
-                BiQuadFilterLowPass12db::new_with(&params),
-            )),
-            EffectSettings::FilterLowPass24db(params) => Entity::BiQuadFilterLowPass24db(Box::new(
-                BiQuadFilterLowPass24db::new_with(&params),
-            )),
-            EffectSettings::FilterHighPass12db(params) => {
-                Entity::BiQuadFilterHighPass(Box::new(BiQuadFilterHighPass::new_with(&params)))
+            EffectSettings::FilterLowPass12db(params) => EntityObsolete::BiQuadFilterLowPass12db(
+                Box::new(BiQuadFilterLowPass12db::new_with(&params)),
+            ),
+            EffectSettings::FilterLowPass24db(params) => EntityObsolete::BiQuadFilterLowPass24db(
+                Box::new(BiQuadFilterLowPass24db::new_with(&params)),
+            ),
+            EffectSettings::FilterHighPass12db(params) => EntityObsolete::BiQuadFilterHighPass(
+                Box::new(BiQuadFilterHighPass::new_with(&params)),
+            ),
+            EffectSettings::FilterBandPass12db(params) => EntityObsolete::BiQuadFilterBandPass(
+                Box::new(BiQuadFilterBandPass::new_with(&params)),
+            ),
+            EffectSettings::FilterBandStop12db(params) => EntityObsolete::BiQuadFilterBandStop(
+                Box::new(BiQuadFilterBandStop::new_with(&params)),
+            ),
+            EffectSettings::FilterAllPass12db(params) => EntityObsolete::BiQuadFilterAllPass(
+                Box::new(BiQuadFilterAllPass::new_with(&params)),
+            ),
+            EffectSettings::FilterPeakingEq12db(params) => EntityObsolete::BiQuadFilterPeakingEq(
+                Box::new(BiQuadFilterPeakingEq::new_with(&params)),
+            ),
+            EffectSettings::FilterLowShelf12db(params) => EntityObsolete::BiQuadFilterLowShelf(
+                Box::new(BiQuadFilterLowShelf::new_with(&params)),
+            ),
+            EffectSettings::FilterHighShelf12db(params) => EntityObsolete::BiQuadFilterHighShelf(
+                Box::new(BiQuadFilterHighShelf::new_with(&params)),
+            ),
+            EffectSettings::Delay(params) => {
+                EntityObsolete::Delay(Box::new(Delay::new_with(&params)))
             }
-            EffectSettings::FilterBandPass12db(params) => {
-                Entity::BiQuadFilterBandPass(Box::new(BiQuadFilterBandPass::new_with(&params)))
+            EffectSettings::Reverb(params) => {
+                EntityObsolete::Reverb(Box::new(Reverb::new_with(&params)))
             }
-            EffectSettings::FilterBandStop12db(params) => {
-                Entity::BiQuadFilterBandStop(Box::new(BiQuadFilterBandStop::new_with(&params)))
+            EffectSettings::Chorus(params) => {
+                EntityObsolete::Chorus(Box::new(Chorus::new_with(&params)))
             }
-            EffectSettings::FilterAllPass12db(params) => {
-                Entity::BiQuadFilterAllPass(Box::new(BiQuadFilterAllPass::new_with(&params)))
-            }
-            EffectSettings::FilterPeakingEq12db(params) => {
-                Entity::BiQuadFilterPeakingEq(Box::new(BiQuadFilterPeakingEq::new_with(&params)))
-            }
-            EffectSettings::FilterLowShelf12db(params) => {
-                Entity::BiQuadFilterLowShelf(Box::new(BiQuadFilterLowShelf::new_with(&params)))
-            }
-            EffectSettings::FilterHighShelf12db(params) => {
-                Entity::BiQuadFilterHighShelf(Box::new(BiQuadFilterHighShelf::new_with(&params)))
-            }
-            EffectSettings::Delay(params) => Entity::Delay(Box::new(Delay::new_with(&params))),
-            EffectSettings::Reverb(params) => Entity::Reverb(Box::new(Reverb::new_with(&params))),
-            EffectSettings::Chorus(params) => Entity::Chorus(Box::new(Chorus::new_with(&params))),
         }
     }
 }

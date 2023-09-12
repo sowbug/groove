@@ -7,7 +7,7 @@
 //! An audio engine designed to support a DAW (digital audio workstation).
 //!
 //! ```
-//! # use groove::{Entity, OldOrchestrator};
+//! # use groove::{EntityObsolete, OldOrchestrator};
 //! # use groove_core::{
 //! #     generators::{EnvelopeParams, Waveform},
 //! #     midi::{MidiChannel, new_note_off, new_note_on},
@@ -71,9 +71,9 @@
 //! orchestrator.update_sample_rate(SampleRate::DEFAULT);
 //!
 //! // Each "entity" has an ID that is used to connect them.
-//! let synth_id = orchestrator.add(Entity::ToySynth(Box::new(synth)));
-//! let _sequencer_id = orchestrator.add(Entity::Sequencer(Box::new(sequencer)));
-//! let compressor_id = orchestrator.add(Entity::Compressor(Box::new(compressor)));
+//! let synth_id = orchestrator.add(EntityObsolete::ToySynth(Box::new(synth)));
+//! let _sequencer_id = orchestrator.add(EntityObsolete::Sequencer(Box::new(sequencer)));
+//! let compressor_id = orchestrator.add(EntityObsolete::Compressor(Box::new(compressor)));
 //!
 //! // The synth's output goes to the compressor's input, and then the
 //! // compressor's output goes to the main mixer.
@@ -94,7 +94,7 @@
 //! ```
 
 #[deprecated]
-pub use groove_orchestration::{Entity, Orchestrator as OldOrchestrator};
+pub use groove_orchestration::{EntityObsolete, Orchestrator as OldOrchestrator};
 
 pub use mini::EntityFactory;
 pub use mini::Orchestrator;

@@ -5,7 +5,7 @@
 //! system.
 
 // pub use entities::{Entity, EntityParams};
-pub use entities::Entity;
+pub use entities::EntityObsolete;
 pub use orchestrator::{Orchestrator, Performance};
 
 #[cfg(feature = "iced-framework")]

@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use crate::{
-    entities::Entity,
+    entities::EntityObsolete,
     messages::{ControlLink, GrooveEvent, GrooveInput, Internal, Response},
 };
 use anyhow::anyhow;
@@ -55,7 +55,7 @@ impl Performance {
     }
 }
 
-/// [Orchestrator] manages all [Entities](Entity) (controllers, effects, and
+/// [Orchestrator] manages all [Entities](EntityObsolete) (controllers, effects, and
 /// instruments). It also manages their virtual patch cables, virtual MIDI
 /// cables, and control relationships. When you're ready to render a song, it
 /// creates a stream of [StereoSample]s that can be fed to the computer's sound
@@ -124,7 +124,7 @@ impl Orchestrator {
             .insert(uid, self.metrics.bucket.timer(name.as_str()));
     }
 
-    fn add_with_optional_uvid(&mut self, mut entity: Entity, uvid: Option<&str>) -> Uid {
+    fn add_with_optional_uvid(&mut self, mut entity: EntityObsolete, uvid: Option<&str>) -> Uid {
         #[cfg(feature = "metrics")]
         self.metrics.entity_count.mark();
 
@@ -139,15 +139,15 @@ impl Orchestrator {
         uid
     }
 
-    pub fn add(&mut self, entity: Entity) -> Uid {
+    pub fn add(&mut self, entity: EntityObsolete) -> Uid {
         self.add_with_optional_uvid(entity, None)
     }
 
-    pub fn add_with_uvid(&mut self, entity: Entity, uvid: &str) -> Uid {
+    pub fn add_with_uvid(&mut self, entity: EntityObsolete, uvid: &str) -> Uid {
         self.add_with_optional_uvid(entity, Some(uvid))
     }
 
-    pub fn entity_iter(&self) -> std::collections::hash_map::Iter<Uid, Entity> {
+    pub fn entity_iter(&self) -> std::collections::hash_map::Iter<Uid, EntityObsolete> {
         self.store.iter()
     }
 
@@ -155,21 +155,21 @@ impl Orchestrator {
         self.store.flattened_control_links()
     }
 
-    pub fn get(&self, uid: Uid) -> Option<&Entity> {
+    pub fn get(&self, uid: Uid) -> Option<&EntityObsolete> {
         self.store.get(uid)
     }
 
-    pub fn get_mut(&mut self, uid: Uid) -> Option<&mut Entity> {
+    pub fn get_mut(&mut self, uid: Uid) -> Option<&mut EntityObsolete> {
         self.store.get_mut(uid)
     }
 
     #[allow(dead_code)]
-    pub(crate) fn get_by_uvid(&self, uvid: &str) -> Option<&Entity> {
+    pub(crate) fn get_by_uvid(&self, uvid: &str) -> Option<&EntityObsolete> {
         self.store.get_by_uvid(uvid)
     }
 
     #[allow(dead_code)]
-    pub(crate) fn get_by_uvid_mut(&mut self, uvid: &str) -> Option<&mut Entity> {
+    pub(crate) fn get_by_uvid_mut(&mut self, uvid: &str) -> Option<&mut EntityObsolete> {
         self.store.get_by_uvid_mut(uvid)
     }
 
@@ -548,15 +548,15 @@ impl Orchestrator {
             gui: Default::default(),
         };
         r.main_mixer_uid = r.add_with_uvid(
-            Entity::Mixer(Box::new(Mixer::default())),
+            EntityObsolete::Mixer(Box::new(Mixer::default())),
             Self::MAIN_MIXER_UVID,
         );
         r.pattern_manager_uid = r.add_with_uvid(
-            Entity::PatternManager(Box::new(PatternManager::default())),
+            EntityObsolete::PatternManager(Box::new(PatternManager::default())),
             Self::PATTERN_MANAGER_UVID,
         );
         r.sequencer_uid = r.add_with_uvid(
-            Entity::Sequencer(Box::new(Sequencer::new_with(&SequencerParams {
+            EntityObsolete::Sequencer(Box::new(Sequencer::new_with(&SequencerParams {
                 bpm: r.bpm(),
             }))),
             Self::BEAT_SEQUENCER_UVID,
@@ -564,7 +564,7 @@ impl Orchestrator {
         if false {
             // See https://github.com/sowbug/groove/issues/127. This is clunky
             r.metronome_uid = r.add_with_uvid(
-                Entity::Metronome(Box::new(Metronome::new_with(&MetronomeParams {
+                EntityObsolete::Metronome(Box::new(Metronome::new_with(&MetronomeParams {
                     bpm: r.bpm(),
                 }))),
                 Self::METRONOME_UVID,
@@ -1052,7 +1052,7 @@ impl Configurable for Orchestrator {
 }
 #[cfg(feature = "egui-framework")]
 mod gui {
-    use crate::{entities::Entity, Orchestrator};
+    use crate::{entities::EntityObsolete, Orchestrator};
     use eframe::{
         egui::{CollapsingHeader, Frame, Layout, Margin, RichText, Ui},
         emath::Align,
@@ -1209,136 +1209,136 @@ mod gui {
     }
 
     #[allow(unused_variables)]
-    fn show_for_entity(entity: &mut Entity, ui: &mut Ui) {
+    fn show_for_entity(entity: &mut EntityObsolete, ui: &mut Ui) {
         match entity {
-            Entity::Arpeggiator(e) => {
+            EntityObsolete::Arpeggiator(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::BiQuadFilterAllPass(e) => {
+            EntityObsolete::BiQuadFilterAllPass(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::BiQuadFilterBandPass(e) => {
+            EntityObsolete::BiQuadFilterBandPass(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::BiQuadFilterBandStop(e) => {
+            EntityObsolete::BiQuadFilterBandStop(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::BiQuadFilterHighPass(e) => {
+            EntityObsolete::BiQuadFilterHighPass(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::BiQuadFilterHighShelf(e) => {
+            EntityObsolete::BiQuadFilterHighShelf(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::BiQuadFilterLowPass12db(e) => {
+            EntityObsolete::BiQuadFilterLowPass12db(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::BiQuadFilterLowPass24db(e) => {
+            EntityObsolete::BiQuadFilterLowPass24db(e) => {
                 e.ui(ui);
             }
-            Entity::BiQuadFilterLowShelf(e) => {
+            EntityObsolete::BiQuadFilterLowShelf(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::BiQuadFilterNone(e) => {
+            EntityObsolete::BiQuadFilterNone(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::BiQuadFilterPeakingEq(e) => {
+            EntityObsolete::BiQuadFilterPeakingEq(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::Bitcrusher(e) => {
+            EntityObsolete::Bitcrusher(e) => {
                 e.ui(ui);
             }
-            Entity::Chorus(e) => {
+            EntityObsolete::Chorus(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::Clock(e) => {
+            EntityObsolete::Clock(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::Compressor(e) => {
+            EntityObsolete::Compressor(e) => {
                 e.ui(ui);
             }
-            Entity::ControlTrip(e) => {
+            EntityObsolete::ControlTrip(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::DebugSynth(e) => {
+            EntityObsolete::DebugSynth(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::Delay(e) => {
+            EntityObsolete::Delay(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::Drumkit(e) => {
+            EntityObsolete::Drumkit(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::FmSynth(e) => {
+            EntityObsolete::FmSynth(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::Gain(e) => {
+            EntityObsolete::Gain(e) => {
                 e.ui(ui);
             }
-            Entity::LfoController(e) => {
+            EntityObsolete::LfoController(e) => {
                 e.ui(ui);
             }
-            Entity::Limiter(e) => {
+            EntityObsolete::Limiter(e) => {
                 e.ui(ui);
             }
-            Entity::Metronome(e) => {
+            EntityObsolete::Metronome(e) => {
                 e.ui(ui);
             }
-            Entity::Mixer(e) => {
+            EntityObsolete::Mixer(e) => {
                 e.ui(ui);
             }
-            Entity::PatternManager(e) => {
+            EntityObsolete::PatternManager(e) => {
                 e.ui(ui);
             }
-            Entity::Reverb(e) => {
+            EntityObsolete::Reverb(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::Sampler(e) => {
+            EntityObsolete::Sampler(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::Sequencer(e) => {
+            EntityObsolete::Sequencer(e) => {
                 e.ui(ui);
             }
-            Entity::SignalPassthroughController(e) => {
+            EntityObsolete::SignalPassthroughController(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::Timer(e) => {
+            EntityObsolete::Timer(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::ToyAudioSource(e) => {
+            EntityObsolete::ToyAudioSource(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::ToyController(e) => {
+            EntityObsolete::ToyController(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::ToyEffect(e) => {
+            EntityObsolete::ToyEffect(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::ToyInstrument(e) => {
+            EntityObsolete::ToyInstrument(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::ToySynth(e) => {
+            EntityObsolete::ToySynth(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::Trigger(e) => {
+            EntityObsolete::Trigger(e) => {
                 ui.label(entity.as_has_uid().name());
             }
-            Entity::WelshSynth(e) => {
+            EntityObsolete::WelshSynth(e) => {
                 e.ui(ui);
             }
-            Entity::Integrated(e) => {
+            EntityObsolete::Integrated(e) => {
                 e.ui(ui);
             }
         }
     }
 }
 
-/// Keeps all [Entity] in one place, and manages their relationships, such as
+/// Keeps all [EntityObsolete] in one place, and manages their relationships, such as
 /// patch cables.
 #[derive(Debug, Default)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub(crate) struct Store {
     last_uid: Uid,
-    uid_to_item: FxHashMap<Uid, Entity>,
+    uid_to_item: FxHashMap<Uid, EntityObsolete>,
 
     /// Linked controls (one entity controls another entity's parameter)
     uid_to_control: FxHashMap<Uid, Vec<(Uid, ControlIndex)>>,
@@ -1357,7 +1357,7 @@ pub(crate) struct Store {
 }
 
 impl Store {
-    pub(crate) fn add(&mut self, uvid: Option<&str>, mut entity: Entity) -> Uid {
+    pub(crate) fn add(&mut self, uvid: Option<&str>, mut entity: EntityObsolete) -> Uid {
         let uid = self.get_next_uid();
         entity.as_has_uid_mut().set_uid(uid);
 
@@ -1368,15 +1368,15 @@ impl Store {
         uid
     }
 
-    pub(crate) fn get(&self, uid: Uid) -> Option<&Entity> {
+    pub(crate) fn get(&self, uid: Uid) -> Option<&EntityObsolete> {
         self.uid_to_item.get(&uid)
     }
 
-    pub fn get_mut(&mut self, uid: Uid) -> Option<&mut Entity> {
+    pub fn get_mut(&mut self, uid: Uid) -> Option<&mut EntityObsolete> {
         self.uid_to_item.get_mut(&uid)
     }
 
-    pub(crate) fn get_by_uvid(&self, uvid: &str) -> Option<&Entity> {
+    pub(crate) fn get_by_uvid(&self, uvid: &str) -> Option<&EntityObsolete> {
         if let Some(uid) = self.uvid_to_uid.get(uvid) {
             self.uid_to_item.get(uid)
         } else {
@@ -1384,7 +1384,7 @@ impl Store {
         }
     }
 
-    pub(crate) fn get_by_uvid_mut(&mut self, uvid: &str) -> Option<&mut Entity> {
+    pub(crate) fn get_by_uvid_mut(&mut self, uvid: &str) -> Option<&mut EntityObsolete> {
         if let Some(uid) = self.uvid_to_uid.get(uvid) {
             self.uid_to_item.get_mut(uid)
         } else {
@@ -1396,16 +1396,18 @@ impl Store {
         self.uvid_to_uid.get(uvid).copied()
     }
 
-    pub fn iter(&self) -> std::collections::hash_map::Iter<Uid, Entity> {
+    pub fn iter(&self) -> std::collections::hash_map::Iter<Uid, EntityObsolete> {
         self.uid_to_item.iter()
     }
 
     #[allow(dead_code)]
-    pub(crate) fn values(&self) -> std::collections::hash_map::Values<Uid, Entity> {
+    pub(crate) fn values(&self) -> std::collections::hash_map::Values<Uid, EntityObsolete> {
         self.uid_to_item.values()
     }
 
-    pub(crate) fn values_mut(&mut self) -> std::collections::hash_map::ValuesMut<Uid, Entity> {
+    pub(crate) fn values_mut(
+        &mut self,
+    ) -> std::collections::hash_map::ValuesMut<Uid, EntityObsolete> {
         self.uid_to_item.values_mut()
     }
 
@@ -1548,7 +1550,7 @@ impl Configurable for Store {
 pub mod tests {
     use super::Orchestrator;
     use crate::{
-        entities::Entity,
+        entities::EntityObsolete,
         tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
     };
     use groove_core::{
@@ -1603,12 +1605,12 @@ pub mod tests {
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
-        let level_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            &ToyAudioSourceParams { level: 0.1 },
-        ))));
-        let level_2_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            &ToyAudioSourceParams { level: 0.2 },
-        ))));
+        let level_1_uid = o.add(EntityObsolete::ToyAudioSource(Box::new(
+            ToyAudioSource::new_with(&ToyAudioSourceParams { level: 0.1 }),
+        )));
+        let level_2_uid = o.add(EntityObsolete::ToyAudioSource(Box::new(
+            ToyAudioSource::new_with(&ToyAudioSourceParams { level: 0.2 }),
+        )));
 
         // Nothing connected: should output silence.
         let mut samples: [StereoSample; 1] = Default::default();
@@ -1638,21 +1640,23 @@ pub mod tests {
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
-        let level_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            &ToyAudioSourceParams { level: 0.1 },
+        let level_1_uid = o.add(EntityObsolete::ToyAudioSource(Box::new(
+            ToyAudioSource::new_with(&ToyAudioSourceParams { level: 0.1 }),
+        )));
+        let gain_1_uid = o.add(EntityObsolete::Gain(Box::new(Gain::new_with(
+            &GainParams {
+                ceiling: Normal::new(0.5),
+            },
         ))));
-        let gain_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(&GainParams {
-            ceiling: Normal::new(0.5),
-        }))));
-        let level_2_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            &ToyAudioSourceParams { level: 0.2 },
-        ))));
-        let level_3_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            &ToyAudioSourceParams { level: 0.3 },
-        ))));
-        let level_4_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            &ToyAudioSourceParams { level: 0.4 },
-        ))));
+        let level_2_uid = o.add(EntityObsolete::ToyAudioSource(Box::new(
+            ToyAudioSource::new_with(&ToyAudioSourceParams { level: 0.2 }),
+        )));
+        let level_3_uid = o.add(EntityObsolete::ToyAudioSource(Box::new(
+            ToyAudioSource::new_with(&ToyAudioSourceParams { level: 0.3 }),
+        )));
+        let level_4_uid = o.add(EntityObsolete::ToyAudioSource(Box::new(
+            ToyAudioSource::new_with(&ToyAudioSourceParams { level: 0.4 }),
+        )));
 
         // Nothing connected: should output silence.
         let mut samples: [StereoSample; 1] = Default::default();
@@ -1709,33 +1713,41 @@ pub mod tests {
             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
-        let piano_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            &ToyAudioSourceParams { level: 0.1 },
+        let piano_1_uid = o.add(EntityObsolete::ToyAudioSource(Box::new(
+            ToyAudioSource::new_with(&ToyAudioSourceParams { level: 0.1 }),
+        )));
+        let low_pass_1_uid = o.add(EntityObsolete::Gain(Box::new(Gain::new_with(
+            &GainParams {
+                ceiling: Normal::new(0.2),
+            },
         ))));
-        let low_pass_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(&GainParams {
-            ceiling: Normal::new(0.2),
-        }))));
-        let gain_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(&GainParams {
-            ceiling: Normal::new(0.4),
-        }))));
+        let gain_1_uid = o.add(EntityObsolete::Gain(Box::new(Gain::new_with(
+            &GainParams {
+                ceiling: Normal::new(0.4),
+            },
+        ))));
 
-        let bassline_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            &ToyAudioSourceParams { level: 0.3 },
+        let bassline_uid = o.add(EntityObsolete::ToyAudioSource(Box::new(
+            ToyAudioSource::new_with(&ToyAudioSourceParams { level: 0.3 }),
+        )));
+        let gain_2_uid = o.add(EntityObsolete::Gain(Box::new(Gain::new_with(
+            &GainParams {
+                ceiling: Normal::new(0.6),
+            },
         ))));
-        let gain_2_uid = o.add(Entity::Gain(Box::new(Gain::new_with(&GainParams {
-            ceiling: Normal::new(0.6),
-        }))));
 
-        let synth_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            &ToyAudioSourceParams { level: 0.5 },
+        let synth_1_uid = o.add(EntityObsolete::ToyAudioSource(Box::new(
+            ToyAudioSource::new_with(&ToyAudioSourceParams { level: 0.5 }),
+        )));
+        let gain_3_uid = o.add(EntityObsolete::Gain(Box::new(Gain::new_with(
+            &GainParams {
+                ceiling: Normal::new(0.8),
+            },
         ))));
-        let gain_3_uid = o.add(Entity::Gain(Box::new(Gain::new_with(&GainParams {
-            ceiling: Normal::new(0.8),
-        }))));
 
-        let drum_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            &ToyAudioSourceParams { level: 0.7 },
-        ))));
+        let drum_1_uid = o.add(EntityObsolete::ToyAudioSource(Box::new(
+            ToyAudioSource::new_with(&ToyAudioSourceParams { level: 0.7 }),
+        )));
 
         // First chain.
         assert!(o
@@ -1804,18 +1816,20 @@ pub mod tests {
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         o.update_sample_rate(SampleRate::DEFAULT);
-        let instrument_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            &ToyAudioSourceParams { level: 0.1 },
+        let instrument_1_uid = o.add(EntityObsolete::ToyAudioSource(Box::new(
+            ToyAudioSource::new_with(&ToyAudioSourceParams { level: 0.1 }),
+        )));
+        let instrument_2_uid = o.add(EntityObsolete::ToyAudioSource(Box::new(
+            ToyAudioSource::new_with(&ToyAudioSourceParams { level: 0.3 }),
+        )));
+        let instrument_3_uid = o.add(EntityObsolete::ToyAudioSource(Box::new(
+            ToyAudioSource::new_with(&ToyAudioSourceParams { level: 0.5 }),
+        )));
+        let effect_1_uid = o.add(EntityObsolete::Gain(Box::new(Gain::new_with(
+            &GainParams {
+                ceiling: Normal::new(0.5),
+            },
         ))));
-        let instrument_2_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            &ToyAudioSourceParams { level: 0.3 },
-        ))));
-        let instrument_3_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            &ToyAudioSourceParams { level: 0.5 },
-        ))));
-        let effect_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(&GainParams {
-            ceiling: Normal::new(0.5),
-        }))));
 
         assert!(o.patch_chain_to_main_mixer(&[instrument_1_uid]).is_ok());
         assert!(o.patch_chain_to_main_mixer(&[effect_1_uid]).is_ok());
@@ -1835,12 +1849,14 @@ pub mod tests {
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         o.update_sample_rate(SampleRate::DEFAULT);
-        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
-            duration: MusicalTimeParams {
-                units: MusicalTime::beats_to_units(4),
-                ..Default::default()
+        let _ = o.add(EntityObsolete::Timer(Box::new(Timer::new_with(
+            &TimerParams {
+                duration: MusicalTimeParams {
+                    units: MusicalTime::beats_to_units(4),
+                    ..Default::default()
+                },
             },
-        }))));
+        ))));
 
         // Prime number
         let mut sample_buffer = [StereoSample::SILENCE; 17];
@@ -1857,9 +1873,11 @@ pub mod tests {
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         o.update_sample_rate(SampleRate::DEFAULT);
-        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
-            duration: MusicalTimeParams::default(),
-        }))));
+        let _ = o.add(EntityObsolete::Timer(Box::new(Timer::new_with(
+            &TimerParams {
+                duration: MusicalTimeParams::default(),
+            },
+        ))));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples) = o.run(&mut sample_buffer) {
             assert_eq!(samples.len(), 0);
@@ -1877,9 +1895,11 @@ pub mod tests {
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         o.update_sample_rate(SampleRate::DEFAULT);
-        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
-            duration: MusicalTimeParams::default(), // TODO see ignore
-        }))));
+        let _ = o.add(EntityObsolete::Timer(Box::new(Timer::new_with(
+            &TimerParams {
+                duration: MusicalTimeParams::default(), // TODO see ignore
+            },
+        ))));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples) = o.run(&mut sample_buffer) {
             assert_eq!(samples.len(), 1);
@@ -1898,12 +1918,14 @@ pub mod tests {
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         o.update_sample_rate(SampleRate::new(24000));
-        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
-            duration: MusicalTimeParams {
-                units: MusicalTime::beats_to_units(4),
-                ..Default::default()
+        let _ = o.add(EntityObsolete::Timer(Box::new(Timer::new_with(
+            &TimerParams {
+                duration: MusicalTimeParams {
+                    units: MusicalTime::beats_to_units(4),
+                    ..Default::default()
+                },
             },
-        }))));
+        ))));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples) = o.run(&mut sample_buffer) {
             assert_eq!(samples.len(), 24000);
@@ -1974,7 +1996,7 @@ pub mod tests {
             fake_value: Normal::from(0.22222),
             dca: DcaParams::default(),
         }));
-        let midi_recorder_uid = o.add(Entity::ToyInstrument(midi_recorder));
+        let midi_recorder_uid = o.add(EntityObsolete::ToyInstrument(midi_recorder));
         o.connect_midi_downstream(midi_recorder_uid, INSTRUMENT_MIDI_CHANNEL);
 
         // Test recorder has seen nothing to start with.
@@ -1986,7 +2008,7 @@ pub mod tests {
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         o.update_sample_rate(SampleRate::DEFAULT);
-        let _sequencer_uid = o.add(Entity::Sequencer(sequencer));
+        let _sequencer_uid = o.add(EntityObsolete::Sequencer(sequencer));
 
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples) = o.run(&mut sample_buffer) {
@@ -2048,12 +2070,14 @@ pub mod tests {
 
         // Keep going until just before half of second beat. We should see the
         // first note off (not on!) and the second note on/off.
-        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(&TimerParams {
-            duration: MusicalTimeParams {
-                units: MusicalTime::beats_to_units(4), // TODO need to look and see what this should be
-                ..Default::default()
+        let _ = o.add(EntityObsolete::Timer(Box::new(Timer::new_with(
+            &TimerParams {
+                duration: MusicalTimeParams {
+                    units: MusicalTime::beats_to_units(4), // TODO need to look and see what this should be
+                    ..Default::default()
+                },
             },
-        }))));
+        ))));
         assert!(o.run(&mut sample_buffer).is_ok());
         // TODO assert_eq!(midi_recorder.debug_messages.len(), 3);
 
@@ -2095,7 +2119,7 @@ pub mod tests {
             time_signature: TimeSignatureParams { top: 4, bottom: 4 },
         });
         o.update_sample_rate(SampleRate::DEFAULT);
-        let _ = o.add(Entity::Sequencer(sequencer));
+        let _ = o.add(EntityObsolete::Sequencer(sequencer));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(result) = o.run(&mut sample_buffer) {
             assert_eq!(
@@ -2156,10 +2180,10 @@ pub mod tests {
             },
         );
 
-        let _sequencer_uid = o.add(Entity::Sequencer(sequencer));
-        let arpeggiator_uid = o.add(Entity::Arpeggiator(arpeggiator));
+        let _sequencer_uid = o.add(EntityObsolete::Sequencer(sequencer));
+        let arpeggiator_uid = o.add(EntityObsolete::Arpeggiator(arpeggiator));
         o.connect_midi_downstream(arpeggiator_uid, MIDI_CHANNEL_SEQUENCER_TO_ARP);
-        let instrument_uid = o.add(Entity::ToyInstrument(instrument));
+        let instrument_uid = o.add(EntityObsolete::ToyInstrument(instrument));
         o.connect_midi_downstream(instrument_uid, MIDI_CHANNEL_ARP_TO_INSTRUMENT);
 
         let _ = o.connect_to_main_mixer(instrument_uid);

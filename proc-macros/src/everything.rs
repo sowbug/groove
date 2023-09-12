@@ -83,31 +83,31 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
     let entity_enum = quote! {
         #[derive(Debug)]
         #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-        pub enum Entity {
+        pub enum EntityObsolete {
             #( #structs(Box<#types>) ),*
         }
     };
 
     let common_dispatchers = quote! {
-        impl Entity {
+        impl EntityObsolete {
             pub fn name(&self) -> &str {
                 match self {
-                    #( Entity::#structs(e) => e.name(), )*
+                    #( EntityObsolete::#structs(e) => e.name(), )*
                 }
             }
             pub fn as_has_uid(&self) -> &dyn #core_crate::traits::HasUid {
                 match self {
-                #( Entity::#structs(e) => e.as_ref(), )*
+                #( EntityObsolete::#structs(e) => e.as_ref(), )*
                 }
             }
             pub fn as_has_uid_mut(&mut self) -> &mut dyn #core_crate::traits::HasUid {
                 match self {
-                #( Entity::#structs(e) => e.as_mut(), )*
+                #( EntityObsolete::#structs(e) => e.as_mut(), )*
                 }
             }
             pub fn as_configurable_mut(&mut self) -> &mut dyn #core_crate::traits::Configurable {
                 match self {
-                #( Entity::#structs(e) => e.as_mut(), )*
+                #( EntityObsolete::#structs(e) => e.as_mut(), )*
                 }
             }
         }
@@ -115,22 +115,22 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
 
     let (structs, _) = build_lists(things.iter().filter(|thing| thing.is_controller));
     let controller_dispatchers = quote! {
-        impl Entity {
+        impl EntityObsolete {
             pub fn is_controller(&self) -> bool {
                 match self {
-                    #( Entity::#structs(_) => true, )*
+                    #( EntityObsolete::#structs(_) => true, )*
                     _ => false,
                 }
             }
             pub fn as_is_controller(&self) -> Option<&dyn #core_crate::traits::IsController> {
                 match self {
-                    #( Entity::#structs(e) => Some(e.as_ref()), )*
+                    #( EntityObsolete::#structs(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
             pub fn as_is_controller_mut(&mut self) -> Option<&mut dyn #core_crate::traits::IsController> {
                 match self {
-                    #( Entity::#structs(e) => Some(e.as_mut()), )*
+                    #( EntityObsolete::#structs(e) => Some(e.as_mut()), )*
                     _ => None,
                 }
             }
@@ -139,22 +139,22 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
 
     let (structs, _) = build_lists(things.iter().filter(|thing| thing.is_controllable));
     let controllable_dispatchers = quote! {
-        impl Entity {
+        impl EntityObsolete {
             pub fn is_controllable(&self) -> bool {
                 match self {
-                    #( Entity::#structs(_) => true, )*
+                    #( EntityObsolete::#structs(_) => true, )*
                     _ => false,
                 }
             }
             pub fn as_controllable(&self) -> Option<&dyn #core_crate::traits::Controllable> {
                 match self {
-                    #( Entity::#structs(e) => Some(e.as_ref()), )*
+                    #( EntityObsolete::#structs(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
             pub fn as_controllable_mut(&mut self) -> Option<&mut dyn #core_crate::traits::Controllable> {
                 match self {
-                    #( Entity::#structs(e) => Some(e.as_mut()), )*
+                    #( EntityObsolete::#structs(e) => Some(e.as_mut()), )*
                     _ => None,
                 }
             }
@@ -163,16 +163,16 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
 
     let (structs, _) = build_lists(things.iter().filter(|thing| thing.is_effect));
     let effect_dispatchers = quote! {
-        impl Entity {
+        impl EntityObsolete {
             pub fn as_is_effect(&self) -> Option<&dyn #core_crate::traits::IsEffect> {
                 match self {
-                    #( Entity::#structs(e) => Some(e.as_ref()), )*
+                    #( EntityObsolete::#structs(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
             pub fn as_is_effect_mut(&mut self) -> Option<&mut dyn #core_crate::traits::IsEffect> {
                 match self {
-                    #( Entity::#structs(e) => Some(e.as_mut()), )*
+                    #( EntityObsolete::#structs(e) => Some(e.as_mut()), )*
                     _ => None,
                 }
             }
@@ -181,16 +181,16 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
 
     let (structs, _) = build_lists(things.iter().filter(|thing| thing.is_instrument));
     let instrument_dispatchers = quote! {
-        impl Entity {
+        impl EntityObsolete {
             pub fn as_is_instrument(&self) -> Option<&dyn #core_crate::traits::IsInstrument> {
                 match self {
-                    #( Entity::#structs(e) => Some(e.as_ref()), )*
+                    #( EntityObsolete::#structs(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
             pub fn as_is_instrument_mut(&mut self) -> Option<&mut dyn #core_crate::traits::IsInstrument> {
                 match self {
-                    #( Entity::#structs(e) => Some(e.as_mut()), )*
+                    #( EntityObsolete::#structs(e) => Some(e.as_mut()), )*
                     _ => None,
                 }
             }
@@ -199,16 +199,16 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
 
     let (structs, _) = build_lists(things.iter().filter(|thing| thing.handles_midi));
     let handles_midi_dispatchers = quote! {
-        impl Entity {
+        impl EntityObsolete {
             pub fn as_handles_midi(&self) -> Option<&dyn #core_crate::traits::HandlesMidi> {
                 match self {
-                    #( Entity::#structs(e) => Some(e.as_ref()), )*
+                    #( EntityObsolete::#structs(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
             pub fn as_handles_midi_mut(&mut self) -> Option<&mut dyn #core_crate::traits::HandlesMidi> {
                 match self {
-                    #( Entity::#structs(e) => Some(e.as_mut()), )*
+                    #( EntityObsolete::#structs(e) => Some(e.as_mut()), )*
                     _ => None,
                 }
             }

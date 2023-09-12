@@ -106,3 +106,53 @@ You can do this again and again for as many layers as you want.
         ) -> egui::Response;
     }
 ```
+
+### Terminology: Entity, Device, Component, Thing
+
+I've cycled through these terms throughout development. None is especially
+better than the rest, but they've been useful historical markers during
+refactoring to tell what's old and what's new. I think it's time to consolidate,
+and perhaps to deal with https://github.com/sowbug/groove/issues/149 (separating
+Things-That-Display from Things-That-Don't-Display) while we're there.
+
+The concept we're trying to capture is something in our system that implements
+certain core traits, optionally implements other traits, and provides enough
+introspection via the core traits to allow others to figure out what it can do.
+
+Candidates:
+
+- Entity: good. A little overloaded by ECS (Entity/Component/System) patterns.
+    Slight disadvantage that its pluralization is irregular.
+- Device: meh. The term implies independent function, which is OK for a
+    musical instrument or effect, but misleading for something like ControlTrip.
+- Component: good. Like Entity, it's so overloaded that it's almost understood
+    not to have a global meaning. Regular pluralization.
+- Thing: annoying. It's what I started using when I ran out of new names.
+
+Finalists are Entity and Component. I prefer Entity, partly because it's what I
+first used in the project. I guess I don't mind much about irregular "Entities"
+rather than "Entitys." **Entity is the winner.**
+
+The Displays issue: the problem is that everyone has to implement it, but some
+entities, like ESSequencer or Transport, are supposed to be passed into
+custom-built widgets instead of being directly rendered via Displays. So right
+now their implementation of Displays::ui() is just to panic. Is this so bad?
+Each of these is a special kind of Entity, where the owner never loses track of
+its concrete type and thus knows about the Entity-widget association. The only
+time this could bite us, therefore, is when these special Entities end up on an
+assembly line with other generic Entities, like in the explorer example (which
+actually doesn't do any type erasure). Perhaps it's not that bad.
+
+Another approach could be to define something like a SystemEntity that is like
+an Entity but doesn't implement Displays. This might be weird because Rust
+doesn't have negative traits, so it might actually be "Entity = SystemEntity++"
+rather than "SystemEntity = Entity--". But that's just terminology; it could
+also be that most normal things are DisplayableEntity, and "system entities" are
+just Entity.
+
+Or Displays could be another runtime-discoverable trait.
+
+Or the degenerate implementation of Displays could instead invoke the widget
+(though the whole point was that Displays::ui() wasn't sufficient).
+
+**Conclusion: maybe we can live with panic().**

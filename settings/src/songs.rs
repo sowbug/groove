@@ -9,7 +9,7 @@ use groove_core::time::{ClockParams, TimeSignature, TimeSignatureParams};
 use groove_entities::controllers::{
     ControlPath, ControlTrip, ControlTripParams, Note, Pattern, PatternProgrammer,
 };
-use groove_orchestration::{Entity, Orchestrator};
+use groove_orchestration::{EntityObsolete, Orchestrator};
 use groove_utils::Paths;
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
@@ -217,7 +217,7 @@ impl SongSettings {
 
         let mut ids_to_patterns = FxHashMap::default();
         let pattern_manager_uid = orchestrator.pattern_manager_uid();
-        if let Some(Entity::PatternManager(pattern_manager)) =
+        if let Some(EntityObsolete::PatternManager(pattern_manager)) =
             orchestrator.get_mut(pattern_manager_uid)
         {
             for pattern_settings in self.patterns.iter() {
@@ -236,7 +236,7 @@ impl SongSettings {
         }
 
         let sequencer_uid = orchestrator.sequencer_uid();
-        if let Some(Entity::Sequencer(sequencer)) = orchestrator.get_mut(sequencer_uid) {
+        if let Some(EntityObsolete::Sequencer(sequencer)) = orchestrator.get_mut(sequencer_uid) {
             let mut programmer = PatternProgrammer::new_with(&self.clock.time_signature);
 
             for track in &self.tracks {
@@ -288,8 +288,8 @@ impl SongSettings {
                         );
                     }
                 }
-                let controller_uid =
-                    orchestrator.add_with_uvid(Entity::ControlTrip(control_trip), trip_uvid);
+                let controller_uid = orchestrator
+                    .add_with_uvid(EntityObsolete::ControlTrip(control_trip), trip_uvid);
                 if let Err(err_result) = orchestrator.link_control_by_name(
                     controller_uid,
                     target_uid,

@@ -10,7 +10,7 @@ use groove_entities::{
         WelshSynthParams,
     },
 };
-use groove_orchestration::Entity;
+use groove_orchestration::EntityObsolete;
 use groove_toys::{ToyInstrument, ToyInstrumentParams};
 use groove_utils::Paths;
 use serde::{Deserialize, Serialize};
@@ -44,7 +44,7 @@ impl InstrumentSettings {
         &self,
         paths: &Paths,
         load_only_test_entities: bool,
-    ) -> (MidiChannel, Entity) {
+    ) -> (MidiChannel, EntityObsolete) {
         if load_only_test_entities {
             let midi_input_channel = match self {
                 InstrumentSettings::ToyInstrument(midi, ..)
@@ -56,38 +56,40 @@ impl InstrumentSettings {
             };
             return (
                 midi_input_channel,
-                Entity::ToyInstrument(Box::new(ToyInstrument::new_with(&ToyInstrumentParams {
-                    fake_value: Normal::from(0.23498239),
-                    dca: DcaParams::default(),
-                }))),
+                EntityObsolete::ToyInstrument(Box::new(ToyInstrument::new_with(
+                    &ToyInstrumentParams {
+                        fake_value: Normal::from(0.23498239),
+                        dca: DcaParams::default(),
+                    },
+                ))),
             );
         }
         match self {
             InstrumentSettings::ToyInstrument(midi, params) => (
                 midi.midi_in,
-                Entity::ToyInstrument(Box::new(ToyInstrument::new_with(params))),
+                EntityObsolete::ToyInstrument(Box::new(ToyInstrument::new_with(params))),
             ),
             InstrumentSettings::Welsh(midi, patch) => (
                 midi.midi_in,
-                Entity::WelshSynth(Box::new(WelshSynth::new_with(
+                EntityObsolete::WelshSynth(Box::new(WelshSynth::new_with(
                     &WelshPatchSettings::by_name(paths, &patch.name).derive_welsh_synth_params(),
                 ))),
             ),
             InstrumentSettings::WelshRaw(midi, params) => (
                 midi.midi_in,
-                Entity::WelshSynth(Box::new(WelshSynth::new_with(params))),
+                EntityObsolete::WelshSynth(Box::new(WelshSynth::new_with(params))),
             ),
             InstrumentSettings::Drumkit(midi, params) => (
                 midi.midi_in,
-                Entity::Drumkit(Box::new(Drumkit::new_with(params, paths))),
+                EntityObsolete::Drumkit(Box::new(Drumkit::new_with(params, paths))),
             ),
             InstrumentSettings::Sampler(midi, params) => (
                 midi.midi_in,
-                Entity::Sampler(Box::new(Sampler::new_with(params, paths))),
+                EntityObsolete::Sampler(Box::new(Sampler::new_with(params, paths))),
             ),
             InstrumentSettings::FmSynthesizer(midi, params) => (
                 midi.midi_in,
-                Entity::FmSynth(Box::new(FmSynth::new_with(params))),
+                EntityObsolete::FmSynth(Box::new(FmSynth::new_with(params))),
             ),
         }
     }
