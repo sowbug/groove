@@ -93,15 +93,6 @@ impl PatternManager {
     pub fn patterns(&self) -> &[Pattern<Note>] {
         &self.patterns
     }
-
-    #[cfg(feature = "iced-framework")]
-    #[allow(unreachable_patterns)]
-    pub fn update(&mut self, message: PatternManagerMessage) {
-        match message {
-            PatternManagerMessage::PatternManager(_s) => *self = Self::new(),
-            _ => self.derived_update(message),
-        }
-    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]

@@ -4,14 +4,6 @@
 //! implement Groove traits, usually in a simple fashion. They aren't likely to
 //! be useful in real music prduction.
 
-#[cfg(feature = "iced-framework")]
-pub use crate::{
-    effects::ToyEffectMessage,
-    instruments::{
-        DebugSynthMessage, ToyAudioSourceMessage, ToyAudioSourceParams, ToyInstrumentMessage,
-        ToyInstrumentParams, ToySynthMessage, ToySynthParams,
-    },
-};
 pub use effects::{ToyEffect, ToyEffectParams};
 pub use instruments::{
     DebugSynth, DebugSynthParams, ToyAudioSource, ToyAudioSourceParams, ToyInstrument,

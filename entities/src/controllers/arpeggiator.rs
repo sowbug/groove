@@ -167,14 +167,6 @@ impl Arpeggiator {
         }
     }
 
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: ArpeggiatorMessage) {
-        match message {
-            ArpeggiatorMessage::Arpeggiator(s) => *self = Self::new_with(self.midi_channel_out, s),
-            _ => self.derived_update(message),
-        }
-    }
-
     pub fn bpm(&self) -> f64 {
         self.bpm
     }

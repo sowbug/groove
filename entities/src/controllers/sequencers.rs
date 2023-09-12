@@ -165,14 +165,6 @@ impl Sequencer {
         println!("{:?}", self.events);
     }
 
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: SequencerMessage) {
-        match message {
-            SequencerMessage::Sequencer(s) => *self = Self::new_with(s),
-            _ => self.derived_update(message),
-        }
-    }
-
     pub fn bpm(&self) -> f64 {
         self.bpm
     }
@@ -389,14 +381,6 @@ mod tired {
 
         fn is_finished(&self) -> bool {
             self.next_instant > self.last_event_time
-        }
-
-        #[cfg(feature = "iced-framework")]
-        pub fn update(&mut self, message: MidiTickSequencerMessage) {
-            match message {
-                MidiTickSequencerMessage::MidiTickSequencer(s) => *self = Self::new_with(s),
-                _ => self.derived_update(message),
-            }
         }
 
         pub fn midi_ticks_per_second(&self) -> usize {

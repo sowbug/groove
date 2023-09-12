@@ -316,14 +316,6 @@ impl Sampler {
         self.root
     }
 
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: SamplerMessage) {
-        match message {
-            SamplerMessage::Sampler(_) => todo!(),
-            _ => self.derived_update(message),
-        }
-    }
-
     pub fn set_root(&mut self, root: FrequencyHz) {
         self.root = root;
         todo!("propagate to voices")

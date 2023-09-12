@@ -66,14 +66,6 @@ impl Reverb {
         }
     }
 
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: ReverbMessage) {
-        match message {
-            ReverbMessage::Reverb(s) => *self = Self::new_with(s),
-            _ => self.derived_update(message),
-        }
-    }
-
     pub fn attenuation(&self) -> Normal {
         self.attenuation
     }

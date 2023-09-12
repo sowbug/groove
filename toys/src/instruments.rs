@@ -214,14 +214,6 @@ impl ToyInstrument {
     pub fn dump_messages(&self) {
         dbg!(&self.debug_messages);
     }
-
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: ToyInstrumentMessage) {
-        match message {
-            ToyInstrumentMessage::ToyInstrument(s) => *self = Self::new_with(s),
-            _ => self.derived_update(message),
-        }
-    }
 }
 
 /// Another [IsInstrument](groove_core::traits::IsInstrument) that was designed
@@ -321,14 +313,6 @@ impl DebugSynth {
             )),
             Box::new(Envelope::new_with(&EnvelopeParams::safe_default())),
         )
-    }
-
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: DebugSynthMessage) {
-        match message {
-            DebugSynthMessage::DebugSynth(_) => *self = Self::new(),
-            _ => self.derived_update(message),
-        }
     }
 
     pub fn fake_value(&self) -> Normal {
@@ -437,14 +421,6 @@ impl ToySynth {
 
     pub fn degrade_max(&mut self, factor: f64) {
         self.max_signal *= factor;
-    }
-
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: ToySynthMessage) {
-        match message {
-            ToySynthMessage::ToySynth(_s) => todo!(),
-            _ => self.derived_update(message),
-        }
     }
 
     pub fn voice_count(&self) -> VoiceCount {
@@ -608,14 +584,6 @@ impl ToyAudioSource {
 
     pub fn new_always_quiet() -> Self {
         Self::new_with(&ToyAudioSourceParams { level: Self::QUIET })
-    }
-
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: ToyAudioSourceMessage) {
-        match message {
-            ToyAudioSourceMessage::ToyAudioSource(s) => *self = Self::new_with(s),
-            _ => self.derived_update(message),
-        }
     }
 
     pub fn level(&self) -> f64 {

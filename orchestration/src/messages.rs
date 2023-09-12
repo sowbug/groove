@@ -1,9 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-//! The [messages](crate::messages) module defines the app's Iced messages.
+//! The [messages](crate::messages) module defines the app's messages.
 
-#[cfg(feature = "iced-framework")]
-use crate::entities::OtherEntityMessage;
 use groove_core::{
     control::ControlIndex,
     midi::{MidiChannel, MidiMessage},
@@ -29,10 +27,6 @@ pub enum GrooveInput {
 
     /// Ask the engine to remove a control link.
     RemoveControlLink(ControlLink),
-
-    /// An entity has been updated on the app side, and the engine should record the changes.
-    #[cfg(feature = "iced-framework")]
-    Update(usize, OtherEntityMessage),
 
     /// Orchestrator should ask everyone to start playing.
     Play,

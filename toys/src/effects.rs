@@ -113,14 +113,6 @@ impl ToyEffect {
         }
     }
 
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: ToyEffectMessage) {
-        match message {
-            ToyEffectMessage::ToyEffect(s) => *self = Self::new_with(s),
-            _ => self.derived_update(message),
-        }
-    }
-
     pub fn my_value(&self) -> Normal {
         self.my_value
     }

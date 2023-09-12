@@ -88,16 +88,6 @@ impl Metronome {
         }
     }
 
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: MetronomeMessage) {
-        match message {
-            MetronomeMessage::Metronome(_s) => {
-                todo!()
-            }
-            _ => self.derived_update(message),
-        }
-    }
-
     pub fn clock(&self) -> &Clock {
         &self.clock
     }

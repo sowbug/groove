@@ -38,11 +38,6 @@ pub mod tests {
     use groove_entities::controllers::{
         LfoController, LfoControllerParams, Timer, TimerParams, ToyController, ToyControllerParams,
     };
-
-    #[cfg(feature = "iced-framework")]
-    use groove_entities::ToyMessageMaker;
-    #[cfg(feature = "iced-framework")]
-    use groove_toys::ToyInstrumentParams;
     use groove_toys::{DebugSynth, ToyEffect, ToyInstrument, ToyInstrumentParams};
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
 

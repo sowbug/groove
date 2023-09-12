@@ -320,16 +320,6 @@ impl FmSynth {
         self.beta
     }
 
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: FmSynthMessage) {
-        match message {
-            FmSynthMessage::FmSynth(_s) => {
-                todo!()
-            }
-            _ => self.derived_update(message),
-        }
-    }
-
     // TODO: replace with update_from_params() or whatever that turns out to be
     pub fn set_carrier_envelope(&mut self, carrier_envelope: Envelope) {
         self.carrier_envelope = carrier_envelope;

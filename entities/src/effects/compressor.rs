@@ -76,14 +76,6 @@ impl Compressor {
         }
     }
 
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: CompressorMessage) {
-        match message {
-            CompressorMessage::Compressor(s) => *self = Self::new_with(s),
-            _ => self.derived_update(message),
-        }
-    }
-
     pub fn threshold(&self) -> Normal {
         self.threshold
     }

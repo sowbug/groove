@@ -434,18 +434,6 @@ impl WelshSynth {
     //     self.inner_synth.voices_mut().for_each(|v| v.set_pan(pan));
     //     self.inner_synth.set_pan(pan);
     // }
-
-    // TODO: this pattern sucks. I knew it was going to be icky. Think about how
-    // to make it less copy/paste.
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: WelshSynthMessage) {
-        match message {
-            WelshSynthMessage::WelshSynth(_e) => {
-                // TODO: this will be a lot of work.
-            }
-            _ => self.derived_update(message),
-        }
-    }
 }
 
 #[cfg(feature = "egui-framework")]

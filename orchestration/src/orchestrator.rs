@@ -27,9 +27,6 @@ use std::{
     ops::Range,
 };
 
-#[cfg(feature = "iced-framework")]
-use crate::OtherEntityMessage;
-
 #[cfg(feature = "egui-framework")]
 use self::gui::OrchestratorGui;
 
@@ -625,8 +622,6 @@ impl Orchestrator {
                             link.control_index,
                         );
                     }
-                    #[cfg(feature = "iced-framework")]
-                    GrooveInput::Update(uid, message) => self.update_controllable(uid, message),
                     GrooveInput::Play => self.play(),
                     GrooveInput::Stop => self.stop(),
                     GrooveInput::SkipToStart => self.skip_to_start(),
@@ -760,7 +755,6 @@ impl Orchestrator {
         }
     }
 
-    #[cfg(not(feature = "iced-framework"))]
     fn generate_control_update_messages(
         &mut self,
         uid: Uid,
@@ -774,23 +768,6 @@ impl Orchestrator {
                         *target_uid,
                         EntityEvent::HandleControl(*param_id, value),
                     ));
-                    v
-                });
-        }
-        Vec::default()
-    }
-
-    #[cfg(feature = "iced-framework")]
-    fn generate_control_update_messages(&mut self, uid: Uid, value: f32) -> Vec<GrooveInput> {
-        if let Some(control_links) = self.store.control_links(uid) {
-            return control_links
-                .iter()
-                .fold(Vec::default(), |mut v, (target_uid, param_id)| {
-                    if let Some(entity) = self.store.get(*target_uid) {
-                        if let Some(msg) = entity.message_for(*param_id, value.into()) {
-                            v.push(GrooveInput::Update(*target_uid, msg));
-                        }
-                    }
                     v
                 });
         }
@@ -915,13 +892,6 @@ impl Orchestrator {
     pub fn title(&self) -> Option<String> {
         // TODO: why is this so awful?
         self.title.as_ref().map(|title| title.clone())
-    }
-
-    #[cfg(feature = "iced-framework")]
-    fn update_controllable(&mut self, uid: Uid, message: OtherEntityMessage) {
-        if let Some(entity) = self.store.get_mut(uid) {
-            entity.update(message)
-        }
     }
 
     pub fn set_bpm(&mut self, bpm: ParameterType) {

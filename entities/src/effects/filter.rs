@@ -93,14 +93,6 @@ impl BiQuadFilterLowPass24db {
         }
     }
 
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: BiQuadFilterLowPass24dbMessage) {
-        match message {
-            BiQuadFilterLowPass24dbMessage::BiQuadFilterLowPass24db(e) => *self = Self::new_with(e),
-            _ => self.derived_update(message),
-        }
-    }
-
     // TODO: (see Envelope's method and comments) -- this looks wasteful because
     // it could compute coefficients twice in a single transaction, but the use
     // case (egui change notifications) calls for only one thing changing at a
@@ -244,14 +236,6 @@ impl BiQuadFilterLowPass12db {
             self.update_coefficients();
         }
     }
-
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: BiQuadFilterLowPass12dbMessage) {
-        match message {
-            BiQuadFilterLowPass12dbMessage::BiQuadFilterLowPass12db(e) => *self = Self::new_with(e),
-            _ => self.derived_update(message),
-        }
-    }
 }
 
 #[derive(Debug, Default)]
@@ -354,14 +338,6 @@ impl BiQuadFilterHighPass {
             self.update_coefficients();
         }
     }
-
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: BiQuadFilterHighPassMessage) {
-        match message {
-            BiQuadFilterHighPassMessage::BiQuadFilterHighPass(e) => *self = Self::new_with(e),
-            _ => self.derived_update(message),
-        }
-    }
 }
 
 #[derive(Debug, Default)]
@@ -460,14 +436,6 @@ impl BiQuadFilterAllPass {
         if self.q != q {
             self.q = q;
             self.update_coefficients();
-        }
-    }
-
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: BiQuadFilterAllPassMessage) {
-        match message {
-            BiQuadFilterAllPassMessage::BiQuadFilterAllPass(e) => *self = Self::new_with(e),
-            _ => self.derived_update(message),
         }
     }
 }
@@ -569,14 +537,6 @@ impl BiQuadFilterBandPass {
             self.update_coefficients();
         }
     }
-
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: BiQuadFilterBandPassMessage) {
-        match message {
-            BiQuadFilterBandPassMessage::BiQuadFilterBandPass(e) => *self = Self::new_with(e),
-            _ => self.derived_update(message),
-        }
-    }
 }
 
 #[derive(Debug, Default)]
@@ -675,14 +635,6 @@ impl BiQuadFilterBandStop {
         if self.bandwidth != bandwidth {
             self.bandwidth = bandwidth;
             self.update_coefficients();
-        }
-    }
-
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: BiQuadFilterBandStopMessage) {
-        match message {
-            BiQuadFilterBandStopMessage::BiQuadFilterBandStop(e) => *self = Self::new_with(e),
-            _ => self.derived_update(message),
         }
     }
 }
@@ -790,14 +742,6 @@ impl BiQuadFilterPeakingEq {
             self.update_coefficients();
         }
     }
-
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: BiQuadFilterPeakingEqMessage) {
-        match message {
-            BiQuadFilterPeakingEqMessage::BiQuadFilterPeakingEq(e) => *self = Self::new_with(e),
-            _ => self.derived_update(message),
-        }
-    }
 }
 
 #[derive(Debug, Default)]
@@ -902,14 +846,6 @@ impl BiQuadFilterLowShelf {
             self.update_coefficients();
         }
     }
-
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: BiQuadFilterLowShelfMessage) {
-        match message {
-            BiQuadFilterLowShelfMessage::BiQuadFilterLowShelf(e) => *self = Self::new_with(e),
-            _ => self.derived_update(message),
-        }
-    }
 }
 
 #[derive(Debug, Default)]
@@ -1011,14 +947,6 @@ impl BiQuadFilterHighShelf {
             self.update_coefficients();
         }
     }
-
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: BiQuadFilterHighShelfMessage) {
-        match message {
-            BiQuadFilterHighShelfMessage::BiQuadFilterHighShelf(e) => *self = Self::new_with(e),
-            _ => self.derived_update(message),
-        }
-    }
 }
 
 #[derive(Debug, Default)]
@@ -1083,15 +1011,6 @@ impl BiQuadFilterNone {
             uid: Default::default(),
             sample_rate: Default::default(),
             channels: [BiQuadFilter::default(), BiQuadFilter::default()],
-        }
-    }
-
-    #[cfg(feature = "iced-framework")]
-    #[allow(unreachable_patterns)]
-    pub fn update(&mut self, message: BiQuadFilterNoneMessage) {
-        match message {
-            BiQuadFilterNoneMessage::BiQuadFilterNone(e) => *self = Self::new_with(e),
-            _ => self.derived_update(message),
         }
     }
 }

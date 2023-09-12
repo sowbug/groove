@@ -240,14 +240,6 @@ impl Delay {
     pub fn set_seconds(&mut self, seconds: ParameterType) {
         self.delay.set_delay_seconds(seconds);
     }
-
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: DelayMessage) {
-        match message {
-            DelayMessage::Delay(s) => *self = Self::new_with(s),
-            _ => self.derived_update(message),
-        }
-    }
 }
 
 #[cfg(feature = "egui-framework")]

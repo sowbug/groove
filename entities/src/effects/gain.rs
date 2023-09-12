@@ -40,14 +40,6 @@ impl Gain {
     pub fn set_ceiling(&mut self, ceiling: Normal) {
         self.ceiling = ceiling;
     }
-
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: GainMessage) {
-        match message {
-            GainMessage::Gain(s) => *self = Self::new_with(s),
-            _ => self.derived_update(message),
-        }
-    }
 }
 
 #[cfg(feature = "egui-framework")]

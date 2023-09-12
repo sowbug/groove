@@ -61,14 +61,6 @@ impl Chorus {
         }
     }
 
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: ChorusMessage) {
-        match message {
-            ChorusMessage::Chorus(s) => *self = Self::new_with(s),
-            _ => self.derived_update(message),
-        }
-    }
-
     pub fn voices(&self) -> usize {
         self.voices
     }

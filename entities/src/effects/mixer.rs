@@ -32,15 +32,6 @@ impl Mixer {
             ..Default::default()
         }
     }
-
-    #[cfg(feature = "iced-framework")]
-    #[allow(unreachable_patterns)]
-    pub fn update(&mut self, message: MixerMessage) {
-        match message {
-            MixerMessage::Mixer(s) => *self = Self::new_with(s),
-            _ => self.derived_update(message),
-        }
-    }
 }
 
 #[cfg(feature = "egui-framework")]

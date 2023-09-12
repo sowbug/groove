@@ -8,9 +8,6 @@
 pub use entities::EntityObsolete;
 pub use orchestrator::{Orchestrator, Performance};
 
-#[cfg(feature = "iced-framework")]
-pub use entities::OtherEntityMessage;
-
 pub mod helpers;
 pub mod messages;
 

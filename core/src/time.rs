@@ -194,14 +194,6 @@ impl Clock {
         }
     }
 
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: ClockMessage) {
-        match message {
-            ClockMessage::Clock(s) => *self = Self::new_with(s),
-            _ => self.derived_update(message),
-        }
-    }
-
     pub fn midi_ticks_per_second(&self) -> usize {
         self.midi_ticks_per_second
     }

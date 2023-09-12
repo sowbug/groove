@@ -151,14 +151,6 @@ impl ControlTrip {
         self.is_finished = false;
     }
 
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: ControlTripMessage) {
-        match message {
-            ControlTripMessage::ControlTrip(_s) => todo!(),
-            _ => self.derived_update(message),
-        }
-    }
-
     pub fn time_signature(&self) -> &TimeSignature {
         &self.time_signature
     }

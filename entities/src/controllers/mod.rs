@@ -1,22 +1,12 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-#[cfg(feature = "iced-framework")]
-pub use arpeggiator::ArpeggiatorMessage;
 pub use arpeggiator::{Arpeggiator, ArpeggiatorParams};
 pub use calculator::{Calculator, CalculatorParams};
-#[cfg(feature = "iced-framework")]
-pub use control_trip::ControlTripMessage;
 pub use control_trip::{ControlPath, ControlStep, ControlTrip, ControlTripParams};
-#[cfg(feature = "iced-framework")]
-pub use lfo::LfoControllerMessage;
 pub use lfo::{LfoController, LfoControllerParams};
 pub use patterns::{
     NewPattern, Note, Pattern, PatternManager, PatternManagerParams, PatternProgrammer,
 };
-#[cfg(feature = "iced-framework")]
-pub use patterns::{PatternManagerMessage, PatternMessage};
-#[cfg(feature = "iced-framework")]
-pub use sequencers::{MidiTickSequencerMessage, SequencerMessage};
 pub use sequencers::{Sequencer, SequencerParams};
 
 mod arpeggiator;
@@ -366,17 +356,6 @@ impl SignalPassthroughController {
             ..Default::default()
         }
     }
-
-    #[cfg(feature = "iced-framework")]
-    #[allow(unreachable_patterns)]
-    pub fn update(&mut self, message: SignalPassthroughControllerMessage) {
-        match message {
-            SignalPassthroughControllerMessage::SignalPassthroughController(_s) => {
-                *self = Self::new()
-            }
-            _ => self.derived_update(message),
-        }
-    }
 }
 
 enum TestControllerAction {
@@ -536,14 +515,6 @@ impl ToyController {
             }
         }
         TestControllerAction::Nothing
-    }
-
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: ToyControllerMessage) {
-        match message {
-            ToyControllerMessage::ToyController(_) => panic!(),
-            _ => self.derived_update(message),
-        }
     }
 }
 // impl TestsValues for TestController {

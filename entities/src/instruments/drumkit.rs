@@ -134,14 +134,6 @@ impl Drumkit {
         Self::new_from_files(paths, params.name.as_ref())
     }
 
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: DrumkitMessage) {
-        match message {
-            DrumkitMessage::Drumkit(s) => *self = Self::new_with(&self.paths, s),
-            _ => self.derived_update(message),
-        }
-    }
-
     pub fn name(&self) -> &str {
         self.name.as_ref()
     }

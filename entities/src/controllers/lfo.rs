@@ -165,14 +165,6 @@ impl LfoController {
         self.frequency = frequency;
         self.oscillator.set_frequency(frequency);
     }
-
-    #[cfg(feature = "iced-framework")]
-    pub fn update(&mut self, message: LfoControllerMessage) {
-        match message {
-            LfoControllerMessage::LfoController(s) => *self = Self::new_with(s),
-            _ => self.derived_update(message),
-        }
-    }
 }
 
 #[cfg(feature = "egui-framework")]
