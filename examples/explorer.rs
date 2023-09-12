@@ -663,6 +663,9 @@ struct FrequencyDomainSettings {
     max_width: f32,
     max_height: f32,
     buffer: CircularSampleBuffer,
+
+    fft_calc_counter: u8, // Used to test occasional recomputation of FFT
+    fft_buffer: Vec<f32>,
 }
 impl Default for FrequencyDomainSettings {
     fn default() -> Self {
@@ -671,6 +674,8 @@ impl Default for FrequencyDomainSettings {
             max_width: 128.0,
             max_height: 64.0,
             buffer: CircularSampleBuffer::new(256),
+            fft_calc_counter: Default::default(),
+            fft_buffer: Default::default(),
         }
     }
 }
@@ -686,12 +691,21 @@ impl FrequencyDomainSettings {
 
     fn show(&mut self, ui: &mut Ui) {
         self.buffer.add_some_noise();
+
+        // We act on 0 so that it's always initialized by the time we get to the
+        // end of this method.
+        if self.fft_calc_counter == 0 {
+            self.fft_buffer = self.buffer.analyze_spectrum().unwrap();
+        }
+        self.fft_calc_counter += 1;
+        if self.fft_calc_counter > 4 {
+            self.fft_calc_counter = 0;
+        }
         if !self.hide {
             ui.scope(|ui| {
                 ui.set_max_width(self.max_width);
                 ui.set_max_height(self.max_height);
-                let (buffer, _) = self.buffer.get();
-                ui.add(audio::frequency_domain(buffer));
+                ui.add(audio::frequency_domain(&self.fft_buffer));
             });
         }
     }

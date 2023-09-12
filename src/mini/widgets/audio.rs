@@ -69,9 +69,28 @@ impl CircularSampleBuffer {
 
     /// TODO remove - temp for development
     pub fn add_some_noise(&mut self) {
-        let new_samples =
-            [Sample::from(Normal::from(self.rng.0.rand_u64() as f64 / u64::MAX as f64)); 5];
+        let new_samples: Vec<Sample> = (0..8)
+            .map(|_| Sample::from(Normal::from(self.rng.0.rand_u64() as f64 / u64::MAX as f64)))
+            .collect();
         self.push(&new_samples);
+    }
+
+    /// Does a quick-and-dirty FFT of the sample buffer, producing a Vec<f32>
+    /// that is suitable for an unlabeled visualization. If you want labels,
+    /// then do this transformation yourself so you can display the Hz bucket
+    /// labels.
+    pub fn analyze_spectrum(
+        &self,
+    ) -> anyhow::Result<Vec<f32>, spectrum_analyzer::error::SpectrumAnalyzerError> {
+        let samples: Vec<f32> = self.buffer.iter().map(|x| x.0 as f32).collect();
+        let hann_window = spectrum_analyzer::windows::hann_window(&samples);
+        let spectrum = spectrum_analyzer::samples_fft_to_spectrum(
+            &hann_window,
+            44100,
+            FrequencyLimit::All,
+            Some(&divide_by_N_sqrt),
+        )?;
+        Ok(spectrum.data().iter().map(|(_hz, val)| val.val()).collect())
     }
 }
 
@@ -81,8 +100,8 @@ pub fn time_domain(samples: &[Sample], start: usize) -> impl eframe::egui::Widge
 }
 
 /// Wraps a [FrequencyDomain] as a [Widget](eframe::egui::Widget).
-pub fn frequency_domain(samples: &[Sample]) -> impl eframe::egui::Widget + '_ {
-    move |ui: &mut eframe::egui::Ui| FrequencyDomain::new(samples).ui(ui)
+pub fn frequency_domain(values: &[f32]) -> impl eframe::egui::Widget + '_ {
+    move |ui: &mut eframe::egui::Ui| FrequencyDomain::new(values).ui(ui)
 }
 
 /// Creates 256 samples of noise.
@@ -156,11 +175,11 @@ impl<'a> Displays for TimeDomain<'a> {
 /// another way, shows a spectrum analysis of a clip.
 #[derive(Debug)]
 pub struct FrequencyDomain<'a> {
-    samples: &'a [Sample],
+    values: &'a [f32],
 }
 impl<'a> FrequencyDomain<'a> {
-    fn new(samples: &'a [Sample]) -> Self {
-        Self { samples }
+    fn new(values: &'a [f32]) -> Self {
+        Self { values }
     }
 }
 impl<'a> Displays for FrequencyDomain<'a> {
@@ -168,28 +187,12 @@ impl<'a> Displays for FrequencyDomain<'a> {
         let (response, painter) =
             ui.allocate_painter(ui.available_size_before_wrap(), Sense::hover());
 
-        let mut samples: [f32; 256] = [0.0; 256]; // two values per "sample"
-        let mut i = 0;
-        for sample in samples.iter_mut() {
-            *sample = self.samples[i].0 as f32;
-            i += 1;
-        }
-        let hann_window = spectrum_analyzer::windows::hann_window(&samples);
-        let spectrum_hann_window = spectrum_analyzer::samples_fft_to_spectrum(
-            &hann_window,
-            44100,
-            FrequencyLimit::All,
-            Some(&divide_by_N_sqrt),
-        )
-        .unwrap();
-
-        let data = spectrum_hann_window.data();
         let buf_min = 0.0;
         let buf_max = 1.0;
 
         #[allow(unused_variables)]
         let to_screen = RectTransform::from_to(
-            Rect::from_x_y_ranges(0.0..=data.len() as f32, buf_max..=buf_min),
+            Rect::from_x_y_ranges(0.0..=self.values.len() as f32, buf_max..=buf_min),
             response.rect,
         );
         let mut shapes = Vec::default();
@@ -204,11 +207,11 @@ impl<'a> Displays for FrequencyDomain<'a> {
             },
         }));
 
-        for (i, sample) in data.iter().enumerate() {
+        for (i, value) in self.values.iter().enumerate() {
             shapes.push(eframe::epaint::Shape::LineSegment {
                 points: [
                     to_screen * pos2(i as f32, buf_min),
-                    to_screen * pos2(i as f32, sample.1.val()),
+                    to_screen * pos2(i as f32, *value),
                 ],
                 stroke: Stroke {
                     width: 1.0,
