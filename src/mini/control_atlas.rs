@@ -8,7 +8,7 @@ use groove_core::{
     time::MusicalTime,
     traits::{
         gui::{Displays, DisplaysInTimeline},
-        Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable, ThingEvent,
+        Configurable, ControlEventsFn, Controls, EntityEvent, HandlesMidi, Serializable,
     },
     Uid,
 };
@@ -280,7 +280,7 @@ impl Controls for ControlTrip {
             self.e.last_published_value = current_value;
             control_events_fn(
                 self.uid,
-                ThingEvent::Control(ControlValue::from(current_value)),
+                EntityEvent::Control(ControlValue::from(current_value)),
             );
         }
     }
@@ -464,7 +464,7 @@ mod tests {
             received_event = Some(event);
         });
         match received_event.unwrap() {
-            ThingEvent::Control(value) => assert_eq!(value.0, 0.5, "{}", MESSAGE),
+            EntityEvent::Control(value) => assert_eq!(value.0, 0.5, "{}", MESSAGE),
             _ => panic!(),
         }
         assert!(
@@ -497,7 +497,7 @@ mod tests {
             received_event = Some(event);
         });
         match received_event.unwrap() {
-            ThingEvent::Control(value) => assert_eq!(value.0, 0.5, "{}", "Flat step should work"),
+            EntityEvent::Control(value) => assert_eq!(value.0, 0.5, "{}", "Flat step should work"),
             _ => panic!(),
         }
         assert!(!ct.is_finished());
@@ -510,7 +510,7 @@ mod tests {
             received_event = Some(event);
         });
         match received_event.unwrap() {
-            ThingEvent::Control(value) => assert_eq!(value.0, 0.75, "{}", "Flat step should work"),
+            EntityEvent::Control(value) => assert_eq!(value.0, 0.75, "{}", "Flat step should work"),
             _ => panic!(),
         }
         assert!(ct.is_finished());
@@ -541,7 +541,7 @@ mod tests {
             received_event = Some(event);
         });
         match received_event.unwrap() {
-            ThingEvent::Control(value) => assert_eq!(
+            EntityEvent::Control(value) => assert_eq!(
                 value.0, 0.5,
                 "{}",
                 "Halfway through linear 0.0..=1.0 should be 0.5"
@@ -598,7 +598,7 @@ mod tests {
                 });
                 assert!(received_event.is_some());
                 match received_event.unwrap() {
-                    ThingEvent::Control(value) => {
+                    EntityEvent::Control(value) => {
                         assert_eq!(
                             value.0, ev,
                             "{i}: Expected {ev} at {time} but got {}",

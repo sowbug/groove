@@ -3,7 +3,7 @@
 pub use audio_panel::{AudioPanel, AudioPanelEvent, NeedsAudioFn, OldAudioPanel};
 pub use control_panel::{ControlBar, ControlPanel, ControlPanelAction};
 pub use legacy::preferences::Preferences;
-pub use legacy::thing_browser::{ThingBrowser, ThingBrowserEvent, ThingBrowserNode};
+pub use legacy::thing_browser::{EntityBrowser, EntityBrowserEvent, EntityBrowserNode};
 pub use midi_panel::{MidiPanel, MidiPanelEvent};
 pub use orchestrator_panel::{OrchestratorEvent, OrchestratorInput, OrchestratorPanel};
 pub use palette_panel::{PaletteAction, PalettePanel};

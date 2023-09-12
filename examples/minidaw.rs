@@ -66,7 +66,7 @@ enum MenuBarAction {
     TrackDuplicate,
     TrackDelete,
     TrackRemoveSelectedPatterns,
-    TrackAddThing(Key),
+    TrackAddEntity(Key),
     ComingSoon,
 }
 
@@ -186,14 +186,14 @@ impl MenuBar {
 
     fn new_entity_menu(&self) -> Vec<MenuBarItem> {
         vec![MenuBarItem::node(
-            "Things",
+            "Entities",
             EntityFactory::global()
                 .keys()
                 .iter()
                 .map(|k| {
                     MenuBarItem::leaf(
                         &k.to_string(),
-                        MenuBarAction::TrackAddThing(k.clone()),
+                        MenuBarAction::TrackAddEntity(k.clone()),
                         true,
                     )
                 })
@@ -514,8 +514,8 @@ impl MiniDaw {
                     "minidaw.json",
                 )))
             }
-            MenuBarAction::TrackAddThing(key) => {
-                input = Some(OrchestratorInput::TrackAddThing(key))
+            MenuBarAction::TrackAddEntity(key) => {
+                input = Some(OrchestratorInput::TrackAddEntity(key))
             }
         }
         if let Some(input) = input {
@@ -529,7 +529,7 @@ impl MiniDaw {
     fn handle_palette_action(&mut self, action: PaletteAction) {
         if let Ok(mut o) = self.mini_orchestrator.lock() {
             match action {
-                PaletteAction::NewThing(_key) => {
+                PaletteAction::NewEntity(_key) => {
                     // if let Some(track) = o.get_single_selected_track_uid() {
                     //     //                        let _ = o.add_thing_by_key(&key, track);
                     // }

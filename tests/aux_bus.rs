@@ -61,10 +61,10 @@ fn aux_bus() {
         // This is because the processing order is always controllers,
         // instruments, effects.
         track
-            .append_thing(factory.new_thing(&Key::from("gain")).unwrap())
+            .append_entity(factory.new_entity(&Key::from("gain")).unwrap())
             .unwrap();
         track
-            .append_thing(factory.new_thing(&Key::from("welsh-synth")).unwrap())
+            .append_entity(factory.new_entity(&Key::from("welsh-synth")).unwrap())
             .unwrap()
     };
     let _synth_uid_2 = {
@@ -73,19 +73,19 @@ fn aux_bus() {
             .sequencer_mut()
             .arrange_pattern(&synth_pattern_uid_2, 0);
         track
-            .append_thing(factory.new_thing(&Key::from("gain")).unwrap())
+            .append_entity(factory.new_entity(&Key::from("gain")).unwrap())
             .unwrap();
         track
-            .append_thing(factory.new_thing(&Key::from("toy-synth")).unwrap())
+            .append_entity(factory.new_entity(&Key::from("toy-synth")).unwrap())
             .unwrap()
     };
     let _effect_uid_1 = {
         let track = orchestrator.get_track_mut(&aux_track_uid).unwrap();
         track
-            .append_thing(factory.new_thing(&Key::from("gain")).unwrap())
+            .append_entity(factory.new_entity(&Key::from("gain")).unwrap())
             .unwrap();
         track
-            .append_thing(factory.new_thing(&Key::from("reverb")).unwrap())
+            .append_entity(factory.new_entity(&Key::from("reverb")).unwrap())
             .unwrap()
     };
 

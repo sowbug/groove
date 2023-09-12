@@ -280,10 +280,10 @@ impl MidiInputHandler {
                 // By this point, the self.midi is None, and the conn we just
                 // got back is active.
                 //
-                // The thing that's super-weird about this API is that either
-                // self.midi or self.connection has the MidiInput or MidiOutput,
-                // but never both at the same time. It keeps getting passed
-                // back/forth like a hot potato.
+                // What's super-weird about this API is that either self.midi or
+                // self.connection has the MidiInput or MidiOutput, but never
+                // both at the same time. It keeps getting passed back/forth
+                // like a hot potato.
                 Ok(conn) => {
                     self.connection = Some(conn);
                     self.active_port = Some(selected_port_label.clone());

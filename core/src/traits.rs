@@ -14,11 +14,11 @@ use self::gui::Displays;
 
 pub trait MessageBounds: std::fmt::Debug + Send {}
 
-/// [Thing]s produce these events to communicate with other [Thing]s. Only the
-/// system receives [ThingEvent]s; rather than forwarding them directly, the
-/// system converts them into something else.
+/// [Entities](Entity) produce these events to communicate with other Entities.
+/// Only the system receives [EntityEvent]s; rather than forwarding them
+/// directly, the system converts them into something else.
 #[derive(Clone, Debug)]
-pub enum ThingEvent {
+pub enum EntityEvent {
     /// A MIDI message sent to a channel. Controllers usually produce this
     /// message, and the system transforms it into one or more
     /// [HandlesMidi::handle_midi_message()] calls to route it to instruments or
@@ -27,10 +27,10 @@ pub enum ThingEvent {
 
     /// A control event. Indicates that the sender's value has changed, and that
     /// subscribers should receive the update. This is how we perform
-    /// automation: a controller produces a [ThingEvent::Control] message, and
+    /// automation: a controller produces a [EntityEvent::Control] message, and
     /// the system transforms it into [Controllable::control_set_param_by_index]
-    /// method calls to inform subscribing [Thing]s that their linked parameters
-    /// should change.
+    /// method calls to inform subscribing [Entities](Entity) that their linked
+    /// parameters should change.
     Control(ControlValue),
 
     /// Sent by system to every entity that subscribes to a control. This
@@ -39,7 +39,7 @@ pub enum ThingEvent {
     #[deprecated]
     HandleControl(ControlIndex, ControlValue),
 }
-impl MessageBounds for ThingEvent {}
+impl MessageBounds for EntityEvent {}
 
 /// An [IsController] controls things in the system that implement
 /// [Controllable]. Examples are sequencers, arpeggiators, and discrete LFOs (as
@@ -103,9 +103,9 @@ pub trait GeneratesToInternalBuffer<V>: Send + std::fmt::Debug + Ticks {
     fn values(&self) -> &[V];
 }
 
-/// Something that is [Controllable] exposes a set of attributes, each with a text
-/// name, that an [IsController] can change. If you're familiar with DAWs, this is
-/// typically called automation.
+/// Something that is [Controllable] exposes a set of attributes, each with a
+/// text name, that an [IsController] can change. If you're familiar with DAWs,
+/// this is typically called automation.
 ///
 /// The [Controllable] trait is more powerful than ordinary getters/setters
 /// because it allows runtime binding of an [IsController] to a [Controllable].
@@ -196,9 +196,9 @@ pub trait Ticks: Configurable + Send + std::fmt::Debug {
 /// This might end up like MIDI routing: there are some things that ask others
 /// to do work, and there are some things that do work, and a transparent proxy
 /// API like we have now isn't appropriate.
-pub type ControlEventsFn<'a> = dyn FnMut(Uid, ThingEvent) + 'a;
+pub type ControlEventsFn<'a> = dyn FnMut(Uid, EntityEvent) + 'a;
 
-/// A device that [Controls] produces [ThingEvent]s that control other things.
+/// A device that [Controls] produces [EntityEvent]s that control other things.
 /// It also has a concept of a performance that has a beginning and an end. It
 /// knows how to respond to requests to start, stop, restart, and seek within
 /// the performance.
@@ -332,7 +332,8 @@ pub trait StoresVoices: Generates<StereoSample> + Send + std::fmt::Debug {
     fn get_voice(&mut self, key: &u7) -> anyhow::Result<&mut Box<Self::Voice>>;
 
     /// All the voices.
-    // Thanks to https://stackoverflow.com/a/58612273/344467 for the lifetime magic
+    // Thanks to https://stackoverflow.com/a/58612273/344467 for the lifetime
+    // magic
     fn voices<'a>(&'a self) -> Box<dyn Iterator<Item = &Box<Self::Voice>> + 'a>;
 
     /// All the voices as a mutable iterator.
@@ -347,7 +348,7 @@ pub trait Serializable {
 }
 
 #[typetag::serde(tag = "type")]
-pub trait Thing: HasUid + Displays + Configurable + Serializable + std::fmt::Debug + Send {
+pub trait Entity: HasUid + Displays + Configurable + Serializable + std::fmt::Debug + Send {
     fn as_controller(&self) -> Option<&dyn IsController> {
         None
     }

@@ -53,7 +53,7 @@ impl ControlRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mini::entity_factory::ThingStore;
+    use crate::mini::entity_factory::EntityStore;
     use groove_core::{
         traits::{
             gui::Displays, Configurable, Controllable, Generates, HandlesMidi, Serializable, Ticks,
@@ -147,7 +147,7 @@ mod tests {
             "the second source's vec should have one entry"
         );
 
-        let mut es = ThingStore::default();
+        let mut es = EntityStore::default();
         let tracker = Arc::new(RwLock::new(Vec::default()));
         let controllable = TestControllable::new_with(target_uid, Arc::clone(&tracker));
         let _ = es.add(Box::new(controllable));

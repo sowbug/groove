@@ -23,8 +23,8 @@ use groove_core::{
     time::{MusicalTime, SampleRate, Tempo},
     traits::{
         gui::{Displays, DisplaysInTimeline},
-        Configurable, ControlEventsFn, Controllable, Controls, Generates,
-        GeneratesToInternalBuffer, HandlesMidi, HasUid, Serializable, ThingEvent, Ticks,
+        Configurable, ControlEventsFn, Controllable, Controls, EntityEvent, Generates,
+        GeneratesToInternalBuffer, HandlesMidi, HasUid, Serializable, Ticks,
     },
     Normal, Sample, StereoSample, Uid,
 };
@@ -56,7 +56,7 @@ pub enum OrchestratorAction {
 #[derive(Debug, Default)]
 pub struct OrchestratorEphemerals {
     range: Range<MusicalTime>,
-    events: Vec<(Uid, ThingEvent)>,
+    events: Vec<(Uid, EntityEvent)>,
     is_finished: bool,
     is_performing: bool,
     action: Option<OrchestratorAction>,
@@ -74,7 +74,7 @@ pub struct OrchestratorEphemerals {
 /// let mut orchestrator = Orchestrator::default();
 /// let track_uid = orchestrator.new_midi_track().unwrap();
 /// let track = orchestrator.get_track_mut(&track_uid).unwrap();
-/// let uid = track.append_thing(Box::new(ToySynth::default())).unwrap();
+/// let uid = track.append_entity(Box::new(ToySynth::default())).unwrap();
 ///
 /// let mut samples = [StereoSample::SILENCE; Orchestrator::SAMPLE_BUFFER_SIZE];
 /// orchestrator.render(&mut samples);
@@ -345,12 +345,12 @@ impl Orchestrator {
         self.tracks.values().all(|t| t.is_finished())
     }
 
-    fn dispatch_event(&mut self, uid: Uid, event: ThingEvent) {
+    fn dispatch_event(&mut self, uid: Uid, event: EntityEvent) {
         match event {
-            ThingEvent::Midi(channel, message) => {
+            EntityEvent::Midi(channel, message) => {
                 self.route_midi_message(channel, message);
             }
-            ThingEvent::Control(value) => {
+            EntityEvent::Control(value) => {
                 self.route_control_change(uid, value);
             }
             _ => {
@@ -383,7 +383,7 @@ impl Orchestrator {
         }
     }
 
-    /// The highest [Thing] [Uid] that this orchestrator has seen. This is
+    /// The highest [Entity] [Uid] that this orchestrator has seen. This is
     /// needed so that generators of new [Uid]s (such as [crate::EntityFactory])
     /// can keep generating unique ones.
     pub fn calculate_max_entity_uid(&self) -> Uid {
@@ -791,7 +791,7 @@ mod tests {
 
         // TODO: worst ergonomics ever.
         const TIMER_DURATION: MusicalTime = MusicalTime::new_with_beats(1);
-        let _ = track.append_thing(Box::new(Timer::new_with(&TimerParams {
+        let _ = track.append_entity(Box::new(Timer::new_with(&TimerParams {
             duration: groove_core::time::MusicalTimeParams {
                 units: TIMER_DURATION.total_units(),
             },
@@ -924,7 +924,7 @@ mod tests {
         {
             let track = o.get_track_mut(&track_uid).unwrap();
             assert!(track
-                .append_thing(Box::new(ToyAudioSource::new_always_medium()))
+                .append_entity(Box::new(ToyAudioSource::new_always_medium()))
                 .is_ok());
         }
         let mut samples = [StereoSample::SILENCE; TrackBuffer::LEN];
@@ -948,7 +948,7 @@ mod tests {
         {
             let track = o.get_track_mut(&aux_uid).unwrap();
             assert!(track
-                .append_thing(Box::new(Gain::new_with(&GainParams {
+                .append_entity(Box::new(Gain::new_with(&GainParams {
                     ceiling: Normal::from(0.5)
                 })))
                 .is_ok());

@@ -5,7 +5,7 @@ use atomic_counter::{AtomicCounter, RelaxedCounter};
 use derive_more::Display;
 use groove_core::{
     time::{SampleRate, Tempo, TimeSignature},
-    traits::{Configurable, ControlEventsFn, Controls, Serializable, Thing, Ticks},
+    traits::{Configurable, ControlEventsFn, Controls, Entity, Serializable, Ticks},
     Uid,
 };
 use once_cell::sync::OnceCell;
@@ -16,7 +16,7 @@ use std::{
     hash::Hash,
 };
 
-/// A globally unique identifier for a kind of thing, such as an arpeggiator
+/// A globally unique identifier for a kind of entity, such as an arpeggiator
 /// controller, an FM synthesizer, or a reverb effect.
 #[derive(Clone, Debug, Display, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub struct Key(String);
@@ -31,7 +31,7 @@ impl From<&str> for Key {
     }
 }
 
-type ThingFactoryFn = fn() -> Box<dyn Thing>;
+type EntityFactoryFn = fn() -> Box<dyn Entity>;
 
 /// The one and only EntityFactory. Access it with `EntityFactory::global()`.
 static FACTORY: OnceCell<EntityFactory> = OnceCell::new();
@@ -41,7 +41,7 @@ static FACTORY: OnceCell<EntityFactory> = OnceCell::new();
 #[derive(Debug)]
 pub struct EntityFactory {
     next_uid: RelaxedCounter,
-    things: HashMap<Key, ThingFactoryFn>,
+    entities: HashMap<Key, EntityFactoryFn>,
     keys: HashSet<Key>,
 
     is_registration_complete: bool,
@@ -51,7 +51,7 @@ impl Default for EntityFactory {
     fn default() -> Self {
         Self {
             next_uid: RelaxedCounter::new(Self::MAX_RESERVED_UID + 1),
-            things: Default::default(),
+            entities: Default::default(),
             keys: Default::default(),
             is_registration_complete: Default::default(),
             sorted_keys: Default::default(),
@@ -83,28 +83,28 @@ impl EntityFactory {
     }
 
     /// Registers a new type for the given [Key] using the given closure.
-    pub fn register_thing(&mut self, key: Key, f: ThingFactoryFn) {
+    pub fn register_entity(&mut self, key: Key, f: EntityFactoryFn) {
         if self.is_registration_complete {
-            panic!("attempt to register another thing after registration completed");
+            panic!("attempt to register an entity after registration completed");
         }
         if self.keys.insert(key.clone()) {
-            self.things.insert(key, f);
+            self.entities.insert(key, f);
         } else {
-            panic!("register_thing({}): duplicate key. Exiting.", key);
+            panic!("register_entity({}): duplicate key. Exiting.", key);
         }
     }
 
-    /// Tells the factory that we won't be registering any more things, allowing
-    /// it to do some final housekeeping.
+    /// Tells the factory that we won't be registering any more entities,
+    /// allowing it to do some final housekeeping.
     pub fn complete_registration(&mut self) {
         self.is_registration_complete = true;
         self.sorted_keys = self.keys().iter().cloned().collect();
         self.sorted_keys.sort();
     }
 
-    /// Creates a new thing of the type corresponding to the given [Key].
-    pub fn new_thing(&self, key: &Key) -> Option<Box<dyn Thing>> {
-        if let Some(f) = self.things.get(key) {
+    /// Creates a new entity of the type corresponding to the given [Key].
+    pub fn new_entity(&self, key: &Key) -> Option<Box<dyn Entity>> {
+        if let Some(f) = self.entities.get(key) {
             let mut r = f();
             r.set_uid(self.mint_uid());
             Some(r)
@@ -119,8 +119,8 @@ impl EntityFactory {
     }
 
     /// Returns the [HashMap] for all [Key] and entity pairs.
-    pub fn entities(&self) -> &HashMap<Key, ThingFactoryFn> {
-        &self.things
+    pub fn entities(&self) -> &HashMap<Key, EntityFactoryFn> {
+        &self.entities
     }
 
     /// Returns a [Uid] that is guaranteed to be unique among all [Uid]s minted
@@ -147,52 +147,52 @@ impl EntityFactory {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
-pub struct ThingStore {
+pub struct EntityStore {
     #[serde(skip)]
     sample_rate: SampleRate,
-    things: HashMap<Uid, Box<dyn Thing>>,
+    entities: HashMap<Uid, Box<dyn Entity>>,
 }
-impl ThingStore {
-    pub fn add(&mut self, mut thing: Box<dyn Thing>) -> anyhow::Result<Uid> {
-        let uid = thing.uid();
-        if self.things.contains_key(&uid) {
-            return Err(anyhow!("Thing Uid {uid} already exists"));
+impl EntityStore {
+    pub fn add(&mut self, mut entity: Box<dyn Entity>) -> anyhow::Result<Uid> {
+        let uid = entity.uid();
+        if self.entities.contains_key(&uid) {
+            return Err(anyhow!("Entity Uid {uid} already exists"));
         }
-        thing.update_sample_rate(self.sample_rate);
-        self.things.insert(thing.uid(), thing);
+        entity.update_sample_rate(self.sample_rate);
+        self.entities.insert(entity.uid(), entity);
         Ok(uid)
     }
-    pub fn get(&self, uid: &Uid) -> Option<&Box<dyn Thing>> {
-        self.things.get(uid)
+    pub fn get(&self, uid: &Uid) -> Option<&Box<dyn Entity>> {
+        self.entities.get(uid)
     }
-    pub fn get_mut(&mut self, uid: &Uid) -> Option<&mut Box<dyn Thing>> {
-        self.things.get_mut(uid)
+    pub fn get_mut(&mut self, uid: &Uid) -> Option<&mut Box<dyn Entity>> {
+        self.entities.get_mut(uid)
     }
-    pub fn remove(&mut self, uid: &Uid) -> Option<Box<dyn Thing>> {
-        self.things.remove(uid)
+    pub fn remove(&mut self, uid: &Uid) -> Option<Box<dyn Entity>> {
+        self.entities.remove(uid)
     }
     #[allow(dead_code)]
-    pub fn uids(&self) -> hash_map::Keys<'_, Uid, Box<dyn Thing>> {
-        self.things.keys()
+    pub fn uids(&self) -> hash_map::Keys<'_, Uid, Box<dyn Entity>> {
+        self.entities.keys()
     }
-    pub fn iter(&self) -> hash_map::Values<'_, Uid, Box<dyn Thing>> {
-        self.things.values()
+    pub fn iter(&self) -> hash_map::Values<'_, Uid, Box<dyn Entity>> {
+        self.entities.values()
     }
-    pub fn iter_mut(&mut self) -> hash_map::ValuesMut<'_, Uid, Box<dyn Thing>> {
-        self.things.values_mut()
+    pub fn iter_mut(&mut self) -> hash_map::ValuesMut<'_, Uid, Box<dyn Entity>> {
+        self.entities.values_mut()
     }
     pub fn is_empty(&self) -> bool {
-        self.things.is_empty()
+        self.entities.is_empty()
     }
 
     pub(crate) fn calculate_max_entity_uid(&self) -> Option<Uid> {
         // TODO: keep an eye on this in case it gets expensive. It's currently
         // used only after loading from disk, and it's O(number of things in
         // system), so it's unlikely to matter.
-        self.things.keys().max().copied()
+        self.entities.keys().max().copied()
     }
 }
-impl Ticks for ThingStore {
+impl Ticks for EntityStore {
     fn tick(&mut self, tick_count: usize) {
         self.iter_mut().for_each(|t| {
             if let Some(t) = t.as_instrument_mut() {
@@ -201,7 +201,7 @@ impl Ticks for ThingStore {
         });
     }
 }
-impl Configurable for ThingStore {
+impl Configurable for EntityStore {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sample_rate = sample_rate;
         self.iter_mut().for_each(|t| {
@@ -221,7 +221,7 @@ impl Configurable for ThingStore {
         });
     }
 }
-impl Controls for ThingStore {
+impl Controls for EntityStore {
     fn update_time(&mut self, range: &std::ops::Range<groove_core::time::MusicalTime>) {
         self.iter_mut().for_each(|t| {
             if let Some(t) = t.as_controller_mut() {
@@ -290,15 +290,15 @@ impl Controls for ThingStore {
         })
     }
 }
-impl Serializable for ThingStore {
+impl Serializable for EntityStore {
     fn after_deser(&mut self) {
-        self.things.iter_mut().for_each(|(_, t)| t.after_deser());
+        self.entities.iter_mut().for_each(|(_, t)| t.after_deser());
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::ThingStore;
+    use super::EntityStore;
     use crate::mini::{register_test_factory_entities, EntityFactory, Key};
     use groove_core::{
         time::SampleRate,
@@ -324,11 +324,11 @@ mod tests {
         // After registration, rebind as immutable
         let factory = factory;
 
-        assert!(factory.new_thing(&Key::from(".9-#$%)@#)")).is_none());
+        assert!(factory.new_entity(&Key::from(".9-#$%)@#)")).is_none());
 
         let mut ids: HashSet<Uid> = HashSet::default();
         for key in factory.keys().iter() {
-            let e = factory.new_thing(key);
+            let e = factory.new_entity(key);
             assert!(e.is_some());
             if let Some(e) = e {
                 assert!(!e.name().is_empty());
@@ -362,31 +362,31 @@ mod tests {
     }
 
     #[test]
-    fn thing_store_is_responsible_for_sample_rate() {
-        let mut t = ThingStore::default();
+    fn store_is_responsible_for_sample_rate() {
+        let mut t = EntityStore::default();
         assert_eq!(t.sample_rate, SampleRate::DEFAULT);
         t.update_sample_rate(SampleRate(44444));
         let factory = register_test_factory_entities(EntityFactory::default());
 
-        let thing = factory.new_thing(&Key::from("instrument")).unwrap();
+        let entity = factory.new_entity(&Key::from("instrument")).unwrap();
         assert_eq!(
-            thing.sample_rate(),
+            entity.sample_rate(),
             SampleRate::DEFAULT,
-            "before adding to thing store, sample rate should be untouched"
+            "before adding to store, sample rate should be untouched"
         );
 
-        let thing_id = t.add(thing).unwrap();
-        let thing = t.remove(&thing_id).unwrap();
+        let uid = t.add(entity).unwrap();
+        let entity = t.remove(&uid).unwrap();
         assert_eq!(
-            thing.sample_rate(),
+            entity.sample_rate(),
             SampleRate(44444),
-            "after adding/removing to/from thing store, sample rate should match"
+            "after adding/removing to/from store, sample rate should match"
         );
     }
 
     #[test]
     fn disallow_duplicate_uids() {
-        let mut t = ThingStore::default();
+        let mut t = EntityStore::default();
         assert_eq!(t.calculate_max_entity_uid(), None);
 
         let mut one = Box::new(ToySynth::default());

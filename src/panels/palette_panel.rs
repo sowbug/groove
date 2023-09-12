@@ -9,7 +9,7 @@ use crate::mini::{
 #[derive(Debug)]
 pub enum PaletteAction {
     /// Requests a new entity of type [Key].
-    NewThing(Key),
+    NewEntity(Key),
 }
 
 /// A tree view of devices that can be placed in tracks.

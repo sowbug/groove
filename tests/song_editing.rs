@@ -68,7 +68,7 @@ fn edit_song() {
     // Pattern is good; add an instrument to the track.
     let rhythm_track = orchestrator.get_track_mut(&rhythm_track_uid).unwrap();
     let _drumkit_uid = rhythm_track
-        .append_thing(factory.new_thing(&Key::from("drumkit")).unwrap())
+        .append_entity(factory.new_entity(&Key::from("drumkit")).unwrap())
         .unwrap();
 
     // Arrange the drum pattern.
@@ -95,22 +95,22 @@ fn edit_song() {
 
     let lead_track = orchestrator.get_track_mut(&lead_track_uid).unwrap();
     let welsh_synth_uid = lead_track
-        .append_thing(factory.new_thing(&Key::from("welsh-synth")).unwrap())
+        .append_entity(factory.new_entity(&Key::from("welsh-synth")).unwrap())
         .unwrap();
 
     // Hmmm, we don't like the sound of that synth; let's replace it with another.
-    lead_track.remove_thing(&welsh_synth_uid);
+    lead_track.remove_entity(&welsh_synth_uid);
     let _toy_synth_uid = lead_track
-        .append_thing(factory.new_thing(&Key::from("toy-synth")).unwrap())
+        .append_entity(factory.new_entity(&Key::from("toy-synth")).unwrap())
         .unwrap();
 
     // That's better, but it needs an effect.
     let _lead_reverb_uid = lead_track
-        .append_thing(factory.new_thing(&Key::from("reverb")).unwrap())
+        .append_entity(factory.new_entity(&Key::from("reverb")).unwrap())
         .unwrap();
     // And another.
     let lead_gain_uid = lead_track
-        .append_thing(factory.new_thing(&Key::from("gain")).unwrap())
+        .append_entity(factory.new_entity(&Key::from("gain")).unwrap())
         .unwrap();
     // Sounds better if gain is first in chain.
     let _ = lead_track.move_effect(lead_gain_uid, 0);

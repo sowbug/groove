@@ -27,13 +27,13 @@ use groove_utils::Paths;
 pub fn register_factory_entities(mut factory: EntityFactory) -> EntityFactory {
     // TODO: might be nice to move HasUid::name() to be a function.
 
-    factory.register_thing(Key::from("arpeggiator"), || {
+    factory.register_entity(Key::from("arpeggiator"), || {
         Box::new(Arpeggiator::new_with(
             &ArpeggiatorParams::default(),
             MidiChannel(0),
         ))
     });
-    factory.register_thing(Key::from("sequencer"), || {
+    factory.register_entity(Key::from("sequencer"), || {
         Box::new(
             SequencerBuilder::default()
                 .midi_channel_out(MidiChannel(0))
@@ -41,63 +41,63 @@ pub fn register_factory_entities(mut factory: EntityFactory) -> EntityFactory {
                 .unwrap(),
         )
     });
-    factory.register_thing(Key::from("reverb"), || {
+    factory.register_entity(Key::from("reverb"), || {
         Box::new(Reverb::new_with(&ReverbParams {
             attenuation: Normal::from(0.8),
             seconds: 1.0,
         }))
     });
-    factory.register_thing(Key::from("gain"), || {
+    factory.register_entity(Key::from("gain"), || {
         Box::new(Gain::new_with(&GainParams {
             ceiling: Normal::from(0.5),
         }))
     });
     // TODO: this is lazy. It's too hard right now to adjust parameters within
     // code, so I'm creating a special instrument with the parameters I want.
-    factory.register_thing(Key::from("mute"), || {
+    factory.register_entity(Key::from("mute"), || {
         Box::new(Gain::new_with(&GainParams {
             ceiling: Normal::minimum(),
         }))
     });
-    factory.register_thing(Key::from("filter-low-pass-24db"), || {
+    factory.register_entity(Key::from("filter-low-pass-24db"), || {
         Box::new(BiQuadFilterLowPass24db::new_with(
             &BiQuadFilterLowPass24dbParams::default(),
         ))
     });
-    factory.register_thing(Key::from("timer"), || {
+    factory.register_entity(Key::from("timer"), || {
         Box::new(Timer::new_with(&TimerParams::default()))
     });
-    factory.register_thing(Key::from("toy-synth"), || {
+    factory.register_entity(Key::from("toy-synth"), || {
         Box::new(ToySynth::new_with(&ToySynthParams::default()))
     });
-    factory.register_thing(Key::from("toy-instrument"), || {
+    factory.register_entity(Key::from("toy-instrument"), || {
         Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default()))
     });
-    factory.register_thing(Key::from("welsh-synth"), || {
+    factory.register_entity(Key::from("welsh-synth"), || {
         Box::new(WelshSynth::new_with(&WelshSynthParams::default()))
     });
-    factory.register_thing(Key::from("drumkit"), || {
+    factory.register_entity(Key::from("drumkit"), || {
         Box::new(Drumkit::new_with(
             &DrumkitParams::default(),
             &Paths::default(),
         ))
     });
-    factory.register_thing(Key::from("lfo"), || {
+    factory.register_entity(Key::from("lfo"), || {
         Box::new(LfoController::new_with(&LfoControllerParams {
             frequency: FrequencyHz(0.2),
             waveform: Waveform::Sawtooth,
         }))
     });
-    factory.register_thing(Key::from("control-trip"), || {
+    factory.register_entity(Key::from("control-trip"), || {
         Box::new(ControlTrip::default())
     });
-    factory.register_thing(Key::from("signal-passthrough"), || {
+    factory.register_entity(Key::from("signal-passthrough"), || {
         Box::new(SignalPassthroughController::default())
     });
-    factory.register_thing(Key::from("signal-amplitude-passthrough"), || {
+    factory.register_entity(Key::from("signal-amplitude-passthrough"), || {
         Box::new(SignalPassthroughController::new_amplitude_passthrough_type())
     });
-    factory.register_thing(Key::from("signal-amplitude-inverted-passthrough"), || {
+    factory.register_entity(Key::from("signal-amplitude-inverted-passthrough"), || {
         Box::new(SignalPassthroughController::new_amplitude_inverted_passthrough_type())
     });
 
@@ -124,16 +124,16 @@ use {
 #[cfg(test)]
 #[must_use]
 pub fn register_test_factory_entities(mut factory: EntityFactory) -> EntityFactory {
-    factory.register_thing(Key::from("instrument"), || {
+    factory.register_entity(Key::from("instrument"), || {
         Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default()))
     });
-    factory.register_thing(Key::from("controller"), || {
+    factory.register_entity(Key::from("controller"), || {
         Box::new(ToyController::new_with(
             &ToyControllerParams::default(),
             MidiChannel::from(0),
         ))
     });
-    factory.register_thing(Key::from("effect"), || {
+    factory.register_entity(Key::from("effect"), || {
         Box::new(ToyEffect::new_with(&ToyEffectParams::default()))
     });
 

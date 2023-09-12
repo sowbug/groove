@@ -30,7 +30,7 @@ use groove_core::{
     control::ControlValue,
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessagesFn},
     time::{ClockTimeUnit, MusicalTime, MusicalTimeParams, SampleRate},
-    traits::{Configurable, ControlEventsFn, Controls, Serializable, ThingEvent, TransformsAudio},
+    traits::{Configurable, ControlEventsFn, Controls, EntityEvent, Serializable, TransformsAudio},
     BipolarNormal, Normal, Sample, StereoSample,
 };
 use groove_proc_macros::{Control, IsController, IsControllerEffect, Params, Uid};
@@ -195,7 +195,7 @@ impl Controls for Trigger {
     fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
         if self.timer.is_finished() && self.is_performing && !self.has_triggered {
             self.has_triggered = true;
-            control_events_fn(self.uid, ThingEvent::Control(self.value().into()));
+            control_events_fn(self.uid, EntityEvent::Control(self.value().into()));
         }
     }
 
@@ -301,7 +301,7 @@ impl Controls for SignalPassthroughController {
         }
         if !self.has_value_been_issued {
             self.has_value_been_issued = true;
-            control_events_fn(self.uid, ThingEvent::Control(self.control_value))
+            control_events_fn(self.uid, EntityEvent::Control(self.control_value))
         }
     }
 
@@ -437,7 +437,7 @@ impl Controls for ToyController {
                     self.is_playing = true;
                     control_events_fn(
                         self.uid,
-                        ThingEvent::Midi(self.midi_channel_out, new_note_on(60, 127)),
+                        EntityEvent::Midi(self.midi_channel_out, new_note_on(60, 127)),
                     );
                 }
             }
@@ -445,7 +445,7 @@ impl Controls for ToyController {
                 if self.is_playing {
                     control_events_fn(
                         self.uid,
-                        ThingEvent::Midi(self.midi_channel_out, new_note_off(60, 0)),
+                        EntityEvent::Midi(self.midi_channel_out, new_note_off(60, 0)),
                     );
                 }
             }

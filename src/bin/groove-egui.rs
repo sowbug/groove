@@ -17,7 +17,9 @@ use eframe::{
 use egui_toast::{Toast, ToastOptions, Toasts};
 use groove::{
     app_version,
-    panels::{ControlBar, MidiPanel, OldAudioPanel, Preferences, ThingBrowser, ThingBrowserEvent},
+    panels::{
+        ControlBar, EntityBrowser, EntityBrowserEvent, MidiPanel, OldAudioPanel, Preferences,
+    },
 };
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
@@ -52,14 +54,14 @@ struct GrooveApp {
     sender: Sender<Message>,
     receiver: Receiver<Message>,
 
-    //  thing_browser_sender: Sender<ThingBrowserEvent>,
+    //  entity_browser_sender: Sender<EntityBrowserEvent>,
     // midi_panel_sender: Sender<MidiPanelEvent>,
     orchestrator: Arc<Mutex<Orchestrator>>,
 
     control_bar: ControlBar,
     audio_panel: OldAudioPanel,
     midi_panel: MidiPanel,
-    thing_browser: ThingBrowser,
+    thing_browser: EntityBrowser,
     toasts: Toasts,
 
     #[allow(dead_code)]
@@ -75,7 +77,8 @@ impl eframe::App for GrooveApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.handle_message_queue();
 
-        // TODO: the thing browser also acts on the tab. I'm probably looking at keys the wrong way.
+        // TODO: the entity browser also acts on the tab. I'm probably looking
+        // at keys the wrong way.
         ctx.input_mut(|i| {
             if i.consume_key(Modifiers::NONE, egui::Key::Tab) {
                 if let Ok(mut o) = self.orchestrator.lock() {
@@ -202,7 +205,7 @@ impl GrooveApp {
             midi_panel: MidiPanel::default(),
             audio_panel: OldAudioPanel::new_with(Arc::clone(&orchestrator)),
             preferences,
-            thing_browser: ThingBrowser::scan_everything(&paths, extra_paths),
+            thing_browser: EntityBrowser::scan_everything(&paths, extra_paths),
             toasts: Toasts::new()
                 .anchor(Align2::RIGHT_BOTTOM, (-10.0, -10.0))
                 .direction(egui::Direction::BottomUp),
@@ -359,10 +362,10 @@ impl GrooveApp {
             if let Ok(message) = self.thing_browser.receiver().try_recv() {
                 received = true;
                 match message {
-                    ThingBrowserEvent::ProjectLoaded(Ok(path)) => {
+                    EntityBrowserEvent::ProjectLoaded(Ok(path)) => {
                         self.preferences.set_project_filename(&path);
                     }
-                    ThingBrowserEvent::ProjectLoaded(Err(err)) => {
+                    EntityBrowserEvent::ProjectLoaded(Err(err)) => {
                         self.add_error_toast(err.to_string());
                     }
                 }

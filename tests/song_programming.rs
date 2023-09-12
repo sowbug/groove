@@ -47,14 +47,14 @@ fn set_up_drum_track(o: &mut Orchestrator, factory: &EntityFactory) {
 
     // Add the drumkit instrument to the track. By default, it listens on MIDI channel 0.
     let _drumkit_uid = track
-        .append_thing(factory.new_thing(&Key::from("drumkit")).unwrap())
+        .append_entity(factory.new_entity(&Key::from("drumkit")).unwrap())
         .unwrap();
 
     // Add an effect to the track's effect chain.
     let filter_uid = track
-        .append_thing(
+        .append_entity(
             factory
-                .new_thing(&Key::from("filter-low-pass-24db"))
+                .new_entity(&Key::from("filter-low-pass-24db"))
                 .unwrap(),
         )
         .unwrap();
@@ -85,12 +85,12 @@ fn set_up_lead_track(o: &mut Orchestrator, factory: &EntityFactory) {
 
     // Add a synth to play the pattern.
     let _synth_uid = track
-        .append_thing(factory.new_thing(&Key::from("welsh-synth")).unwrap())
+        .append_entity(factory.new_entity(&Key::from("welsh-synth")).unwrap())
         .unwrap();
 
     // Make the synth sound better.
     let reverb_uid = track
-        .append_thing(factory.new_thing(&Key::from("reverb")).unwrap())
+        .append_entity(factory.new_entity(&Key::from("reverb")).unwrap())
         .unwrap();
     let _ = track.set_humidity(reverb_uid, Normal::from(0.2));
 }

@@ -44,7 +44,7 @@ pub enum OrchestratorInput {
     /// Delete the selected arranged patterns.
     TrackPatternRemoveSelected,
     /// Add a new entity to the selected track.
-    TrackAddThing(Key),
+    TrackAddEntity(Key),
     /// Sets the tempo.
     Tempo(Tempo),
 
@@ -172,13 +172,13 @@ impl OrchestratorPanel {
                             unimplemented!()
                             //                            o.remove_selected_patterns();
                         }
-                        OrchestratorInput::TrackAddThing(key) => {
+                        OrchestratorInput::TrackAddEntity(key) => {
                             // TODO: this is weird because it acts on all selected tracks. Figure out how to better restrict in the GUI.
                             if let Ok(track_selection_set) = track_selection_set.lock() {
                                 track_selection_set.iter().for_each(|track_uid| {
                                     if let Some(track) = o.get_track_mut(track_uid) {
-                                        if let Some(e) = EntityFactory::global().new_thing(&key) {
-                                            let _ = track.append_thing(e);
+                                        if let Some(e) = EntityFactory::global().new_entity(&key) {
+                                            let _ = track.append_entity(e);
                                         }
                                     }
                                 });
@@ -303,8 +303,8 @@ impl OrchestratorPanel {
                 }
                 OrchestratorAction::NewDeviceForTrack(track_uid, key) => {
                     if let Some(track) = o.get_track_mut(&track_uid) {
-                        if let Some(thing) = EntityFactory::global().new_thing(&key) {
-                            let _ = track.append_thing(thing);
+                        if let Some(entity) = EntityFactory::global().new_entity(&key) {
+                            let _ = track.append_entity(entity);
                         }
                     }
                 }

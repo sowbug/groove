@@ -24,7 +24,7 @@ use groove::{
             pattern, placeholder, timeline, track,
         },
         ControlAtlas, ControlRouter, DragDropEvent, DragDropManager, DragDropSource, ESSequencer,
-        ESSequencerBuilder, Note, PatternUid, PianoRoll, Sequencer, ThingStore, TrackTitle,
+        ESSequencerBuilder, EntityStore, Note, PatternUid, PianoRoll, Sequencer, TrackTitle,
         TrackUid,
     },
     EntityFactory,
@@ -34,7 +34,7 @@ use groove_core::{
     time::MusicalTime,
     traits::{
         gui::{Displays, DisplaysInTimeline},
-        Thing,
+        Entity,
     },
     Sample, Uid,
 };
@@ -210,7 +210,7 @@ impl Displays for DevicePaletteSettings {
 /// Wraps a [DeviceChain] as a [Widget](eframe::egui::Widget). Mutates many things.
 pub fn device_chain<'a>(
     track_uid: TrackUid,
-    store: &'a mut ThingStore,
+    store: &'a mut EntityStore,
     controllers: &'a mut Vec<Uid>,
     instruments: &'a mut Vec<Uid>,
     effects: &'a mut Vec<Uid>,
@@ -229,7 +229,7 @@ pub enum DeviceChainAction {
 #[derive(Debug)]
 struct DeviceChain<'a> {
     track_uid: TrackUid,
-    store: &'a mut ThingStore,
+    store: &'a mut EntityStore,
     controllers: &'a mut Vec<Uid>,
     instruments: &'a mut Vec<Uid>,
     effects: &'a mut Vec<Uid>,
@@ -241,7 +241,7 @@ struct DeviceChain<'a> {
 impl<'a> DeviceChain<'a> {
     fn new(
         track_uid: TrackUid,
-        store: &'a mut ThingStore,
+        store: &'a mut EntityStore,
         controllers: &'a mut Vec<Uid>,
         instruments: &'a mut Vec<Uid>,
         effects: &'a mut Vec<Uid>,
@@ -319,7 +319,7 @@ struct DeviceChainSettings {
     hide: bool,
     is_large_size: bool,
     track_uid: TrackUid,
-    store: ThingStore,
+    store: EntityStore,
     controllers: Vec<Uid>,
     instruments: Vec<Uid>,
     effects: Vec<Uid>,
@@ -346,18 +346,18 @@ impl DeviceChainSettings {
     }
 
     // This duplicates some code in Orchestrator.
-    pub fn append_thing(&mut self, thing: Box<dyn Thing>) -> anyhow::Result<Uid> {
-        let uid = thing.uid();
-        if thing.as_controller().is_some() {
+    pub fn append_entity(&mut self, entity: Box<dyn Entity>) -> anyhow::Result<Uid> {
+        let uid = entity.uid();
+        if entity.as_controller().is_some() {
             self.controllers.push(uid);
         }
-        if thing.as_effect().is_some() {
+        if entity.as_effect().is_some() {
             self.effects.push(uid);
         }
-        if thing.as_instrument().is_some() {
+        if entity.as_instrument().is_some() {
             self.instruments.push(uid);
         }
-        self.store.add(thing)
+        self.store.add(entity)
     }
 }
 impl Displays for DeviceChainSettings {
@@ -903,8 +903,8 @@ impl eframe::App for Explorer {
             match action {
                 DeviceChainAction::NewDevice(key) => {
                     eprintln!("DeviceChainAction::NewDevice({key})");
-                    if let Some(thing) = EntityFactory::global().new_thing(&key) {
-                        let _ = self.device_chain.append_thing(thing);
+                    if let Some(entity) = EntityFactory::global().new_entity(&key) {
+                        let _ = self.device_chain.append_entity(entity);
                     }
                 }
             }

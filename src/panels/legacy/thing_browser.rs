@@ -12,9 +12,9 @@ use std::{
 
 use crate::panels::Preferences;
 
-/// The browser provides updates to the app through [ThingBrowserEvent] messages.
+/// The browser provides updates to the app through [EntityBrowserEvent] messages.
 #[derive(Debug)]
-pub enum ThingBrowserEvent {
+pub enum EntityBrowserEvent {
     /// A new project was loaded. Filename provided.
     ProjectLoaded(Result<PathBuf, anyhow::Error>),
 }
@@ -26,7 +26,7 @@ pub enum Action {
 
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-enum ThingType {
+enum EntityType {
     #[default]
     Top,
     Directory(PathBuf),
@@ -35,19 +35,19 @@ enum ThingType {
     Patch,
 }
 
-/// [ThingBrowser] shows assets in a tree view.
+/// [EntityBrowser] shows assets in a tree view.
 #[derive(Clone, Debug)]
-pub struct ThingBrowser {
-    app_receiver: Receiver<ThingBrowserEvent>, // to give to the app to receive what we sent
-    app_sender: Sender<ThingBrowserEvent>,     // for us to send to the app
-    root: ThingBrowserNode,
+pub struct EntityBrowser {
+    app_receiver: Receiver<EntityBrowserEvent>, // to give to the app to receive what we sent
+    app_sender: Sender<EntityBrowserEvent>,     // for us to send to the app
+    root: EntityBrowserNode,
 }
-impl ThingBrowser {
-    /// Instantiates a new top-level [ThingBrowser] and scans global/user/dev
+impl EntityBrowser {
+    /// Instantiates a new top-level [EntityBrowser] and scans global/user/dev
     /// directories. TODO: this is synchronous
     pub fn scan_everything(paths: &Paths, extra_paths: Vec<PathBuf>) -> Self {
-        let mut root = ThingBrowserNode {
-            thing_type: ThingType::Top,
+        let mut root = EntityBrowserNode {
+            thing_type: EntityType::Top,
             ..Default::default()
         };
         for path in paths.hives() {
@@ -66,28 +66,28 @@ impl ThingBrowser {
         }
     }
 
-    /// Renders the thing browser.
+    /// Renders the entity browser.
     pub fn show(&mut self, ui: &mut Ui, paths: &Paths, orchestrator: Arc<Mutex<Orchestrator>>) {
         self.root
             .ui_impl(ui, paths, self.app_sender.clone(), orchestrator);
     }
 
-    /// The receive side of the [ThingBrowserEvent] channel.
-    pub fn receiver(&self) -> &Receiver<ThingBrowserEvent> {
+    /// The receive side of the [EntityBrowserEvent] channel.
+    pub fn receiver(&self) -> &Receiver<EntityBrowserEvent> {
         &self.app_receiver
     }
 }
 
-/// [ThingBrowser] shows assets in a tree view.
+/// [EntityBrowser] shows assets in a tree view.
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-pub struct ThingBrowserNode {
+pub struct EntityBrowserNode {
     depth: usize,
-    thing_type: ThingType,
+    thing_type: EntityType,
     name: String,
-    children: Vec<ThingBrowserNode>,
+    children: Vec<EntityBrowserNode>,
 }
-impl ThingBrowserNode {
+impl EntityBrowserNode {
     fn top_scan(&mut self, path: &Path, title: &str) {
         let mut child = self.make_child();
         child.scan(path);
@@ -96,7 +96,7 @@ impl ThingBrowserNode {
     }
 
     fn make_child(&mut self) -> Self {
-        ThingBrowserNode {
+        EntityBrowserNode {
             depth: self.depth + 1,
             ..Default::default()
         }
@@ -111,19 +111,19 @@ impl ThingBrowserNode {
             if let Some(extension) = path.extension() {
                 let extension = extension.to_ascii_lowercase();
                 if extension == "ens" || extension == "json" || extension == "json5" {
-                    self.thing_type = ThingType::Project(path.to_path_buf());
+                    self.thing_type = EntityType::Project(path.to_path_buf());
                 }
                 if extension == "wav" || extension == "aiff" {
-                    self.thing_type = ThingType::Sample;
+                    self.thing_type = EntityType::Sample;
                 }
                 if extension == "enp" {
-                    self.thing_type = ThingType::Patch;
+                    self.thing_type = EntityType::Patch;
                 }
             }
             return;
         }
         if path.is_dir() {
-            self.thing_type = ThingType::Directory(path.to_path_buf());
+            self.thing_type = EntityType::Directory(path.to_path_buf());
             if let Ok(read_dir) = fs::read_dir(path) {
                 for entry in read_dir.flatten() {
                     let mut child = self.make_child();
@@ -138,7 +138,7 @@ impl ThingBrowserNode {
         &mut self,
         ui: &mut Ui,
         paths: &Paths,
-        sender: Sender<ThingBrowserEvent>,
+        sender: Sender<EntityBrowserEvent>,
         orchestrator: Arc<Mutex<Orchestrator>>,
     ) {
         self.ui_impl(ui, paths, sender, orchestrator);
@@ -148,21 +148,21 @@ impl ThingBrowserNode {
         &mut self,
         ui: &mut Ui,
         paths: &Paths,
-        sender: Sender<ThingBrowserEvent>,
+        sender: Sender<EntityBrowserEvent>,
         orchestrator: Arc<Mutex<Orchestrator>>,
     ) -> Action {
         match &self.thing_type {
-            ThingType::Top => self.children_ui(ui, paths, sender, orchestrator),
-            ThingType::Directory(_path) => CollapsingHeader::new(&self.name)
+            EntityType::Top => self.children_ui(ui, paths, sender, orchestrator),
+            EntityType::Directory(_path) => CollapsingHeader::new(&self.name)
                 .id_source(ui.next_auto_id())
                 .default_open(self.depth < 2)
                 .show(ui, |ui| self.children_ui(ui, paths, sender, orchestrator))
                 .body_returned
                 .unwrap_or(Action::Keep),
-            ThingType::Project(path) => {
+            EntityType::Project(path) => {
                 ui.horizontal(|ui| {
                     if ui.button("Load").clicked() {
-                        let _ = sender.send(ThingBrowserEvent::ProjectLoaded(
+                        let _ = sender.send(EntityBrowserEvent::ProjectLoaded(
                             Preferences::handle_load(paths, &path.clone(), orchestrator),
                         ));
                     }
@@ -170,11 +170,11 @@ impl ThingBrowserNode {
                 });
                 Action::Keep
             }
-            ThingType::Sample => {
+            EntityType::Sample => {
                 ui.label(format!("Sample {}", self.name));
                 Action::Keep
             }
-            ThingType::Patch => {
+            EntityType::Patch => {
                 ui.label(format!("Patch {}", self.name));
                 Action::Keep
             }
@@ -185,7 +185,7 @@ impl ThingBrowserNode {
         &mut self,
         ui: &mut Ui,
         paths: &Paths,
-        sender: Sender<ThingBrowserEvent>,
+        sender: Sender<EntityBrowserEvent>,
         orchestrator: Arc<Mutex<Orchestrator>>,
     ) -> Action {
         for child in self.children.iter_mut() {

@@ -3,7 +3,7 @@
 use super::{
     control_atlas::ControlAtlas,
     control_router::ControlRouter,
-    entity_factory::ThingStore,
+    entity_factory::EntityStore,
     humidifier::Humidifier,
     midi_router::MidiRouter,
     piano_roll::PianoRoll,
@@ -23,8 +23,8 @@ use groove_core::{
     time::{MusicalTime, SampleRate, Tempo, TimeSignature},
     traits::{
         gui::{Displays, DisplaysInTimeline},
-        Configurable, ControlEventsFn, Controls, GeneratesToInternalBuffer, Serializable, Thing,
-        ThingEvent, Ticks,
+        Configurable, ControlEventsFn, Controls, Entity, EntityEvent, GeneratesToInternalBuffer,
+        Serializable, Ticks,
     },
     IsUid, Normal, StereoSample, Uid,
 };
@@ -176,7 +176,7 @@ pub struct Track {
     title: TrackTitle,
     ty: TrackType,
 
-    thing_store: ThingStore,
+    entity_store: EntityStore,
 
     sequencer: Sequencer,
     midi_router: MidiRouter,
@@ -206,54 +206,54 @@ impl Track {
 
     // TODO: for now the only way to add something new to a Track is to append it.
     #[allow(missing_docs)]
-    pub fn append_thing(&mut self, thing: Box<dyn Thing>) -> anyhow::Result<Uid> {
-        let uid = thing.uid();
+    pub fn append_entity(&mut self, entity: Box<dyn Entity>) -> anyhow::Result<Uid> {
+        let uid = entity.uid();
 
-        // Some things are hybrids, so they can appear in multiple lists. That's
-        // why we don't have if-else here.
-        if thing.as_controller().is_some() {
+        // Some entities are hybrids, so they can appear in multiple lists.
+        // That's why we don't have if-else here.
+        if entity.as_controller().is_some() {
             self.controllers.push(uid);
         }
-        if thing.as_effect().is_some() {
+        if entity.as_effect().is_some() {
             self.effects.push(uid);
         }
-        if thing.as_instrument().is_some() {
+        if entity.as_instrument().is_some() {
             self.instruments.push(uid);
         }
-        if thing.as_handles_midi().is_some() {
+        if entity.as_handles_midi().is_some() {
             // TODO: for now, everyone's on channel 0
             self.midi_router.connect(uid, MidiChannel(0));
         }
 
-        self.thing_store.add(thing)
+        self.entity_store.add(entity)
     }
 
     #[allow(missing_docs)]
-    pub fn remove_thing(&mut self, uid: &Uid) -> Option<Box<dyn Thing>> {
-        if let Some(thing) = self.thing_store.remove(uid) {
-            if thing.as_controller().is_some() {
+    pub fn remove_entity(&mut self, uid: &Uid) -> Option<Box<dyn Entity>> {
+        if let Some(entity) = self.entity_store.remove(uid) {
+            if entity.as_controller().is_some() {
                 self.controllers.retain(|e| e != uid)
             }
-            if thing.as_effect().is_some() {
+            if entity.as_effect().is_some() {
                 self.effects.retain(|e| e != uid);
             }
-            if thing.as_instrument().is_some() {
+            if entity.as_instrument().is_some() {
                 self.instruments.retain(|e| e != uid);
             }
-            Some(thing)
+            Some(entity)
         } else {
             None
         }
     }
 
-    /// Returns the [Thing] having the given [Uid], if it exists.
-    pub fn thing(&self, uid: &Uid) -> Option<&Box<dyn Thing>> {
-        self.thing_store.get(uid)
+    /// Returns the [Entity] having the given [Uid], if it exists.
+    pub fn entity(&self, uid: &Uid) -> Option<&Box<dyn Entity>> {
+        self.entity_store.get(uid)
     }
 
-    /// Returns the mutable [Thing] having the given [Uid], if it exists.
-    pub fn thing_mut(&mut self, uid: &Uid) -> Option<&mut Box<dyn Thing>> {
-        self.thing_store.get_mut(uid)
+    /// Returns the mutable [Entity] having the given [Uid], if it exists.
+    pub fn entity_mut(&mut self, uid: &Uid) -> Option<&mut Box<dyn Entity>> {
+        self.entity_store.get_mut(uid)
     }
 
     fn button_states(index: usize, len: usize) -> (bool, bool) {
@@ -303,7 +303,7 @@ impl Track {
                                 show_right,
                                 true,
                                 |ui| {
-                                    if let Some(e) = self.thing_store.get_mut(uid) {
+                                    if let Some(e) = self.entity_store.get_mut(uid) {
                                         e.ui(ui);
                                     }
                                 },
@@ -324,7 +324,7 @@ impl Track {
                                 show_right,
                                 true,
                                 |ui| {
-                                    if let Some(e) = self.thing_store.get_mut(uid) {
+                                    if let Some(e) = self.entity_store.get_mut(uid) {
                                         e.ui(ui);
                                     }
                                 },
@@ -345,7 +345,7 @@ impl Track {
                                 show_right,
                                 true,
                                 |ui| {
-                                    if let Some(e) = self.thing_store.get_mut(uid) {
+                                    if let Some(e) = self.entity_store.get_mut(uid) {
                                         e.ui(ui);
                                     }
                                 },
@@ -446,9 +446,9 @@ impl Track {
                     self.e.is_sequencer_open = !self.e.is_sequencer_open;
                 }
             }
-            for thing in self.thing_store.iter_mut() {
-                Self::ui_device(ui, thing.as_mut(), desired_size);
-            }
+            self.entity_store.iter_mut().for_each(|e| {
+                Self::ui_device(ui, e.as_mut(), desired_size);
+            });
 
             let can_accept = if let Some(source) = DragDropManager::source() {
                 match source {
@@ -464,8 +464,8 @@ impl Track {
                     desired_size,
                     Layout::centered_and_justified(egui::Direction::LeftToRight),
                     |ui| {
-                        ui.label(if self.thing_store.is_empty() {
-                            "Drag things here"
+                        ui.label(if self.entity_store.is_empty() {
+                            "Drag stuff here"
                         } else {
                             "+"
                         })
@@ -498,7 +498,7 @@ impl Track {
         action
     }
 
-    fn ui_device(ui: &mut Ui, thing: &mut dyn Thing, desired_size: Vec2) {
+    fn ui_device(ui: &mut Ui, entity: &mut dyn Entity, desired_size: Vec2) {
         ui.allocate_ui(desired_size, |ui| {
             ui.set_min_size(desired_size);
             ui.set_max_size(desired_size);
@@ -509,7 +509,7 @@ impl Track {
                 })
                 .inner_margin(2.0)
                 .show(ui, |ui| {
-                    thing.ui(ui);
+                    entity.ui(ui);
                 });
         });
     }
@@ -527,7 +527,7 @@ impl Track {
     ) {
         if let Err(e) = self
             .midi_router
-            .route(&mut self.thing_store, channel, message)
+            .route(&mut self.entity_store, channel, message)
         {
             eprintln!("While routing: {e}");
         }
@@ -537,7 +537,7 @@ impl Track {
     pub fn route_control_change(&mut self, uid: Uid, value: ControlValue) {
         if let Err(e) = self.control_router.route(
             &mut |target_uid, index, value| {
-                if let Some(e) = self.thing_store.get_mut(target_uid) {
+                if let Some(e) = self.entity_store.get_mut(target_uid) {
                     if let Some(e) = e.as_controllable_mut() {
                         e.control_set_param_by_index(index, value);
                     }
@@ -576,8 +576,8 @@ impl Track {
 
     /// Sets the wet/dry of an effect in the chain.
     pub fn set_humidity(&mut self, effect_uid: Uid, humidity: Normal) -> anyhow::Result<()> {
-        if let Some(thing) = self.thing(&effect_uid) {
-            if thing.as_effect().is_some() {
+        if let Some(entity) = self.entity(&effect_uid) {
+            if entity.as_effect().is_some() {
                 self.humidifier.set_humidity_by_uid(effect_uid, humidity);
                 Ok(())
             } else {
@@ -589,7 +589,7 @@ impl Track {
     }
 
     pub(crate) fn calculate_max_entity_uid(&self) -> Option<Uid> {
-        self.thing_store.calculate_max_entity_uid()
+        self.entity_store.calculate_max_entity_uid()
     }
 
     /// Moves the indicated effect to a new position within the effects chain.
@@ -666,7 +666,7 @@ impl GeneratesToInternalBuffer<StereoSample> for Track {
         }
 
         for uid in self.instruments.iter() {
-            if let Some(e) = self.thing_store.get_mut(uid) {
+            if let Some(e) = self.entity_store.get_mut(uid) {
                 if let Some(e) = e.as_instrument_mut() {
                     // Note that we're expecting everyone to ADD to the buffer,
                     // not to overwrite! TODO: convert all instruments to have
@@ -678,7 +678,7 @@ impl GeneratesToInternalBuffer<StereoSample> for Track {
 
         // TODO: change this trait to operate on batches.
         for uid in self.effects.iter() {
-            if let Some(e) = self.thing_store.get_mut(uid) {
+            if let Some(e) = self.entity_store.get_mut(uid) {
                 if let Some(e) = e.as_effect_mut() {
                     let humidity = self.humidifier.get_humidity_by_uid(uid);
                     if humidity == Normal::zero() {
@@ -707,26 +707,26 @@ impl GeneratesToInternalBuffer<StereoSample> for Track {
 }
 impl Ticks for Track {
     fn tick(&mut self, tick_count: usize) {
-        self.thing_store.tick(tick_count);
+        self.entity_store.tick(tick_count);
     }
 }
 impl Configurable for Track {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.sequencer.update_sample_rate(sample_rate);
         self.control_atlas.update_sample_rate(sample_rate);
-        self.thing_store.update_sample_rate(sample_rate);
+        self.entity_store.update_sample_rate(sample_rate);
     }
 
     fn update_tempo(&mut self, tempo: Tempo) {
         self.sequencer.update_tempo(tempo);
         self.control_atlas.update_tempo(tempo);
-        self.thing_store.update_tempo(tempo);
+        self.entity_store.update_tempo(tempo);
     }
 
     fn update_time_signature(&mut self, time_signature: TimeSignature) {
         self.sequencer.update_time_signature(time_signature);
         self.control_atlas.update_time_signature(time_signature);
-        self.thing_store.update_time_signature(time_signature);
+        self.entity_store.update_time_signature(time_signature);
     }
 }
 
@@ -756,7 +756,7 @@ impl Controls for Track {
     fn update_time(&mut self, range: &Range<MusicalTime>) {
         self.sequencer.update_time(range);
         self.control_atlas.update_time(range);
-        self.thing_store.update_time(range);
+        self.entity_store.update_time(range);
     }
 
     fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
@@ -765,49 +765,49 @@ impl Controls for Track {
             // temporary fix because we do want Orchestrator to route to
             // external MIDI devices, so eventually we will need to pass them
             // along.
-            ThingEvent::Midi(channel, message) => {
+            EntityEvent::Midi(channel, message) => {
                 let _ = self
                     .midi_router
-                    .route(&mut self.thing_store, channel, message);
+                    .route(&mut self.entity_store, channel, message);
             }
-            ThingEvent::Control(_) => {
+            EntityEvent::Control(_) => {
                 control_events_fn(uid, event);
             }
-            ThingEvent::HandleControl(_, _) => todo!(),
+            EntityEvent::HandleControl(_, _) => todo!(),
         });
         self.control_atlas.work(control_events_fn);
-        self.thing_store.work(control_events_fn);
+        self.entity_store.work(control_events_fn);
     }
 
     fn is_finished(&self) -> bool {
         self.sequencer.is_finished()
             && self.control_atlas.is_finished()
-            && self.thing_store.is_finished()
+            && self.entity_store.is_finished()
     }
 
     fn play(&mut self) {
         self.sequencer.play();
-        self.thing_store.play();
+        self.entity_store.play();
     }
 
     fn stop(&mut self) {
         self.sequencer.stop();
-        self.thing_store.stop();
+        self.entity_store.stop();
     }
 
     fn skip_to_start(&mut self) {
         self.sequencer.skip_to_start();
-        self.thing_store.skip_to_start();
+        self.entity_store.skip_to_start();
     }
 
     fn is_performing(&self) -> bool {
-        self.sequencer.is_performing() || self.thing_store.is_performing()
+        self.sequencer.is_performing() || self.entity_store.is_performing()
     }
 }
 impl Serializable for Track {
     fn after_deser(&mut self) {
         self.sequencer.after_deser();
-        self.thing_store.after_deser();
+        self.entity_store.after_deser();
     }
 }
 impl DisplaysInTimeline for Track {
@@ -918,12 +918,12 @@ mod tests {
         // Create an instrument and add it to a track.
         let mut instrument = ToyInstrument::new_with(&ToyInstrumentParams::default());
         instrument.set_uid(Uid(1));
-        let id1 = t.append_thing(Box::new(instrument)).unwrap();
+        let id1 = t.append_entity(Box::new(instrument)).unwrap();
 
         // Add a second instrument to the track.
         let mut instrument = ToyInstrument::new_with(&ToyInstrumentParams::default());
         instrument.set_uid(Uid(2));
-        let id2 = t.append_thing(Box::new(instrument)).unwrap();
+        let id2 = t.append_entity(Box::new(instrument)).unwrap();
 
         assert_ne!(id1, id2, "Don't forget to assign UIDs!");
 
@@ -941,7 +941,7 @@ mod tests {
             "there should be exactly as many entities as added"
         );
 
-        let instrument = t.remove_thing(&id1).unwrap();
+        let instrument = t.remove_entity(&id1).unwrap();
         assert_eq!(instrument.uid(), id1, "removed the right instrument");
         assert_eq!(t.instruments.len(), 1, "removed exactly one instrument");
         assert_eq!(
@@ -949,16 +949,16 @@ mod tests {
             "the remaining instrument should be the one we left"
         );
         assert!(
-            t.thing_store.get(&id1).is_none(),
+            t.entity_store.get(&id1).is_none(),
             "it should be gone from the store"
         );
 
         let mut effect = ToyEffect::default();
         effect.set_uid(Uid(3));
-        let effect_id1 = t.append_thing(Box::new(effect)).unwrap();
+        let effect_id1 = t.append_entity(Box::new(effect)).unwrap();
         let mut effect = ToyEffect::default();
         effect.set_uid(Uid(4));
-        let effect_id2 = t.append_thing(Box::new(effect)).unwrap();
+        let effect_id2 = t.append_entity(Box::new(effect)).unwrap();
 
         assert_eq!(t.effects[0], effect_id1);
         assert_eq!(t.effects[1], effect_id2);

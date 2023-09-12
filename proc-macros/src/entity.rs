@@ -3,7 +3,7 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{parse_macro_input, DeriveInput};
 
-pub(crate) enum ThingType {
+pub(crate) enum EntityType {
     Controller,
     Effect,
     Instrument,
@@ -16,7 +16,7 @@ pub(crate) enum ThingType {
 // for an intriguing bit of code. Came from
 // https://users.rust-lang.org/t/is-implementing-a-derive-macro-for-converting-nested-structs-to-flat-structs-possible/65839/3
 
-pub(crate) fn parse_and_generate_thing(input: TokenStream, ty: ThingType) -> TokenStream {
+pub(crate) fn parse_and_generate_entity(input: TokenStream, ty: EntityType) -> TokenStream {
     TokenStream::from({
         let input = parse_macro_input!(input as DeriveInput);
         let generics = &input.generics;
@@ -25,21 +25,21 @@ pub(crate) fn parse_and_generate_thing(input: TokenStream, ty: ThingType) -> Tok
         let core_crate = format_ident!("{}", core_crate_name());
 
         let top_level_trait_names = match ty {
-            ThingType::Controller => vec![quote! {#core_crate::traits::IsController}],
-            ThingType::Effect => vec![quote! {#core_crate::traits::IsEffect}],
-            ThingType::Instrument => vec![quote! {#core_crate::traits::IsInstrument}],
-            ThingType::ControllerEffect => vec![
+            EntityType::Controller => vec![quote! {#core_crate::traits::IsController}],
+            EntityType::Effect => vec![quote! {#core_crate::traits::IsEffect}],
+            EntityType::Instrument => vec![quote! {#core_crate::traits::IsInstrument}],
+            EntityType::ControllerEffect => vec![
                 quote! {#core_crate::traits::IsController},
                 quote! {#core_crate::traits::IsEffect},
             ],
-            ThingType::ControllerInstrument => vec![
+            EntityType::ControllerInstrument => vec![
                 quote! {#core_crate::traits::IsController},
                 quote! {#core_crate::traits::IsInstrument},
             ],
         };
         let common_items = quote! {};
         let type_specific_items = match ty {
-            ThingType::Controller => quote! {
+            EntityType::Controller => quote! {
                 fn as_controller(&self) -> Option<&dyn #core_crate::traits::IsController> {
                     Some(self)
                 }
@@ -47,7 +47,7 @@ pub(crate) fn parse_and_generate_thing(input: TokenStream, ty: ThingType) -> Tok
                     Some(self)
                 }
             },
-            ThingType::Effect => quote! {
+            EntityType::Effect => quote! {
                 fn as_effect(&self) -> Option<&dyn #core_crate::traits::IsEffect> {
                     Some(self)
                 }
@@ -55,7 +55,7 @@ pub(crate) fn parse_and_generate_thing(input: TokenStream, ty: ThingType) -> Tok
                     Some(self)
                 }
             },
-            ThingType::Instrument => quote! {
+            EntityType::Instrument => quote! {
                 fn as_instrument(&self) -> Option<&dyn #core_crate::traits::IsInstrument> {
                     Some(self)
                 }
@@ -63,7 +63,7 @@ pub(crate) fn parse_and_generate_thing(input: TokenStream, ty: ThingType) -> Tok
                     Some(self)
                 }
             },
-            ThingType::ControllerEffect => quote! {
+            EntityType::ControllerEffect => quote! {
                 fn as_controller(&self) -> Option<&dyn #core_crate::traits::IsController> {
                     Some(self)
                 }
@@ -77,7 +77,7 @@ pub(crate) fn parse_and_generate_thing(input: TokenStream, ty: ThingType) -> Tok
                     Some(self)
                 }
             },
-            ThingType::ControllerInstrument => quote! {
+            EntityType::ControllerInstrument => quote! {
                 fn as_controller(&self) -> Option<&dyn #core_crate::traits::IsController> {
                     Some(self)
                 }
@@ -93,10 +93,10 @@ pub(crate) fn parse_and_generate_thing(input: TokenStream, ty: ThingType) -> Tok
             },
         };
         let handles_midi_items = match ty {
-            ThingType::Controller
-            | ThingType::Instrument
-            | ThingType::ControllerEffect
-            | ThingType::ControllerInstrument => quote! {
+            EntityType::Controller
+            | EntityType::Instrument
+            | EntityType::ControllerEffect
+            | EntityType::ControllerInstrument => quote! {
                 fn as_handles_midi(&self) -> Option<&dyn #core_crate::traits::HandlesMidi> {
                     Some(self)
                 }
@@ -104,14 +104,14 @@ pub(crate) fn parse_and_generate_thing(input: TokenStream, ty: ThingType) -> Tok
                     Some(self)
                 }
             },
-            ThingType::Effect => quote! {},
+            EntityType::Effect => quote! {},
         };
         let controllable_items = match ty {
-            ThingType::Controller => quote! {},
-            ThingType::Effect
-            | ThingType::Instrument
-            | ThingType::ControllerEffect
-            | ThingType::ControllerInstrument => quote! {
+            EntityType::Controller => quote! {},
+            EntityType::Effect
+            | EntityType::Instrument
+            | EntityType::ControllerEffect
+            | EntityType::ControllerInstrument => quote! {
                 fn as_controllable(&self) -> Option<&dyn #core_crate::traits::Controllable> {
                     Some(self)
                 }
@@ -127,7 +127,7 @@ pub(crate) fn parse_and_generate_thing(input: TokenStream, ty: ThingType) -> Tok
 
             #[automatically_derived]
             #[typetag::serde]
-            impl #generics #core_crate::traits::Thing for #struct_name #ty_generics {
+            impl #generics #core_crate::traits::Entity for #struct_name #ty_generics {
                 #common_items
                 #type_specific_items
                 #handles_midi_items

@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::entity_factory::ThingStore;
+use super::entity_factory::EntityStore;
 use anyhow::anyhow;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
@@ -48,7 +48,7 @@ impl MidiRouter {
     // think the arp's MIDI gets back to the outside world.
     pub fn route(
         &mut self,
-        entity_store: &mut ThingStore,
+        entity_store: &mut EntityStore,
         channel: MidiChannel,
         message: MidiMessage,
     ) -> anyhow::Result<()> {
@@ -87,7 +87,7 @@ impl MidiRouter {
 #[cfg(test)]
 mod tests {
     use super::MidiRouter;
-    use crate::mini::entity_factory::ThingStore;
+    use crate::mini::entity_factory::EntityStore;
     use groove_core::{
         midi,
         midi::{MidiChannel, MidiMessage, MidiMessagesFn},
@@ -158,19 +158,19 @@ mod tests {
     #[test]
     fn routes_to_correct_channels() {
         let tracker = Arc::new(RwLock::new(Vec::default()));
-        let mut es = ThingStore::default();
-        let thing = Box::new(TestHandlesMidi::new_with(
+        let mut es = EntityStore::default();
+        let entity = Box::new(TestHandlesMidi::new_with(
             Uid(1),
             None,
             Arc::clone(&tracker),
         ));
-        let _ = es.add(thing);
-        let thing = Box::new(TestHandlesMidi::new_with(
+        let _ = es.add(entity);
+        let entity = Box::new(TestHandlesMidi::new_with(
             Uid(2),
             None,
             Arc::clone(&tracker),
         ));
-        let _ = es.add(thing);
+        let _ = es.add(entity);
 
         let mut r = MidiRouter::default();
         r.connect(Uid(1), MidiChannel(1));
@@ -216,19 +216,19 @@ mod tests {
     #[test]
     fn also_routes_produced_messages() {
         let tracker = Arc::new(RwLock::new(Vec::default()));
-        let mut es = ThingStore::default();
-        let thing = Box::new(TestHandlesMidi::new_with(
+        let mut es = EntityStore::default();
+        let entity = Box::new(TestHandlesMidi::new_with(
             Uid(1),
             Some(MidiChannel(2)),
             Arc::clone(&tracker),
         ));
-        let _ = es.add(thing);
-        let thing = Box::new(TestHandlesMidi::new_with(
+        let _ = es.add(entity);
+        let entity = Box::new(TestHandlesMidi::new_with(
             Uid(2),
             None,
             Arc::clone(&tracker),
         ));
-        let _ = es.add(thing);
+        let _ = es.add(entity);
 
         let mut r = MidiRouter::default();
         r.connect(Uid(1), MidiChannel(1));
@@ -273,13 +273,13 @@ mod tests {
     #[test]
     fn detects_loops() {
         let tracker = Arc::new(RwLock::new(Vec::default()));
-        let mut es = ThingStore::default();
-        let thing = Box::new(TestHandlesMidi::new_with(
+        let mut es = EntityStore::default();
+        let entity = Box::new(TestHandlesMidi::new_with(
             Uid(1),
             Some(MidiChannel(1)),
             Arc::clone(&tracker),
         ));
-        let _ = es.add(thing);
+        let _ = es.add(entity);
 
         let mut r = MidiRouter::default();
         r.connect(Uid(1), MidiChannel(1));

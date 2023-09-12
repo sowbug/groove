@@ -4,7 +4,7 @@ use crate::core_crate_name;
 use quote::{format_ident, quote};
 use syn::{Data, DataEnum, Ident, Meta, NestedMeta};
 
-struct OneThing {
+struct OneItem {
     base_name: Ident,
     ty: syn::Type,
     is_controller: bool,
@@ -14,18 +14,18 @@ struct OneThing {
     handles_midi: bool,
 }
 
-fn build_lists<'a>(things: impl Iterator<Item = &'a OneThing>) -> (Vec<Ident>, Vec<syn::Type>) {
+fn build_lists<'a>(items: impl Iterator<Item = &'a OneItem>) -> (Vec<Ident>, Vec<syn::Type>) {
     let mut structs = Vec::default();
     let mut types = Vec::default();
-    for thing in things {
-        types.push(thing.ty.clone());
-        structs.push(thing.base_name.clone());
+    for item in items {
+        types.push(item.ty.clone());
+        structs.push(item.base_name.clone());
     }
     (structs, types)
 }
 
 pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenStream {
-    let things = match data {
+    let items = match data {
         Data::Enum(DataEnum { variants, .. }) => {
             let mut v = Vec::default();
             for variant in variants.iter() {
@@ -62,7 +62,7 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
                     }
                 }
                 for field in variant.fields.iter() {
-                    v.push(OneThing {
+                    v.push(OneItem {
                         base_name: variant.ident.clone(),
                         ty: field.ty.clone(),
                         is_controller,
@@ -79,7 +79,7 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
     };
 
     let core_crate = format_ident!("{}", core_crate_name());
-    let (structs, types) = build_lists(things.iter());
+    let (structs, types) = build_lists(items.iter());
     let entity_enum = quote! {
         #[derive(Debug)]
         #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
@@ -113,7 +113,7 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
         }
     };
 
-    let (structs, _) = build_lists(things.iter().filter(|thing| thing.is_controller));
+    let (structs, _) = build_lists(items.iter().filter(|item| item.is_controller));
     let controller_dispatchers = quote! {
         impl EntityObsolete {
             pub fn is_controller(&self) -> bool {
@@ -137,7 +137,7 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
         }
     };
 
-    let (structs, _) = build_lists(things.iter().filter(|thing| thing.is_controllable));
+    let (structs, _) = build_lists(items.iter().filter(|item| item.is_controllable));
     let controllable_dispatchers = quote! {
         impl EntityObsolete {
             pub fn is_controllable(&self) -> bool {
@@ -161,7 +161,7 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
         }
     };
 
-    let (structs, _) = build_lists(things.iter().filter(|thing| thing.is_effect));
+    let (structs, _) = build_lists(items.iter().filter(|item| item.is_effect));
     let effect_dispatchers = quote! {
         impl EntityObsolete {
             pub fn as_is_effect(&self) -> Option<&dyn #core_crate::traits::IsEffect> {
@@ -179,7 +179,7 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
         }
     };
 
-    let (structs, _) = build_lists(things.iter().filter(|thing| thing.is_instrument));
+    let (structs, _) = build_lists(items.iter().filter(|item| item.is_instrument));
     let instrument_dispatchers = quote! {
         impl EntityObsolete {
             pub fn as_is_instrument(&self) -> Option<&dyn #core_crate::traits::IsInstrument> {
@@ -197,7 +197,7 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
         }
     };
 
-    let (structs, _) = build_lists(things.iter().filter(|thing| thing.handles_midi));
+    let (structs, _) = build_lists(items.iter().filter(|item| item.handles_midi));
     let handles_midi_dispatchers = quote! {
         impl EntityObsolete {
             pub fn as_handles_midi(&self) -> Option<&dyn #core_crate::traits::HandlesMidi> {

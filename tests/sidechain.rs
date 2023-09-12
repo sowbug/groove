@@ -40,19 +40,19 @@ fn demo_sidechaining() {
         .sequencer_mut()
         .arrange_pattern(&sidechain_pattern_uid, 0);
     let _drumkit_uid = track
-        .append_thing(factory.new_thing(&Key::from("drumkit")).unwrap())
+        .append_entity(factory.new_entity(&Key::from("drumkit")).unwrap())
         .unwrap();
     // This turns the chain's audio output into Control events.
     let signal_passthrough_uid = track
-        .append_thing(
+        .append_entity(
             factory
-                .new_thing(&Key::from("signal-amplitude-inverted-passthrough"))
+                .new_entity(&Key::from("signal-amplitude-inverted-passthrough"))
                 .unwrap(),
         )
         .unwrap();
     // In this demo, we don't want to hear the kick track.
     let _mute_uid = track
-        .append_thing(factory.new_thing(&Key::from("mute")).unwrap())
+        .append_entity(factory.new_entity(&Key::from("mute")).unwrap())
         .unwrap();
 
     // Add the lead track that we want to duck.
@@ -72,15 +72,15 @@ fn demo_sidechaining() {
     let track = orchestrator.get_track_mut(&lead_track_uid).unwrap();
     let _ = track.sequencer_mut().arrange_pattern(&lead_pattern_uid, 0);
     let _synth_uid = track
-        .append_thing(factory.new_thing(&Key::from("toy-synth")).unwrap())
+        .append_entity(factory.new_entity(&Key::from("toy-synth")).unwrap())
         .unwrap();
     let gain_uid = track
-        .append_thing(factory.new_thing(&Key::from("gain")).unwrap())
+        .append_entity(factory.new_entity(&Key::from("gain")).unwrap())
         .unwrap();
 
     let gain_ceiling_param_index = {
         factory
-            .new_thing(&Key::from("gain"))
+            .new_entity(&Key::from("gain"))
             .unwrap()
             .as_controllable()
             .unwrap()

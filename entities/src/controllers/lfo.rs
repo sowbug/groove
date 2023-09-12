@@ -5,7 +5,9 @@ use groove_core::{
     generators::{Oscillator, OscillatorParams, Waveform},
     midi::HandlesMidi,
     time::{MusicalTime, SampleRate, Tempo},
-    traits::{Configurable, ControlEventsFn, Controls, Generates, Serializable, ThingEvent, Ticks},
+    traits::{
+        Configurable, ControlEventsFn, Controls, EntityEvent, Generates, Serializable, Ticks,
+    },
     FrequencyHz, ParameterType,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
@@ -86,7 +88,7 @@ impl Controls for LfoController {
         }
         control_events_fn(
             self.uid,
-            ThingEvent::Control(self.oscillator.value().into()),
+            EntityEvent::Control(self.oscillator.value().into()),
         );
     }
 

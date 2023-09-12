@@ -204,7 +204,7 @@ impl Controls for ESSequencer {
         for event in events {
             control_events_fn(
                 self.uid,
-                groove_core::traits::ThingEvent::Midi(MidiChannel(0), *event.1),
+                groove_core::traits::EntityEvent::Midi(MidiChannel(0), *event.1),
             );
         }
     }

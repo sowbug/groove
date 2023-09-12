@@ -4,7 +4,7 @@ use btreemultimap::BTreeMultiMap;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn, MidiNoteMinder},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, TimeSignatureParams},
-    traits::{Configurable, ControlEventsFn, Controls, Serializable, ThingEvent},
+    traits::{Configurable, ControlEventsFn, Controls, EntityEvent, Serializable},
     ParameterType,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
@@ -131,7 +131,7 @@ impl Sequencer {
         for channel in 0..MidiChannel::MAX {
             let channel_msgs = self.active_notes[channel as usize].generate_off_messages();
             for msg in channel_msgs.into_iter() {
-                control_events_fn(self.uid, ThingEvent::Midi(channel.into(), msg));
+                control_events_fn(self.uid, EntityEvent::Midi(channel.into(), msg));
             }
         }
     }
@@ -213,7 +213,7 @@ impl Controls for Sequencer {
                 let time_range = self.time_range.clone();
                 let uid = self.uid;
                 self.generate_midi_messages_for_interval(&time_range, &mut |channel, message| {
-                    control_events_fn(uid, ThingEvent::Midi(channel, message))
+                    control_events_fn(uid, EntityEvent::Midi(channel, message))
                 });
             }
         };
@@ -437,7 +437,7 @@ mod tired {
                     Vec::default(),
                     |mut vec, (_when, (channel, message))| {
                         self.active_notes[*channel as usize].watch_message(message);
-                        vec.push(ThingEvent::Midi(*channel, *message));
+                        vec.push(EntityEvent::Midi(*channel, *message));
                         vec
                     },
                 ));
