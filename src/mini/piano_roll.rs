@@ -921,7 +921,7 @@ mod tests {
             "default pattern should have sensible time signature"
         );
 
-        for ts in vec![
+        for ts in [
             TimeSignature::COMMON_TIME,
             TimeSignature::CUT_TIME,
             TimeSignature::new_with(7, 64).unwrap(),

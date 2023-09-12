@@ -377,20 +377,14 @@ impl Track {
                 ui.vertical(|ui| {
                     ui.allocate_ui(vec2(384.0, ui.available_height()), |ui| {
                         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-                            if show_left_button {
-                                if ui.button("<").clicked() {
-                                    action = Some(TrackElementAction::MoveDeviceLeft(index));
-                                }
+                            if show_left_button && ui.button("<").clicked() {
+                                action = Some(TrackElementAction::MoveDeviceLeft(index));
                             }
-                            if show_right_button {
-                                if ui.button(">").clicked() {
-                                    action = Some(TrackElementAction::MoveDeviceRight(index));
-                                }
+                            if show_right_button && ui.button(">").clicked() {
+                                action = Some(TrackElementAction::MoveDeviceRight(index));
                             }
-                            if show_delete_button {
-                                if ui.button("x").clicked() {
-                                    action = Some(TrackElementAction::RemoveDevice(index));
-                                }
+                            if show_delete_button && ui.button("x").clicked() {
+                                action = Some(TrackElementAction::RemoveDevice(index));
                             }
                         });
                         ui.vertical(|ui| {

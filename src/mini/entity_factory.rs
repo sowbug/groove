@@ -189,7 +189,7 @@ impl ThingStore {
         // TODO: keep an eye on this in case it gets expensive. It's currently
         // used only after loading from disk, and it's O(number of things in
         // system), so it's unlikely to matter.
-        self.things.keys().max().map(|uid| *uid)
+        self.things.keys().max().copied()
     }
 }
 impl Ticks for ThingStore {
@@ -339,7 +339,7 @@ mod tests {
                         || e.as_instrument().is_some()
                         || e.as_effect().is_some(),
                     "Entity '{}' is missing its entity type",
-                    key.to_string()
+                    key
                 );
             }
         }

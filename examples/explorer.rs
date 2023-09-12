@@ -150,7 +150,7 @@ impl Displays for TimelineSettings {
 }
 
 /// Wraps a [DevicePalette] as a [Widget](eframe::egui::Widget).
-pub fn device_palette<'a>(entity_factory: &'a EntityFactory) -> impl eframe::egui::Widget + 'a {
+pub fn device_palette(entity_factory: &EntityFactory) -> impl eframe::egui::Widget + '_ {
     move |ui: &mut eframe::egui::Ui| DevicePalette::new(entity_factory).ui(ui)
 }
 
@@ -551,19 +551,12 @@ impl ESSequencerSettings {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct TitleBarSettings {
     hide: bool,
     title: TrackTitle,
 }
-impl Default for TitleBarSettings {
-    fn default() -> Self {
-        Self {
-            hide: Default::default(),
-            title: Default::default(),
-        }
-    }
-}
+
 impl Displays for TitleBarSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
         ui.checkbox(&mut self.hide, "Hide");
@@ -600,17 +593,11 @@ impl PianoRollSettings {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct WigglerSettings {
     hide: bool,
 }
-impl Default for WigglerSettings {
-    fn default() -> Self {
-        Self {
-            hide: Default::default(),
-        }
-    }
-}
+
 impl Displays for WigglerSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
         ui.checkbox(&mut self.hide, "Hide")

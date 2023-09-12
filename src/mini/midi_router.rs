@@ -63,11 +63,9 @@ impl MidiRouter {
                         e.handle_midi_message(channel, message, &mut | response_channel, response_message| {
                             if channel != response_channel {
                                 v.push((response_channel, response_message));
-                            } else {
-                                if !loop_detected {
-                                    loop_detected = true;
-                                    eprintln!("Warning: loop detected; while sending to channel {channel}, received request to send {:#?} to same channel", &response_message);
-                                }
+                            } else if !loop_detected {
+                                loop_detected = true;
+                                eprintln!("Warning: loop detected; while sending to channel {channel}, received request to send {:#?} to same channel", &response_message);
                             }
                         });
                     } else {
@@ -180,14 +178,14 @@ mod tests {
 
         let m = midi::new_note_on(1, 1);
 
-        assert!(r.route(&mut es, MidiChannel(99), m.clone()).is_ok());
+        assert!(r.route(&mut es, MidiChannel(99), m).is_ok());
         if let Ok(t) = tracker.read() {
             assert!(
                 t.is_empty(),
                 "no messages received after routing to nonexistent MIDI channel"
             );
         }
-        assert!(r.route(&mut es, MidiChannel(1), m.clone()).is_ok());
+        assert!(r.route(&mut es, MidiChannel(1), m).is_ok());
         if let Ok(t) = tracker.read() {
             assert_eq!(
                 t.len(),
@@ -196,11 +194,11 @@ mod tests {
             );
             assert_eq!(
                 t[0],
-                (Uid(1), MidiChannel(1), m.clone()),
+                (Uid(1), MidiChannel(1), m),
                 "after routing to channel 1, only channel 1 listener should receive"
             );
         };
-        assert!(r.route(&mut es, MidiChannel(2), m.clone()).is_ok());
+        assert!(r.route(&mut es, MidiChannel(2), m).is_ok());
         if let Ok(t) = tracker.read() {
             assert_eq!(
                 t.len(),
@@ -209,7 +207,7 @@ mod tests {
             );
             assert_eq!(
                 t[1],
-                (Uid(2), MidiChannel(2), m.clone()),
+                (Uid(2), MidiChannel(2), m),
                 "after routing to channel 2, only channel 2 listener should receive"
             );
         };
@@ -238,7 +236,7 @@ mod tests {
 
         let m = midi::new_note_on(1, 1);
 
-        assert!(r.route(&mut es, MidiChannel(1), m.clone()).is_ok());
+        assert!(r.route(&mut es, MidiChannel(1), m).is_ok());
         if let Ok(t) = tracker.read() {
             assert_eq!(
                 t.len(),
@@ -247,17 +245,17 @@ mod tests {
             );
             assert_eq!(
                 t[0],
-                (Uid(1), MidiChannel(1), m.clone()),
+                (Uid(1), MidiChannel(1), m),
                 "original message should be received"
             );
             assert_eq!(
                 t[1],
-                (Uid(2), MidiChannel(2), m.clone()),
+                (Uid(2), MidiChannel(2), m),
                 "produced message should be received"
             );
         };
         let m = midi::new_note_on(2, 3);
-        assert!(r.route(&mut es, MidiChannel(2), m.clone()).is_ok());
+        assert!(r.route(&mut es, MidiChannel(2), m).is_ok());
         if let Ok(t) = tracker.read() {
             assert_eq!(
                 t.len(),
@@ -266,7 +264,7 @@ mod tests {
             );
             assert_eq!(
                 t[2],
-                (Uid(2), MidiChannel(2), m.clone()),
+                (Uid(2), MidiChannel(2), m),
                 "after routing to channel 2, only channel 2 listener should receive"
             );
         };
@@ -288,6 +286,6 @@ mod tests {
 
         let m = midi::new_note_on(1, 1);
 
-        assert!(r.route(&mut es, MidiChannel(1), m.clone()).is_err());
+        assert!(r.route(&mut es, MidiChannel(1), m).is_err());
     }
 }

@@ -39,7 +39,7 @@ fn demo_sidechaining() {
     let _ = track
         .sequencer_mut()
         .arrange_pattern(&sidechain_pattern_uid, 0);
-    let drumkit_uid = track
+    let _drumkit_uid = track
         .append_thing(factory.new_thing(&Key::from("drumkit")).unwrap())
         .unwrap();
     // This turns the chain's audio output into Control events.
@@ -51,7 +51,7 @@ fn demo_sidechaining() {
         )
         .unwrap();
     // In this demo, we don't want to hear the kick track.
-    let mute_uid = track
+    let _mute_uid = track
         .append_thing(factory.new_thing(&Key::from("mute")).unwrap())
         .unwrap();
 
@@ -71,7 +71,7 @@ fn demo_sidechaining() {
     let lead_track_uid = orchestrator.new_midi_track().unwrap();
     let track = orchestrator.get_track_mut(&lead_track_uid).unwrap();
     let _ = track.sequencer_mut().arrange_pattern(&lead_pattern_uid, 0);
-    let synth_uid = track
+    let _synth_uid = track
         .append_thing(factory.new_thing(&Key::from("toy-synth")).unwrap())
         .unwrap();
     let gain_uid = track

@@ -461,7 +461,7 @@ impl MiniDaw {
     fn update_orchestrator_audio_interface_config(&mut self) {
         let sample_rate = self.settings_panel.audio_panel().sample_rate();
         if let Ok(mut o) = self.mini_orchestrator.lock() {
-            o.update_sample_rate(SampleRate::from(sample_rate));
+            o.update_sample_rate(sample_rate);
         }
     }
 

@@ -271,7 +271,7 @@ impl Sequencer {
     pub fn ui_arrangement(
         &mut self,
         ui: &mut Ui,
-        track_uid: TrackUid,
+        _track_uid: TrackUid,
     ) -> (Response, Option<SequencerAction>) {
         (
             ui.horizontal_top(|ui| {
@@ -300,7 +300,7 @@ impl Sequencer {
     pub fn ui_arrangement_old(
         &mut self,
         ui: &mut Ui,
-        track_uid: TrackUid,
+        _track_uid: TrackUid,
         view_range: &Range<MusicalTime>,
     ) -> (Response, Option<SequencerAction>) {
         let desired_size = ui.available_size();
@@ -346,7 +346,7 @@ impl Sequencer {
                     to_screen_beats * pos2(beat as f32, 0.0),
                     to_screen_beats * pos2(beat as f32, 1.0),
                 ];
-                let hover_rect = Rect::from_two_pos(last_segment[0], this_segment[1]);
+                let _hover_rect = Rect::from_two_pos(last_segment[0], this_segment[1]);
                 // let can_accept = if let Some(source) = dd.source() {
                 //     match source {
                 //         super::DragDropSource::NewDevice(_) => false,
@@ -356,7 +356,7 @@ impl Sequencer {
                 //     false
                 // };
                 let can_accept = false; // TODO: commented out the block above here
-                let mut r = DragDropManager::drop_target(ui, can_accept, |ui| {
+                let r = DragDropManager::drop_target(ui, can_accept, |ui| {
                     ui.add(space())
                     // shapes.push(Shape::LineSegment {
                     //     points: this_segment,

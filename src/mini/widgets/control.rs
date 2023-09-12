@@ -66,7 +66,7 @@ impl<'a> Displays for Atlas<'a> {
             let response = ui
                 .allocate_ui_at_rect(rect, |ui| {
                     let mut remove_uid = None;
-                    self.control_atlas.trips_mut().iter_mut().for_each(|mut t| {
+                    self.control_atlas.trips_mut().iter_mut().for_each(|t| {
                         ui.allocate_ui_at_rect(rect, |ui| {
                             ui.add(trip(t, self.control_router, self.view_range.clone()));
 
