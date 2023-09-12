@@ -79,7 +79,7 @@ pub fn controller_instrument_derive(input: TokenStream) -> TokenStream {
     parse_and_generate_thing(input, ThingType::ControllerInstrument)
 }
 
-/// field types that don't recurse further for #[derive(Control)] purposes
+/// field types that don't recurse further for #[derive(Control)] purposes.
 fn make_primitives() -> HashSet<Ident> {
     vec![
         "BipolarNormal",
