@@ -9,7 +9,7 @@ use eframe::{
 use groove_core::{traits::gui::Displays, Sample};
 
 /// Wraps a [TimeDomain] as a [Widget](eframe::egui::Widget).
-pub fn time_domain<'a>(samples: &'a [Sample], start: usize) -> impl eframe::egui::Widget + 'a {
+pub fn time_domain(samples: &[Sample], start: usize) -> impl eframe::egui::Widget + '_ {
     move |ui: &mut eframe::egui::Ui| TimeDomain::new(samples, start).ui(ui)
 }
 
@@ -26,9 +26,9 @@ impl<'a> TimeDomain<'a> {
     pub fn init_random_samples() -> [Sample; 256] {
         let mut r = [Sample::default(); 256];
         let mut rng = Rng::default();
-        for i in 0..256 {
+        for s in &mut r {
             let value = rng.0.rand_float().fract() * 2.0 - 1.0;
-            r[i] = Sample::from(value);
+            *s = Sample::from(value);
         }
         r
     }

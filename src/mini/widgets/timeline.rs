@@ -38,9 +38,7 @@ pub fn timeline<'a>(
 }
 
 /// Wraps a [Legend] as a [Widget](eframe::egui::Widget). Mutates the given view_range.
-pub fn legend<'a>(
-    view_range: &'a mut std::ops::Range<MusicalTime>,
-) -> impl eframe::egui::Widget + 'a {
+pub fn legend(view_range: &mut std::ops::Range<MusicalTime>) -> impl eframe::egui::Widget + '_ {
     move |ui: &mut eframe::egui::Ui| Legend::new(view_range).ui(ui)
 }
 
@@ -94,7 +92,7 @@ impl<'a> Displays for Legend<'a> {
         );
 
         let font_id = FontId::proportional(12.0);
-        for beat in Self::steps(&self.view_range) {
+        for beat in Self::steps(self.view_range) {
             let beat_plus_one = beat + 1;
             let pos = to_screen * pos2(beat as f32, rect.top());
             ui.painter().text(
@@ -110,7 +108,7 @@ impl<'a> Displays for Legend<'a> {
             ui.style().noninteractive().fg_stroke,
         );
 
-        let response = response.context_menu(|ui| {
+        response.context_menu(|ui| {
             if ui.button("Start x2").clicked() {
                 self.view_range.start = self.view_range.start * 2;
                 ui.close_menu();
@@ -120,12 +118,10 @@ impl<'a> Displays for Legend<'a> {
                 ui.close_menu();
             }
             if ui.button("Start +4").clicked() {
-                self.view_range.start = self.view_range.start + MusicalTime::new_with_beats(4);
+                self.view_range.start += MusicalTime::new_with_beats(4);
                 ui.close_menu();
             }
-        });
-
-        response
+        })
     }
 }
 
@@ -387,7 +383,7 @@ impl<'a> Timeline<'a> {
             }
             FocusedComponent::Sequencer => {
                 ui.allocate_ui_at_rect(rect, |ui| {
-                    ui.add(es_sequencer(&mut self.sequencer, self.view_range.clone()))
+                    ui.add(es_sequencer(self.sequencer, self.view_range.clone()))
                 })
                 .inner
             }
@@ -424,7 +420,7 @@ impl<'a> Timeline<'a> {
         if !matches!(which, FocusedComponent::Sequencer) {
             response |= ui
                 .allocate_ui_at_rect(rect, |ui| {
-                    ui.add(es_sequencer(&mut self.sequencer, self.view_range.clone()))
+                    ui.add(es_sequencer(self.sequencer, self.view_range.clone()))
                 })
                 .inner;
         }

@@ -241,20 +241,16 @@ impl OrchestratorPanel {
             Ok(project_string) => match serde_json::from_str::<Orchestrator>(&project_string) {
                 Ok(mut mo) => {
                     mo.after_deser();
-                    return anyhow::Ok(mo);
+                    anyhow::Ok(mo)
                 }
-                Err(err) => {
-                    return Err(anyhow!("Error while parsing: {}", err));
-                }
+                Err(err) => Err(anyhow!("Error while parsing: {}", err)),
             },
-            Err(err) => {
-                return Err(anyhow!("Error while reading: {}", err));
-            }
+            Err(err) => Err(anyhow!("Error while reading: {}", err)),
         }
     }
 
     fn handle_input_save(o: &MutexGuard<Orchestrator>, path: &PathBuf) -> Result<()> {
-        let o: &Orchestrator = &o;
+        let o: &Orchestrator = o;
         match serde_json::to_string_pretty(o)
             .map_err(|_| anyhow::format_err!("Unable to serialize prefs JSON"))
         {

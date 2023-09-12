@@ -231,7 +231,7 @@ impl Controls for ESSequencer {
 impl Configurable for ESSequencer {}
 impl Serializable for ESSequencer {
     fn after_deser(&mut self) {
-        let _ = self.calculate_events();
+        self.calculate_events();
     }
 }
 

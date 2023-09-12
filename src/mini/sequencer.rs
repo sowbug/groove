@@ -194,7 +194,7 @@ impl Sequencer {
     fn arrange_pattern_append(&mut self, uid: &PatternUid) -> anyhow::Result<ArrangedPatternUid> {
         if let Ok(apuid) = self.arrange_pattern(
             uid,
-            self.next_arrangement_position().bars(&self.time_signature) as usize,
+            self.next_arrangement_position().bars(&self.time_signature),
         ) {
             if let Some(pattern) = self.e.piano_roll.read().unwrap().get_pattern(uid) {
                 self.e.arrangement_cursor += pattern.duration();
@@ -213,7 +213,7 @@ impl Sequencer {
     ) -> anyhow::Result<ArrangedPatternUid> {
         let position = MusicalTime::new_with_bars(&self.time_signature, position_in_bars);
         if self.e.piano_roll.read().unwrap().get_pattern(uid).is_some() {
-            let arranged_pattern_uid = self.arranged_pattern_uid_factory.next();
+            let arranged_pattern_uid = self.arranged_pattern_uid_factory.mint_next();
             self.arranged_patterns.insert(
                 arranged_pattern_uid,
                 ArrangedPattern {
@@ -322,7 +322,7 @@ impl Sequencer {
         // Orchestrator::ui_arrangement_labels(). TODO refactor
         let start_beat = view_range.start.total_beats();
         let end_beat = view_range.end.total_beats();
-        let beat_count = (end_beat - start_beat) as usize;
+        let beat_count = end_beat - start_beat;
         let to_screen_beats = emath::RectTransform::from_to(
             Rect::from_x_y_ranges(
                 view_range.start.total_beats() as f32..=view_range.end.total_beats() as f32,
@@ -332,7 +332,7 @@ impl Sequencer {
         );
 
         let skip = self.time_signature.top;
-        let mut shapes = Vec::default();
+        let shapes = Vec::default();
         let mut last_segment = [
             to_screen_beats * pos2(start_beat as f32, 0.0),
             to_screen_beats * pos2(start_beat as f32, 1.0),
@@ -689,7 +689,7 @@ fn space_ui(ui: &mut Ui) -> Response {
 }
 
 fn space() -> impl Widget {
-    move |ui: &mut Ui| space_ui(ui)
+    space_ui
 }
 
 #[cfg(test)]

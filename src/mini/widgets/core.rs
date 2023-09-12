@@ -9,7 +9,7 @@ use eframe::{
 use groove_core::traits::gui::Displays;
 
 /// Wraps a [Transport] as a [Widget](eframe::egui::Widget).
-pub fn transport<'a>(transport: &'a mut Transport) -> impl eframe::egui::Widget + 'a {
+pub fn transport(transport: &mut Transport) -> impl eframe::egui::Widget + '_ {
     move |ui: &mut eframe::egui::Ui| TransportWidget::new(transport).ui(ui)
 }
 

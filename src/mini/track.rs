@@ -828,7 +828,7 @@ impl Displays for Track {
 
         // The inner_margin() should be half of the Frame stroke width to leave
         // room for it. Thanks vikrinox on the egui Discord.
-        let response = Frame::default()
+        Frame::default()
             .inner_margin(Margin::same(0.5))
             .stroke(Stroke {
                 width: 1.0,
@@ -904,8 +904,7 @@ impl Displays for Track {
                 })
                 .inner
             })
-            .inner;
-        response
+            .inner
     }
 }
 

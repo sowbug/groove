@@ -68,7 +68,7 @@ impl<'a> Displays for Atlas<'a> {
                     let mut remove_uid = None;
                     self.control_atlas.trips_mut().iter_mut().for_each(|mut t| {
                         ui.allocate_ui_at_rect(rect, |ui| {
-                            ui.add(trip(&mut t, self.control_router, self.view_range.clone()));
+                            ui.add(trip(t, self.control_router, self.view_range.clone()));
 
                             // Draw the trip controls.
                             if ui.is_enabled() {
@@ -112,7 +112,7 @@ impl<'a> Displays for Atlas<'a> {
                     }
                 })
                 .response;
-            let response = if ui.is_enabled() {
+            if ui.is_enabled() {
                 response.context_menu(|ui| {
                     if ui.button("Add trip").clicked() {
                         ui.close_menu();
@@ -126,8 +126,7 @@ impl<'a> Displays for Atlas<'a> {
                 })
             } else {
                 response
-            };
-            response
+            }
         })
         .inner
     }
@@ -214,7 +213,7 @@ impl<'a> Displays for Trip<'a> {
                             if response.clicked() {
                                 let from_screen = to_screen.inverse();
                                 let hover_pos_local = from_screen * hover_pos;
-                                (*step).value = ControlValue::from(hover_pos_local.y);
+                                step.value = ControlValue::from(hover_pos_local.y);
                             } else if response.secondary_clicked() {
                                 step.path = step.path.next();
                             }

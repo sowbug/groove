@@ -46,15 +46,17 @@ impl ThingBrowser {
     /// Instantiates a new top-level [ThingBrowser] and scans global/user/dev
     /// directories. TODO: this is synchronous
     pub fn scan_everything(paths: &Paths, extra_paths: Vec<PathBuf>) -> Self {
-        let mut root = ThingBrowserNode::default();
-        root.thing_type = ThingType::Top;
+        let mut root = ThingBrowserNode {
+            thing_type: ThingType::Top,
+            ..Default::default()
+        };
         for path in paths.hives() {
             eprintln!("Scanning hive {}", path.display());
             root.top_scan(path, path.display().to_string().as_str());
         }
         for path in extra_paths {
             eprintln!("Scanning extra path {}", path.display());
-            root.top_scan(&path, &path.display().to_string().as_str());
+            root.top_scan(&path, path.display().to_string().as_str());
         }
         let (app_sender, app_receiver) = crossbeam_channel::unbounded();
         Self {
@@ -94,9 +96,10 @@ impl ThingBrowserNode {
     }
 
     fn make_child(&mut self) -> Self {
-        let mut child = ThingBrowserNode::default();
-        child.depth = self.depth + 1;
-        child
+        ThingBrowserNode {
+            depth: self.depth + 1,
+            ..Default::default()
+        }
     }
 
     fn scan(&mut self, path: &Path) {
@@ -122,12 +125,10 @@ impl ThingBrowserNode {
         if path.is_dir() {
             self.thing_type = ThingType::Directory(path.to_path_buf());
             if let Ok(read_dir) = fs::read_dir(path) {
-                for entry in read_dir {
-                    if let Ok(entry) = entry {
-                        let mut child = self.make_child();
-                        child.scan(&entry.path());
-                        self.children.push(child);
-                    }
+                for entry in read_dir.flatten() {
+                    let mut child = self.make_child();
+                    child.scan(&entry.path());
+                    self.children.push(child);
                 }
             }
         }

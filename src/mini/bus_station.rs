@@ -34,7 +34,7 @@ impl BusStation {
 
     #[allow(dead_code)]
     pub(crate) fn remove_send_route(&mut self, track_uid: &TrackUid, aux_track_uid: &TrackUid) {
-        if let Some(routes) = self.send_routes.get_mut(&track_uid) {
+        if let Some(routes) = self.send_routes.get_mut(track_uid) {
             routes.retain(|route| route.aux_track_uid != *aux_track_uid);
         }
     }

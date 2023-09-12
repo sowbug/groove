@@ -441,7 +441,7 @@ impl Default for PianoRoll {
 impl PianoRoll {
     /// Adds a [Pattern]. Returns its [PatternUid].
     pub fn insert(&mut self, pattern: Pattern) -> PatternUid {
-        let uid = self.uid_factory.next();
+        let uid = self.uid_factory.mint_next();
         self.uids_to_patterns.insert(uid, pattern);
         self.ordered_pattern_uids.push(uid);
         uid

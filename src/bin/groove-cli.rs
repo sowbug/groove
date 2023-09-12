@@ -88,7 +88,7 @@ fn main() -> anyhow::Result<()> {
         {
             let start_instant = Instant::now();
             let paths = Paths::default();
-            let r = SongSettings::new_from_project_file(&Path::new(&input_filename))?
+            let r = SongSettings::new_from_project_file(Path::new(&input_filename))?
                 .instantiate(&paths, false)?;
             if args.perf {
                 println!(

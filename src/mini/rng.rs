@@ -8,13 +8,11 @@ impl Default for Rng {
     fn default() -> Self {
         // This is an awful source of entropy, but it's fine for this use case
         // where we just want a different fake struct each time.
-        Self {
-            0: oorandom::Rand64::new(
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos(),
-            ),
-        }
+        Self(oorandom::Rand64::new(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+        ))
     }
 }

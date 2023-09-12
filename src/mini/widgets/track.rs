@@ -10,7 +10,7 @@ use groove_core::traits::gui::Displays;
 use std::f32::consts::PI;
 
 /// Wraps a [TitleBar] as a [Widget](eframe::egui::Widget).
-pub fn title_bar<'a>(title: &'a mut String) -> impl eframe::egui::Widget + 'a {
+pub fn title_bar(title: &mut String) -> impl eframe::egui::Widget + '_ {
     move |ui: &mut eframe::egui::Ui| TitleBar::new(title).ui(ui)
 }
 

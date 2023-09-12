@@ -98,7 +98,7 @@ impl EntityFactory {
     /// it to do some final housekeeping.
     pub fn complete_registration(&mut self) {
         self.is_registration_complete = true;
-        self.sorted_keys = self.keys().iter().map(|k| k.clone()).collect();
+        self.sorted_keys = self.keys().iter().cloned().collect();
         self.sorted_keys.sort();
     }
 
@@ -189,11 +189,7 @@ impl ThingStore {
         // TODO: keep an eye on this in case it gets expensive. It's currently
         // used only after loading from disk, and it's O(number of things in
         // system), so it's unlikely to matter.
-        if let Some(uid) = self.things.keys().max() {
-            Some(*uid)
-        } else {
-            None
-        }
+        self.things.keys().max().map(|uid| *uid)
     }
 }
 impl Ticks for ThingStore {

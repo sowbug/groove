@@ -103,7 +103,7 @@ impl Preferences {
 
     fn mark_dirty(&mut self) {
         if !self.is_saved {
-            if let Ok(_) = futures::executor::block_on(self.save()) {
+            if futures::executor::block_on(self.save()).is_ok() {
                 self.is_saved = true;
             }
         }

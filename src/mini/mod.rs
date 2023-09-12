@@ -49,8 +49,8 @@ pub struct UidFactory<U: IsUid + Clone> {
 }
 impl<U: IsUid + Clone> UidFactory<U> {
     /// Generates the next unique [Uid].
-    pub fn next(&mut self) -> U {
-        self.previous_uid.increment().clone()
+    pub fn mint_next(&mut self) -> U {
+        *self.previous_uid.increment()
     }
 }
 
