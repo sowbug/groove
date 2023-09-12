@@ -13,6 +13,24 @@ pub fn time_domain(samples: &[Sample], start: usize) -> impl eframe::egui::Widge
     move |ui: &mut eframe::egui::Ui| TimeDomain::new(samples, start).ui(ui)
 }
 
+/// Wraps a [FrequencyDomain] as a [Widget](eframe::egui::Widget).
+pub fn frequency_domain(samples: &[Sample]) -> impl eframe::egui::Widget + '_ {
+    move |ui: &mut eframe::egui::Ui| FrequencyDomain::new(samples).ui(ui)
+}
+
+/// Creates 256 samples of noise.
+pub fn init_random_samples() -> [Sample; 256] {
+    let mut r = [Sample::default(); 256];
+    let mut rng = Rng::default();
+    for s in &mut r {
+        let value = rng.0.rand_float().fract() * 2.0 - 1.0;
+        *s = Sample::from(value);
+    }
+    r
+}
+
+/// Displays a series of [Sample]s in the time domain. That's a fancy way of
+/// saying it shows the amplitudes.
 #[derive(Debug)]
 pub struct TimeDomain<'a> {
     samples: &'a [Sample],
@@ -21,16 +39,6 @@ pub struct TimeDomain<'a> {
 impl<'a> TimeDomain<'a> {
     fn new(samples: &'a [Sample], start: usize) -> Self {
         Self { samples, start }
-    }
-
-    pub fn init_random_samples() -> [Sample; 256] {
-        let mut r = [Sample::default(); 256];
-        let mut rng = Rng::default();
-        for s in &mut r {
-            let value = rng.0.rand_float().fract() * 2.0 - 1.0;
-            *s = Sample::from(value);
-        }
-        r
     }
 }
 impl<'a> Displays for TimeDomain<'a> {
@@ -71,6 +79,49 @@ impl<'a> Displays for TimeDomain<'a> {
                 },
             })
         }
+
+        painter.extend(shapes);
+        response
+    }
+}
+
+/// Displays a series of [Sample]s in the frequency domain. Or, to put it
+/// another way, shows a spectrum analysis of a clip.
+#[derive(Debug)]
+pub struct FrequencyDomain<'a> {
+    samples: &'a [Sample],
+}
+impl<'a> FrequencyDomain<'a> {
+    fn new(samples: &'a [Sample]) -> Self {
+        Self { samples }
+    }
+}
+impl<'a> Displays for FrequencyDomain<'a> {
+    fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
+        let (response, painter) =
+            ui.allocate_painter(ui.available_size_before_wrap(), Sense::hover());
+
+        #[allow(unused_variables)]
+        let to_screen = RectTransform::from_to(
+            Rect::from_x_y_ranges(
+                0.0..=self.samples.len() as f32,
+                Sample::MAX.0 as f32..=Sample::MIN.0 as f32,
+            ),
+            response.rect,
+        );
+        let mut shapes = Vec::default();
+
+        shapes.push(eframe::epaint::Shape::Rect(RectShape {
+            rect: response.rect,
+            rounding: Rounding::same(3.0),
+            fill: Color32::DARK_GREEN,
+            stroke: Stroke {
+                width: 2.0,
+                color: Color32::YELLOW,
+            },
+        }));
+
+        // TODO magic here
 
         painter.extend(shapes);
         response

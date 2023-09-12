@@ -618,7 +618,7 @@ struct TimeDomainSettings {
     hide: bool,
     max_width: f32,
     max_height: f32,
-    samples: [Sample; 256],
+    samples: SampleClip,
     cursor: usize,
 }
 impl Default for TimeDomainSettings {
@@ -627,11 +627,12 @@ impl Default for TimeDomainSettings {
             hide: Default::default(),
             max_width: 128.0,
             max_height: 64.0,
-            samples: audio::TimeDomain::init_random_samples(),
+            samples: Default::default(),
             cursor: Default::default(),
         }
     }
 }
+
 impl Displays for TimeDomainSettings {
     fn ui(&mut self, ui: &mut Ui) -> egui::Response {
         ui.checkbox(&mut self.hide, "Hide")
@@ -647,10 +648,56 @@ impl TimeDomainSettings {
             ui.scope(|ui| {
                 ui.set_max_width(self.max_width);
                 ui.set_max_height(self.max_height);
-                ui.add(audio::time_domain(&self.samples, self.cursor));
+                ui.add(audio::time_domain(&self.samples.0, self.cursor));
                 self.cursor += 1;
             });
         }
+    }
+}
+
+#[derive(Debug)]
+struct FrequencyDomainSettings {
+    hide: bool,
+    max_width: f32,
+    max_height: f32,
+    samples: SampleClip,
+}
+impl Default for FrequencyDomainSettings {
+    fn default() -> Self {
+        Self {
+            hide: Default::default(),
+            max_width: 128.0,
+            max_height: 64.0,
+            samples: Default::default(),
+        }
+    }
+}
+impl Displays for FrequencyDomainSettings {
+    fn ui(&mut self, ui: &mut Ui) -> egui::Response {
+        ui.checkbox(&mut self.hide, "Hide")
+            | ui.add(DragValue::new(&mut self.max_width).prefix("width: "))
+            | ui.add(DragValue::new(&mut self.max_height).prefix("height: "))
+    }
+}
+impl FrequencyDomainSettings {
+    const NAME: &str = "Audio Frequency Domain";
+
+    fn show(&mut self, ui: &mut Ui) {
+        if !self.hide {
+            ui.scope(|ui| {
+                ui.set_max_width(self.max_width);
+                ui.set_max_height(self.max_height);
+                ui.add(audio::frequency_domain(&self.samples.0));
+            });
+        }
+    }
+}
+
+#[derive(Debug)]
+struct SampleClip([Sample; 256]);
+impl Default for SampleClip {
+    fn default() -> Self {
+        Self(audio::init_random_samples())
     }
 }
 
@@ -669,6 +716,7 @@ struct Explorer {
     piano_roll: PianoRollSettings,
     wiggler: WigglerSettings,
     time_domain: TimeDomainSettings,
+    frequency_domain: FrequencyDomainSettings,
 }
 impl Explorer {
     pub const NAME: &str = "Explorer";
@@ -695,6 +743,9 @@ impl Explorer {
     fn show_left(&mut self, ui: &mut Ui) {
         ScrollArea::horizontal().show(ui, |ui| {
             Self::wrap_settings(TimeDomainSettings::NAME, ui, |ui| self.time_domain.ui(ui));
+            Self::wrap_settings(FrequencyDomainSettings::NAME, ui, |ui| {
+                self.frequency_domain.ui(ui)
+            });
             Self::wrap_settings(LegendSettings::NAME, ui, |ui| self.legend.ui(ui));
             Self::wrap_settings(TimelineSettings::NAME, ui, |ui| self.timeline.ui(ui));
             Self::wrap_settings(DevicePaletteSettings::NAME, ui, |ui| {
@@ -756,8 +807,15 @@ impl Explorer {
             self.sequencer.set_view_range(&self.legend.range);
             self.es_sequencer.set_view_range(&self.legend.range);
 
-            Self::wrap_item(TimeDomainSettings::NAME, ui, |ui| self.time_domain.show(ui));
-
+            ui.horizontal_top(|ui| {
+                ui.scope(|ui| {
+                    ui.set_max_height(64.0);
+                    Self::wrap_item(TimeDomainSettings::NAME, ui, |ui| self.time_domain.show(ui));
+                    Self::wrap_item(FrequencyDomainSettings::NAME, ui, |ui| {
+                        self.frequency_domain.show(ui)
+                    });
+                });
+            });
             ui.heading("Timeline");
             self.legend.show(ui);
             self.timeline.show(ui);
