@@ -1,3 +1,5 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use crate::core_crate_name;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
