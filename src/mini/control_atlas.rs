@@ -303,7 +303,7 @@ impl Controls for ControlTrip {
     }
 
     fn is_performing(&self) -> bool {
-        todo!()
+        false
     }
 }
 impl Configurable for ControlTrip {}

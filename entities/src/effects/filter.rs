@@ -44,6 +44,10 @@ impl Configurable for BiQuadFilterLowPass24db {
         self.sample_rate = sample_rate;
         self.update_coefficients();
     }
+
+    fn sample_rate(&self) -> SampleRate {
+        self.sample_rate
+    }
 }
 impl TransformsAudio for BiQuadFilterLowPass24db {
     fn transform_channel(&mut self, channel: usize, input_sample: Sample) -> Sample {

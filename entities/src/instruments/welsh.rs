@@ -349,6 +349,10 @@ impl Configurable for WelshSynth {
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.inner_synth.update_sample_rate(sample_rate);
     }
+
+    fn sample_rate(&self) -> SampleRate {
+        self.inner_synth.sample_rate()
+    }
 }
 impl Ticks for WelshSynth {
     fn tick(&mut self, tick_count: usize) {

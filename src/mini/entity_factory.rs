@@ -59,7 +59,8 @@ impl Default for EntityFactory {
     }
 }
 impl EntityFactory {
-    pub(crate) const MAX_RESERVED_UID: usize = 1023;
+    /// Specifies the range of [Uid]s that [EntityFactory] will never issue. 
+    pub const MAX_RESERVED_UID: usize = 1023;
 
     /// Provides the one and only [EntityFactory].
     pub fn global() -> &'static Self {
