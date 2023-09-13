@@ -73,6 +73,7 @@ fn validate_entity_type(key: &Key, entity: &mut Box<dyn Entity>) {
     if let Some(e) = entity.as_controller_mut() {
         is_something = true;
         validate_controller(e);
+        validate_extreme_tempo_and_time_signature(key, e);
     }
     if let Some(e) = entity.as_instrument_mut() {
         is_something = true;
@@ -121,9 +122,11 @@ fn exercise_instrument_or_effect(_key: &Key, entity: &mut Box<dyn Entity>) {
     }
 }
 
-fn validate_effect(e: &mut dyn IsEffect) {}
+fn validate_extreme_tempo_and_time_signature(_key: &Key, _e: &mut dyn IsController) {}
 
-fn validate_instrument(e: &mut dyn IsInstrument) {}
+fn validate_effect(_e: &mut dyn IsEffect) {}
+
+fn validate_instrument(_e: &mut dyn IsInstrument) {}
 
 fn validate_controller(e: &mut dyn IsController) {
     assert!(
