@@ -59,7 +59,7 @@ impl Default for EntityFactory {
     }
 }
 impl EntityFactory {
-    /// Specifies the range of [Uid]s that [EntityFactory] will never issue. 
+    /// Specifies the range of [Uid]s that [EntityFactory] will never issue.
     pub const MAX_RESERVED_UID: usize = 1023;
 
     /// Provides the one and only [EntityFactory].
