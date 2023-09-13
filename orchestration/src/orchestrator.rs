@@ -1099,7 +1099,7 @@ mod gui {
                         .default_open(true)
                         .show_unindented(ui, |ui| {
                             ui.vertical(|ui| {
-                                show_for_entity(entity, ui);
+                                //show_for_entity(entity, ui);
                             })
                         });
                     });
@@ -1175,129 +1175,6 @@ mod gui {
                 },
             )
             .response
-        }
-    }
-
-    #[allow(unused_variables)]
-    fn show_for_entity(entity: &mut EntityObsolete, ui: &mut Ui) {
-        match entity {
-            EntityObsolete::Arpeggiator(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::BiQuadFilterAllPass(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::BiQuadFilterBandPass(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::BiQuadFilterBandStop(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::BiQuadFilterHighPass(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::BiQuadFilterHighShelf(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::BiQuadFilterLowPass12db(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::BiQuadFilterLowPass24db(e) => {
-                e.ui(ui);
-            }
-            EntityObsolete::BiQuadFilterLowShelf(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::BiQuadFilterNone(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::BiQuadFilterPeakingEq(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::Bitcrusher(e) => {
-                e.ui(ui);
-            }
-            EntityObsolete::Chorus(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::Clock(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::Compressor(e) => {
-                e.ui(ui);
-            }
-            EntityObsolete::ControlTrip(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::DebugSynth(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::Delay(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::Drumkit(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::FmSynth(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::Gain(e) => {
-                e.ui(ui);
-            }
-            EntityObsolete::LfoController(e) => {
-                e.ui(ui);
-            }
-            EntityObsolete::Limiter(e) => {
-                e.ui(ui);
-            }
-            EntityObsolete::Metronome(e) => {
-                e.ui(ui);
-            }
-            EntityObsolete::Mixer(e) => {
-                e.ui(ui);
-            }
-            EntityObsolete::PatternManager(e) => {
-                e.ui(ui);
-            }
-            EntityObsolete::Reverb(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::Sampler(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::Sequencer(e) => {
-                e.ui(ui);
-            }
-            EntityObsolete::SignalPassthroughController(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::Timer(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::ToyAudioSource(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::ToyController(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::ToyEffect(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::ToyInstrument(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::ToySynth(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::Trigger(e) => {
-                ui.label(entity.as_has_uid().name());
-            }
-            EntityObsolete::WelshSynth(e) => {
-                e.ui(ui);
-            }
-            EntityObsolete::Integrated(e) => {
-                e.ui(ui);
-            }
         }
     }
 }
