@@ -1,5 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+//! Contains the traits that define many characteristics and relationships among
+//! parts of the system.
+
+// Are you making a change to this file? Consider enforcing new trait behavior
+// in tests/entity_validator.rs.
+
 pub use crate::midi::HandlesMidi;
 use crate::{
     control::{ControlIndex, ControlValue},
