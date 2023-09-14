@@ -7,11 +7,22 @@ use groove_core::{
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Routes automation control events.
+///
+/// An [Entity] that produces control events can be linked to one or more
+/// surfaces of other entities. An example of an event producer is an LFO that
+/// generates an audio signal, and an example of an event consumer is a synth
+/// that exposes its low-pass filter cutoff as a controllable parameter. Linking
+/// them means that the cutoff should follow the LFO. When the LFO's value
+/// changes, the synth receives a notification of the new [ControlValue] and
+/// responds by updating its cutoff.
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct ControlRouter {
     uid_to_control: HashMap<Uid, Vec<(Uid, ControlIndex)>>,
 }
 impl ControlRouter {
+    /// Registers a link between a source [Entity] and a controllable surface on
+    /// a target [Entity].
     pub fn link_control(&mut self, source_uid: Uid, target_uid: Uid, control_index: ControlIndex) {
         self.uid_to_control
             .entry(source_uid)
@@ -19,6 +30,8 @@ impl ControlRouter {
             .push((target_uid, control_index));
     }
 
+    /// Removes a control link matching the source/target [Uid] and
+    /// [ControlIndex].
     pub fn unlink_control(
         &mut self,
         source_uid: Uid,
@@ -31,10 +44,13 @@ impl ControlRouter {
             .retain(|(uid, index)| !(*uid == target_uid && *index == control_index));
     }
 
+    /// Returns all the control links for a given [Entity].
     pub fn control_links(&self, source_uid: Uid) -> Option<&Vec<(Uid, ControlIndex)>> {
         self.uid_to_control.get(&source_uid)
     }
 
+    /// Given a control event consisting of a source [Entity] and a
+    /// [ControlValue], routes that event to the control surfaces linked to it.
     pub fn route(
         &mut self,
         entity_store_fn: &mut dyn FnMut(&Uid, ControlIndex, ControlValue),

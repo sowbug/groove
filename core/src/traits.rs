@@ -38,12 +38,6 @@ pub enum EntityEvent {
     /// method calls to inform subscribing [Entities](Entity) that their linked
     /// parameters should change.
     Control(ControlValue),
-
-    /// Sent by system to every entity that subscribes to a control. This
-    /// doesn't belong here (it goes in the wrong direction). When we eliminate
-    /// the old Orchestrator, we can remove this message. TODO
-    #[deprecated]
-    HandleControl(ControlIndex, ControlValue),
 }
 impl MessageBounds for EntityEvent {}
 

@@ -599,9 +599,6 @@ impl Orchestrator {
                         EntityEvent::Control(value) => {
                             messages.extend(self.generate_control_update_messages(uid, value));
                         }
-                        EntityEvent::HandleControl(param_id, value) => {
-                            self.handle_control(uid, param_id, value)
-                        }
                     },
                     GrooveInput::MidiFromExternal(channel, message) => {
                         self.broadcast_midi_messages(&[(channel, message)]);
@@ -758,16 +755,17 @@ impl Orchestrator {
     fn generate_control_update_messages(
         &mut self,
         uid: Uid,
-        value: ControlValue,
+        _value: ControlValue,
     ) -> Vec<GrooveInput> {
+        #[allow(unused_mut)]
         if let Some(control_links) = self.store.control_links(uid) {
             return control_links
                 .iter()
-                .fold(Vec::default(), |mut v, (target_uid, param_id)| {
-                    v.push(GrooveInput::EntityMessage(
-                        *target_uid,
-                        EntityEvent::HandleControl(*param_id, value),
-                    ));
+                .fold(Vec::default(), |mut v, (_target_uid, _param_id)| {
+                    // v.push(GrooveInput::EntityMessage(
+                    //     *target_uid,
+                    //     EntityEvent::HandleControl(*param_id, value),
+                    // ));
                     v
                 });
         }
@@ -902,6 +900,7 @@ impl Orchestrator {
         &self.clock
     }
 
+    #[allow(dead_code)]
     fn handle_control(&mut self, uid: Uid, param_id: ControlIndex, value: ControlValue) {
         if let Some(entity) = self.store.get_mut(uid) {
             if let Some(controllable) = entity.as_controllable_mut() {
@@ -1022,7 +1021,7 @@ impl Configurable for Orchestrator {
 }
 #[cfg(feature = "egui-framework")]
 mod gui {
-    use crate::{entities::EntityObsolete, Orchestrator};
+    use crate::Orchestrator;
     use eframe::{
         egui::{CollapsingHeader, Frame, Layout, Margin, RichText, Ui},
         emath::Align,
@@ -1098,7 +1097,7 @@ mod gui {
                         .id_source(ui.next_auto_id())
                         .default_open(true)
                         .show_unindented(ui, |ui| {
-                            ui.vertical(|ui| {
+                            ui.vertical(|_ui| {
                                 //show_for_entity(entity, ui);
                             })
                         });

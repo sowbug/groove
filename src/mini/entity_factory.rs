@@ -147,6 +147,10 @@ impl EntityFactory {
     }
 }
 
+/// An [EntityStore] owns [Entities](Entity). It implements some [Entity]
+/// traits, such as [Configurable], and fans out usage of those traits to the
+/// owned entities, making it easier for the owner of an [EntityStore] to treat
+/// all its entities as a single [Entity].
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct EntityStore {
     #[serde(skip)]
@@ -154,6 +158,7 @@ pub struct EntityStore {
     entities: HashMap<Uid, Box<dyn Entity>>,
 }
 impl EntityStore {
+    /// Adds an [Entity] to the store.
     pub fn add(&mut self, mut entity: Box<dyn Entity>) -> anyhow::Result<Uid> {
         let uid = entity.uid();
         if self.entities.contains_key(&uid) {
@@ -163,29 +168,41 @@ impl EntityStore {
         self.entities.insert(entity.uid(), entity);
         Ok(uid)
     }
+    /// Returns the specified [Entity].
     pub fn get(&self, uid: &Uid) -> Option<&Box<dyn Entity>> {
         self.entities.get(uid)
     }
+    /// Returns the specified mutable [Entity].
     pub fn get_mut(&mut self, uid: &Uid) -> Option<&mut Box<dyn Entity>> {
         self.entities.get_mut(uid)
     }
+    /// Removes the specified [Entity] from the store, returning it (and thus
+    /// ownership of it) to the caller.
     pub fn remove(&mut self, uid: &Uid) -> Option<Box<dyn Entity>> {
         self.entities.remove(uid)
     }
-    #[allow(dead_code)]
+    /// Returns all the [Uid]s of owned [Entities](Entity). Order is undefined
+    /// and may change frequently.
     pub fn uids(&self) -> hash_map::Keys<'_, Uid, Box<dyn Entity>> {
         self.entities.keys()
     }
+    /// Returns all owned [Entities](Entity) as an iterator. Order is undefined.
     pub fn iter(&self) -> hash_map::Values<'_, Uid, Box<dyn Entity>> {
         self.entities.values()
     }
+    /// Returns all owned [Entities](Entity) as an iterator (mutable). Order is
+    /// undefined.
     pub fn iter_mut(&mut self) -> hash_map::ValuesMut<'_, Uid, Box<dyn Entity>> {
         self.entities.values_mut()
     }
+    #[allow(missing_docs)]
     pub fn is_empty(&self) -> bool {
         self.entities.is_empty()
     }
 
+    /// Calculates the highest [Uid] of owned [Entities](Entity). This is used
+    /// when after deserializing to make sure that newly generated [Uid]s don't
+    /// collide with existing ones.
     pub(crate) fn calculate_max_entity_uid(&self) -> Option<Uid> {
         // TODO: keep an eye on this in case it gets expensive. It's currently
         // used only after loading from disk, and it's O(number of things in

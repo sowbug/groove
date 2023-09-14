@@ -112,8 +112,9 @@ You can do this again and again for as many layers as you want.
 I've cycled through these terms throughout development. None is especially
 better than the rest, but they've been useful historical markers during
 refactoring to tell what's old and what's new. I think it's time to consolidate,
-and perhaps to deal with https://github.com/sowbug/groove/issues/149 (separating
-Things-That-Display from Things-That-Don't-Display) while we're there.
+and perhaps to deal with [https://github.com/sowbug/groove/issues/149]
+(separating Things-That-Display from Things-That-Don't-Display) while we're
+there.
 
 The concept we're trying to capture is something in our system that implements
 certain core traits, optionally implements other traits, and provides enough

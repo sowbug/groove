@@ -10,7 +10,7 @@ use anyhow::anyhow;
 use btreemultimap::BTreeMultiMap;
 use derive_builder::Builder;
 use eframe::{
-    egui::{Response, ScrollArea, Sense, Ui, Widget, WidgetInfo, WidgetType},
+    egui::{Response, Sense, Ui, Widget, WidgetInfo, WidgetType},
     emath::{self, lerp},
     epaint::{pos2, vec2, Color32, Pos2, Rect, Rounding, Stroke, Vec2},
 };
@@ -244,27 +244,6 @@ impl Sequencer {
         } else {
             Err(anyhow!("Couldn't find arranged pattern {}", uid.0))
         }
-    }
-
-    fn ui_content(&mut self, ui: &mut Ui) -> Option<SequencerAction> {
-        let action = None;
-        ui.allocate_ui(ui.available_size_before_wrap(), |ui| {
-            ScrollArea::vertical().show(ui, |ui| {
-                // let patterns = &mut self.patterns;
-                // if patterns.is_empty() {
-                //     ui.label("Add a pattern and start editing it");
-                // } else {
-                //     patterns.iter_mut().for_each(|(uid, p)| {
-                //         if ui.button("Add to track").clicked() {
-                //             action = Some(SequencerAction::ArrangePatternAppend(*uid))
-                //         }
-                //         p.show(ui);
-                //     });
-                // }
-                ui.label("let it rip");
-            });
-        });
-        action
     }
 
     /// Renders the owning track's arrangement view.
@@ -566,34 +545,6 @@ impl Sequencer {
     #[allow(dead_code)]
     fn remove_arranged_pattern(&mut self, uid: &ArrangedPatternUid) {
         self.arranged_patterns.remove(uid);
-    }
-
-    fn show_small(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-        ui.label("Sequencer")
-    }
-
-    fn show_and_handle(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-        if let Some(action) = self.ui_content(ui) {
-            match action {
-                SequencerAction::ArrangePatternAppend(uid) => {
-                    if let Err(e) = self.arrange_pattern_append(&uid) {
-                        eprintln!("while appending arranged pattern: {e}");
-                    }
-                }
-                SequencerAction::ToggleArrangedPatternSelection(uid) => {
-                    self.toggle_arranged_pattern_selection(&uid);
-                }
-            }
-        }
-        ui.label("TODO")
-    }
-
-    fn show_medium(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-        self.show_and_handle(ui)
-    }
-
-    fn show_full(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-        self.show_and_handle(ui)
     }
 }
 impl Displays for Sequencer {

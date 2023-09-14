@@ -773,7 +773,6 @@ impl Controls for Track {
             EntityEvent::Control(_) => {
                 control_events_fn(uid, event);
             }
-            EntityEvent::HandleControl(_, _) => todo!(),
         });
         self.control_atlas.work(control_events_fn);
         self.entity_store.work(control_events_fn);

@@ -353,12 +353,6 @@ impl Orchestrator {
             EntityEvent::Control(value) => {
                 self.route_control_change(uid, value);
             }
-            _ => {
-                panic!(
-                    "New system doesn't use event {:?}. Consider deleting it!",
-                    event
-                )
-            }
         }
     }
 
@@ -798,12 +792,12 @@ mod tests {
         })));
 
         o.play();
-        let mut prior_start_time = MusicalTime::TIME_ZERO;
+        let mut _prior_start_time = MusicalTime::TIME_ZERO;
         loop {
             if o.is_finished() {
                 break;
             }
-            prior_start_time = o.transport().current_time();
+            _prior_start_time = o.transport().current_time();
             let mut samples = [StereoSample::SILENCE; 1];
             o.render(&mut samples);
         }
