@@ -25,8 +25,8 @@ pub trait MessageBounds: std::fmt::Debug + Send {}
 /// directly, the system converts them into something else.
 #[derive(Clone, Debug)]
 pub enum EntityEvent {
-    /// A MIDI message sent to a channel. Controllers usually produce this
-    /// message, and the system transforms it into one or more
+    /// A MIDI message sent to a channel. Controllers produce this message, and
+    /// the system transforms it into one or more
     /// [HandlesMidi::handle_midi_message()] calls to route it to instruments or
     /// other controllers.
     Midi(MidiChannel, MidiMessage),
