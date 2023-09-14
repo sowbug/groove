@@ -13,7 +13,10 @@ use groove_entities::{
     },
     instruments::{Drumkit, DrumkitParams, WelshSynth, WelshSynthParams},
 };
-use groove_toys::{ToyInstrument, ToyInstrumentParams, ToySynth, ToySynthParams};
+use groove_toys::{
+    ToyControllerAlwaysSendsMidiMessage, ToyInstrument, ToyInstrumentParams, ToySynth,
+    ToySynthParams,
+};
 use groove_utils::Paths;
 
 /// Registers all [EntityFactory]'s entities. Note that the function returns a
@@ -72,6 +75,9 @@ pub fn register_factory_entities(mut factory: EntityFactory) -> EntityFactory {
     });
     factory.register_entity(Key::from("toy-instrument"), || {
         Box::new(ToyInstrument::new_with(&ToyInstrumentParams::default()))
+    });
+    factory.register_entity(Key::from("toy-controller-noisy"), || {
+        Box::new(ToyControllerAlwaysSendsMidiMessage::default())
     });
     factory.register_entity(Key::from("welsh-synth"), || {
         Box::new(WelshSynth::new_with(&WelshSynthParams::default()))

@@ -760,22 +760,35 @@ impl Controls for Track {
     }
 
     fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
-        self.sequencer.work(&mut |uid, event| match event {
-            // #145: we don't want MIDI messages to escape this track. This is a
-            // temporary fix because we do want Orchestrator to route to
-            // external MIDI devices, so eventually we will need to pass them
-            // along.
-            EntityEvent::Midi(channel, message) => {
-                let _ = self
-                    .midi_router
-                    .route(&mut self.entity_store, channel, message);
+        // Create a place to hold MIDI messages that we need to route.
+        let mut midi_events = Vec::default();
+
+        // Peek at incoming events before handing them to control_events_fn.
+        let mut handler = |uid, event| {
+            match event {
+                // We need to route MIDI messages to all eligible Entities in
+                // this Track, so we save them up.
+                EntityEvent::Midi(channel, message) => {
+                    midi_events.push((channel, message));
+                }
+                EntityEvent::Control(_) => {}
             }
-            EntityEvent::Control(_) => {
-                control_events_fn(uid, event);
-            }
+            control_events_fn(uid, event);
+        };
+
+        // Let everyone work and possibly generate messages.
+        self.sequencer.work(&mut handler);
+        self.control_atlas.work(&mut handler);
+        self.entity_store.work(&mut handler);
+
+        // We've accumulated all the MIDI messages. Route them to our own
+        // MidiRouter. They've already been forwarded to the caller via
+        // control_events_fn.
+        midi_events.into_iter().for_each(|(channel, message)| {
+            let _ = self
+                .midi_router
+                .route(&mut self.entity_store, channel, message);
         });
-        self.control_atlas.work(control_events_fn);
-        self.entity_store.work(control_events_fn);
     }
 
     fn is_finished(&self) -> bool {
@@ -905,7 +918,9 @@ impl Displays for Track {
 mod tests {
     use super::*;
     use groove_core::traits::HasUid;
-    use groove_toys::{ToyEffect, ToyInstrument, ToyInstrumentParams};
+    use groove_toys::{
+        ToyControllerAlwaysSendsMidiMessage, ToyEffect, ToyInstrument, ToyInstrumentParams,
+    };
 
     #[test]
     fn basic_track_operations() {
@@ -967,5 +982,41 @@ mod tests {
             "After moving effects, id2 should be first"
         );
         assert_eq!(t.effects[1], effect_id1);
+    }
+
+    // We expect that a MIDI message will be routed to the eligible Entities in
+    // the same Track, and forwarded to the work() caller, presumably to decide
+    // whether to send it to other destination(s) such as external MIDI
+    // interfaces.
+    #[test]
+    fn midi_messages_sent_to_caller_and_sending_track_instruments() {
+        let mut t = Track::default();
+
+        let mut sender = ToyControllerAlwaysSendsMidiMessage::default();
+        sender.set_uid(Uid(2001));
+        let _sender_id = t.append_entity(Box::new(sender)).unwrap();
+
+        let mut receiver = ToyInstrument::new_with(&ToyInstrumentParams::default());
+        receiver.set_uid(Uid(2002));
+        let counter = Arc::clone(receiver.received_count_mutex());
+        let _receiver_id = t.append_entity(Box::new(receiver)).unwrap();
+
+        let mut external_midi_messages = 0;
+        t.play();
+        t.work(&mut |_uid, _event| {
+            external_midi_messages += 1;
+        });
+
+        if let Ok(c) = counter.lock() {
+            assert_eq!(
+                *c, 1,
+                "The receiving instrument in the track should have received the message"
+            );
+        };
+
+        assert_eq!(
+            external_midi_messages, 1,
+            "After one work(), one MIDI message should have emerged for external processing"
+        );
     }
 }

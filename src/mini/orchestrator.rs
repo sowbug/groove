@@ -206,7 +206,15 @@ impl Orchestrator {
         // or be idempotent.
         let range = self.transport.advance(samples.len());
         self.update_time(&range);
-        self.work(&mut |_, _| panic!("work() was supposed to handle all events"));
+        self.work(&mut |uid, event| {
+            match event {
+                EntityEvent::Midi(channel, message) => {
+                    eprintln!("I'd like to send this MIDI message to the external interface: {uid} -> {channel}, {message:?}")
+                }
+                _ => panic!("We received an unexpected event {event:?}"),
+            }
+            // TODO: forward to external MIDI
+        });
         self.generate_batch_values(samples);
     }
 
@@ -345,10 +353,12 @@ impl Orchestrator {
         self.tracks.values().all(|t| t.is_finished())
     }
 
+    // This method is called only for events generated internally (i.e., from
+    // our own Entities). It is not called for external MIDI messages.
     fn dispatch_event(&mut self, uid: Uid, event: EntityEvent) {
         match event {
-            EntityEvent::Midi(channel, message) => {
-                self.route_midi_message(channel, message);
+            EntityEvent::Midi(_, _) => {
+                panic!("FATAL: we were asked to dispatch an EntityEvent::Midi, which should already have been handled")
             }
             EntityEvent::Control(value) => {
                 self.route_control_change(uid, value);
@@ -579,6 +589,9 @@ impl HandlesMidi for Orchestrator {
     /// controllers and instruments on the given [MidiChannel]. We implement
     /// this trait only for external messages; for ones generated internally, we
     /// use [MidiRouter].
+    ///
+    /// REPEAT: this method is called only for MIDI messages from EXTERNAL MIDI
+    /// INTERFACES!
     fn handle_midi_message(
         &mut self,
         channel: MidiChannel,
@@ -597,13 +610,30 @@ impl Controls for Orchestrator {
         }
     }
 
-    fn work(&mut self, _: &mut ControlEventsFn) {
+    fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
         self.transport.work(&mut |u, m| self.e.events.push((u, m)));
         for track in self.tracks.values_mut() {
             track.work(&mut |u, m| self.e.events.push((u, m)));
         }
         while let Some((uid, event)) = self.e.events.pop() {
-            self.dispatch_event(uid, event);
+            if matches!(event, EntityEvent::Midi(_, _)) {
+                // This MIDI message came from one of our internal Entities and
+                // has bubbled all the way up here. We don't want to do anything
+                // with it, and should instead pass it along to the caller, who
+                // will forward it to external MIDI interfaces.
+                //
+                // This MIDI message came from a Track. The Track's
+                // responsibility was to route the message to all the eligible
+                // Entities that it owned. We don't want to route these messages
+                // back to any Tracks; our only responsibility is to send them
+                // to external MIDI interfaces.
+                //
+                // Eventually, we might allow one Track to send MIDI messages to
+                // another Track. But today we don't. TODO?
+                control_events_fn(uid, event);
+            } else {
+                self.dispatch_event(uid, event);
+            }
         }
         self.e.is_finished = self.calculate_is_finished();
         if self.is_performing() && self.is_finished() {
@@ -744,13 +774,15 @@ mod tests {
         midi::{MidiChannel, MidiMessage},
         time::{MusicalTime, SampleRate, Tempo},
         traits::{Configurable, Controls, HandlesMidi, HasUid},
-        DcaParams, Normal, StereoSample,
+        DcaParams, Normal, StereoSample, Uid,
     };
     use groove_entities::{
         controllers::{Timer, TimerParams},
         effects::{Gain, GainParams},
     };
-    use groove_toys::{ToyAudioSource, ToyInstrument, ToyInstrumentParams};
+    use groove_toys::{
+        ToyAudioSource, ToyControllerAlwaysSendsMidiMessage, ToyInstrument, ToyInstrumentParams,
+    };
     use std::{collections::HashSet, sync::Arc};
 
     #[test]
@@ -988,6 +1020,52 @@ mod tests {
                 *received, 1,
                 "Count should update after sending an external MIDI message to Orchestrator"
             );
+        };
+    }
+
+    #[test]
+    fn midi_messages_from_track_a_do_not_reach_track_b() {
+        let mut o = Orchestrator::default();
+        let track_a_uid = o.new_midi_track().unwrap();
+        let track_b_uid = o.new_midi_track().unwrap();
+
+        // On Track 1, put a sender and receiver.
+        let mut sender = ToyControllerAlwaysSendsMidiMessage::default();
+        sender.set_uid(Uid(10001));
+        let _ = o
+            .get_track_mut(&track_a_uid)
+            .unwrap()
+            .append_entity(Box::new(sender));
+        let mut receiver_1 = ToyInstrument::new_with(&ToyInstrumentParams::default());
+        receiver_1.set_uid(Uid(10002));
+        let counter_1 = Arc::clone(receiver_1.received_count_mutex());
+        let _ = o
+            .get_track_mut(&track_a_uid)
+            .unwrap()
+            .append_entity(Box::new(receiver_1));
+
+        // On Track 2, put another receiver.
+        let mut receiver_2 = ToyInstrument::new_with(&ToyInstrumentParams::default());
+        receiver_2.set_uid(Uid(20001));
+        let counter_2 = Arc::clone(receiver_2.received_count_mutex());
+        let _ = o
+            .get_track_mut(&track_b_uid)
+            .unwrap()
+            .append_entity(Box::new(receiver_2));
+
+        // Fire everything up.
+        o.play();
+        o.work(&mut |_, _| {});
+
+        // Sender should have sent a message that receiver #1 should receive,
+        // because they're both in the same Track.
+        if let Ok(c) = counter_1.lock() {
+            assert_eq!(1, *c);
+        }
+        // But Receiver #2 shouldn't see that message, because it's in a
+        // different Track.
+        if let Ok(c) = counter_2.lock() {
+            assert_eq!(0, *c);
         };
     }
 }

@@ -1,7 +1,66 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-// This module is empty because I haven't figured out a good idiom for things
-// that use Messages (e.g., Controls) to exist outside of something that
-// actually knows what the messages are. I had a MessageMaker concept, but it
-// was kind of gross and created more problems than it solved. Plus I was paying
-// a big price in my proc macros to make just a toy struct generic.
+use groove_core::{
+    midi::{u7, MidiChannel},
+    traits::{gui::Displays, Configurable, Controls, HandlesMidi, Serializable},
+    Uid,
+};
+use groove_proc_macros::{IsController, Uid};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Default, Uid, IsController, Serialize, Deserialize)]
+pub struct ToyControllerAlwaysSendsMidiMessage {
+    uid: Uid,
+
+    #[serde(skip)]
+    midi_note: u8,
+
+    #[serde(skip)]
+    is_performing: bool,
+}
+impl Displays for ToyControllerAlwaysSendsMidiMessage {}
+impl HandlesMidi for ToyControllerAlwaysSendsMidiMessage {}
+impl Controls for ToyControllerAlwaysSendsMidiMessage {
+    fn update_time(&mut self, _range: &std::ops::Range<groove_core::time::MusicalTime>) {}
+
+    fn work(&mut self, control_events_fn: &mut groove_core::traits::ControlEventsFn) {
+        if self.is_performing {
+            control_events_fn(
+                self.uid,
+                groove_core::traits::EntityEvent::Midi(
+                    MidiChannel(0),
+                    groove_core::midi::MidiMessage::NoteOn {
+                        key: u7::from(self.midi_note),
+                        vel: u7::from(127),
+                    },
+                ),
+            );
+            self.midi_note += 1;
+            if self.midi_note > 127 {
+                self.midi_note = 1;
+            }
+        }
+    }
+
+    fn is_finished(&self) -> bool {
+        false
+    }
+
+    fn play(&mut self) {
+        self.is_performing = true;
+    }
+
+    fn stop(&mut self) {
+        self.is_performing = false;
+    }
+
+    fn skip_to_start(&mut self) {
+        todo!()
+    }
+
+    fn is_performing(&self) -> bool {
+        self.is_performing
+    }
+}
+impl Configurable for ToyControllerAlwaysSendsMidiMessage {}
+impl Serializable for ToyControllerAlwaysSendsMidiMessage {}

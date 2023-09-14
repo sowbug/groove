@@ -249,10 +249,10 @@ impl Controls for EntityStore {
     }
 
     fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
-        self.iter_mut().for_each(|t| {
-            if let Some(t) = t.as_controller_mut() {
-                let tuid = t.uid();
-                t.work(&mut |claimed_uid, message| {
+        self.iter_mut().for_each(|entity| {
+            if let Some(e) = entity.as_controller_mut() {
+                let tuid = e.uid();
+                e.work(&mut |claimed_uid, message| {
                     control_events_fn(tuid, message);
                     if tuid != claimed_uid {
                         eprintln!("Warning: entity {tuid} is sending control messages with incorrect uid {claimed_uid}");
