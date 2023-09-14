@@ -4,19 +4,30 @@ use groove_core::{
     generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams, Waveform},
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
-    time::{ClockTimeUnit, SampleRate},
+    time::SampleRate,
     traits::{
         Configurable, Generates, GeneratesEnvelope, IsStereoSampleVoice, IsVoice, PlaysNotes,
         Serializable, Ticks,
     },
     voices::{VoiceCount, VoiceStore},
-    BipolarNormal, Dca, DcaParams, Normal, ParameterType, Sample, SampleType, StereoSample,
+    Dca, DcaParams, Normal, ParameterType, Sample, SampleType, StereoSample,
 };
 use groove_proc_macros::{Control, IsInstrument, Params, Uid};
-use std::{collections::VecDeque, fmt::Debug};
+use std::{
+    fmt::Debug,
+    sync::{Arc, Mutex},
+};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Default)]
+pub struct ToyInstrumentEphemerals {
+    sample: StereoSample,
+    pub is_playing: bool,
+    pub received_count: Arc<Mutex<usize>>,
+    pub debug_messages: Vec<MidiMessage>,
+}
 
 /// An [IsInstrument](groove_core::traits::IsInstrument) that uses a default
 /// Oscillator to produce sound. Its "envelope" is just a boolean that responds
@@ -31,9 +42,6 @@ pub struct ToyInstrument {
     #[params]
     fake_value: Normal,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    sample: StereoSample,
-
     oscillator: Oscillator,
 
     #[control]
@@ -41,27 +49,11 @@ pub struct ToyInstrument {
     dca: Dca,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
-    pub is_playing: bool,
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    pub received_count: usize,
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    pub handled_count: usize,
-
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    pub checkpoint_values: VecDeque<f32>,
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    pub checkpoint: f32,
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    pub checkpoint_delta: f32,
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    pub time_unit: ClockTimeUnit,
-
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    pub debug_messages: Vec<MidiMessage>,
+    e: ToyInstrumentEphemerals,
 }
 impl Generates<StereoSample> for ToyInstrument {
     fn value(&self) -> StereoSample {
-        self.sample
+        self.e.sample
     }
 
     fn generate_batch_values(&mut self, values: &mut [StereoSample]) {
@@ -83,17 +75,7 @@ impl Configurable for ToyInstrument {
 impl Ticks for ToyInstrument {
     fn tick(&mut self, tick_count: usize) {
         self.oscillator.tick(tick_count);
-        // If we've been asked to assert values at checkpoints, do so.
-
-        // TODODODODO
-        // if !self.checkpoint_values.is_empty() && clock.time_for(&self.time_unit) >= self.checkpoint
-        // {
-        //     const SAD_FLOAT_DIFF: f32 = 1.0e-2;
-        //     assert_approx_eq!(self.fake_value, self.checkpoint_values[0], SAD_FLOAT_DIFF);
-        //     self.checkpoint += self.checkpoint_delta;
-        //     self.checkpoint_values.pop_front();
-        // }
-        self.sample = if self.is_playing {
+        self.e.sample = if self.e.is_playing {
             self.dca
                 .transform_audio_to_stereo(Sample::from(self.oscillator.value()))
         } else {
@@ -108,88 +90,36 @@ impl HandlesMidi for ToyInstrument {
         message: MidiMessage,
         _: &mut MidiMessagesFn,
     ) {
-        self.debug_messages.push(message);
-        self.received_count += 1;
+        self.e.debug_messages.push(message);
+        if let Ok(mut received_count) = self.e.received_count.lock() {
+            *received_count += 1;
+        }
 
         match message {
             MidiMessage::NoteOn { key, vel: _ } => {
-                self.is_playing = true;
+                self.e.is_playing = true;
                 self.oscillator
                     .set_frequency(note_to_frequency(key.as_int()));
             }
             MidiMessage::NoteOff { key: _, vel: _ } => {
-                self.is_playing = false;
+                self.e.is_playing = false;
             }
             _ => {}
         }
     }
 }
 impl Serializable for ToyInstrument {}
-
-// impl TestsValues for TestInstrument {
-//     fn has_checkpoint_values(&self) -> bool {
-//         !self.checkpoint_values.is_empty()
-//     }
-
-//     fn time_unit(&self) -> &ClockTimeUnit {
-//         &self.time_unit
-//     }
-
-//     fn checkpoint_time(&self) -> f32 {
-//         self.checkpoint
-//     }
-
-//     fn advance_checkpoint_time(&mut self) {
-//         self.checkpoint += self.checkpoint_delta;
-//     }
-
-//     fn value_to_check(&self) -> f32 {
-//         self.fake_value
-//     }
-
-//     fn pop_checkpoint_value(&mut self) -> Option<f32> {
-//         self.checkpoint_values.pop_front()
-//     }
-// }
 impl ToyInstrument {
     pub fn new_with(params: &ToyInstrumentParams) -> Self {
         Self {
             uid: Default::default(),
-            sample: Default::default(),
             fake_value: params.fake_value(),
             oscillator: Oscillator::new_with(&OscillatorParams::default_with_waveform(
                 Waveform::Sine,
             )),
             dca: Dca::new_with(&params.dca),
-            is_playing: Default::default(),
-            received_count: Default::default(),
-            handled_count: Default::default(),
-            checkpoint_values: Default::default(),
-            checkpoint: Default::default(),
-            checkpoint_delta: Default::default(),
-            time_unit: Default::default(),
-            debug_messages: Default::default(),
+            e: Default::default(),
         }
-    }
-
-    pub fn new_with_test_values(
-        values: &[f32],
-        checkpoint: f32,
-        checkpoint_delta: f32,
-        time_unit: ClockTimeUnit,
-    ) -> Self {
-        let mut r = Self::new_with(&ToyInstrumentParams {
-            fake_value: Normal::maximum(),
-            dca: DcaParams {
-                gain: Normal::maximum(),
-                pan: BipolarNormal::default(),
-            },
-        });
-        r.checkpoint_values = VecDeque::from(Vec::from(values));
-        r.checkpoint = checkpoint;
-        r.checkpoint_delta = checkpoint_delta;
-        r.time_unit = time_unit;
-        r
     }
 
     // TODO: when we have a more specific control param type, we can do a real
@@ -211,8 +141,8 @@ impl ToyInstrument {
         self.fake_value
     }
 
-    pub fn dump_messages(&self) {
-        dbg!(&self.debug_messages);
+    pub fn received_count_mutex(&self) -> &Arc<Mutex<usize>> {
+        &self.e.received_count
     }
 }
 

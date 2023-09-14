@@ -741,16 +741,17 @@ mod tests {
         orchestrator::Orchestrator, track::TrackBuffer, OrchestratorBuilder, TrackUid,
     };
     use groove_core::{
+        midi::{MidiChannel, MidiMessage},
         time::{MusicalTime, SampleRate, Tempo},
-        traits::{Configurable, Controls, HasUid},
-        Normal, StereoSample,
+        traits::{Configurable, Controls, HandlesMidi, HasUid},
+        DcaParams, Normal, StereoSample,
     };
     use groove_entities::{
         controllers::{Timer, TimerParams},
         effects::{Gain, GainParams},
     };
-    use groove_toys::ToyAudioSource;
-    use std::collections::HashSet;
+    use groove_toys::{ToyAudioSource, ToyInstrument, ToyInstrumentParams};
+    use std::{collections::HashSet, sync::Arc};
 
     #[test]
     fn basic_operations() {
@@ -954,5 +955,39 @@ mod tests {
             samples.iter().all(|s| *s == expected_sample),
             "With a 50% send to an aux with 50% gain, we should see the original 0.5 plus 50% of 50% of 0.5 = 0.625"
         );
+    }
+
+    #[test]
+    fn midi_routing_from_external_reaches_instruments() {
+        let mut o = Orchestrator::default();
+        let track_uid = o.new_midi_track().unwrap();
+
+        let track = o.get_track_mut(&track_uid).unwrap();
+        let instrument = ToyInstrument::new_with(&ToyInstrumentParams {
+            fake_value: Normal::default(),
+            dca: DcaParams::default(),
+        });
+        let midi_messages_received = Arc::clone(instrument.received_count_mutex());
+        let _ = track.append_entity(Box::new(instrument)).unwrap();
+
+        let test_message = MidiMessage::NoteOn {
+            key: 7.into(),
+            vel: 13.into(),
+        };
+        if let Ok(received) = midi_messages_received.lock() {
+            assert_eq!(
+                *received, 0,
+                "Before sending an external MIDI message to Orchestrator, count should be zero"
+            );
+        };
+        o.handle_midi_message(MidiChannel(0), test_message, &mut |channel, message| {
+            panic!("Didn't expect {channel:?} {message:?}",)
+        });
+        if let Ok(received) = midi_messages_received.lock() {
+            assert_eq!(
+                *received, 1,
+                "Count should update after sending an external MIDI message to Orchestrator"
+            );
+        };
     }
 }
