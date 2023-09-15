@@ -161,6 +161,11 @@ impl MidiPanel {
         // TODO: Create the MidiPanelInput channel, add it to the receiver loop, etc.
         eprintln!("MIDI Panel acks the quit... TODO");
     }
+
+    /// Allows sending to the [MidiInterfaceInput] channel.
+    pub fn sender(&self) -> &Sender<MidiInterfaceInput> {
+        &self.sender
+    }
 }
 impl Displays for MidiPanel {
     fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {

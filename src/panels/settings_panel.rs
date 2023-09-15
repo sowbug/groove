@@ -13,10 +13,10 @@ pub struct SettingsPanel {
 }
 impl SettingsPanel {
     /// Creates a new [SettingsPanel].
-    pub fn new_with(needs_audio_fn: NeedsAudioFn) -> Self {
+    pub fn new_with(midi_panel: MidiPanel, needs_audio_fn: NeedsAudioFn) -> Self {
         Self {
             audio_panel: AudioPanel::new_with(needs_audio_fn),
-            midi_panel: Default::default(),
+            midi_panel,
             is_open: Default::default(),
         }
     }
@@ -39,6 +39,11 @@ impl SettingsPanel {
     /// The owned [MidiPanel].
     pub fn midi_panel(&self) -> &MidiPanel {
         &self.midi_panel
+    }
+
+    /// The owned [MidiPanel] (mutable).
+    pub fn midi_panel_mut(&mut self) -> &mut MidiPanel {
+        &mut self.midi_panel
     }
 
     /// Asks the panel to shut down any services associated with contained panels.

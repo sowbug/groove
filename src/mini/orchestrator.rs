@@ -77,7 +77,7 @@ pub struct OrchestratorEphemerals {
 /// let uid = track.append_entity(Box::new(ToySynth::default())).unwrap();
 ///
 /// let mut samples = [StereoSample::SILENCE; Orchestrator::SAMPLE_BUFFER_SIZE];
-/// orchestrator.render(&mut samples);
+/// orchestrator.render_and_ignore_events(&mut samples);
 /// ```
 #[derive(Serialize, Deserialize, Debug, Builder)]
 #[builder(setter(skip), default)]
@@ -198,7 +198,11 @@ impl Orchestrator {
 
     /// Renders the next set of samples into the provided buffer. This is the
     /// main event loop.
-    pub fn render(&mut self, samples: &mut [StereoSample]) {
+    pub fn render(
+        &mut self,
+        samples: &mut [StereoSample],
+        control_events_fn: &mut ControlEventsFn,
+    ) {
         // Note that advance() can return the same range twice, depending on
         // sample rate. TODO: we should decide whose responsibility it is to
         // handle that -- either we skip calling work() if the time range is the
@@ -206,16 +210,14 @@ impl Orchestrator {
         // or be idempotent.
         let range = self.transport.advance(samples.len());
         self.update_time(&range);
-        self.work(&mut |uid, event| {
-            match event {
-                EntityEvent::Midi(channel, message) => {
-                    eprintln!("I'd like to send this MIDI message to the external interface: {uid} -> {channel}, {message:?}")
-                }
-                _ => panic!("We received an unexpected event {event:?}"),
-            }
-            // TODO: forward to external MIDI
-        });
+        self.work(control_events_fn);
         self.generate_batch_values(samples);
+    }
+
+    /// A convenience method for callers who would have ignored any
+    /// [EntityEvent]s produced by the render() method.
+    pub fn render_and_ignore_events(&mut self, samples: &mut [StereoSample]) {
+        self.render(samples, &mut |_, _| {});
     }
 
     /// Renders part of the project to audio, creating at least the requested
@@ -230,7 +232,12 @@ impl Orchestrator {
     //
     // TODO: I don't think there's any reason why this must be limited to an
     // `AudioQueue` rather than a more general `Vec`-like interface.
-    pub fn render_and_enqueue(&mut self, samples_requested: usize, queue: &AudioQueue) {
+    pub fn render_and_enqueue(
+        &mut self,
+        samples_requested: usize,
+        queue: &AudioQueue,
+        control_events_fn: &mut ControlEventsFn,
+    ) {
         // Round up
         let buffers_requested =
             (samples_requested + Self::SAMPLE_BUFFER_SIZE - 1) / Self::SAMPLE_BUFFER_SIZE;
@@ -241,7 +248,7 @@ impl Orchestrator {
                 if false {
                     self.render_debug(&mut samples);
                 } else {
-                    self.render(&mut samples);
+                    self.render(&mut samples, control_events_fn);
                 }
                 // No need to do the Arc deref each time through the loop.
                 // TODO: is there a queue type that allows pushing a batch?
@@ -357,7 +364,7 @@ impl Orchestrator {
     // our own Entities). It is not called for external MIDI messages.
     fn dispatch_event(&mut self, uid: Uid, event: EntityEvent) {
         match event {
-            EntityEvent::Midi(_, _) => {
+            EntityEvent::Midi(..) => {
                 panic!("FATAL: we were asked to dispatch an EntityEvent::Midi, which should already have been handled")
             }
             EntityEvent::Control(value) => {
@@ -427,7 +434,7 @@ impl Orchestrator {
                 break;
             }
             buffer.fill(StereoSample::SILENCE);
-            self.render(&mut buffer);
+            self.render_and_ignore_events(&mut buffer);
             for sample in buffer {
                 let (left, right) = sample.into_i16();
                 let _ = writer.write_sample(left);
@@ -832,7 +839,7 @@ mod tests {
             }
             _prior_start_time = o.transport().current_time();
             let mut samples = [StereoSample::SILENCE; 1];
-            o.render(&mut samples);
+            o.render_and_ignore_events(&mut samples);
         }
 
         // TODO: this section is confusing me. It used to say
@@ -955,7 +962,7 @@ mod tests {
                 .is_ok());
         }
         let mut samples = [StereoSample::SILENCE; TrackBuffer::LEN];
-        o.render(&mut samples);
+        o.render_and_ignore_events(&mut samples);
         let expected_sample = StereoSample::from(ToyAudioSource::MEDIUM);
         assert!(
             samples.iter().all(|s| *s == expected_sample),
@@ -964,7 +971,7 @@ mod tests {
 
         assert!(o.send_to_aux(track_uid, aux_uid, Normal::from(0.5)).is_ok());
         let mut samples = [StereoSample::SILENCE; TrackBuffer::LEN];
-        o.render(&mut samples);
+        o.render_and_ignore_events(&mut samples);
         let expected_sample = StereoSample::from(0.75);
         assert!(
             samples.iter().all(|s| *s == expected_sample),
@@ -981,7 +988,7 @@ mod tests {
                 .is_ok());
         }
         let mut samples = [StereoSample::SILENCE; TrackBuffer::LEN];
-        o.render(&mut samples);
+        o.render_and_ignore_events(&mut samples);
         let expected_sample = StereoSample::from(0.5 + 0.5 * 0.5 * 0.5);
         assert!(
             samples.iter().all(|s| *s == expected_sample),

@@ -22,15 +22,13 @@ use groove::{
     app_version,
     mini::{register_factory_entities, DragDropManager, EntityFactory, Key, Orchestrator},
     panels::{
-        AudioPanelEvent, ControlPanel, ControlPanelAction, MidiPanelEvent, NeedsAudioFn,
+        AudioPanelEvent, ControlPanel, ControlPanelAction, MidiPanel, MidiPanelEvent, NeedsAudioFn,
         OrchestratorEvent, OrchestratorInput, OrchestratorPanel, PaletteAction, PalettePanel,
         SettingsPanel,
     },
 };
-use groove_core::{
-    time::SampleRate,
-    traits::{gui::Displays, Configurable},
-};
+use groove_core::traits::{gui::Displays, Configurable, EntityEvent};
+use groove_midi::MidiInterfaceInput;
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -229,10 +227,17 @@ impl MiniDaw {
         let orchestrator_panel = OrchestratorPanel::default();
         let mini_orchestrator = Arc::clone(orchestrator_panel.orchestrator());
 
+        let midi_panel = MidiPanel::default();
+        let midi_panel_sender = midi_panel.sender().clone();
+
         let mini_orchestrator_for_fn = Arc::clone(&mini_orchestrator);
         let needs_audio: NeedsAudioFn = Box::new(move |audio_queue, samples_requested| {
             if let Ok(mut o) = mini_orchestrator_for_fn.lock() {
-                o.render_and_enqueue(samples_requested, audio_queue);
+                o.render_and_enqueue(samples_requested, audio_queue, &mut |_, event| {
+                    if let EntityEvent::Midi(channel, message) = event {
+                        let _ = midi_panel_sender.send(MidiInterfaceInput::Midi(channel, message));
+                    }
+                });
             }
         });
 
@@ -242,7 +247,7 @@ impl MiniDaw {
             control_panel: Default::default(),
             orchestrator_panel,
             palette_panel: Default::default(),
-            settings_panel: SettingsPanel::new_with(Box::new(needs_audio)),
+            settings_panel: SettingsPanel::new_with(midi_panel, Box::new(needs_audio)),
 
             exit_requested: Default::default(),
 
