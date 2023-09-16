@@ -22,9 +22,9 @@ use groove::{
     app_version,
     mini::{register_factory_entities, DragDropManager, EntityFactory, Key, Orchestrator},
     panels::{
-        AudioPanelEvent, ControlPanel, ControlPanelAction, MidiPanel, MidiPanelEvent, NeedsAudioFn,
-        OrchestratorEvent, OrchestratorInput, OrchestratorPanel, PaletteAction, PalettePanel,
-        SettingsPanel,
+        AudioPanel, AudioPanelEvent, ControlPanel, ControlPanelAction, MidiPanel, MidiPanelEvent,
+        NeedsAudioFn, OrchestratorEvent, OrchestratorInput, OrchestratorPanel, PaletteAction,
+        PalettePanel,
     },
 };
 use groove_core::traits::{gui::Displays, Configurable, EntityEvent};
@@ -34,23 +34,66 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-// Rules for communication among app components
-//
-// - If it's in the same thread, don't be fancy. Example: the app owns the
-//   control bar, and the control bar always runs in the UI thread. The app
-//   should talk directly to the control bar (update transport), and the control
-//   bar can pass back an enum saying what happened (play button was pressed).
-// - If it's updated rarely but displayed frequently, the struct should push it
-//   to the app, and the app should cache it. Example: BPM is displayed in the
-//   control bar, so we're certain to need it on every redraw, but it rarely
-//   changes (unless it's automated). Orchestrator should define a channel
-//   message, and the app should handle it when it's received. (This is
-//   currently a not-great example, because we're cloning [Transport] on each
-//   cycle.)
-// - If it's updated more often than the UI framerate, let the UI pull it
-//   directly from the struct. Example: an LFO signal or a real-time spectrum
-//   analysis. These should be APIs directly on the struct, and we'll leave it
-//   up to the app to lock the struct and get what it needs.
+// The settings panel is unique to each app, so this particular one is here in
+// this example code rather than part of the crate. As much as possible, we're
+// composing it from reusable parts.
+#[derive(Debug)]
+struct SettingsPanel {
+    audio_panel: AudioPanel,
+    midi_panel: MidiPanel,
+
+    is_open: bool,
+}
+impl SettingsPanel {
+    /// Creates a new [SettingsPanel].
+    pub fn new_with(midi_panel: MidiPanel, needs_audio_fn: NeedsAudioFn) -> Self {
+        Self {
+            audio_panel: AudioPanel::new_with(needs_audio_fn),
+            midi_panel,
+            is_open: Default::default(),
+        }
+    }
+
+    /// Whether the panel is currently visible.
+    pub fn is_open(&self) -> bool {
+        self.is_open
+    }
+
+    /// Toggle visibility.
+    pub fn toggle(&mut self) {
+        self.is_open = !self.is_open;
+    }
+
+    /// The owned [AudioPanel].
+    pub fn audio_panel(&self) -> &AudioPanel {
+        &self.audio_panel
+    }
+
+    /// The owned [MidiPanel].
+    pub fn midi_panel(&self) -> &MidiPanel {
+        &self.midi_panel
+    }
+
+    /// Asks the panel to shut down any services associated with contained panels.
+    pub fn exit(&self) {
+        self.audio_panel.exit();
+        self.midi_panel.exit();
+    }
+}
+impl Displays for SettingsPanel {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        let response =
+            ui.label("Audio") | self.audio_panel.ui(ui) | ui.label("MIDI") | self.midi_panel.ui(ui);
+
+        {
+            let mut debug_on_hover = ui.ctx().debug_on_hover();
+            ui.checkbox(&mut debug_on_hover, "🐛 Debug on hover")
+                .on_hover_text("Show structure of the ui when you hover with the mouse");
+            ui.ctx().set_debug_on_hover(debug_on_hover);
+        }
+        response
+    }
+}
 
 #[derive(Clone, Debug)]
 enum MenuBarAction {

@@ -157,3 +157,23 @@ Or the degenerate implementation of Displays could instead invoke the widget
 (though the whole point was that Displays::ui() wasn't sufficient).
 
 **Conclusion: maybe we can live with panic().**
+
+### Rules for communication among app components
+
+(Moved from minidaw.rs. Might be out of date.)
+
+- If it's in the same thread, don't be fancy. Example: the app owns the
+  control bar, and the control bar always runs in the UI thread. The app
+  should talk directly to the control bar (update transport), and the control
+  bar can pass back an enum saying what happened (play button was pressed).
+- If it's updated rarely but displayed frequently, the struct should push it
+  to the app, and the app should cache it. Example: BPM is displayed in the
+  control bar, so we're certain to need it on every redraw, but it rarely
+  changes (unless it's automated). Orchestrator should define a channel
+  message, and the app should handle it when it's received. (This is
+  currently a not-great example, because we're cloning [Transport] on each
+  cycle.)
+- If it's updated more often than the UI framerate, let the UI pull it
+  directly from the struct. Example: an LFO signal or a real-time spectrum
+  analysis. These should be APIs directly on the struct, and we'll leave it
+  up to the app to lock the struct and get what it needs.
