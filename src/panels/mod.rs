@@ -2,7 +2,7 @@
 
 pub use audio_panel::{AudioPanel, AudioPanelEvent, NeedsAudioFn};
 pub use control_panel::{ControlBar, ControlPanel, ControlPanelAction};
-pub use legacy::audio_panel::OldAudioPanel;
+pub use legacy::audio_panel::AudioPanel as OldAudioPanel;
 pub use legacy::preferences::Preferences;
 pub use legacy::thing_browser::{EntityBrowser, EntityBrowserEvent, EntityBrowserNode};
 pub use midi_panel::{MidiPanel, MidiPanelEvent};

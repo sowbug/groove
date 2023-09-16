@@ -13,7 +13,8 @@ use std::{
 
 /// [OldAudioPanel] manages the audio interface.
 #[derive(Debug)]
-pub struct OldAudioPanel {
+#[deprecated]
+pub struct AudioPanel {
     sender: Sender<AudioInterfaceInput>,
     app_receiver: Receiver<AudioPanelEvent>, // to give to the app to receive what we sent
     app_sender: Sender<AudioPanelEvent>,     // for us to send to the app
@@ -21,7 +22,7 @@ pub struct OldAudioPanel {
 
     config: Arc<Mutex<Option<AudioInterfaceConfig>>>,
 }
-impl OldAudioPanel {
+impl AudioPanel {
     /// Construct a new [AudioPanel].
     pub fn new_with(orchestrator: Arc<Mutex<Orchestrator>>) -> Self {
         let audio_stream_service = AudioStreamService::default();
@@ -139,7 +140,7 @@ impl OldAudioPanel {
         0
     }
 }
-impl Displays for OldAudioPanel {
+impl Displays for AudioPanel {
     fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
         CollapsingHeader::new("Audio")
             .default_open(true)
