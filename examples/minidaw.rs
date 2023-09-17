@@ -34,8 +34,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-// The settings panel is unique to each app, so this particular one is here in
-// this example code rather than part of the crate. As much as possible, we're
+// Settings are unique to each app, so this particular one is here in this
+// example code rather than part of the crate. As much as possible, we're
 // composing it from reusable parts.
 #[derive(Debug)]
 struct SettingsPanel {
@@ -244,7 +244,7 @@ impl MenuBar {
 }
 
 struct MiniDaw {
-    mini_orchestrator: Arc<Mutex<Orchestrator>>,
+    orchestrator: Arc<Mutex<Orchestrator>>,
 
     menu_bar: MenuBar,
     control_panel: ControlPanel,
@@ -268,29 +268,30 @@ impl MiniDaw {
         Self::initialize_style(&cc.egui_ctx);
 
         let orchestrator_panel = OrchestratorPanel::default();
-        let mini_orchestrator = Arc::clone(orchestrator_panel.orchestrator());
+        let orchestrator = Arc::clone(orchestrator_panel.orchestrator());
 
         let midi_panel = MidiPanel::default();
         let midi_panel_sender = midi_panel.sender().clone();
-
-        let mini_orchestrator_for_fn = Arc::clone(&mini_orchestrator);
-        let needs_audio: NeedsAudioFn = Box::new(move |audio_queue, samples_requested| {
-            if let Ok(mut o) = mini_orchestrator_for_fn.lock() {
-                o.render_and_enqueue(samples_requested, audio_queue, &mut |_, event| {
-                    if let EntityEvent::Midi(channel, message) = event {
-                        let _ = midi_panel_sender.send(MidiInterfaceInput::Midi(channel, message));
-                    }
-                });
-            }
-        });
-
+        let needs_audio: NeedsAudioFn = {
+            let orchestrator = Arc::clone(&orchestrator);
+            Box::new(move |audio_queue, samples_requested| {
+                if let Ok(mut o) = orchestrator.lock() {
+                    o.render_and_enqueue(samples_requested, audio_queue, &mut |_, event| {
+                        if let EntityEvent::Midi(channel, message) = event {
+                            let _ =
+                                midi_panel_sender.send(MidiInterfaceInput::Midi(channel, message));
+                        }
+                    });
+                }
+            })
+        };
         let mut r = Self {
-            mini_orchestrator,
+            orchestrator,
             menu_bar: Default::default(),
             control_panel: Default::default(),
             orchestrator_panel,
             palette_panel: Default::default(),
-            settings_panel: SettingsPanel::new_with(midi_panel, Box::new(needs_audio)),
+            settings_panel: SettingsPanel::new_with(midi_panel, needs_audio),
 
             exit_requested: Default::default(),
 
@@ -508,7 +509,7 @@ impl MiniDaw {
 
     fn update_orchestrator_audio_interface_config(&mut self) {
         let sample_rate = self.settings_panel.audio_panel().sample_rate();
-        if let Ok(mut o) = self.mini_orchestrator.lock() {
+        if let Ok(mut o) = self.orchestrator.lock() {
             o.update_sample_rate(sample_rate);
         }
     }
@@ -575,7 +576,7 @@ impl MiniDaw {
     #[allow(unused_mut)]
     #[allow(unused_variables)]
     fn handle_palette_action(&mut self, action: PaletteAction) {
-        if let Ok(mut o) = self.mini_orchestrator.lock() {
+        if let Ok(mut o) = self.orchestrator.lock() {
             match action {
                 PaletteAction::NewEntity(_key) => {
                     // if let Some(track) = o.get_single_selected_track_uid() {
@@ -672,7 +673,7 @@ impl eframe::App for MiniDaw {
 
         // TODO: this is unlikely to be the long-term home for Orchestrator
         // updates. Decide how the UI loop should look.
-        if let Ok(o) = self.mini_orchestrator.lock() {
+        if let Ok(o) = self.orchestrator.lock() {
             self.control_panel.set_transport(o.transport().clone());
         }
 
