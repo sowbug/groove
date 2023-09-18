@@ -12,3 +12,4 @@ crossbeam-utils = "0.8"
 groove-core = { path = "../core" }
 midir = "0.9"
 midly = "0.5"
+serde = { version = "1.0", features = ["derive", "rc"] }

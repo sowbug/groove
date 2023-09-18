@@ -828,7 +828,7 @@ impl Tempo {
 }
 
 /// Samples per second. Always a positive integer; cannot be zero.
-#[derive(Clone, Copy, Debug, Display, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Display, PartialEq, Eq)]
 pub struct SampleRate(pub usize);
 impl SampleRate {
     pub const DEFAULT_SAMPLE_RATE: usize = 44100;

@@ -18,7 +18,8 @@ use egui_toast::{Toast, ToastOptions, Toasts};
 use groove::{
     app_version,
     panels::{
-        ControlBar, EntityBrowser, EntityBrowserEvent, MidiPanel, OldAudioPanel, Preferences,
+        ControlBar, EntityBrowser, EntityBrowserEvent, MidiPanel, MidiSettings, OldAudioPanel,
+        Preferences,
     },
 };
 use groove_core::{
@@ -196,13 +197,17 @@ impl GrooveApp {
                 Preferences::default()
             }
         };
+
+        // TODO: this is wrong, but it's to get legacy code to keep building.
+        let settings = Arc::new(Mutex::new(MidiSettings::default()));
+
         let mut r = Self {
             paths: paths.clone(),
 
             orchestrator: Arc::clone(&orchestrator),
 
             control_bar: ControlBar::default(),
-            midi_panel: MidiPanel::default(),
+            midi_panel: MidiPanel::new_with(settings),
             audio_panel: OldAudioPanel::new_with(Arc::clone(&orchestrator)),
             preferences,
             thing_browser: EntityBrowser::scan_everything(&paths, extra_paths),

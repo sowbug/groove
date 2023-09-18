@@ -22,34 +22,123 @@ use groove::{
     app_version,
     mini::{register_factory_entities, DragDropManager, EntityFactory, Key, Orchestrator},
     panels::{
-        AudioPanel, AudioPanelEvent, ControlPanel, ControlPanelAction, MidiPanel, MidiPanelEvent,
-        NeedsAudioFn, OrchestratorEvent, OrchestratorInput, OrchestratorPanel, PaletteAction,
-        PalettePanel,
+        audio_settings, midi_settings, AudioPanel, AudioPanelEvent, AudioSettings, ControlPanel,
+        ControlPanelAction, MidiPanel, MidiPanelEvent, MidiSettings, NeedsAudioFn,
+        OrchestratorEvent, OrchestratorInput, OrchestratorPanel, PaletteAction, PalettePanel,
     },
 };
-use groove_core::traits::{gui::Displays, Configurable, EntityEvent};
-use groove_midi::MidiInterfaceInput;
+use groove_core::traits::{gui::Displays, Configurable, EntityEvent, HasSettings};
+use groove_midi::{MidiInterfaceInput, MidiPortDescriptor};
+use serde::{Deserialize, Serialize};
 use std::{
+    io::{Read, Write},
     path::PathBuf,
     sync::{Arc, Mutex},
 };
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct Settings {
+    audio_settings: AudioSettings,
+    midi_settings: Arc<Mutex<MidiSettings>>,
+}
+impl Settings {
+    const FILENAME: &str = "settings.json";
+
+    fn load() -> anyhow::Result<Self> {
+        let settings_path = PathBuf::from(Self::FILENAME);
+        let mut contents = String::new();
+        let mut file = std::fs::File::open(settings_path.clone())
+            .map_err(|e| anyhow::format_err!("Couldn't open {settings_path:?}: {}", e))?;
+        file.read_to_string(&mut contents)
+            .map_err(|e| anyhow::format_err!("Couldn't read {settings_path:?}: {}", e))?;
+        serde_json::from_str(&contents)
+            .map_err(|e| anyhow::format_err!("Couldn't parse {settings_path:?}: {}", e))
+    }
+
+    fn save(&mut self) -> anyhow::Result<()> {
+        let settings_path = PathBuf::from(Self::FILENAME);
+        let json = serde_json::to_string_pretty(&self)
+            .map_err(|_| anyhow::format_err!("Unable to serialize settings JSON"))?;
+        if let Some(dir) = settings_path.parent() {
+            std::fs::create_dir_all(dir).map_err(|e| {
+                anyhow::format_err!(
+                    "Unable to create {settings_path:?} parent directories: {}",
+                    e
+                )
+            })?;
+        }
+
+        let mut file = std::fs::File::create(settings_path.clone())
+            .map_err(|e| anyhow::format_err!("Unable to create {settings_path:?}: {}", e))?;
+
+        file.write_all(json.as_bytes())
+            .map_err(|e| anyhow::format_err!("Unable to write {settings_path:?}: {}", e))?;
+
+        self.mark_clean();
+        Ok(())
+    }
+}
+impl HasSettings for Settings {
+    fn has_been_saved(&self) -> bool {
+        let has_midi_been_saved = {
+            if let Ok(midi) = self.midi_settings.lock() {
+                midi.has_been_saved()
+            } else {
+                true
+            }
+        };
+        self.audio_settings.has_been_saved() || has_midi_been_saved
+    }
+
+    fn needs_save(&mut self) {
+        panic!("TODO: this struct has no settings of its own, so there shouldn't be a reason to mark it dirty.")
+    }
+
+    fn mark_clean(&mut self) {
+        self.audio_settings.mark_clean();
+        if let Ok(mut midi) = self.midi_settings.lock() {
+            midi.mark_clean();
+        }
+    }
+}
 
 // Settings are unique to each app, so this particular one is here in this
 // example code rather than part of the crate. As much as possible, we're
 // composing it from reusable parts.
 #[derive(Debug)]
 struct SettingsPanel {
+    settings: Settings,
     audio_panel: AudioPanel,
     midi_panel: MidiPanel,
+
+    midi_inputs: Vec<MidiPortDescriptor>,
+    midi_outputs: Vec<MidiPortDescriptor>,
 
     is_open: bool,
 }
 impl SettingsPanel {
     /// Creates a new [SettingsPanel].
-    pub fn new_with(midi_panel: MidiPanel, needs_audio_fn: NeedsAudioFn) -> Self {
+    pub fn new_with(settings: Settings, orchestrator: Arc<Mutex<Orchestrator>>) -> Self {
+        let midi_panel = MidiPanel::new_with(Arc::clone(&settings.midi_settings));
+        let midi_panel_sender = midi_panel.sender().clone();
+        let needs_audio_fn: NeedsAudioFn = {
+            Box::new(move |audio_queue, samples_requested| {
+                if let Ok(mut o) = orchestrator.lock() {
+                    o.render_and_enqueue(samples_requested, audio_queue, &mut |_, event| {
+                        if let EntityEvent::Midi(channel, message) = event {
+                            let _ =
+                                midi_panel_sender.send(MidiInterfaceInput::Midi(channel, message));
+                        }
+                    });
+                }
+            })
+        };
         Self {
+            settings,
             audio_panel: AudioPanel::new_with(needs_audio_fn),
             midi_panel,
+            midi_inputs: Default::default(),
+            midi_outputs: Default::default(),
             is_open: Default::default(),
         }
     }
@@ -79,11 +168,37 @@ impl SettingsPanel {
         self.audio_panel.exit();
         self.midi_panel.exit();
     }
+
+    fn handle_midi_port_refresh(&mut self) {
+        self.midi_inputs = self.midi_panel.inputs().lock().unwrap().clone();
+        self.midi_outputs = self.midi_panel.outputs().lock().unwrap().clone();
+    }
 }
 impl Displays for SettingsPanel {
     fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-        let response =
-            ui.label("Audio") | self.audio_panel.ui(ui) | ui.label("MIDI") | self.midi_panel.ui(ui);
+        let mut new_input = None;
+        let mut new_output = None;
+        let response = {
+            ui.heading("Audio");
+            ui.add(audio_settings(&mut self.settings.audio_settings))
+        } | {
+            ui.heading("MIDI");
+            let mut settings = self.settings.midi_settings.lock().unwrap();
+            ui.add(midi_settings(
+                &mut settings,
+                &self.midi_inputs,
+                &self.midi_outputs,
+                &mut new_input,
+                &mut new_output,
+            ))
+        };
+
+        if let Some(new_input) = &new_input {
+            self.midi_panel.select_input(new_input);
+        }
+        if let Some(new_output) = &new_output {
+            self.midi_panel.select_output(new_output);
+        }
 
         {
             let mut debug_on_hover = ui.ctx().debug_on_hover();
@@ -267,31 +382,17 @@ impl MiniDaw {
         Self::initialize_fonts(cc);
         Self::initialize_style(&cc.egui_ctx);
 
+        let settings = Settings::load().unwrap_or_default();
         let orchestrator_panel = OrchestratorPanel::default();
         let orchestrator = Arc::clone(orchestrator_panel.orchestrator());
-
-        let midi_panel = MidiPanel::default();
-        let midi_panel_sender = midi_panel.sender().clone();
-        let needs_audio: NeedsAudioFn = {
-            let orchestrator = Arc::clone(&orchestrator);
-            Box::new(move |audio_queue, samples_requested| {
-                if let Ok(mut o) = orchestrator.lock() {
-                    o.render_and_enqueue(samples_requested, audio_queue, &mut |_, event| {
-                        if let EntityEvent::Midi(channel, message) = event {
-                            let _ =
-                                midi_panel_sender.send(MidiInterfaceInput::Midi(channel, message));
-                        }
-                    });
-                }
-            })
-        };
+        let orchestrator_for_settings_panel = Arc::clone(&orchestrator);
         let mut r = Self {
             orchestrator,
             menu_bar: Default::default(),
             control_panel: Default::default(),
             orchestrator_panel,
             palette_panel: Default::default(),
-            settings_panel: SettingsPanel::new_with(midi_panel, needs_audio),
+            settings_panel: SettingsPanel::new_with(settings, orchestrator_for_settings_panel),
 
             exit_requested: Default::default(),
 
@@ -397,6 +498,7 @@ impl MiniDaw {
                 }
                 MidiPanelEvent::PortsRefreshed => {
                     // TODO: remap any saved preferences to ports that we've found
+                    self.settings_panel.handle_midi_port_refresh();
                 }
             }
             true
@@ -718,6 +820,9 @@ impl eframe::App for MiniDaw {
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        if !self.settings_panel.settings.has_been_saved() {
+            let _ = self.settings_panel.settings.save();
+        }
         self.settings_panel.exit();
         self.orchestrator_panel.exit();
     }

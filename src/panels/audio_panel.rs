@@ -3,7 +3,11 @@
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{CollapsingHeader, Ui};
 use groove_audio::{AudioInterfaceEvent, AudioInterfaceInput, AudioQueue, AudioStreamService};
-use groove_core::{time::SampleRate, traits::gui::Displays};
+use groove_core::{
+    time::SampleRate,
+    traits::{gui::Displays, HasSettings},
+};
+use serde::{Deserialize, Serialize};
 use std::{
     fmt::Debug,
     sync::{Arc, Mutex},
@@ -19,16 +23,43 @@ pub enum AudioPanelEvent {
     InterfaceChanged,
 }
 
-#[derive(Debug)]
-pub(crate) struct AudioInterfaceConfig {
+/// Contains persistent audio settings.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AudioSettings {
     sample_rate: SampleRate,
     channel_count: u16,
+
+    #[serde(skip)]
+    has_been_saved: bool,
 }
-impl AudioInterfaceConfig {
+impl Default for AudioSettings {
+    fn default() -> Self {
+        Self {
+            sample_rate: SampleRate::default(),
+            channel_count: 2,
+            has_been_saved: false,
+        }
+    }
+}
+impl HasSettings for AudioSettings {
+    fn has_been_saved(&self) -> bool {
+        self.has_been_saved
+    }
+
+    fn needs_save(&mut self) {
+        self.has_been_saved = false;
+    }
+
+    fn mark_clean(&mut self) {
+        self.has_been_saved = true;
+    }
+}
+impl AudioSettings {
     pub(crate) fn new_with(sample_rate: SampleRate, channel_count: u16) -> Self {
         Self {
             sample_rate,
             channel_count,
+            has_been_saved: Default::default(),
         }
     }
 
@@ -56,7 +87,7 @@ pub struct AudioPanel {
     app_receiver: Receiver<AudioPanelEvent>, // to give to the app to receive what we sent
     app_sender: Sender<AudioPanelEvent>,     // for us to send to the app
 
-    config: Arc<Mutex<Option<AudioInterfaceConfig>>>,
+    config: Arc<Mutex<Option<AudioSettings>>>,
 }
 impl AudioPanel {
     /// Construct a new [AudioPanel].
@@ -91,10 +122,7 @@ impl AudioPanel {
                     match event {
                         AudioInterfaceEvent::Reset(sample_rate, channel_count, queue) => {
                             if let Ok(mut config) = config.lock() {
-                                *config = Some(AudioInterfaceConfig {
-                                    sample_rate,
-                                    channel_count,
-                                });
+                                *config = Some(AudioSettings::new_with(sample_rate, channel_count));
                             }
                             let _ = app_sender.send(AudioPanelEvent::InterfaceChanged);
                             queue_opt = Some(queue);
@@ -146,15 +174,28 @@ impl AudioPanel {
         eprintln!("Audio Panel acks the quit... TODO");
     }
 }
-impl Displays for AudioPanel {
+
+/// Wraps an [AudioSettingsWidget] as a [Widget](eframe::egui::Widget). Mutates the given view_range.
+pub fn audio_settings(settings: &mut AudioSettings) -> impl eframe::egui::Widget + '_ {
+    move |ui: &mut eframe::egui::Ui| AudioSettingsWidget::new_with(settings).ui(ui)
+}
+
+#[derive(Debug)]
+struct AudioSettingsWidget<'a> {
+    settings: &'a mut AudioSettings,
+}
+impl<'a> AudioSettingsWidget<'a> {
+    pub fn new_with(settings: &'a mut AudioSettings) -> Self {
+        Self { settings }
+    }
+}
+impl<'a> Displays for AudioSettingsWidget<'a> {
     fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
         CollapsingHeader::new("Audio")
             .default_open(true)
             .show(ui, |ui| {
-                if let Ok(Some(config)) = self.config.lock().as_deref() {
-                    ui.label(format!("Sample rate: {}", config.sample_rate()));
-                    ui.label(format!("Channels: {}", config.channel_count()));
-                }
+                ui.label(format!("Sample rate: {}", self.settings.sample_rate()));
+                ui.label(format!("Channels: {}", self.settings.channel_count()));
             })
             .header_response
     }

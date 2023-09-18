@@ -7,6 +7,7 @@
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use groove_core::midi::{u4, LiveEvent, MidiChannel, MidiMessage};
 use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
+use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, thread::JoinHandle};
 
 /// The client sends requests to the MIDI interface through [MidiInterfaceInput] messages.
@@ -141,7 +142,7 @@ impl MidiInterfaceService {
 }
 
 /// Provides user-friendly strings for displaying available MIDI ports.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct MidiPortDescriptor {
     index: usize,
     name: String,

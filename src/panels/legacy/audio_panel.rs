@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::panels::{audio_panel::AudioInterfaceConfig, AudioPanelEvent};
+use crate::panels::{audio_panel::AudioSettings, AudioPanelEvent};
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{CollapsingHeader, Ui};
 use groove_audio::{AudioInterfaceEvent, AudioInterfaceInput, AudioQueue, AudioStreamService};
@@ -11,7 +11,7 @@ use std::{
     sync::{Arc, Mutex, MutexGuard},
 };
 
-/// [OldAudioPanel] manages the audio interface.
+/// [AudioPanel] manages the audio interface.
 #[derive(Debug)]
 #[deprecated]
 pub struct AudioPanel {
@@ -20,7 +20,7 @@ pub struct AudioPanel {
     app_sender: Sender<AudioPanelEvent>,     // for us to send to the app
     orchestrator: Arc<Mutex<Orchestrator>>,
 
-    config: Arc<Mutex<Option<AudioInterfaceConfig>>>,
+    config: Arc<Mutex<Option<AudioSettings>>>,
 }
 impl AudioPanel {
     /// Construct a new [AudioPanel].
@@ -58,10 +58,7 @@ impl AudioPanel {
                     match event {
                         AudioInterfaceEvent::Reset(sample_rate, channel_count, queue) => {
                             if let Ok(mut config) = config.lock() {
-                                *config = Some(AudioInterfaceConfig::new_with(
-                                    sample_rate,
-                                    channel_count,
-                                ));
+                                *config = Some(AudioSettings::new_with(sample_rate, channel_count));
                             }
                             let _ = app_sender.send(AudioPanelEvent::InterfaceChanged);
                             queue_opt = Some(queue);

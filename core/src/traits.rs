@@ -389,6 +389,18 @@ pub trait IsStereoSampleVoice: IsVoice<StereoSample> {}
 #[cfg(not(feature = "egui-framework"))]
 pub trait Shows {}
 
+/// Each app should have a Settings struct that is composed of subsystems having
+/// their own settings. Implementing [HasSettings] helps the composed struct
+/// manage its parts.
+pub trait HasSettings {
+    /// Whether the current state of this struct has been saved to disk.
+    fn has_been_saved(&self) -> bool;
+    /// Call this whenever the struct changes.
+    fn needs_save(&mut self);
+    /// Call this after a load() or a save().
+    fn mark_clean(&mut self);
+}
+
 #[cfg(feature = "egui-framework")]
 pub mod gui {
     use eframe::egui;

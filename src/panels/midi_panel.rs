@@ -4,15 +4,75 @@ use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{CollapsingHeader, ComboBox, Ui};
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
-    traits::gui::Displays,
+    traits::{gui::Displays, HasSettings},
 };
 use groove_midi::{
     MidiInterfaceEvent, MidiInterfaceInput, MidiInterfaceService, MidiPortDescriptor,
 };
+use serde::{Deserialize, Serialize};
 use std::{
     sync::{Arc, Mutex},
     time::Instant,
 };
+
+/// Contains persistent MIDI settings.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MidiSettings {
+    selected_input: Option<MidiPortDescriptor>,
+    selected_output: Option<MidiPortDescriptor>,
+
+    #[serde(skip)]
+    has_been_saved: bool,
+
+    #[serde(skip, default = "MidiSettings::create_last_input_instant")]
+    last_input_instant: Arc<Mutex<Instant>>,
+    #[serde(skip, default = "Instant::now")]
+    last_output_instant: Instant,
+}
+impl Default for MidiSettings {
+    fn default() -> Self {
+        Self {
+            selected_input: Default::default(),
+            selected_output: Default::default(),
+            has_been_saved: Default::default(),
+            last_input_instant: Self::create_last_input_instant(),
+            last_output_instant: Instant::now(),
+        }
+    }
+}
+impl HasSettings for MidiSettings {
+    fn has_been_saved(&self) -> bool {
+        self.has_been_saved
+    }
+
+    fn needs_save(&mut self) {
+        self.has_been_saved = false;
+    }
+
+    fn mark_clean(&mut self) {
+        self.has_been_saved = true;
+    }
+}
+impl MidiSettings {
+    /// Updates the field and marks the struct eligible to save.
+    pub fn set_input(&mut self, input: Option<MidiPortDescriptor>) {
+        if input != self.selected_input {
+            self.selected_input = input;
+            self.needs_save();
+        }
+    }
+    /// Updates the field and marks the struct eligible to save.
+    pub fn set_output(&mut self, output: Option<MidiPortDescriptor>) {
+        if output != self.selected_output {
+            self.selected_output = output;
+            self.needs_save();
+        }
+    }
+
+    fn create_last_input_instant() -> Arc<Mutex<Instant>> {
+        Arc::new(Mutex::new(Instant::now()))
+    }
+}
 
 /// The panel provides updates to the app through [MidiPanelEvent] messages.
 #[derive(Clone, Debug)]
@@ -42,43 +102,39 @@ pub struct MidiPanel {
     app_sender: Sender<MidiPanelEvent>, // for us to send to the app
 
     inputs: Arc<Mutex<Vec<MidiPortDescriptor>>>,
-    selected_input: Arc<Mutex<Option<MidiPortDescriptor>>>,
     outputs: Arc<Mutex<Vec<MidiPortDescriptor>>>,
-    selected_output: Arc<Mutex<Option<MidiPortDescriptor>>>,
 
-    last_input_instant: Arc<Mutex<Instant>>,
-    last_output_instant: Instant,
+    settings: Arc<Mutex<MidiSettings>>,
 }
-impl Default for MidiPanel {
-    fn default() -> Self {
+impl MidiPanel {
+    /// Creates a new [MidiPanel].
+    pub fn new_with(settings: Arc<Mutex<MidiSettings>>) -> Self {
         let midi_interface_service = MidiInterfaceService::default();
         let sender = midi_interface_service.sender().clone();
 
         let (app_sender, app_receiver) = crossbeam_channel::unbounded();
 
-        let r = Self {
+        let mut r = Self {
             sender,
             app_receiver,
             app_sender,
 
             inputs: Default::default(),
-            selected_input: Default::default(),
-
             outputs: Default::default(),
-            selected_output: Default::default(),
 
-            last_input_instant: Arc::new(Mutex::new(Instant::now())),
-            last_output_instant: Instant::now(),
+            settings,
         };
         r.start_midi_interface(midi_interface_service.receiver().clone());
+        r.conform_selections_to_settings();
         r
     }
-}
-impl MidiPanel {
+
     /// Sends a [MidiInterfaceInput] message to the service.
     pub fn send(&mut self, input: MidiInterfaceInput) {
         if let MidiInterfaceInput::Midi(..) = input {
-            self.last_output_instant = Instant::now();
+            if let Ok(mut settings) = self.settings.lock() {
+                settings.last_output_instant = Instant::now();
+            }
         }
 
         let _ = self.sender.send(input);
@@ -88,10 +144,8 @@ impl MidiPanel {
     // handling whatever comes through.
     fn start_midi_interface(&self, receiver: Receiver<MidiInterfaceEvent>) {
         let inputs = Arc::clone(&self.inputs);
-        let selected_input = Arc::clone(&self.selected_input);
         let outputs = Arc::clone(&self.outputs);
-        let selected_output = Arc::clone(&self.selected_output);
-        let last_input_instant = Arc::clone(&self.last_input_instant);
+        let settings = Arc::clone(&self.settings);
         let app_sender = self.app_sender.clone();
         std::thread::spawn(move || {
             let mut inputs_refreshed = false;
@@ -108,8 +162,8 @@ impl MidiPanel {
                             }
                         }
                         MidiInterfaceEvent::InputPortSelected(port) => {
-                            if let Ok(mut selected_input) = selected_input.lock() {
-                                *selected_input = port;
+                            if let Ok(mut settings) = settings.lock() {
+                                settings.set_input(port);
                             }
                         }
                         MidiInterfaceEvent::OutputPorts(ports) => {
@@ -119,13 +173,14 @@ impl MidiPanel {
                             }
                         }
                         MidiInterfaceEvent::OutputPortSelected(port) => {
-                            if let Ok(mut selected_output) = selected_output.lock() {
-                                *selected_output = port;
+                            if let Ok(mut settings) = settings.lock() {
+                                settings.set_output(port);
                             }
                         }
                         MidiInterfaceEvent::Midi(channel, message) => {
-                            if let Ok(mut last_input_instant) = last_input_instant.lock() {
-                                *last_input_instant = Instant::now();
+                            if let Ok(mut settings) = settings.lock() {
+                                settings.last_input_instant =
+                                    MidiSettings::create_last_input_instant();
                             }
                             let _ = app_sender.send(MidiPanelEvent::Midi(channel, message));
                         }
@@ -143,12 +198,34 @@ impl MidiPanel {
         });
     }
 
-    fn inputs(&self) -> &Mutex<Vec<MidiPortDescriptor>> {
+    /// Returns a reference to the cached list of inputs.
+    pub fn inputs(&self) -> &Mutex<Vec<MidiPortDescriptor>> {
         self.inputs.as_ref()
     }
 
-    fn outputs(&self) -> &Mutex<Vec<MidiPortDescriptor>> {
+    /// Returns a reference to the cached list of outputs.
+    pub fn outputs(&self) -> &Mutex<Vec<MidiPortDescriptor>> {
         self.outputs.as_ref()
+    }
+
+    /// Handles a change in selected MIDI input.
+    pub fn select_input(&mut self, port: &MidiPortDescriptor) {
+        let _ = self
+            .sender
+            .send(MidiInterfaceInput::SelectMidiInput(port.clone()));
+        let _ = self
+            .app_sender
+            .send(MidiPanelEvent::SelectInput(port.clone()));
+    }
+
+    /// Handles a change in selected MIDI output.
+    pub fn select_output(&mut self, port: &MidiPortDescriptor) {
+        let _ = self
+            .sender
+            .send(MidiInterfaceInput::SelectMidiOutput(port.clone()));
+        let _ = self
+            .app_sender
+            .send(MidiPanelEvent::SelectOutput(port.clone()));
     }
 
     /// The receive side of the [MidiPanelEvent] channel
@@ -166,16 +243,87 @@ impl MidiPanel {
     pub fn sender(&self) -> &Sender<MidiInterfaceInput> {
         &self.sender
     }
+
+    /// Allows sending to the [MidiPanelEvent] channel.
+    pub fn app_sender(&self) -> &Sender<MidiPanelEvent> {
+        &self.app_sender
+    }
+
+    /// When settings are loaded, we have to look at them and update the actual
+    /// state to match.
+    fn conform_selections_to_settings(&mut self) {
+        let (input, output) = if let Ok(settings) = self.settings.lock() {
+            (
+                settings.selected_input.clone(),
+                settings.selected_output.clone(),
+            )
+        } else {
+            (None, None)
+        };
+        if let Some(port) = input {
+            self.select_input(&port);
+        }
+        if let Some(port) = output {
+            self.select_output(&port);
+        }
+    }
 }
-impl Displays for MidiPanel {
+impl Displays for MidiPanel {}
+
+/// Wraps a [MidiSettingsWidget] as a [Widget](eframe::egui::Widget). Mutates the given view_range.
+pub fn midi_settings<'a>(
+    settings: &'a mut MidiSettings,
+    inputs: &'a [MidiPortDescriptor],
+    outputs: &'a [MidiPortDescriptor],
+    new_input: &'a mut Option<MidiPortDescriptor>,
+    new_output: &'a mut Option<MidiPortDescriptor>,
+) -> impl eframe::egui::Widget + 'a {
+    move |ui: &mut eframe::egui::Ui| {
+        MidiSettingsWidget::new_with(settings, inputs, outputs, new_input, new_output).ui(ui)
+    }
+}
+
+#[derive(Debug)]
+struct MidiSettingsWidget<'a> {
+    settings: &'a mut MidiSettings,
+    inputs: &'a [MidiPortDescriptor],
+    outputs: &'a [MidiPortDescriptor],
+    new_input: &'a mut Option<MidiPortDescriptor>,
+    new_output: &'a mut Option<MidiPortDescriptor>,
+}
+impl<'a> MidiSettingsWidget<'a> {
+    pub fn new_with(
+        settings: &'a mut MidiSettings,
+        inputs: &'a [MidiPortDescriptor],
+        outputs: &'a [MidiPortDescriptor],
+        new_input: &'a mut Option<MidiPortDescriptor>,
+        new_output: &'a mut Option<MidiPortDescriptor>,
+    ) -> Self {
+        Self {
+            settings,
+            inputs,
+            outputs,
+            new_input,
+            new_output,
+        }
+    }
+}
+impl<'a> Displays for MidiSettingsWidget<'a> {
     fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
         CollapsingHeader::new("MIDI")
             .default_open(true)
             .show(ui, |ui| {
-                let now = Instant::now();
-                let last_input_instant = *self.last_input_instant.lock().unwrap();
-                let input_was_recent = (now - last_input_instant).as_millis() < 250;
-                let output_was_recent = (now - self.last_output_instant).as_millis() < 250;
+                let (input_was_recent, output_was_recent) = {
+                    let now = Instant::now();
+                    if let Ok(last_input_instant) = self.settings.last_input_instant.lock() {
+                        let input_was_recent = (now - *last_input_instant).as_millis() < 250;
+                        let output_was_recent =
+                            (now - self.settings.last_output_instant).as_millis() < 250;
+                        (input_was_recent, output_was_recent)
+                    } else {
+                        (false, false)
+                    }
+                };
 
                 ui.label(format!(
                     "in: {} out: {}",
@@ -183,58 +331,46 @@ impl Displays for MidiPanel {
                     if output_was_recent { "•" } else { "◦" }
                 ));
 
-                if let Ok(ports) = &self.inputs().lock() {
-                    let mut cb = ComboBox::from_label("MIDI in");
-                    let (mut selected_index, _selected_text) =
-                        if let Some(selected) = &(*self.selected_input.lock().unwrap()) {
-                            cb = cb.selected_text(selected.name());
-                            (selected.index(), selected.name())
-                        } else {
-                            (usize::MAX, "None")
-                        };
-                    cb.show_ui(ui, |ui| {
-                        for port in ports.iter() {
-                            if ui
-                                .selectable_value(&mut selected_index, port.index(), port.name())
-                                .changed()
-                            {
-                                let _ = self
-                                    .sender
-                                    .send(MidiInterfaceInput::SelectMidiInput(port.clone()));
-                                let _ = self
-                                    .app_sender
-                                    .send(MidiPanelEvent::SelectInput(port.clone()));
-                            }
+                let mut cb = ComboBox::from_label("MIDI in");
+                let (mut selected_index, _selected_text) =
+                    if let Some(selected) = &self.settings.selected_input {
+                        cb = cb.selected_text(selected.name());
+                        (selected.index(), selected.name())
+                    } else {
+                        (usize::MAX, "None")
+                    };
+                cb.show_ui(ui, |ui| {
+                    for port in self.inputs.iter() {
+                        if ui
+                            .selectable_value(&mut selected_index, port.index(), port.name())
+                            .changed()
+                        {
+                            self.settings.set_input(Some(port.clone()));
+                            *self.new_input = Some(port.clone());
                         }
-                    });
-                }
+                    }
+                });
                 ui.end_row();
 
-                if let Ok(ports) = &self.outputs().lock() {
-                    let mut cb = ComboBox::from_label("MIDI out");
-                    let (mut selected_index, _selected_text) =
-                        if let Some(selected) = &(*self.selected_output.lock().unwrap()) {
-                            cb = cb.selected_text(selected.name());
-                            (selected.index(), selected.name())
-                        } else {
-                            (usize::MAX, "None")
-                        };
-                    cb.show_ui(ui, |ui| {
-                        for port in ports.iter() {
-                            if ui
-                                .selectable_value(&mut selected_index, port.index(), port.name())
-                                .changed()
-                            {
-                                let _ = self
-                                    .sender
-                                    .send(MidiInterfaceInput::SelectMidiOutput(port.clone()));
-                                let _ = self
-                                    .app_sender
-                                    .send(MidiPanelEvent::SelectOutput(port.clone()));
-                            }
+                let mut cb = ComboBox::from_label("MIDI out");
+                let (mut selected_index, _selected_text) =
+                    if let Some(selected) = &self.settings.selected_output {
+                        cb = cb.selected_text(selected.name());
+                        (selected.index(), selected.name())
+                    } else {
+                        (usize::MAX, "None")
+                    };
+                cb.show_ui(ui, |ui| {
+                    for port in self.outputs.iter() {
+                        if ui
+                            .selectable_value(&mut selected_index, port.index(), port.name())
+                            .changed()
+                        {
+                            self.settings.set_output(Some(port.clone()));
+                            *self.new_output = Some(port.clone());
                         }
-                    });
-                }
+                    }
+                });
                 ui.end_row();
             })
             .header_response
