@@ -24,6 +24,7 @@ dipstick = { version = "0.9", optional = true }
 eframe = { version = "0.22", optional = true }
 egui-toast = { version = "0.8", optional = true }
 egui_extras = { version = "0.22", optional = true }
+ensnare = { path = "../ensnare" }
 enum-primitive-derive = "0.2"
 env_logger = "0.10"
 futures = "0.3"
@@ -91,8 +92,7 @@ panic = "abort"
 #
 # "Binaries are skipped if they have required-features that are missing"
 #
-# We want all the binaries to build on a plain `cargo build --workspace`. That's
-# why default features includes both framework features.
+# We want all the binaries to build on a plain `cargo build --workspace`.
 [features]
 default = ["serialization", "egui-framework", "groove-midi"]
 egui-framework = [
