@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use crate::panels::Preferences;
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{CollapsingHeader, Ui};
 use groove_orchestration::Orchestrator;
@@ -9,8 +10,6 @@ use std::{
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
-
-use crate::panels::Preferences;
 
 /// The browser provides updates to the app through [EntityBrowserEvent] messages.
 #[derive(Debug)]
