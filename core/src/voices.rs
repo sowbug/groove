@@ -346,9 +346,8 @@ pub(crate) mod tests {
             Configurable, Generates, IsStereoSampleVoice, StealingVoiceStore, VoiceCount,
             VoiceStore,
         },
-        ParameterType,
     };
-    use ensnare::core::{FrequencyHz, StereoSample};
+    use ensnare::prelude::*;
     use float_cmp::approx_eq;
     use more_asserts::assert_gt;
 

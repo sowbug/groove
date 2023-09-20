@@ -21,7 +21,6 @@ use groove_core::{
         Configurable, ControlEventsFn, Controls, Generates, HandlesMidi, Serializable, Ticks,
     },
     voices::VoicePerNoteStore,
-    ParameterType,
 };
 use groove_proc_macros::{Control, IsControllerInstrument, Params, Uid};
 use groove_utils::Paths;

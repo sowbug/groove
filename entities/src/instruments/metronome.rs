@@ -6,7 +6,6 @@ use groove_core::{
     midi::HandlesMidi,
     time::{Clock, ClockParams, SampleRate},
     traits::{Configurable, Generates, Serializable, Ticks},
-    ParameterType,
 };
 use groove_proc_macros::{Control, IsInstrument, Params, Uid};
 

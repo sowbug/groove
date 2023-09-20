@@ -1,11 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use btreemultimap::BTreeMultiMap;
+use ensnare::prelude::*;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn, MidiNoteMinder},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, TimeSignatureParams},
     traits::{Configurable, ControlEventsFn, Controls, EntityEvent, Serializable},
-    ParameterType,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
 use std::{

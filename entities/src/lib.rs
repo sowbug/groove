@@ -30,7 +30,7 @@ pub mod instruments;
 
 #[cfg(test)]
 mod tests {
-    use groove_core::ParameterType;
+    use ensnare::core::ParameterType;
 
     pub(crate) const DEFAULT_SAMPLE_RATE: usize = 44100;
     pub(crate) const DEFAULT_BPM: ParameterType = 128.0;

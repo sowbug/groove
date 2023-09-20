@@ -1,11 +1,12 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::{sequencers::Sequencer, SequencerParams};
+use ensnare::prelude::*;
+
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
     time::{MusicalTime, PerfectTimeUnit, SampleRate},
     traits::{Configurable, ControlEventsFn, Controls, Serializable},
-    ParameterType,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
 use std::{ops::Range, option::Option};

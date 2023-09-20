@@ -1,10 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use ensnare::core::{Normal, Sample};
+use ensnare::prelude::*;
 use groove_core::{
     time::SampleRate,
     traits::{Configurable, Serializable, TransformsAudio},
-    ParameterType, SignalType,
 };
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
 
@@ -259,7 +258,6 @@ mod gui {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ensnare::prelude::*;
     use float_cmp::approx_eq;
     use more_asserts::{assert_gt, assert_lt};
 

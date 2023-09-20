@@ -9,7 +9,6 @@ use groove_core::{
     traits::{
         Configurable, ControlEventsFn, Controls, EntityEvent, Generates, Serializable, Ticks,
     },
-    ParameterType,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
 use std::{

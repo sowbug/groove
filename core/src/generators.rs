@@ -4,9 +4,9 @@ use crate::{
     control::ControlValue,
     time::{Clock, ClockTimeUnit, SampleRate, Seconds},
     traits::{Configurable, Generates, GeneratesEnvelope, Ticks},
-    Normal, ParameterType, SignalType,
+    Normal,
 };
-use ensnare::core::{BipolarNormal, FrequencyHz, Ratio};
+use ensnare::prelude::*;
 use groove_proc_macros::{Control, Params};
 use kahan::KahanSum;
 use more_asserts::{debug_assert_ge, debug_assert_le};

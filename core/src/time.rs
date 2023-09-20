@@ -2,11 +2,12 @@
 
 use crate::{
     traits::{Configurable, Ticks},
-    ParameterType, Uid,
+    Uid,
 };
 use anyhow::{anyhow, Error};
 use core::fmt;
 use derive_more::Display;
+use ensnare::prelude::*;
 use groove_proc_macros::{Control, Params, Uid};
 use std::{
     cmp::Ordering,

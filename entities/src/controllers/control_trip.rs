@@ -1,6 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use core::fmt::Debug;
+use ensnare::prelude::*;
 use groove_core::{
     generators::{SteppedEnvelope, SteppedEnvelopeFunction, SteppedEnvelopeStep},
     midi::HandlesMidi,
@@ -9,7 +10,6 @@ use groove_core::{
         TimeSignature, TimeSignatureParams,
     },
     traits::{Configurable, ControlEventsFn, Controls, Serializable},
-    ParameterType, SignalType,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
 use std::{ops::Range, option::Option};

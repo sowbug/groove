@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::{BeatValueSettings, DeviceId, MidiChannel};
-use groove_core::SignalType;
+use ensnare::prelude::*;
 use groove_entities::controllers::{
     Arpeggiator, ArpeggiatorParams, Calculator, CalculatorParams, ControlPath, ControlStep,
     LfoController, LfoControllerParams, MidiChannelParams, SignalPassthroughController,

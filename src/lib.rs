@@ -110,8 +110,6 @@ pub mod prelude {
     pub use ensnare::core::StereoSample;
 }
 
-use groove_core::ParameterType;
-
 // TODO: these should be #[cfg(test)] because nobody should be assuming these
 // values
 
@@ -120,7 +118,7 @@ use groove_core::ParameterType;
 pub const DEFAULT_SAMPLE_RATE: usize = 44100;
 #[doc(hidden)]
 /// A typical BPM (beats per minute) for EDM.
-pub const DEFAULT_BPM: ParameterType = 128.0;
+pub const DEFAULT_BPM: ensnare::core::ParameterType = 128.0;
 #[doc(hidden)]
 /// The most common time signature
 pub const DEFAULT_TIME_SIGNATURE: (usize, usize) = (4, 4);

@@ -20,7 +20,7 @@ mod metrics;
 
 #[cfg(test)]
 mod tests {
-    use groove_core::ParameterType;
+    use ensnare::core::ParameterType;
 
     pub const DEFAULT_BPM: ParameterType = 128.0;
     pub const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;

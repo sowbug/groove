@@ -36,16 +36,6 @@ pub mod voices;
 
 pub const SAMPLE_BUFFER_SIZE: usize = 64;
 
-/// [SignalType] is the primitive used for general digital signal-related work.
-/// It's pretty important that all of these different types be the same (e.g.,
-/// for now f64), but I'm hoping it's worth the hassle to use different names
-/// depending on usage.
-pub type SignalType = f64;
-
-/// Use [ParameterType] in places where a [Normal] or [BipolarNormal] could fit,
-/// except you don't have any range restrictions.
-pub type ParameterType = f64;
-
 // TODO: I'm not convinced this is useful.
 /// [MonoSample] is a single-channel sample. It exists separately from [Sample]
 /// for cases where we specifically want a monophonic audio stream.

@@ -13,7 +13,7 @@ use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
     traits::{Configurable, Controls, EntityEvent},
-    IsUid, ParameterType, Uid,
+    IsUid, Uid,
 };
 use groove_entities::{
     controllers::{PatternManager, Sequencer, SequencerParams},

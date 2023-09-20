@@ -5,7 +5,6 @@ use ensnare::prelude::*;
 use groove_core::{
     time::SampleRate,
     traits::{Configurable, Serializable, TransformsAudio},
-    ParameterType,
 };
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
 
