@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use groove_core::IsUid;
+use ensnare::uid::IsUid;
 use serde::{Deserialize, Serialize};
 use std::collections::{hash_set::Iter, HashSet};
 
@@ -99,7 +99,7 @@ impl<T: IsUid> SelectionSet<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use groove_core::Uid;
+    use ensnare::uid::Uid;
 
     #[test]
     fn select_mainline() {

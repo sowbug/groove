@@ -1,13 +1,10 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::{
-    traits::{Configurable, Ticks},
-    Uid,
-};
+use crate::traits::{Configurable, Ticks};
 use anyhow::{anyhow, Error};
 use core::fmt;
 use derive_more::Display;
-use ensnare::prelude::*;
+use ensnare::{prelude::*, uid::Uid};
 use groove_proc_macros::{Control, Params, Uid};
 use std::{
     cmp::Ordering,

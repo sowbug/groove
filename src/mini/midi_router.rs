@@ -2,10 +2,8 @@
 
 use super::entity_factory::EntityStore;
 use anyhow::anyhow;
-use groove_core::{
-    midi::{MidiChannel, MidiMessage},
-    Uid,
-};
+use ensnare::uid::Uid;
+use groove_core::midi::{MidiChannel, MidiMessage};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -93,7 +91,6 @@ mod tests {
         midi,
         midi::{MidiChannel, MidiMessage, MidiMessagesFn},
         traits::{gui::Displays, Configurable, Generates, HandlesMidi, Serializable, Ticks},
-        Uid,
     };
     use groove_proc_macros::{Control, IsInstrument, Uid};
     use serde::{Deserialize, Serialize};

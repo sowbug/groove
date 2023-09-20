@@ -450,7 +450,7 @@ pub enum Tempo {
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Calculator {
     /// Required for the [groove_core::traits::HasUid] trait.
-    uid: groove_core::Uid,
+    uid: Uid,
 
     /// Keeps the music data (notes, sequences, tempo).
     engine: Engine,

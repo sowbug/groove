@@ -17,7 +17,7 @@ use eframe::{
     emath::Align,
     epaint::{vec2, Color32, Stroke, Vec2},
 };
-use ensnare::core::{Normal, StereoSample};
+use ensnare::{prelude::*, uid::IsUid};
 use groove_core::{
     control::ControlValue,
     midi::MidiChannel,
@@ -27,7 +27,6 @@ use groove_core::{
         Configurable, ControlEventsFn, Controls, Entity, EntityEvent, GeneratesToInternalBuffer,
         Serializable, Ticks,
     },
-    IsUid, Uid,
 };
 use serde::{Deserialize, Serialize};
 use std::{

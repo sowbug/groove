@@ -26,7 +26,7 @@ pub struct Drumkit {
     #[params]
     name: String,
 
-    uid: groove_core::Uid,
+    uid: Uid,
     #[cfg_attr(feature = "serialization", serde(skip))]
     #[allow(dead_code)]
     paths: Paths,

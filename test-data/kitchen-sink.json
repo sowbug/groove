@@ -95,8 +95,8 @@
                 "limiter-1",
                 {
                     "limiter": {
-                        "max": 0.03,
-                        "min": 0.02
+                        "maximum": 0.03,
+                        "minimum": 0.02
                     }
                 }
             ]
@@ -407,7 +407,7 @@
             "start-measure": 7,
             "target": {
                 "id": "limiter-1",
-                "param": "min"
+                "param": "minimum"
             }
         },
         {
@@ -418,7 +418,7 @@
             "start-measure": 7,
             "target": {
                 "id": "limiter-1",
-                "param": "max"
+                "param": "maximum"
             }
         },
         {

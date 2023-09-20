@@ -2,6 +2,7 @@
 
 use super::Sequencer;
 //use btreemultimap::BTreeMultiMap;
+use ensnare::prelude::*;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage},
     time::{BeatValue, MusicalTime, PerfectTimeUnit, TimeSignature, TimeSignatureParams},
@@ -56,7 +57,7 @@ impl<T: Default> Pattern<T> {
 #[derive(Clone, Debug, Default, Control, IsController, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct PatternManager {
-    uid: groove_core::Uid,
+    uid: Uid,
     patterns: Vec<Pattern<Note>>,
     selected_pattern: usize,
 }

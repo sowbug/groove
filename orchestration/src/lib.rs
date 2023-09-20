@@ -4,7 +4,6 @@
 //! generation of audio from all the [Entities](entities::Entity) in the
 //! system.
 
-// pub use entities::{Entity, EntityParams};
 pub use entities::EntityObsolete;
 pub use orchestrator::{Orchestrator, Performance};
 
@@ -20,12 +19,13 @@ mod metrics;
 
 #[cfg(test)]
 mod tests {
-    use ensnare::core::ParameterType;
+    use ensnare::prelude::*;
 
     pub const DEFAULT_BPM: ParameterType = 128.0;
     pub const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
 
     mod params {
+        use ensnare::prelude::*;
         use groove_core::{
             control::{ControlIndex, ControlValue},
             traits::{Configurable, Controllable},
@@ -118,7 +118,7 @@ mod tests {
 
         #[derive(Control, Debug, Params, PartialEq, Uid)]
         pub struct Stuff {
-            uid: groove_core::Uid,
+            uid: Uid,
 
             #[params]
             #[control]
@@ -208,7 +208,7 @@ mod tests {
 
         #[derive(Control, Debug, Params, Uid)]
         pub struct Misc {
-            uid: groove_core::Uid,
+            uid: Uid,
 
             #[params]
             #[control]

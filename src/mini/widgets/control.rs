@@ -12,6 +12,7 @@ use eframe::{
     emath::RectTransform,
     epaint::{pos2, vec2, Color32, Rect, Stroke},
 };
+use ensnare::uid::Uid;
 use groove_core::{
     control::{ControlIndex, ControlValue},
     time::MusicalTime,
@@ -19,7 +20,6 @@ use groove_core::{
         gui::{Displays, DisplaysInTimeline},
         HasUid,
     },
-    Uid,
 };
 use std::ops::Range;
 

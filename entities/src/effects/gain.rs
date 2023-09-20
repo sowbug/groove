@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use ensnare::core::{Normal, Sample};
+use ensnare::prelude::*;
 use groove_core::traits::{Configurable, Serializable, TransformsAudio};
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
 
@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Default, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Gain {
-    uid: groove_core::Uid,
+    uid: Uid,
 
     #[control]
     #[params]
@@ -67,7 +67,6 @@ mod gui {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ensnare::prelude::*;
     use groove_core::traits::Generates;
     use groove_toys::{ToyAudioSource, ToyAudioSourceParams};
 

@@ -2,7 +2,7 @@
 
 use crate::effects::{BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbParams};
 use core::fmt::Debug;
-use ensnare::core::{BipolarNormal, FrequencyHz, Normal, Sample, StereoSample};
+use ensnare::prelude::*;
 use groove_core::{
     generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams},
     instruments::Synthesizer,
@@ -323,7 +323,7 @@ impl WelshVoice {
 #[derive(Debug, Control, IsInstrument, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct WelshSynth {
-    uid: groove_core::Uid,
+    uid: Uid,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
     inner_synth: Synthesizer<WelshVoice>,
@@ -541,7 +541,6 @@ mod tests {
     use super::*;
     use crate::tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND};
     use convert_case::{Case, Casing};
-    use ensnare::prelude::*;
     use groove_core::{
         time::{Clock, ClockParams, TimeSignatureParams},
         util::tests::TestOnlyPaths,

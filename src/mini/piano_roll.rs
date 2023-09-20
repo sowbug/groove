@@ -12,11 +12,11 @@ use eframe::{
     emath::RectTransform,
     epaint::{pos2, Color32, Pos2, Rect, RectShape, Rounding, Shape, Stroke},
 };
+use ensnare::uid::IsUid;
 use groove_core::{
     midi::MidiNote,
     time::{MusicalTime, TimeSignature},
     traits::{gui::Displays, Serializable},
-    IsUid,
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display, ops::Range};

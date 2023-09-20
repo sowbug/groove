@@ -11,9 +11,9 @@ use crate::{
     control::{ControlIndex, ControlValue},
     midi::{u7, MidiChannel, MidiMessage},
     time::{MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
-    Sample, Uid,
+    Sample,
 };
-use ensnare::prelude::*;
+use ensnare::{prelude::*, uid::Uid};
 use std::ops::Range;
 
 #[cfg(feature = "egui-framework")]

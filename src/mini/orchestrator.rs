@@ -16,7 +16,7 @@ use eframe::{
     egui::{self, ScrollArea},
     epaint::vec2,
 };
-use ensnare::core::{Normal, Sample, StereoSample};
+use ensnare::prelude::*;
 use groove_audio::AudioQueue;
 use groove_core::{
     control::ControlValue,
@@ -27,7 +27,6 @@ use groove_core::{
         Configurable, ControlEventsFn, Controllable, Controls, EntityEvent, Generates,
         GeneratesToInternalBuffer, HandlesMidi, HasUid, Serializable, Ticks,
     },
-    Uid,
 };
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
@@ -778,12 +777,12 @@ mod tests {
     use crate::mini::{
         orchestrator::Orchestrator, track::TrackBuffer, OrchestratorBuilder, TrackUid,
     };
-    use ensnare::core::{Normal, StereoSample};
+    use ensnare::prelude::*;
     use groove_core::{
         midi::{MidiChannel, MidiMessage},
         time::{MusicalTime, SampleRate, Tempo},
         traits::{Configurable, Controls, HandlesMidi, HasUid},
-        DcaParams, Uid,
+        DcaParams,
     };
     use groove_entities::{
         controllers::{Timer, TimerParams},

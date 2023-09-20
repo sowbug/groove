@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Bitcrusher {
-    uid: groove_core::Uid,
+    uid: Uid,
 
     #[control]
     #[params]

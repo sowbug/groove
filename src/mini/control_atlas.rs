@@ -3,6 +3,7 @@
 use super::rng::Rng;
 use derive_builder::Builder;
 use eframe::egui::Ui;
+use ensnare::uid::Uid;
 use groove_core::{
     control::ControlValue,
     time::MusicalTime,
@@ -10,7 +11,6 @@ use groove_core::{
         gui::{Displays, DisplaysInTimeline},
         Configurable, ControlEventsFn, Controls, EntityEvent, HandlesMidi, Serializable,
     },
-    Uid,
 };
 use groove_proc_macros::{IsController, Uid};
 use serde::{Deserialize, Serialize};

@@ -37,7 +37,6 @@ use groove_core::{
         gui::{Displays, DisplaysInTimeline},
         Entity,
     },
-    Uid,
 };
 use std::ops::Range;
 

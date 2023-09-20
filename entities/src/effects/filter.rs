@@ -21,7 +21,7 @@ pub struct BiQuadFilterLowPass24db {
     #[params]
     passband_ripple: ParameterType,
 
-    uid: groove_core::Uid,
+    uid: Uid,
     #[cfg_attr(feature = "serialization", serde(skip))]
     sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
@@ -182,7 +182,7 @@ pub struct BiQuadFilterLowPass12db {
     #[params]
     q: ParameterType,
 
-    uid: groove_core::Uid,
+    uid: Uid,
     #[cfg_attr(feature = "serialization", serde(skip))]
     sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
@@ -282,7 +282,7 @@ pub struct BiQuadFilterHighPass {
     #[params]
     q: ParameterType,
 
-    uid: groove_core::Uid,
+    uid: Uid,
     #[cfg_attr(feature = "serialization", serde(skip))]
     sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
@@ -384,7 +384,7 @@ pub struct BiQuadFilterAllPass {
     #[params]
     q: ParameterType,
 
-    uid: groove_core::Uid,
+    uid: Uid,
     #[cfg_attr(feature = "serialization", serde(skip))]
     sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
@@ -483,7 +483,7 @@ pub struct BiQuadFilterBandPass {
     #[params]
     bandwidth: ParameterType, // TODO: maybe this should be FrequencyHz
 
-    uid: groove_core::Uid,
+    uid: Uid,
     #[cfg_attr(feature = "serialization", serde(skip))]
     sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
@@ -582,7 +582,7 @@ pub struct BiQuadFilterBandStop {
     #[params]
     bandwidth: ParameterType, // TODO: maybe this should be FrequencyHz
 
-    uid: groove_core::Uid,
+    uid: Uid,
     #[cfg_attr(feature = "serialization", serde(skip))]
     sample_rate: SampleRate,
 
@@ -686,7 +686,7 @@ pub struct BiQuadFilterPeakingEq {
     #[params]
     q: ParameterType,
 
-    uid: groove_core::Uid,
+    uid: Uid,
     #[cfg_attr(feature = "serialization", serde(skip))]
     sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
@@ -792,7 +792,7 @@ pub struct BiQuadFilterLowShelf {
     #[params]
     db_gain: ParameterType,
 
-    uid: groove_core::Uid,
+    uid: Uid,
     #[cfg_attr(feature = "serialization", serde(skip))]
     sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
@@ -893,7 +893,7 @@ pub struct BiQuadFilterHighShelf {
     #[params]
     db_gain: ParameterType,
 
-    uid: groove_core::Uid,
+    uid: Uid,
     #[cfg_attr(feature = "serialization", serde(skip))]
     sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]
@@ -989,7 +989,7 @@ impl BiQuadFilterHighShelfChannel {
 #[derive(Debug, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct BiQuadFilterNone {
-    uid: groove_core::Uid,
+    uid: Uid,
     #[cfg_attr(feature = "serialization", serde(skip))]
     sample_rate: SampleRate,
     #[cfg_attr(feature = "serialization", serde(skip))]

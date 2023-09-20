@@ -19,7 +19,7 @@ pub use transport::Transport;
 pub use entities::register_test_factory_entities;
 
 use crossbeam_channel::{Receiver, Sender};
-use groove_core::IsUid;
+use ensnare::uid::IsUid;
 use serde::{Deserialize, Serialize};
 
 mod bus_station;

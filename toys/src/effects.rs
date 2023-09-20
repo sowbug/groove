@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use ensnare::core::{Normal, Sample};
+use ensnare::{prelude::*, uid::Uid};
 use groove_core::{
     time::{ClockTimeUnit, SampleRate},
     traits::{Configurable, Serializable, TransformsAudio},
@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToyEffect {
     #[cfg_attr(feature = "serialization", serde(skip))]
-    uid: groove_core::Uid,
+    uid: Uid,
 
     #[control]
     #[params]

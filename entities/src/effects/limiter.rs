@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use ensnare::core::{Normal, Sample};
+use ensnare::prelude::*;
 use groove_core::traits::{Configurable, Serializable, TransformsAudio};
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
 
@@ -10,21 +10,21 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Limiter {
-    uid: groove_core::Uid,
+    uid: Uid,
 
     #[control]
     #[params]
-    min: Normal,
+    minimum: Normal,
     #[control]
     #[params]
-    max: Normal,
+    maximum: Normal,
 }
 impl Default for Limiter {
     fn default() -> Self {
         Self {
             uid: Default::default(),
-            min: Normal::minimum(),
-            max: Normal::maximum(),
+            minimum: Normal::minimum(),
+            maximum: Normal::maximum(),
         }
     }
 }
@@ -37,7 +37,7 @@ impl TransformsAudio for Limiter {
             input_sample
                 .0
                 .abs()
-                .clamp(self.min.value(), self.max.value())
+                .clamp(self.minimum.value(), self.maximum.value())
                 * sign,
         )
     }
@@ -45,26 +45,26 @@ impl TransformsAudio for Limiter {
 impl Limiter {
     pub fn new_with(params: &LimiterParams) -> Self {
         Self {
-            min: params.min(),
-            max: params.max(),
+            minimum: params.minimum(),
+            maximum: params.maximum(),
             ..Default::default()
         }
     }
 
-    pub fn max(&self) -> Normal {
-        self.max
+    pub fn maximum(&self) -> Normal {
+        self.maximum
     }
 
-    pub fn set_max(&mut self, max: Normal) {
-        self.max = max;
+    pub fn set_maximum(&mut self, max: Normal) {
+        self.maximum = max;
     }
 
-    pub fn min(&self) -> Normal {
-        self.min
+    pub fn minimum(&self) -> Normal {
+        self.minimum
     }
 
-    pub fn set_min(&mut self, min: Normal) {
-        self.min = min;
+    pub fn set_minimum(&mut self, min: Normal) {
+        self.minimum = min;
     }
 }
 
@@ -77,8 +77,8 @@ mod gui {
 
     impl Displays for Limiter {
         fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            let mut min = self.min().to_percentage();
-            let mut max = self.max().to_percentage();
+            let mut min = self.minimum().to_percentage();
+            let mut max = self.maximum().to_percentage();
             let min_response = ui.add(
                 Slider::new(&mut min, 0.0..=max)
                     .suffix(" %")
@@ -86,7 +86,7 @@ mod gui {
                     .fixed_decimals(2),
             );
             if min_response.changed() {
-                self.set_min(min.into());
+                self.set_minimum(min.into());
             };
             let max_response = ui.add(
                 Slider::new(&mut max, min..=1.0)
@@ -95,7 +95,7 @@ mod gui {
                     .fixed_decimals(2),
             );
             if max_response.changed() {
-                self.set_max(Normal::from_percentage(max).into());
+                self.set_maximum(Normal::from_percentage(max).into());
             };
             min_response | max_response
         }
@@ -105,7 +105,6 @@ mod gui {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ensnare::prelude::*;
     use groove_core::traits::Generates;
     use groove_toys::{ToyAudioSource, ToyAudioSourceParams};
     use more_asserts::{assert_gt, assert_lt};
@@ -201,8 +200,8 @@ mod tests {
     #[test]
     fn limiter_bias() {
         let mut limiter = Limiter::new_with(&LimiterParams {
-            min: 0.2.into(),
-            max: 0.8.into(),
+            minimum: 0.2.into(),
+            maximum: 0.8.into(),
         });
         assert_eq!(
             limiter.transform_channel(0, Sample::from(0.1)),

@@ -5,7 +5,8 @@ use eframe::{
     egui::{CursorIcon, Id as EguiId, InnerResponse, LayerId, Order, Sense, Ui},
     epaint::{self, Color32, Rect, Shape, Stroke, Vec2},
 };
-use groove_core::{time::MusicalTime, Uid};
+use ensnare::uid::Uid;
+use groove_core::time::MusicalTime;
 use once_cell::sync::OnceCell;
 use std::sync::Mutex;
 use strum_macros::Display;

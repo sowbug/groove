@@ -2,7 +2,6 @@
 
 use super::{sequencers::Sequencer, SequencerParams};
 use ensnare::prelude::*;
-
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
     time::{MusicalTime, PerfectTimeUnit, SampleRate},
@@ -23,7 +22,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Control, IsController, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Arpeggiator {
-    uid: groove_core::Uid,
+    uid: Uid,
     midi_channel_out: MidiChannel,
     sequencer: Sequencer,
 

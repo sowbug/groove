@@ -48,7 +48,7 @@ pub enum ControlStep {
 #[derive(Debug, Control, IsController, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ControlTrip {
-    uid: groove_core::Uid,
+    uid: Uid,
     #[control]
     #[params]
     time_signature_top: usize,

@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use ensnare::prelude::*;
+use ensnare::{prelude::*, uid::Uid};
 use groove_core::{
     generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams, Waveform},
     instruments::Synthesizer,
@@ -37,7 +37,7 @@ pub struct ToyInstrumentEphemerals {
 #[derive(Debug, Control, IsInstrument, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToyInstrument {
-    uid: groove_core::Uid,
+    uid: Uid,
 
     #[control]
     #[params]
@@ -152,7 +152,7 @@ impl ToyInstrument {
 #[derive(Debug, Control, IsInstrument, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct DebugSynth {
-    uid: groove_core::Uid,
+    uid: Uid,
 
     #[control]
     #[params]
@@ -258,7 +258,7 @@ impl DebugSynth {
 #[derive(Debug, Default, Control, IsInstrument, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToySynth {
-    uid: groove_core::Uid,
+    uid: Uid,
 
     #[params]
     voice_count: VoiceCount,
@@ -451,7 +451,7 @@ impl ToyVoice {
 #[derive(Debug, Default, Control, IsInstrument, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToyAudioSource {
-    uid: groove_core::Uid,
+    uid: Uid,
 
     // This should be a Normal, but we use this audio source for testing edge
     // conditions. Thus we need to let it go out of range.

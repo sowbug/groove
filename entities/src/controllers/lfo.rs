@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Control, IsController, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct LfoController {
-    uid: groove_core::Uid,
+    uid: Uid,
 
     #[control]
     #[params]

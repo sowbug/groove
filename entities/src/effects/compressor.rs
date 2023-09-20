@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Default, Control, IsEffect, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Compressor {
-    uid: groove_core::Uid,
+    uid: Uid,
 
     /// The level above which compression takes effect. Range is 0.0..=1.0, 0.0
     /// corresponds to quietest, and 1.0 corresponds to 0dB.

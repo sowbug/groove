@@ -1,9 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use groove_core::{
-    control::{ControlIndex, ControlValue},
-    Uid,
-};
+use ensnare::uid::Uid;
+use groove_core::control::{ControlIndex, ControlValue};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

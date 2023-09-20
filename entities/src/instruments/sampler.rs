@@ -114,7 +114,7 @@ impl SamplerVoice {
 #[derive(Debug, Control, IsInstrument, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Sampler {
-    uid: groove_core::Uid,
+    uid: Uid,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
     inner_synth: Synthesizer<SamplerVoice>,

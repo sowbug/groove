@@ -7,13 +7,12 @@ use crate::{
 use anyhow::anyhow;
 use core::fmt::Debug;
 use crossbeam::deque::Worker;
-use ensnare::prelude::*;
+use ensnare::{prelude::*, uid::IsUid};
 use groove_core::{
     control::{ControlIndex, ControlValue},
     midi::{MidiChannel, MidiMessage},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
     traits::{Configurable, Controls, EntityEvent},
-    IsUid, Uid,
 };
 use groove_entities::{
     controllers::{PatternManager, Sequencer, SequencerParams},
@@ -1029,7 +1028,8 @@ mod gui {
         epaint::{Color32, Stroke, Vec2},
     };
     use egui_extras::{Size, StripBuilder};
-    use groove_core::{traits::gui::Displays, Uid};
+    use ensnare::prelude::*;
+    use groove_core::traits::gui::Displays;
     use groove_entities::controllers::NewPattern;
     use num_derive::FromPrimitive;
     use num_traits::FromPrimitive;
@@ -1400,7 +1400,7 @@ pub mod tests {
         entities::EntityObsolete,
         tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
     };
-    use ensnare::core::{Normal, StereoSample};
+    use ensnare::prelude::*;
     use groove_core::{
         midi::{MidiChannel, MidiMessage},
         time::{
@@ -1408,7 +1408,7 @@ pub mod tests {
             SampleRate, TimeSignature, TimeSignatureParams,
         },
         traits::{Configurable, Controls},
-        DcaParams, Uid,
+        DcaParams,
     };
     use groove_entities::{
         controllers::{

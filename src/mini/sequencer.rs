@@ -14,6 +14,7 @@ use eframe::{
     emath::{self, lerp},
     epaint::{pos2, vec2, Color32, Pos2, Rect, Rounding, Stroke, Vec2},
 };
+use ensnare::{prelude::*, uid::IsUid};
 use groove_core::{
     midi::{new_note_off, new_note_on, MidiChannel, MidiMessage},
     time::{MusicalTime, TimeSignature},
@@ -21,7 +22,6 @@ use groove_core::{
         gui::{Displays, DisplaysInTimeline},
         Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable,
     },
-    IsUid, Uid,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
 use serde::{Deserialize, Serialize};

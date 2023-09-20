@@ -1,9 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use ensnare::uid::Uid;
 use groove_core::{
     midi::{u7, MidiChannel},
     traits::{gui::Displays, Configurable, Controls, HandlesMidi, Serializable},
-    Uid,
 };
 use groove_proc_macros::{IsController, Uid};
 use serde::{Deserialize, Serialize};

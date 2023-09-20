@@ -2,10 +2,8 @@
 
 //! Fundamental structs and traits.
 
-use derive_more::Display;
-use ensnare::core::{BipolarNormal, Normal, Sample, SampleType, StereoSample};
+use ensnare::prelude::*;
 use groove_proc_macros::{Control, Params};
-use std::hash::Hash;
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -35,27 +33,6 @@ pub mod util;
 pub mod voices;
 
 pub const SAMPLE_BUFFER_SIZE: usize = 64;
-
-// TODO: I'm not convinced this is useful.
-/// [MonoSample] is a single-channel sample. It exists separately from [Sample]
-/// for cases where we specifically want a monophonic audio stream.
-#[derive(Debug, Default, PartialEq, PartialOrd)]
-pub struct MonoSample(pub SampleType);
-
-pub trait IsUid: Eq + Hash + Clone + Copy {
-    fn increment(&mut self) -> &Self;
-}
-
-/// A [Uid] is an identifier that's unique within the current project.
-#[derive(Copy, Clone, Debug, Default, Display, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct Uid(pub usize);
-impl IsUid for Uid {
-    fn increment(&mut self) -> &Self {
-        self.0 += 1;
-        self
-    }
-}
 
 /// The Digitally Controller Amplifier (DCA) handles gain and pan for many kinds
 /// of synths.
