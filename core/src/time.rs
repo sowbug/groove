@@ -2,7 +2,6 @@
 
 use crate::traits::{Configurable, Ticks};
 use anyhow::{anyhow, Error};
-use core::fmt;
 use derive_more::Display;
 use ensnare::{prelude::*, uid::Uid};
 use groove_proc_macros::{Control, Params, Uid};
@@ -782,46 +781,6 @@ impl From<PerfectTimeUnit> for MusicalTime {
         Self {
             units: (value.0 * 65536.0) as usize,
         }
-    }
-}
-
-/// Beats per minute.
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct Tempo(pub f64);
-impl Default for Tempo {
-    fn default() -> Self {
-        Self(128.0)
-    }
-}
-impl fmt::Display for Tempo {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!("{:0.2} BPM", self.0))
-    }
-}
-impl From<u16> for Tempo {
-    fn from(value: u16) -> Self {
-        Self(value as f64)
-    }
-}
-impl From<f64> for Tempo {
-    fn from(value: f64) -> Self {
-        Self(value)
-    }
-}
-impl Tempo {
-    /// The largest value we'll allow.
-    pub const MAX_VALUE: f64 = 1024.0;
-
-    /// The smallest value we'll allow. Note that zero is actually a degenerate
-    /// case... maybe we should be picking 0.1 or similar.
-    pub const MIN_VALUE: f64 = 0.0;
-
-    pub fn value(&self) -> f64 {
-        self.0
-    }
-    pub fn bps(&self) -> f64 {
-        self.0 / 60.0
     }
 }
 

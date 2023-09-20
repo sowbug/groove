@@ -3,7 +3,7 @@
 use super::rng::Rng;
 use derive_builder::Builder;
 use eframe::egui::Ui;
-use ensnare::uid::Uid;
+use ensnare::{prelude::*, uid::Uid};
 use groove_core::{
     control::ControlValue,
     time::MusicalTime,
@@ -395,7 +395,7 @@ impl Configurable for ControlAtlas {
             .for_each(|t| t.update_sample_rate(sample_rate));
     }
 
-    fn update_tempo(&mut self, tempo: groove_core::time::Tempo) {
+    fn update_tempo(&mut self, tempo: Tempo) {
         self.trips.iter_mut().for_each(|t| t.update_tempo(tempo));
     }
 

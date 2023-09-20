@@ -5,9 +5,9 @@ use crate::mini::{
 use anyhow::{anyhow, Result};
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::Ui;
+use ensnare::prelude::*;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
-    time::Tempo,
     traits::{gui::Displays, Configurable, Controls, HandlesMidi, Serializable},
 };
 use std::{

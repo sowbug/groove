@@ -4,7 +4,7 @@ use derive_builder::Builder;
 use eframe::egui::Ui;
 use ensnare::prelude::*;
 use groove_core::{
-    time::{MusicalTime, SampleRate, Tempo, TimeSignature},
+    time::{MusicalTime, SampleRate, TimeSignature},
     traits::{gui::Displays, Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable},
 };
 use groove_proc_macros::{Control, IsController, Uid};

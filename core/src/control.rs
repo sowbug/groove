@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::{time::Tempo, BipolarNormal, Normal};
-use ensnare::core::{FrequencyHz, Ratio};
+use crate::{BipolarNormal, Normal};
+use ensnare::prelude::*;
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 

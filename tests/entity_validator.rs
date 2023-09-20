@@ -6,7 +6,7 @@ use groove::{
     EntityFactory,
 };
 use groove_core::{
-    time::{SampleRate, Tempo, TimeSignature},
+    time::{SampleRate, TimeSignature},
     traits::{Entity, IsController, IsEffect, IsInstrument},
 };
 

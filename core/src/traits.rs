@@ -10,7 +10,7 @@ pub use crate::midi::HandlesMidi;
 use crate::{
     control::{ControlIndex, ControlValue},
     midi::{u7, MidiChannel, MidiMessage},
-    time::{MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
+    time::{MusicalTime, PerfectTimeUnit, SampleRate, TimeSignature},
     Sample,
 };
 use ensnare::{prelude::*, uid::Uid};

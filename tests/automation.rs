@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use ensnare::core::FrequencyHz;
+use ensnare::prelude::*;
 use groove::{
     mini::{
         register_factory_entities, ControlStepBuilder, ControlTripBuilder, ControlTripPath, Key,
@@ -11,7 +11,7 @@ use groove::{
 use groove_core::{
     control::ControlValue,
     generators::Waveform,
-    time::{MusicalTime, Tempo},
+    time::MusicalTime,
     traits::{Configurable, HasUid},
 };
 use groove_entities::controllers::{LfoController, LfoControllerParams};

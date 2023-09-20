@@ -21,7 +21,7 @@ use groove_audio::AudioQueue;
 use groove_core::{
     control::ControlValue,
     midi::{MidiChannel, MidiMessage, MidiMessagesFn},
-    time::{MusicalTime, SampleRate, Tempo},
+    time::{MusicalTime, SampleRate},
     traits::{
         gui::{Displays, DisplaysInTimeline},
         Configurable, ControlEventsFn, Controllable, Controls, EntityEvent, Generates,
@@ -780,7 +780,7 @@ mod tests {
     use ensnare::prelude::*;
     use groove_core::{
         midi::{MidiChannel, MidiMessage},
-        time::{MusicalTime, SampleRate, Tempo},
+        time::{MusicalTime, SampleRate},
         traits::{Configurable, Controls, HandlesMidi, HasUid},
         DcaParams,
     };

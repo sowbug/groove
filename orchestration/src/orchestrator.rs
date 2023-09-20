@@ -11,7 +11,7 @@ use ensnare::{prelude::*, uid::IsUid};
 use groove_core::{
     control::{ControlIndex, ControlValue},
     midi::{MidiChannel, MidiMessage},
-    time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
+    time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, TimeSignature},
     traits::{Configurable, Controls, EntityEvent},
 };
 use groove_entities::{

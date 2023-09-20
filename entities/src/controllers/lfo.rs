@@ -5,7 +5,7 @@ use ensnare::prelude::*;
 use groove_core::{
     generators::{Oscillator, OscillatorParams, Waveform},
     midi::HandlesMidi,
-    time::{MusicalTime, SampleRate, Tempo},
+    time::{MusicalTime, SampleRate},
     traits::{
         Configurable, ControlEventsFn, Controls, EntityEvent, Generates, Serializable, Ticks,
     },

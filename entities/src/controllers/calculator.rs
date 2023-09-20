@@ -418,7 +418,7 @@ impl Configurable for Engine {
 
     fn update_sample_rate(&mut self, _sample_rate: SampleRate) {}
 
-    fn update_tempo(&mut self, _tempo: groove_core::time::Tempo) {}
+    fn update_tempo(&mut self, _tempo: ensnare::time::Tempo) {}
 
     fn update_time_signature(&mut self, _time_signature: groove_core::time::TimeSignature) {}
 }

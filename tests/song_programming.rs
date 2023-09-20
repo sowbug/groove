@@ -5,7 +5,7 @@ use groove::{
     mini::{register_factory_entities, Key, OrchestratorBuilder, PatternBuilder},
     EntityFactory, Orchestrator,
 };
-use groove_core::{time::Tempo, traits::Configurable};
+use groove_core::traits::Configurable;
 use std::path::PathBuf;
 
 fn set_up_drum_track(o: &mut Orchestrator, factory: &EntityFactory) {

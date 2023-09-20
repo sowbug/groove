@@ -3,9 +3,9 @@
 use anyhow::anyhow;
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use derive_more::Display;
-use ensnare::uid::Uid;
+use ensnare::{prelude::*, uid::Uid};
 use groove_core::{
-    time::{SampleRate, Tempo, TimeSignature},
+    time::{SampleRate, TimeSignature},
     traits::{Configurable, ControlEventsFn, Controls, Entity, Serializable, Ticks},
 };
 use once_cell::sync::OnceCell;
