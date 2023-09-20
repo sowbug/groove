@@ -7,6 +7,7 @@
 //! An audio engine designed to support a DAW (digital audio workstation).
 //!
 //! ```
+//! # use ensnare::core::{Normal, StereoSample};
 //! # use groove::{EntityObsolete, OldOrchestrator};
 //! # use groove_core::{
 //! #     generators::{EnvelopeParams, Waveform},
@@ -20,9 +21,7 @@
 //! #         TimeSignatureParams
 //! #     },
 //! #     traits::Configurable,
-//! #     Normal,
 //! #     SAMPLE_BUFFER_SIZE,
-//! #     StereoSample,
 //! # };
 //! # use groove_entities::{
 //! #     controllers::Sequencer,
