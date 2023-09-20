@@ -1,10 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use ensnare::core::Sample;
-use groove_core::{
-    traits::{Configurable, Serializable, TransformsAudio},
-    SampleType,
-};
+use ensnare::prelude::*;
+use groove_core::traits::{Configurable, Serializable, TransformsAudio};
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
 
 #[cfg(feature = "serialization")]
@@ -90,7 +87,6 @@ mod gui {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use groove_core::SampleType;
     use std::f64::consts::PI;
 
     const CRUSHED_PI: SampleType = 0.14062929166539506;

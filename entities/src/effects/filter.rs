@@ -1178,7 +1178,7 @@ mod gui {
     };
     use eframe::egui::Slider;
     use eframe::egui::Ui;
-    use ensnare::core::FrequencyHz;
+    use ensnare::prelude::*;
     use groove_core::traits::gui::Displays;
     use groove_core::traits::HasUid;
 
@@ -1238,19 +1238,16 @@ mod gui {
 
     impl Displays for BiQuadFilterLowPass24db {
         fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            let mut changed = false;
             let mut cutoff = self.cutoff().value();
             let mut pbr = self.passband_ripple();
             let cutoff_response =
                 ui.add(Slider::new(&mut cutoff, FrequencyHz::range()).text("Cutoff"));
             if cutoff_response.changed() {
                 self.set_cutoff(cutoff.into());
-                changed = true;
             };
             let passband_response = ui.add(Slider::new(&mut pbr, 0.0..=10.0).text("Passband"));
             if passband_response.changed() {
                 self.set_passband_ripple(pbr);
-                changed = true;
             };
             cutoff_response | passband_response
         }

@@ -7,7 +7,7 @@ use crate::{
 use anyhow::anyhow;
 use core::fmt::Debug;
 use crossbeam::deque::Worker;
-use ensnare::core::StereoSample;
+use ensnare::prelude::*;
 use groove_core::{
     control::{ControlIndex, ControlValue},
     midi::{MidiChannel, MidiMessage},

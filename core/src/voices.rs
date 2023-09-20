@@ -7,7 +7,7 @@ use crate::{
 };
 use anyhow::{anyhow, Result};
 use derive_more::{Add, Display, From, Into};
-use ensnare::core::StereoSample;
+use ensnare::prelude::*;
 use rustc_hash::FxHashMap;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, From, Into, Add, Display)]

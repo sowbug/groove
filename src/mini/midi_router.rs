@@ -88,7 +88,7 @@ impl MidiRouter {
 mod tests {
     use super::MidiRouter;
     use crate::mini::entity_factory::EntityStore;
-    use ensnare::core::StereoSample;
+    use ensnare::prelude::*;
     use groove_core::{
         midi,
         midi::{MidiChannel, MidiMessage, MidiMessagesFn},

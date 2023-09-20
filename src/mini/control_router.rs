@@ -70,7 +70,7 @@ impl ControlRouter {
 mod tests {
     use super::*;
     use crate::mini::entity_factory::EntityStore;
-    use ensnare::core::StereoSample;
+    use ensnare::prelude::*;
     use groove_core::traits::{
         gui::Displays, Configurable, Controllable, Generates, HandlesMidi, Serializable, Ticks,
     };

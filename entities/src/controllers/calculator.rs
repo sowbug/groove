@@ -12,7 +12,7 @@
 // - a better LCD
 
 use crate::instruments::{Sampler, SamplerVoice};
-use ensnare::core::StereoSample;
+use ensnare::prelude::*;
 use groove_core::{
     instruments::Synthesizer,
     midi::{note_to_frequency, MidiChannel, MidiMessage, MidiMessagesFn},

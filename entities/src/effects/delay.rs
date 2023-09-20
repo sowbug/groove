@@ -259,8 +259,8 @@ mod gui {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ensnare::prelude::*;
     use float_cmp::approx_eq;
-    use groove_core::SampleType;
     use more_asserts::{assert_gt, assert_lt};
 
     // This small rate allows us to observe expected behavior after a small

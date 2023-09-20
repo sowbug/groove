@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::delay::{DelayLine, Delays};
-use ensnare::core::Sample;
+use ensnare::prelude::*;
 use groove_core::{
     time::SampleRate,
     traits::{Configurable, Serializable, TransformsAudio},

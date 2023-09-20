@@ -44,7 +44,7 @@ impl Gain {
 mod gui {
     use super::Gain;
     use eframe::egui::{DragValue, Ui};
-    use ensnare::core::Normal;
+    use ensnare::prelude::*;
     use groove_core::traits::gui::Displays;
 
     impl Displays for Gain {
@@ -67,7 +67,7 @@ mod gui {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ensnare::core::StereoSample;
+    use ensnare::prelude::*;
     use groove_core::traits::Generates;
     use groove_toys::{ToyAudioSource, ToyAudioSourceParams};
 

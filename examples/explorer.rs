@@ -13,7 +13,7 @@ use eframe::{
     epaint::vec2,
     CreationContext,
 };
-use ensnare::core::Sample;
+use ensnare::prelude::*;
 use groove::{
     app_version,
     mini::{

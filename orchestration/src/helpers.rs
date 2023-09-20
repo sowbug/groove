@@ -9,7 +9,8 @@ use cpal::{
     traits::{DeviceTrait, HostTrait},
     SupportedStreamConfig,
 };
-use groove_core::{time::SampleRate, SampleType};
+use ensnare::prelude::*;
+use groove_core::time::SampleRate;
 use std::path::PathBuf;
 
 pub struct IOHelper {}

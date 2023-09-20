@@ -72,7 +72,7 @@ impl Limiter {
 mod gui {
     use super::Limiter;
     use eframe::egui::{Slider, Ui};
-    use ensnare::core::Normal;
+    use ensnare::prelude::*;
     use groove_core::traits::gui::Displays;
 
     impl Displays for Limiter {
@@ -105,7 +105,7 @@ mod gui {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ensnare::core::StereoSample;
+    use ensnare::prelude::*;
     use groove_core::traits::Generates;
     use groove_toys::{ToyAudioSource, ToyAudioSourceParams};
     use more_asserts::{assert_gt, assert_lt};

@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use ensnare::core::Normal;
+use ensnare::prelude::*;
 use groove::{
     mini::{register_factory_entities, Key, OrchestratorBuilder, PatternBuilder},
     EntityFactory, Orchestrator,

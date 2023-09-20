@@ -730,14 +730,14 @@ mod tests {
     };
     use crate::patches::OscillatorSettings;
     use convert_case::{Case, Casing};
-    use ensnare::core::{Normal, Ratio, StereoSample};
+    use ensnare::core::{Normal, Ratio, SampleType, StereoSample};
     use float_cmp::approx_eq;
     use groove_core::{
         generators::{Envelope, EnvelopeParams, Waveform},
         time::{Clock, ClockParams, SampleRate, Seconds, TimeSignatureParams},
         traits::{Configurable, Generates, PlaysNotes, Ticks},
         util::tests::TestOnlyPaths,
-        ParameterType, SampleType,
+        ParameterType,
     };
     use groove_entities::instruments::WelshVoice;
 

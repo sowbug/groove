@@ -6,8 +6,6 @@
 // Are you making a change to this file? Consider enforcing new trait behavior
 // in tests/entity_validator.rs.
 
-use ensnare::core::{Normal, StereoSample};
-
 pub use crate::midi::HandlesMidi;
 use crate::{
     control::{ControlIndex, ControlValue},
@@ -15,6 +13,7 @@ use crate::{
     time::{MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
     Sample, Uid,
 };
+use ensnare::prelude::*;
 use std::ops::Range;
 
 #[cfg(feature = "egui-framework")]

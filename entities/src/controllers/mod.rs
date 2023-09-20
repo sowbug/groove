@@ -577,7 +577,7 @@ mod gui {
 #[cfg(test)]
 mod tests {
     use crate::controllers::{TimerParams, Trigger, TriggerParams};
-    use ensnare::core::Normal;
+    use ensnare::prelude::*;
     use groove_core::{
         time::{MusicalTime, MusicalTimeParams, SampleRate, TimeSignature},
         traits::{Configurable, Controls},

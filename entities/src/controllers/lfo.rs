@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use core::fmt::Debug;
-use ensnare::core::FrequencyHz;
+use ensnare::prelude::*;
 use groove_core::{
     generators::{Oscillator, OscillatorParams, Waveform},
     midi::HandlesMidi,

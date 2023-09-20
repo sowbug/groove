@@ -4,7 +4,7 @@
 
 use anyhow::Ok;
 use clap::Parser;
-use ensnare::core::StereoSample;
+use ensnare::prelude::*;
 use groove::{app_version, DEFAULT_BPM};
 use groove_core::{
     time::{ClockParams, SampleRate, TimeSignatureParams},

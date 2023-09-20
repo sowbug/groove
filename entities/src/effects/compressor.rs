@@ -114,7 +114,7 @@ impl Compressor {
 mod gui {
     use super::Compressor;
     use eframe::egui::{DragValue, Ui};
-    use ensnare::core::Normal;
+    use ensnare::prelude::*;
     use groove_core::traits::gui::Displays;
 
     impl Displays for Compressor {
@@ -171,8 +171,8 @@ mod gui {
 #[cfg(test)]
 mod tests {
     use crate::effects::compressor::{Compressor, CompressorParams};
-    use ensnare::core::{Normal, Sample};
-    use groove_core::{traits::TransformsAudio, SampleType};
+    use ensnare::core::{Normal, Sample, SampleType};
+    use groove_core::traits::TransformsAudio;
 
     #[test]
     fn basic_compressor() {

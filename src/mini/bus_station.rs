@@ -55,7 +55,7 @@ impl BusStation {
 
 #[cfg(test)]
 mod tests {
-    use ensnare::core::Normal;
+    use ensnare::prelude::*;
 
     use super::*;
 

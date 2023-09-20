@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use ensnare::core::{Normal, Sample, StereoSample};
+use ensnare::core::{Normal, Sample, SampleType, StereoSample};
 use groove_core::{
     generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams, Waveform},
     instruments::Synthesizer,
@@ -11,7 +11,7 @@ use groove_core::{
         Serializable, Ticks,
     },
     voices::{VoiceCount, VoiceStore},
-    Dca, DcaParams, ParameterType, SampleType,
+    Dca, DcaParams, ParameterType,
 };
 use groove_proc_macros::{Control, IsInstrument, Params, Uid};
 use std::{
@@ -534,7 +534,7 @@ mod gui {
         emath::Align,
         epaint::{pos2, Color32, Rect, Rounding, Stroke},
     };
-    use ensnare::core::Normal;
+    use ensnare::prelude::*;
     use groove_core::traits::{gui::Displays, HasUid};
 
     fn indicator(value: Normal) -> impl egui::Widget + 'static {
@@ -641,7 +641,7 @@ mod gui {
 #[cfg(test)]
 pub mod tests {
     use crate::{instruments::ToyInstrumentParams, ToyInstrument};
-    use ensnare::core::Normal;
+    use ensnare::prelude::*;
     use groove_core::{
         traits::{Generates, Ticks},
         DcaParams,

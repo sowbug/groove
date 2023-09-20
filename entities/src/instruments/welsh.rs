@@ -541,10 +541,10 @@ mod tests {
     use super::*;
     use crate::tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND};
     use convert_case::{Case, Casing};
+    use ensnare::prelude::*;
     use groove_core::{
         time::{Clock, ClockParams, TimeSignatureParams},
         util::tests::TestOnlyPaths,
-        SampleType,
     };
 
     // TODO dedup

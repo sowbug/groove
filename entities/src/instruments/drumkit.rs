@@ -2,7 +2,7 @@
 
 use super::{sampler::SamplerVoice, Sampler};
 use anyhow::anyhow;
-use ensnare::core::StereoSample;
+use ensnare::prelude::*;
 use groove_core::{
     instruments::Synthesizer,
     midi::{

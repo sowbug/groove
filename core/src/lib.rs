@@ -3,12 +3,9 @@
 //! Fundamental structs and traits.
 
 use derive_more::Display;
-use ensnare::core::{BipolarNormal, Normal, Sample, StereoSample};
+use ensnare::core::{BipolarNormal, Normal, Sample, SampleType, StereoSample};
 use groove_proc_macros::{Control, Params};
-use std::{
-    hash::Hash,
-    ops::{Div, Mul, RangeInclusive},
-};
+use std::hash::Hash;
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -38,11 +35,6 @@ pub mod util;
 pub mod voices;
 
 pub const SAMPLE_BUFFER_SIZE: usize = 64;
-
-/// [SampleType] is the underlying primitive that makes up [MonoSample] and
-/// [StereoSample]. It exists as a transition aid while we migrate from
-/// hardcoded f32 to [MonoSample]/[StereoSample].
-pub type SampleType = f64;
 
 /// [SignalType] is the primitive used for general digital signal-related work.
 /// It's pretty important that all of these different types be the same (e.g.,
@@ -133,8 +125,7 @@ impl Dca {
 #[cfg(feature = "egui-framework")]
 mod gui {
     use crate::{traits::gui::Displays, BipolarNormal, Dca, Normal};
-    use eframe::egui::{DragValue, Slider, Ui};
-    use std::ops::RangeInclusive;
+    use eframe::egui::Slider;
 
     impl Displays for Dca {
         fn ui(&mut self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
