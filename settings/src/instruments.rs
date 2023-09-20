@@ -2,7 +2,8 @@
 
 use super::MidiChannel;
 use crate::patches::WelshPatchSettings;
-use groove_core::{DcaParams, Normal};
+use ensnare::core::Normal;
+use groove_core::DcaParams;
 use groove_entities::{
     controllers::MidiChannelInputParams,
     instruments::{

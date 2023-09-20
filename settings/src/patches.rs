@@ -2,10 +2,11 @@
 
 use super::LoadError;
 use convert_case::{Boundary, Case, Casing};
+use ensnare::core::{FrequencyHz, Normal, Ratio};
 use groove_core::{
     generators::{EnvelopeParams, Oscillator, OscillatorParams, Waveform},
     midi::{note_to_frequency, GeneralMidiProgram},
-    DcaParams, FrequencyHz, Normal, ParameterType, Ratio,
+    DcaParams, ParameterType,
 };
 use groove_entities::{
     effects::{BiQuadFilter, BiQuadFilterLowPass24dbParams},
@@ -729,13 +730,14 @@ mod tests {
     };
     use crate::patches::OscillatorSettings;
     use convert_case::{Case, Casing};
+    use ensnare::core::{Normal, Ratio, StereoSample};
     use float_cmp::approx_eq;
     use groove_core::{
         generators::{Envelope, EnvelopeParams, Waveform},
         time::{Clock, ClockParams, SampleRate, Seconds, TimeSignatureParams},
         traits::{Configurable, Generates, PlaysNotes, Ticks},
         util::tests::TestOnlyPaths,
-        Normal, ParameterType, Ratio, SampleType, StereoSample,
+        ParameterType, SampleType,
     };
     use groove_entities::instruments::WelshVoice;
 

@@ -2,6 +2,7 @@
 
 use super::{sampler::SamplerVoice, Sampler};
 use anyhow::anyhow;
+use ensnare::core::StereoSample;
 use groove_core::{
     instruments::Synthesizer,
     midi::{
@@ -11,7 +12,6 @@ use groove_core::{
     time::SampleRate,
     traits::{Configurable, Generates, Serializable, Ticks},
     voices::VoicePerNoteStore,
-    StereoSample,
 };
 use groove_proc_macros::{Control, IsInstrument, Params, Uid};
 use groove_utils::Paths;

@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::TrackUid;
-use groove_core::Normal;
+use ensnare::core::Normal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -55,6 +55,8 @@ impl BusStation {
 
 #[cfg(test)]
 mod tests {
+    use ensnare::core::Normal;
+
     use super::*;
 
     #[test]

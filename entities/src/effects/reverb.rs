@@ -1,10 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::delay::{AllPassDelayLine, Delays, RecirculatingDelayLine};
+use ensnare::core::{Normal, Sample};
 use groove_core::{
     time::SampleRate,
     traits::{Configurable, Serializable, TransformsAudio},
-    Normal, ParameterType, Sample,
+    ParameterType,
 };
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
 
@@ -191,10 +192,10 @@ mod gui {
 mod tests {
     use super::Reverb;
     use crate::{effects::ReverbParams, tests::DEFAULT_SAMPLE_RATE};
+    use ensnare::core::{Normal, Sample};
     use groove_core::{
         time::SampleRate,
         traits::{Configurable, TransformsAudio},
-        Normal, Sample,
     };
 
     #[test]

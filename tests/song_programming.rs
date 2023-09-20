@@ -1,10 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use ensnare::core::Normal;
 use groove::{
     mini::{register_factory_entities, Key, OrchestratorBuilder, PatternBuilder},
     EntityFactory, Orchestrator,
 };
-use groove_core::{time::Tempo, traits::Configurable, Normal};
+use groove_core::{time::Tempo, traits::Configurable};
 use std::path::PathBuf;
 
 fn set_up_drum_track(o: &mut Orchestrator, factory: &EntityFactory) {

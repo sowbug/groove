@@ -28,12 +28,13 @@ pub mod tests {
         util::{transform_linear_to_mma_concave, transform_linear_to_mma_convex},
         Orchestrator,
     };
+    use ensnare::core::{FrequencyHz, Normal, StereoSample};
     use groove_core::{
         generators::Waveform,
         midi::MidiChannel,
         time::{ClockParams, MusicalTime, MusicalTimeParams, SampleRate, TimeSignatureParams},
         traits::Configurable,
-        DcaParams, FrequencyHz, Normal, StereoSample, SAMPLE_BUFFER_SIZE,
+        DcaParams, SAMPLE_BUFFER_SIZE,
     };
     use groove_entities::controllers::{
         LfoController, LfoControllerParams, Timer, TimerParams, ToyController, ToyControllerParams,

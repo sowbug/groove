@@ -1,6 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use anyhow::{anyhow, Result};
+use ensnare::core::{FrequencyHz, Sample, StereoSample};
 use groove_core::{
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
@@ -9,7 +10,7 @@ use groove_core::{
         Configurable, Generates, IsStereoSampleVoice, IsVoice, PlaysNotes, Serializable, Ticks,
     },
     voices::{VoiceCount, VoiceStore},
-    FrequencyHz, ParameterType, Sample, SampleType, StereoSample,
+    ParameterType, SampleType,
 };
 use groove_proc_macros::{Control, IsInstrument, Params, Uid};
 use groove_utils::Paths;

@@ -1,9 +1,10 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use ensnare::core::{FrequencyHz, Normal, Sample};
 use groove_core::{
     time::SampleRate,
     traits::{Configurable, Serializable, TransformsAudio},
-    FrequencyHz, Normal, ParameterType, Sample,
+    ParameterType,
 };
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
 use std::f64::consts::PI;
@@ -1177,8 +1178,9 @@ mod gui {
     };
     use eframe::egui::Slider;
     use eframe::egui::Ui;
+    use ensnare::core::FrequencyHz;
+    use groove_core::traits::gui::Displays;
     use groove_core::traits::HasUid;
-    use groove_core::{traits::gui::Displays, FrequencyHz};
 
     impl Displays for BiQuadFilterAllPass {
         fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {

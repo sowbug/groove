@@ -4,11 +4,12 @@
 
 use anyhow::Ok;
 use clap::Parser;
+use ensnare::core::StereoSample;
 use groove::{app_version, DEFAULT_BPM};
 use groove_core::{
     time::{ClockParams, SampleRate, TimeSignatureParams},
     traits::Configurable,
-    StereoSample, SAMPLE_BUFFER_SIZE,
+    SAMPLE_BUFFER_SIZE,
 };
 use groove_orchestration::{helpers::IOHelper, Orchestrator};
 use groove_settings::SongSettings;

@@ -12,6 +12,7 @@
 // - a better LCD
 
 use crate::instruments::{Sampler, SamplerVoice};
+use ensnare::core::StereoSample;
 use groove_core::{
     instruments::Synthesizer,
     midi::{note_to_frequency, MidiChannel, MidiMessage, MidiMessagesFn},
@@ -20,7 +21,7 @@ use groove_core::{
         Configurable, ControlEventsFn, Controls, Generates, HandlesMidi, Serializable, Ticks,
     },
     voices::VoicePerNoteStore,
-    ParameterType, StereoSample,
+    ParameterType,
 };
 use groove_proc_macros::{Control, IsControllerInstrument, Params, Uid};
 use groove_utils::Paths;

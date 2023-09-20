@@ -1,11 +1,12 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use ensnare::core::StereoSample;
 use groove_core::{
     generators::{Oscillator, OscillatorParams, Waveform},
     midi::HandlesMidi,
     time::{Clock, ClockParams, SampleRate},
     traits::{Configurable, Generates, Serializable, Ticks},
-    ParameterType, StereoSample,
+    ParameterType,
 };
 use groove_proc_macros::{Control, IsInstrument, Params, Uid};
 

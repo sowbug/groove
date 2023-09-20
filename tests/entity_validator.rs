@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use ensnare::core::StereoSample;
 use groove::{
     mini::{register_factory_entities, Key},
     EntityFactory,
@@ -7,7 +8,7 @@ use groove::{
 use groove_core::{
     time::{SampleRate, Tempo, TimeSignature},
     traits::{Entity, IsController, IsEffect, IsInstrument},
-    StereoSample, Uid,
+    Uid,
 };
 
 #[test]

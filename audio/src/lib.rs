@@ -9,7 +9,8 @@ use cpal::{
 };
 use crossbeam::queue::ArrayQueue;
 use crossbeam_channel::{unbounded, Receiver, Sender};
-use groove_core::{time::SampleRate, StereoSample};
+use ensnare::core::StereoSample;
+use groove_core::time::SampleRate;
 use std::{fmt::Debug, result::Result::Ok, sync::Arc, thread::JoinHandle, time::Instant};
 
 pub enum AudioInterfaceInput {

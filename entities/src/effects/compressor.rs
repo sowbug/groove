@@ -1,8 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use ensnare::core::{Normal, Sample};
 use groove_core::{
     traits::{Configurable, Serializable, TransformsAudio},
-    Normal, ParameterType, Sample,
+    ParameterType,
 };
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
 
@@ -113,7 +114,8 @@ impl Compressor {
 mod gui {
     use super::Compressor;
     use eframe::egui::{DragValue, Ui};
-    use groove_core::{traits::gui::Displays, Normal};
+    use ensnare::core::Normal;
+    use groove_core::traits::gui::Displays;
 
     impl Displays for Compressor {
         fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
@@ -169,7 +171,8 @@ mod gui {
 #[cfg(test)]
 mod tests {
     use crate::effects::compressor::{Compressor, CompressorParams};
-    use groove_core::{traits::TransformsAudio, Normal, Sample, SampleType};
+    use ensnare::core::{Normal, Sample};
+    use groove_core::{traits::TransformsAudio, SampleType};
 
     #[test]
     fn basic_compressor() {

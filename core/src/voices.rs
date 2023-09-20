@@ -4,10 +4,10 @@ use crate::{
     midi::u7,
     time::SampleRate,
     traits::{Configurable, Generates, IsStereoSampleVoice, StoresVoices, Ticks},
-    StereoSample,
 };
 use anyhow::{anyhow, Result};
 use derive_more::{Add, Display, From, Into};
+use ensnare::core::StereoSample;
 use rustc_hash::FxHashMap;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, From, Into, Add, Display)]
@@ -346,8 +346,9 @@ pub(crate) mod tests {
             Configurable, Generates, IsStereoSampleVoice, StealingVoiceStore, VoiceCount,
             VoiceStore,
         },
-        FrequencyHz, ParameterType, StereoSample,
+        ParameterType,
     };
+    use ensnare::core::{FrequencyHz, StereoSample};
     use float_cmp::approx_eq;
     use more_asserts::assert_gt;
 

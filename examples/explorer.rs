@@ -13,6 +13,7 @@ use eframe::{
     epaint::vec2,
     CreationContext,
 };
+use ensnare::core::Sample;
 use groove::{
     app_version,
     mini::{
@@ -36,7 +37,7 @@ use groove_core::{
         gui::{Displays, DisplaysInTimeline},
         Entity,
     },
-    Sample, Uid,
+    Uid,
 };
 use std::ops::Range;
 

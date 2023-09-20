@@ -6,12 +6,14 @@
 // Are you making a change to this file? Consider enforcing new trait behavior
 // in tests/entity_validator.rs.
 
+use ensnare::core::{Normal, StereoSample};
+
 pub use crate::midi::HandlesMidi;
 use crate::{
     control::{ControlIndex, ControlValue},
     midi::{u7, MidiChannel, MidiMessage},
     time::{MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
-    Normal, Sample, StereoSample, Uid,
+    Sample, Uid,
 };
 use std::ops::Range;
 

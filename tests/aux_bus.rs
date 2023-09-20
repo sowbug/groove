@@ -1,10 +1,10 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use ensnare::core::Normal;
 use groove::{
     mini::{register_factory_entities, Key, OrchestratorBuilder, PatternBuilder},
     EntityFactory,
 };
-use groove_core::Normal;
 use std::path::PathBuf;
 
 // Demonstrates use of aux buses.

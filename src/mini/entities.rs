@@ -1,7 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::{sequencer::SequencerBuilder, ControlTrip, EntityFactory, Key};
-use groove_core::{generators::Waveform, midi::MidiChannel, FrequencyHz, Normal};
+use ensnare::core::{FrequencyHz, Normal};
+use groove_core::{generators::Waveform, midi::MidiChannel};
 use groove_entities::{
     controllers::{
         Arpeggiator, ArpeggiatorParams, LfoController, LfoControllerParams,
@@ -90,7 +91,7 @@ pub fn register_factory_entities(mut factory: EntityFactory) -> EntityFactory {
     });
     factory.register_entity(Key::from("lfo"), || {
         Box::new(LfoController::new_with(&LfoControllerParams {
-            frequency: FrequencyHz(0.2),
+            frequency: FrequencyHz::from(0.2),
             waveform: Waveform::Sawtooth,
         }))
     });

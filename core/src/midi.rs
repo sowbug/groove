@@ -1,12 +1,13 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use ensnare::core::FrequencyHz;
 pub use midly::live::LiveEvent;
 pub use midly::{
     num::{u4, u7},
     MidiMessage,
 };
 
-use crate::{FrequencyHz, ParameterType};
+use crate::ParameterType;
 use bit_vec::BitVec;
 use derive_more::Display as DeriveDisplay;
 use enum_primitive_derive::Primitive;

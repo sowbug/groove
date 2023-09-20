@@ -1,6 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::{time::Tempo, BipolarNormal, FrequencyHz, Normal, Ratio};
+use crate::{time::Tempo, BipolarNormal, Normal};
+use ensnare::core::{FrequencyHz, Ratio};
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
@@ -124,7 +125,6 @@ impl From<ControlValue> for Tempo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Ratio;
 
     #[test]
     fn usize_ok() {

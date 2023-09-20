@@ -1,9 +1,10 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use ensnare::core::{Normal, Sample};
 use groove_core::{
     time::SampleRate,
     traits::{Configurable, Serializable, TransformsAudio},
-    Normal, ParameterType, Sample, SignalType,
+    ParameterType, SignalType,
 };
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
 

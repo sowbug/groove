@@ -1,9 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use groove_core::{
-    traits::{Configurable, Serializable, TransformsAudio},
-    Normal, Sample,
-};
+use ensnare::core::{Normal, Sample};
+use groove_core::traits::{Configurable, Serializable, TransformsAudio};
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
 
 #[cfg(feature = "serialization")]
@@ -74,7 +72,8 @@ impl Limiter {
 mod gui {
     use super::Limiter;
     use eframe::egui::{Slider, Ui};
-    use groove_core::{traits::gui::Displays, Normal};
+    use ensnare::core::Normal;
+    use groove_core::traits::gui::Displays;
 
     impl Displays for Limiter {
         fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
@@ -106,7 +105,8 @@ mod gui {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use groove_core::{traits::Generates, StereoSample};
+    use ensnare::core::StereoSample;
+    use groove_core::traits::Generates;
     use groove_toys::{ToyAudioSource, ToyAudioSourceParams};
     use more_asserts::{assert_gt, assert_lt};
 

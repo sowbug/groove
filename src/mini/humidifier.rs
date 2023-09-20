@@ -1,6 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use groove_core::{Normal, Sample, StereoSample, Uid};
+use ensnare::core::{Normal, Sample, StereoSample};
+use groove_core::Uid;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -50,7 +51,8 @@ impl Humidifier {
 #[cfg(test)]
 mod tests {
     use crate::mini::humidifier::Humidifier;
-    use groove_core::{traits::TransformsAudio, Normal, Sample, Uid};
+    use ensnare::core::{Normal, Sample};
+    use groove_core::{traits::TransformsAudio, Uid};
     use groove_toys::ToyEffect;
 
     #[test]

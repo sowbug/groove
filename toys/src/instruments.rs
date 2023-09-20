@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use ensnare::core::{Normal, Sample, StereoSample};
 use groove_core::{
     generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams, Waveform},
     instruments::Synthesizer,
@@ -10,7 +11,7 @@ use groove_core::{
         Serializable, Ticks,
     },
     voices::{VoiceCount, VoiceStore},
-    Dca, DcaParams, Normal, ParameterType, Sample, SampleType, StereoSample,
+    Dca, DcaParams, ParameterType, SampleType,
 };
 use groove_proc_macros::{Control, IsInstrument, Params, Uid};
 use std::{
@@ -533,10 +534,8 @@ mod gui {
         emath::Align,
         epaint::{pos2, Color32, Rect, Rounding, Stroke},
     };
-    use groove_core::{
-        traits::{gui::Displays, HasUid},
-        Normal,
-    };
+    use ensnare::core::Normal;
+    use groove_core::traits::{gui::Displays, HasUid};
 
     fn indicator(value: Normal) -> impl egui::Widget + 'static {
         move |ui: &mut egui::Ui| indicator_ui(ui, value)
@@ -642,9 +641,10 @@ mod gui {
 #[cfg(test)]
 pub mod tests {
     use crate::{instruments::ToyInstrumentParams, ToyInstrument};
+    use ensnare::core::Normal;
     use groove_core::{
         traits::{Generates, Ticks},
-        DcaParams, Normal,
+        DcaParams,
     };
 
     // TODO: restore tests that test basic trait behavior, then figure out how

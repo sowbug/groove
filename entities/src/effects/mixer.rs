@@ -1,9 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use groove_core::{
-    traits::{Configurable, Serializable, TransformsAudio},
-    Sample,
-};
+use ensnare::core::Sample;
+use groove_core::traits::{Configurable, Serializable, TransformsAudio};
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
 
 #[cfg(feature = "serialization")]

@@ -12,8 +12,9 @@ eframe = { version = "0.22", optional = true }
 egui_extras = { version = "0.22", optional = true }
 egui_extras_xt = { git = "https://github.com/sowbug/egui_extras_xt", features = [
     "knobs",
-    "displays"
+    "displays",
 ], optional = true }
+ensnare = { path = "../../ensnare" }
 float-cmp = "0.9"
 groove-core = { path = "../core", features = ["serialization"] }
 groove-egui = { path = "../egui", optional = true }
@@ -36,12 +37,12 @@ typetag = "0.2"
 "serialization" = [
     "serde",
     "groove-core/serialization",
-    "groove-egui/serialization"
+    "groove-egui/serialization",
 ]
 "egui-framework" = [
     "eframe",
     "egui_extras",
     "egui_extras_xt",
     "groove-core/egui-framework",
-    "groove-egui"
+    "groove-egui",
 ]

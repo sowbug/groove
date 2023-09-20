@@ -1,6 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use core::fmt::Debug;
+use ensnare::core::FrequencyHz;
 use groove_core::{
     generators::{Oscillator, OscillatorParams, Waveform},
     midi::HandlesMidi,
@@ -8,7 +9,7 @@ use groove_core::{
     traits::{
         Configurable, ControlEventsFn, Controls, EntityEvent, Generates, Serializable, Ticks,
     },
-    FrequencyHz, ParameterType,
+    ParameterType,
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
 use std::{

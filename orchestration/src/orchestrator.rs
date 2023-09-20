@@ -7,12 +7,13 @@ use crate::{
 use anyhow::anyhow;
 use core::fmt::Debug;
 use crossbeam::deque::Worker;
+use ensnare::core::StereoSample;
 use groove_core::{
     control::{ControlIndex, ControlValue},
     midi::{MidiChannel, MidiMessage},
     time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, Tempo, TimeSignature},
     traits::{Configurable, Controls, EntityEvent},
-    IsUid, ParameterType, StereoSample, Uid,
+    IsUid, ParameterType, Uid,
 };
 use groove_entities::{
     controllers::{PatternManager, Sequencer, SequencerParams},
@@ -1399,6 +1400,7 @@ pub mod tests {
         entities::EntityObsolete,
         tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
     };
+    use ensnare::core::{Normal, StereoSample};
     use groove_core::{
         midi::{MidiChannel, MidiMessage},
         time::{
@@ -1406,7 +1408,7 @@ pub mod tests {
             SampleRate, TimeSignature, TimeSignatureParams,
         },
         traits::{Configurable, Controls},
-        DcaParams, Normal, StereoSample, Uid,
+        DcaParams, Uid,
     };
     use groove_entities::{
         controllers::{

@@ -8,6 +8,7 @@ publish = false
 
 [dependencies]
 eframe = { version = "0.22", optional = true }
+ensnare = { path = "../../ensnare" }
 groove-core = { path = "../core", features = ["serialization"] }
 groove-proc-macros = { path = "../proc-macros" }
 oorandom = "11.1"

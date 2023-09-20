@@ -1,10 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::delay::{DelayLine, Delays};
+use ensnare::core::Sample;
 use groove_core::{
     time::SampleRate,
     traits::{Configurable, Serializable, TransformsAudio},
-    ParameterType, Sample,
+    ParameterType,
 };
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
 

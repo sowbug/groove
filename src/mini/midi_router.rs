@@ -88,11 +88,12 @@ impl MidiRouter {
 mod tests {
     use super::MidiRouter;
     use crate::mini::entity_factory::EntityStore;
+    use ensnare::core::StereoSample;
     use groove_core::{
         midi,
         midi::{MidiChannel, MidiMessage, MidiMessagesFn},
         traits::{gui::Displays, Configurable, Generates, HandlesMidi, Serializable, Ticks},
-        StereoSample, Uid,
+        Uid,
     };
     use groove_proc_macros::{Control, IsInstrument, Uid};
     use serde::{Deserialize, Serialize};

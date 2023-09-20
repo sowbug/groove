@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use ensnare::core::{BipolarNormal, FrequencyHz, Normal, Ratio, Sample, StereoSample};
 use groove_core::{
     generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams, Waveform},
     instruments::Synthesizer,
@@ -10,7 +11,7 @@ use groove_core::{
         Serializable, Ticks,
     },
     voices::StealingVoiceStore,
-    BipolarNormal, Dca, DcaParams, FrequencyHz, Normal, ParameterType, Ratio, Sample, StereoSample,
+    Dca, DcaParams, ParameterType,
 };
 use groove_proc_macros::{Control, IsInstrument, Params, Uid};
 

@@ -10,4 +10,5 @@ cpal = "0.15"
 crossbeam = "0.8"
 crossbeam-channel = "0.5"
 crossbeam-utils = "0.8"
+ensnare = { path = "../../ensnare" }
 groove-core = { path = "../core" }

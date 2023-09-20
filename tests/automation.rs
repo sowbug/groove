@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use ensnare::core::FrequencyHz;
 use groove::{
     mini::{
         register_factory_entities, ControlStepBuilder, ControlTripBuilder, ControlTripPath, Key,
@@ -12,7 +13,6 @@ use groove_core::{
     generators::Waveform,
     time::{MusicalTime, Tempo},
     traits::{Configurable, HasUid},
-    FrequencyHz,
 };
 use groove_entities::controllers::{LfoController, LfoControllerParams};
 use std::path::PathBuf;

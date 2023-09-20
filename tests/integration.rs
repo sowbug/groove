@@ -1,8 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use ensnare::core::StereoSample;
 use groove_core::{
-    time::SampleRate, traits::Configurable, util::tests::TestOnlyPaths, StereoSample,
-    SAMPLE_BUFFER_SIZE,
+    time::SampleRate, traits::Configurable, util::tests::TestOnlyPaths, SAMPLE_BUFFER_SIZE,
 };
 use groove_orchestration::helpers::IOHelper;
 use groove_settings::SongSettings;

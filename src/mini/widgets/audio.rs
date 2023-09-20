@@ -6,7 +6,8 @@ use eframe::{
     emath::RectTransform,
     epaint::{pos2, Color32, Rect, RectShape, Rounding, Stroke},
 };
-use groove_core::{traits::gui::Displays, Normal, Sample};
+use ensnare::core::{Normal, Sample};
+use groove_core::traits::gui::Displays;
 use spectrum_analyzer::{scaling::divide_by_N_sqrt, FrequencyLimit};
 
 /// A fixed-size circular buffer for use by audio widgets.

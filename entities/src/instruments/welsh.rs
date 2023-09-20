@@ -2,6 +2,7 @@
 
 use crate::effects::{BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbParams};
 use core::fmt::Debug;
+use ensnare::core::{BipolarNormal, FrequencyHz, Normal, Sample, StereoSample};
 use groove_core::{
     generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams},
     instruments::Synthesizer,
@@ -12,7 +13,7 @@ use groove_core::{
         Serializable, Ticks, TransformsAudio,
     },
     voices::StealingVoiceStore,
-    BipolarNormal, Dca, DcaParams, FrequencyHz, Normal, Sample, StereoSample,
+    Dca, DcaParams,
 };
 use groove_proc_macros::{Control, IsInstrument, Params, Uid};
 use strum_macros::{EnumCount as EnumCountMacro, FromRepr};

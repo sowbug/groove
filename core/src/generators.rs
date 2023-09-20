@@ -4,8 +4,9 @@ use crate::{
     control::ControlValue,
     time::{Clock, ClockTimeUnit, SampleRate, Seconds},
     traits::{Configurable, Generates, GeneratesEnvelope, Ticks},
-    BipolarNormal, FrequencyHz, Normal, ParameterType, Ratio, SignalType,
+    Normal, ParameterType, SignalType,
 };
+use ensnare::core::{BipolarNormal, FrequencyHz, Ratio};
 use groove_proc_macros::{Control, Params};
 use kahan::KahanSum;
 use more_asserts::{debug_assert_ge, debug_assert_le};
@@ -1579,7 +1580,7 @@ pub mod tests {
 
     #[test]
     fn oscillator_modulated() {
-        let mut oscillator = create_oscillator(Waveform::Sine, Ratio(1.0), MidiNote::C4);
+        let mut oscillator = create_oscillator(Waveform::Sine, Ratio::from(1.0), MidiNote::C4);
         // Default
         assert_eq!(
             oscillator.adjusted_frequency(),

@@ -1,9 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use ensnare::core::{Normal, Sample};
 use groove_core::{
     time::{ClockTimeUnit, SampleRate},
     traits::{Configurable, Serializable, TransformsAudio},
-    Normal, Sample,
 };
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
 use std::collections::VecDeque;

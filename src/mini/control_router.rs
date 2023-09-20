@@ -70,11 +70,9 @@ impl ControlRouter {
 mod tests {
     use super::*;
     use crate::mini::entity_factory::EntityStore;
-    use groove_core::{
-        traits::{
-            gui::Displays, Configurable, Controllable, Generates, HandlesMidi, Serializable, Ticks,
-        },
-        StereoSample,
+    use ensnare::core::StereoSample;
+    use groove_core::traits::{
+        gui::Displays, Configurable, Controllable, Generates, HandlesMidi, Serializable, Ticks,
     };
     use groove_proc_macros::{IsInstrument, Uid};
     use std::sync::{Arc, RwLock};

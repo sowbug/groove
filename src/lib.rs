@@ -108,7 +108,7 @@ pub mod mini;
 /// Recommended imports for first-time users.
 pub mod prelude {
     pub use super::mini::Orchestrator;
-    pub use groove_core::StereoSample;
+    pub use ensnare::core::StereoSample;
 }
 
 use groove_core::ParameterType;
