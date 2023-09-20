@@ -67,13 +67,15 @@ pub fn instrument_derive(input: TokenStream) -> TokenStream {
     parse_and_generate_entity(input, EntityType::Instrument)
 }
 
-/// Derives helper methods to access Entity traits associated with entities that are both controllers and effects.
+/// Derives helper methods to access Entity traits associated with entities that
+/// are both controllers and effects.
 #[proc_macro_derive(IsControllerEffect)]
 pub fn controller_effect_derive(input: TokenStream) -> TokenStream {
     parse_and_generate_entity(input, EntityType::ControllerEffect)
 }
 
-/// Derives helper methods to access Entity traits associated with entities that are both controllers and instruments.
+/// Derives helper methods to access Entity traits associated with entities that
+/// are both controllers and instruments.
 #[proc_macro_derive(IsControllerInstrument)]
 pub fn controller_instrument_derive(input: TokenStream) -> TokenStream {
     parse_and_generate_entity(input, EntityType::ControllerInstrument)
@@ -128,6 +130,10 @@ pub fn derive_control(input: TokenStream) -> TokenStream {
 fn core_crate_name() -> String {
     const CORE_CRATE_NAME: &str = "groove-core";
     const CORE_CRATE_NAME_FOR_USE: &str = "groove_core";
+
+    // const CORE_CRATE_NAME: &str = "ensnare"; // if you named it with dashes -- my-crate
+    // const CORE_CRATE_NAME_FOR_USE: &str = "ensnare"; // substitute underscores for dashes -- my_crate
+
     if let Ok(found_crate) = crate_name(CORE_CRATE_NAME) {
         match found_crate {
             proc_macro_crate::FoundCrate::Itself => {
