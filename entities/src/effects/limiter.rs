@@ -1,12 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use eframe::egui::{DragValue, Slider, Ui};
+use eframe::egui::{Slider, Ui};
 use ensnare::{prelude::*, traits::prelude::*};
 use ensnare_proc_macros::{Control, IsEffect, Params, Uid};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Control, IsEffect, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Control, IsEffect, Params, Uid, Serialize, Deserialize)]
 pub struct Limiter {
     uid: Uid,
 

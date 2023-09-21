@@ -17,13 +17,11 @@ use groove_core::{
     generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams, Waveform},
     Dca, DcaParams,
 };
+use serde::{Deserialize, Serialize};
 use std::{
     fmt::Debug,
     sync::{Arc, Mutex},
 };
-
-#[cfg(feature = "serialization")]
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default)]
 pub struct ToyInstrumentEphemerals {
@@ -150,8 +148,7 @@ impl ToyInstrument {
 
 /// Another [IsInstrument](groove_core::traits::IsInstrument) that was designed
 /// for black-box debugging.
-#[derive(Debug, Control, IsInstrument, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Control, IsInstrument, Params, Uid, Serialize, Deserialize)]
 pub struct DebugSynth {
     uid: Uid,
 
@@ -245,8 +242,7 @@ impl DebugSynth {
     }
 }
 
-#[derive(Debug, Default, Control, IsInstrument, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Default, Control, IsInstrument, Params, Uid, Serialize, Deserialize)]
 pub struct ToySynth {
     uid: Uid,
 
@@ -438,8 +434,7 @@ impl ToyVoice {
 
 /// Produces a constant audio signal. Used for ensuring that a known signal
 /// value gets all the way through the pipeline.
-#[derive(Debug, Default, Control, IsInstrument, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Default, Control, IsInstrument, Params, Uid, Serialize, Deserialize)]
 pub struct ToyAudioSource {
     uid: Uid,
 

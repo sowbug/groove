@@ -34,8 +34,7 @@ mod obsolete {
     ///
     /// A ControlTrip is one automation track, which can run as long as the whole
     /// song. For now, it controls one parameter of one target.
-    #[derive(Debug, Control, IsController, Params, Uid)]
-    #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+    #[derive(Debug, Control, IsController, Params, Uid, Serialize, Deserialize)]
     pub struct ControlTrip {
         uid: Uid,
         #[control]

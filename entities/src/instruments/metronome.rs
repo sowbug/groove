@@ -3,8 +3,7 @@
 #[cfg(obsolete)]
 mod obsolete {
 
-    #[derive(Debug, Control, IsInstrument, Params, Uid)]
-    #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+    #[derive(Debug, Control, IsInstrument, Params, Uid, Serialize, Deserialize)]
     pub struct Metronome {
         #[control]
         #[params]
@@ -96,7 +95,6 @@ mod obsolete {
         }
     }
 
-    #[cfg(feature = "egui-framework")]
     mod gui {
         use super::Metronome;
         use eframe::egui::Ui;

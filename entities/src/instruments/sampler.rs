@@ -12,10 +12,8 @@ use ensnare::{
 use ensnare_proc_macros::{Control, IsInstrument, Params, Uid};
 use groove_utils::Paths;
 use hound::WavReader;
-use std::{fs::File, io::BufReader, path::Path, sync::Arc};
-
-#[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
+use std::{fs::File, io::BufReader, path::Path, sync::Arc};
 
 #[derive(Debug, Default)]
 pub struct SamplerVoice {
@@ -109,12 +107,11 @@ impl SamplerVoice {
     }
 }
 
-#[derive(Debug, Control, IsInstrument, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Control, IsInstrument, Params, Uid, Serialize, Deserialize)]
 pub struct Sampler {
     uid: Uid,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     inner_synth: Synthesizer<SamplerVoice>,
 
     #[params]

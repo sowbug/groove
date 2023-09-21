@@ -5,17 +5,14 @@ use eframe::egui::{Response, Ui};
 use ensnare::{prelude::*, traits::prelude::*};
 use ensnare_proc_macros::{Control, IsController, Params, Uid};
 use groove_core::generators::{Oscillator, OscillatorParams, Waveform};
+use serde::{Deserialize, Serialize};
 use std::{
     ops::{Range, RangeInclusive},
     option::Option,
 };
 
-#[cfg(feature = "serialization")]
-use serde::{Deserialize, Serialize};
-
 /// Uses an internal LFO as a control source.
-#[derive(Debug, Control, IsController, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Control, IsController, Params, Uid, Serialize, Deserialize)]
 pub struct LfoController {
     uid: Uid,
 
@@ -28,17 +25,16 @@ pub struct LfoController {
 
     oscillator: Oscillator,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     is_performing: bool,
 
-    #[cfg(feature = "egui-framework")]
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     waveform_widget: groove_egui::Waveform,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     time_range: Range<MusicalTime>,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     last_frame: usize,
 }
 impl Serializable for LfoController {}
@@ -119,7 +115,7 @@ impl LfoController {
             waveform: params.waveform(),
             frequency: params.frequency(),
             is_performing: false,
-            #[cfg(feature = "egui-framework")]
+
             waveform_widget: Default::default(),
             time_range: Default::default(),
             last_frame: Default::default(),

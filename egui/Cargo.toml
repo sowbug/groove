@@ -12,8 +12,5 @@ crossbeam-channel = "0.5"
 crossbeam-utils = "0.8"
 eframe = "0.22"
 ensnare = { path = "../../ensnare" }
-groove-core = { path = "../core", features = ["egui-framework"] }
-serde = { version = "1.0", features = ["derive"], optional = true }
-
-[features]
-"serialization" = ["serde"]
+groove-core = { path = "../core" }
+serde = { version = "1.0", features = ["derive"] }

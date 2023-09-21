@@ -7,89 +7,63 @@
 //! An audio engine designed to support a DAW (digital audio workstation).
 //!
 //! ```
-//! # use ensnare::prelude::*;
-//! # use groove::{EntityObsolete, OldOrchestrator};
-//! # use groove_core::{
-//! #     generators::{EnvelopeParams, Waveform},
-//! #     midi::{MidiChannel, new_note_off, new_note_on},
-//! #     time::{
-//! #         Clock,
-//! #         ClockParams,
-//! #         MusicalTime,
-//! #         SampleRate,
-//! #         TimeSignature,
-//! #         TimeSignatureParams
-//! #     },
-//! #     traits::Configurable,
-//! #     SAMPLE_BUFFER_SIZE,
-//! # };
-//! # use groove_entities::{
-//! #     controllers::Sequencer,
-//! #     controllers::SequencerParams,
-//! #     effects::Compressor,
-//! #     effects::CompressorParams,
-//! # };
-//! # use groove_toys::{ToySynth, ToySynthParams};
-//! #
-//! # const BPM: f64 = 128.0;
-//! # const MIDI_0: MidiChannel = MidiChannel(0);
-//! #
+//! use ensnare::{midi::prelude::*, prelude::*, traits::prelude::*};
+//! use groove::mini::{Note, Orchestrator};
+//! use groove_entities::{effects::Compressor, effects::CompressorParams};
+//! use groove_toys::{ToySynth, ToySynthParams};
+//! use std::path::PathBuf;
+//!
+//! const BPM: f64 = 128.0;
+//! const MIDI_0: MidiChannel = MidiChannel(0);
+//!
 //! // The system needs a working buffer for audio.
-//! let mut buffer = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
+//! let mut buffer = [StereoSample::SILENCE; 64];
 //!
 //! // ToySynth is a MIDI instrument that makes simple sounds.
-//! let synth = ToySynth::new_with(&ToySynthParams::default());
-//!
-//! // Sequencer sends MIDI commands to the synth.
-//! let mut sequencer = Sequencer::new_with(&SequencerParams { bpm: 128.0 });
-//!
-//! // There are lots of different ways to populate the sequencer with notes.
-//! let ts = TimeSignature::default();
-//! sequencer.insert(&MusicalTime::new(&ts, 0, 0, 0, 0), MIDI_0, new_note_on(69, 100));
-//! sequencer.insert(&MusicalTime::new(&ts, 0, 1, 0, 0), MIDI_0, new_note_off(69, 100));
+//! let mut synth = ToySynth::new_with(&ToySynthParams::default());
+//! synth.set_uid(Uid(2001));
 //!
 //! // An effect takes the edge off the synth.
-//! let compressor = Compressor::new_with(&CompressorParams {
+//! let mut compressor = Compressor::new_with(&CompressorParams {
 //!     threshold: Normal::from(0.8),
 //!     ratio: 0.5,
 //!     attack: 0.05,
 //!     release: 0.1,
 //! });
+//! compressor.set_uid(Uid(2002));
 //!
-//! // Orchestrator understands the relationships among the
-//! // instruments, controllers, and effects, and uses them to
-//! // produce a song.
-//! let mut orchestrator = OldOrchestrator::new_with(&ClockParams {
-//!     bpm: 128.0,
-//!     midi_ticks_per_second: 960,
-//!     time_signature: TimeSignatureParams { top: 4, bottom: 4 },
-//! });
+//! // Orchestrator understands the relationships among the instruments,
+//! // controllers, and effects, and uses them to produce a song.
+//! let mut orchestrator = Orchestrator::default();
 //!
 //! // Orchestrator owns the sample rate and propagates it to the devices
 //! // that it controls.
 //! orchestrator.update_sample_rate(SampleRate::DEFAULT);
 //!
-//! // Each "entity" has an ID that is used to connect them.
-//! let synth_id = orchestrator.add(EntityObsolete::ToySynth(Box::new(synth)));
-//! let _sequencer_id = orchestrator.add(EntityObsolete::Sequencer(Box::new(sequencer)));
-//! let compressor_id = orchestrator.add(EntityObsolete::Compressor(Box::new(compressor)));
+//! // An Orchestrator manages a set of Tracks, which are what actually contains
+//! // musical devices.
+//! let track_uid = orchestrator.new_midi_track().unwrap();
+//! let track = orchestrator.get_track_mut(&track_uid).unwrap();
 //!
-//! // The synth's output goes to the compressor's input, and then the
-//! // compressor's output goes to the main mixer.
-//! assert!(orchestrator.patch_chain_to_main_mixer(&[synth_id, compressor_id]).is_ok());
+//! // The sequencer sends MIDI commands to the synth. Each MIDI track
+//! // automatically includes one. There are lots of different ways to populate
+//! // the sequencer with notes.
+//! let mut sequencer = track.sequencer_mut();
 //!
-//! // Virtual MIDI cables let devices send messages to other devices.
-//! orchestrator.connect_midi_downstream(synth_id, MIDI_0);
+//! // TODO - not working yet!
+//! // sequencer.append_note(&Note::new_with_midi_note(
+//! //     MidiNote::A4,
+//! //     MusicalTime::START,
+//! //     MusicalTime::DURATION_QUARTER,
+//! // ));
+//!
+//! // Adding an entity to a track forms a chain that sends MIDI, control, and
+//! // audio data appropriately.
+//! let synth_id = track.append_entity(Box::new(synth)).unwrap();
+//! let compressor_id = track.append_entity(Box::new(compressor)).unwrap();
 //!
 //! // Once everything is set up, the orchestrator renders an audio stream.
-//! if let Ok(samples) = orchestrator.run(&mut buffer) {
-//!     println!("Created a stream of {} samples.", samples.len());
-//!     assert!(samples
-//!         .iter()
-//!         .any(|sample| *sample != StereoSample::SILENCE));
-//!
-//!     // not shown: writing stream to WAV file
-//! }
+//! let _ = orchestrator.write_to_file(&PathBuf::from("output.wav"));
 //! ```
 
 // #[deprecated]

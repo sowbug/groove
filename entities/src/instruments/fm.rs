@@ -201,8 +201,7 @@ impl FmVoice {
     }
 }
 
-#[derive(Debug, Control, IsInstrument, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Control, IsInstrument, Params, Uid, Serialize, Deserialize)]
 pub struct FmSynth {
     #[control]
     #[params]
@@ -229,7 +228,7 @@ pub struct FmSynth {
     dca: Dca,
 
     uid: Uid,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     inner_synth: Synthesizer<FmVoice>,
 }
 impl Generates<StereoSample> for FmSynth {

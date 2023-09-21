@@ -9,6 +9,7 @@ use ensnare::{
 };
 use ensnare_proc_macros::{Control, IsController, Params, Uid};
 use groove_core::{midi::MidiNoteMinder, time::PerfectTimeUnit};
+use serde::{Deserialize, Serialize};
 use std::{
     fmt::Debug,
     ops::{
@@ -17,32 +18,28 @@ use std::{
     },
 };
 
-#[cfg(feature = "serialization")]
-use serde::{Deserialize, Serialize};
-
 pub(crate) type BeatEventsMap = BTreeMultiMap<MusicalTime, (MidiChannel, MidiMessage)>;
 
 /// [Sequencer] produces MIDI according to a programmed sequence. Its unit of
 /// time is the beat.
-#[derive(Debug, Control, IsController, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Control, IsController, Params, Uid, Serialize, Deserialize)]
 pub struct Sequencer {
     uid: Uid,
     #[control]
     #[params]
     bpm: ParameterType,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     next_instant: PerfectTimeUnit,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     events: BeatEventsMap,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     last_event_time: MusicalTime,
     is_disabled: bool,
     is_performing: bool,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     should_stop_pending_notes: bool,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     active_notes: [MidiNoteMinder; 16],
 
     loop_range: Option<Range<PerfectTimeUnit>>,
@@ -51,9 +48,9 @@ pub struct Sequencer {
     #[cfg(obsolete)]
     temp_hack_clock: Clock,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     time_range: Range<MusicalTime>,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     time_range_handled: bool,
 }
 impl Serializable for Sequencer {}
@@ -260,8 +257,7 @@ mod tired {
     /// [MidiTickSequencer] is another kind of sequencer whose time unit is the MIDI
     /// tick. It exists to make it easy for [MidiSmfReader] to turn MIDI files into
     /// sequences.
-    #[derive(Debug, Control, IsController, Params, Uid)]
-    #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+    #[derive(Debug, Control, IsController, Params, Uid, Serialize, Deserialize)]
     pub struct MidiTickSequencer {
         uid: Uid,
 
@@ -269,17 +265,17 @@ mod tired {
         #[params]
         midi_ticks_per_second: usize,
 
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         next_instant: MidiTicks,
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         events: MidiTickEventsMap,
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         last_event_time: MidiTicks,
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         is_disabled: bool,
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         is_performing: bool,
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         active_notes: [MidiNoteMinder; 16],
 
         loop_range: Option<Range<PerfectTimeUnit>>,

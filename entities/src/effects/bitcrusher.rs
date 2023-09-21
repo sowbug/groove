@@ -3,15 +3,12 @@
 use eframe::egui::{DragValue, Ui};
 use ensnare::{prelude::*, traits::prelude::*};
 use ensnare_proc_macros::{Control, IsEffect, Params, Uid};
-
-#[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
 /// TODO: this is a pretty lame bitcrusher. It is hardly noticeable for values
 /// below 13, and it destroys the waveform at 15. It doesn't do any simulation
 /// of sample-rate reduction, either.
-#[derive(Debug, Control, IsEffect, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Control, IsEffect, Params, Uid, Serialize, Deserialize)]
 pub struct Bitcrusher {
     uid: Uid,
 

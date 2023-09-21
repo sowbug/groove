@@ -14,8 +14,7 @@ use groove_orchestration::EntityObsolete;
 use groove_toys::{ToyEffect, ToyEffectParams};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum EffectSettings {
     #[serde(rename_all = "kebab-case")]

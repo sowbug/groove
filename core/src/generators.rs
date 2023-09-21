@@ -14,13 +14,11 @@ use ensnare_proc_macros::{Control, Params};
 use kahan::KahanSum;
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use nalgebra::{Matrix3, Matrix3x1};
+use serde::{Deserialize, Serialize};
 use std::{f64::consts::PI, fmt::Debug, ops::Range};
 use strum::EnumCount;
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumCount as EnumCountMacro, EnumIter, FromRepr, IntoStaticStr};
-
-#[cfg(feature = "serialization")]
-use serde::{Deserialize, Serialize};
 
 #[derive(
     Clone,
@@ -33,12 +31,10 @@ use serde::{Deserialize, Serialize};
     FromRepr,
     PartialEq,
     IntoStaticStr,
+    Serialize,
+    Deserialize,
 )]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "waveform", rename_all = "kebab-case")
-)]
+#[serde(rename = "waveform", rename_all = "kebab-case")]
 pub enum Waveform {
     None,
     #[default]
@@ -134,15 +130,15 @@ pub struct Oscillator {
     noise_x2: u32,
 
     /// An internal copy of the current sample rate.
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     sample_rate: SampleRate,
 
     /// The internal clock. Advances once per tick().
     ///
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     ticks: usize,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     signal: BipolarNormal,
 
     // It's important for us to remember the "cursor" in the current waveform,
@@ -151,26 +147,26 @@ pub struct Oscillator {
     // pops, transients, and suckage.
     //
     // Needs Kahan summation algorithm to avoid accumulation of FP errors.
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     cycle_position: KahanSum<f64>,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     delta: f64,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     delta_updated: bool,
 
     // Whether this oscillator's owner should sync other oscillators to this
     // one. Calculated during tick().
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     should_sync: bool,
 
     // If this is a synced oscillator, then whether we should reset our waveform
     // to the start.
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     is_sync_pending: bool,
 
     // Set on init and reset().
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     reset_handled: bool,
 }
 impl Default for Oscillator {
@@ -468,8 +464,7 @@ impl EnvelopeParams {
     }
 }
 
-#[derive(Debug, Default, Control, Params)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Default, Control, Params, Serialize, Deserialize)]
 pub struct Envelope {
     #[control]
     #[params]
@@ -484,50 +479,50 @@ pub struct Envelope {
     #[params]
     release: Normal,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     sample_rate: SampleRate,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     state: State,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     was_reset: bool,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     ticks: usize,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     time: Seconds,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     uncorrected_amplitude: KahanSum<f64>,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     corrected_amplitude: f64,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     delta: f64,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     amplitude_target: f64,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     time_target: Seconds,
 
     // Whether the amplitude was set to an explicit value during this frame,
     // which means that the caller is expecting to get an amplitude of that
     // exact value, which means that we should return the PRE-update value
     // rather than the usual post-update value.
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     amplitude_was_set: bool,
 
     // Polynomial coefficients for convex
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     convex_a: f64,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     convex_b: f64,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     convex_c: f64,
 
     // Polynomial coefficients for concave
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     concave_a: f64,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     concave_b: f64,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     concave_c: f64,
 }
 impl GeneratesEnvelope for Envelope {
@@ -1087,8 +1082,7 @@ impl Displays for Envelope {
     }
 }
 
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub enum SteppedEnvelopeFunction {
     #[default]
     Linear,
@@ -1096,8 +1090,7 @@ pub enum SteppedEnvelopeFunction {
     Exponential,
 }
 
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct SteppedEnvelopeStep {
     pub interval: Range<SignalType>,
     pub start_value: SignalType,
@@ -1105,8 +1098,7 @@ pub struct SteppedEnvelopeStep {
     pub step_function: SteppedEnvelopeFunction,
 }
 
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct SteppedEnvelope {
     time_unit: ClockTimeUnit,
     steps: Vec<SteppedEnvelopeStep>,
@@ -1223,11 +1215,15 @@ impl SteppedEnvelope {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use crate::{traits::tests::DebugTicks, util::tests::TestOnlyPaths, SAMPLE_BUFFER_SIZE};
+    use crate::{util::tests::TestOnlyPaths, SAMPLE_BUFFER_SIZE};
     use ensnare::{midi::MidiNote, time::Transport, traits::Configurable, traits::Ticks};
     use float_cmp::approx_eq;
     use more_asserts::{assert_gt, assert_lt};
     use std::path::PathBuf;
+
+    pub trait DebugTicks: Ticks {
+        fn debug_tick_until(&mut self, tick_number: usize);
+    }
 
     impl DebugTicks for Oscillator {
         fn debug_tick_until(&mut self, tick_number: usize) {
@@ -1698,7 +1694,8 @@ pub mod tests {
     // Where possible, we'll erase the envelope type and work only with the
     // Envelope trait, so that we can confirm that the trait alone is useful.
     fn get_ge_trait_stuff() -> (Transport, impl GeneratesEnvelope) {
-        let transport = Transport::default();
+        let mut transport = Transport::default();
+        transport.play();
         let envelope = Envelope::new_with(&EnvelopeParams::new_with(
             (0.1).into(),
             (0.2).into(),
@@ -1786,6 +1783,7 @@ pub mod tests {
         // units of wall-clock time, and we migrated to MusicalTime, which is
         // based on beats.
         transport.set_tempo(Tempo(60.0));
+        transport.play();
 
         let attack: Normal = Envelope::from_seconds_to_normal(Seconds(0.1));
         let decay: Normal = Envelope::from_seconds_to_normal(Seconds(0.2));
@@ -1809,7 +1807,6 @@ pub mod tests {
         let mut last_amplitude = envelope.value();
 
         envelope.tick(1);
-        transport.advance(1);
 
         let amplitude = run_until(
             &mut envelope,
@@ -1819,7 +1816,7 @@ pub mod tests {
                 assert_lt!(
                     last_amplitude,
                     amplitude,
-                    "Expected amplitude to rise through attack time ending at {time_marker}, but it didn't at time {}", transport.current_time().total_beats()
+                    "Expected amplitude to rise through attack time ending at {time_marker}, but it didn't at time {}", transport.current_time().total_units()
                 );
                 last_amplitude = amplitude;
             },
@@ -1862,6 +1859,8 @@ pub mod tests {
     fn generates_envelope_trait_sustain_duration_then_release() {
         let mut transport = Transport::default();
         transport.set_tempo(Tempo(60.0));
+        transport.play();
+
         let attack: Normal = Envelope::from_seconds_to_normal(Seconds(0.1));
         let decay: Normal = Envelope::from_seconds_to_normal(Seconds(0.2));
         const SUSTAIN: Normal = Normal::new_const(0.8);
@@ -1936,6 +1935,7 @@ pub mod tests {
     fn simple_envelope_interrupted_decay_with_second_attack() {
         let mut transport = Transport::default();
         transport.set_tempo(Tempo(60.0));
+        transport.play();
 
         // These settings are copied from Welsh Piano's filter envelope, which
         // is where I noticed some unwanted behavior.
@@ -2063,6 +2063,7 @@ pub mod tests {
     fn generates_envelope_trait_decay_and_release_based_on_full_amplitude_range() {
         let mut transport = Transport::default();
         transport.set_tempo(Tempo(60.0));
+        transport.play();
         const ATTACK: Normal = Normal::minimum();
         let decay: Normal = Envelope::from_seconds_to_normal(Seconds(0.8));
         let sustain = Normal::new_const(0.5);
@@ -2084,7 +2085,7 @@ pub mod tests {
             |_amplitude, _clock| {},
         )
         .value();
-        assert!(approx_eq!(f64, amplitude, sustain.value(), epsilon=0.00001),
+        assert!(approx_eq!(f64, amplitude, sustain.value(), epsilon=0.0001),
             "Expected to see sustain level {} instead of {} at time {} (which is {:.1}% of decay time {}, based on full 1.0..=0.0 amplitude range)",
             sustain.value(),
             amplitude,
@@ -2092,7 +2093,6 @@ pub mod tests {
             decay,
             100.0 * (1.0 - sustain.value())
         );
-        transport.advance(1);
 
         // Release after note-off should also be shorter than the release value.
         envelope.trigger_release();

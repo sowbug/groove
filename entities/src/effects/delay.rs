@@ -200,7 +200,7 @@ pub struct Delay {
     #[params]
     seconds: ParameterType,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     delay: DelayLine,
 }
 impl Serializable for Delay {}

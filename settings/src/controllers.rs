@@ -57,8 +57,7 @@ impl ControlStepSettings {
     }
 }
 
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct ControlPathSettings {
     pub id: DeviceId,
@@ -82,16 +81,14 @@ impl ControlPathSettings {
     }
 }
 
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct ControlTargetSettings {
     pub id: DeviceId,
     pub param: String,
 }
 
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct ControlTripSettings {
     pub id: DeviceId,
@@ -101,8 +98,7 @@ pub struct ControlTripSettings {
     pub path_ids: Vec<DeviceId>,
 }
 
-#[derive(Debug)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ControllerSettings {
     #[serde(rename_all = "kebab-case")]

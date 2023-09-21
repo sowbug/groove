@@ -9,8 +9,8 @@ anyhow = "1.0"
 cpal = "0.15"
 crossbeam = "0.8"
 dipstick = { version = "0.9", optional = true }
-eframe = { version = "0.22", optional = true }
-egui_extras = { version = "0.22", optional = true }
+eframe = { version = "0.22" }
+egui_extras = { version = "0.22" }
 ensnare = { path = "../../ensnare" }
 ensnare-proc-macros = { path = "../../ensnare/proc-macros" }
 groove-core = { path = "../core" }
@@ -23,11 +23,9 @@ num-derive = "0.3"
 num-traits = "0.2"
 oorandom = "11.1"
 rustc-hash = "1.1"
-serde = { version = "1.0", features = ["derive"], optional = true }
+serde = { version = "1.0", features = ["derive"] }
 strum = "0.25"
 strum_macros = "0.25"
 
 [features]
-egui-framework = ["eframe", "egui_extras", "groove-core/egui-framework"]
 metrics = ["dep:dipstick"]
-serialization = ["serde"]

@@ -15,17 +15,16 @@ use groove_utils::Paths;
 use serde::{Deserialize, Serialize};
 use std::{path::Path, sync::Arc};
 
-#[derive(Debug, Control, IsInstrument, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Control, IsInstrument, Params, Uid, Serialize, Deserialize)]
 pub struct Drumkit {
     #[params]
     name: String,
 
     uid: Uid,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     #[allow(dead_code)]
     paths: Paths,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     inner_synth: Synthesizer<SamplerVoice>,
 }
 impl Generates<StereoSample> for Drumkit {

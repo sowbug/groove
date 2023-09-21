@@ -8,10 +8,8 @@ use ensnare::{
     traits::prelude::*,
 };
 use ensnare_proc_macros::{Control, IsController, Params, Uid};
-use std::{ops::Range, option::Option};
-
-#[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
+use std::{ops::Range, option::Option};
 
 /// [Arpeggiator] creates [arpeggios](https://en.wikipedia.org/wiki/Arpeggio),
 /// which "is a type of broken chord in which the notes that compose a chord are
@@ -19,8 +17,7 @@ use serde::{Deserialize, Serialize};
 /// order." You can also think of it as a hybrid MIDI instrument and MIDI
 /// controller; you play it with MIDI, but instead of producing audio, it
 /// produces more MIDI.
-#[derive(Debug, Control, IsController, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Control, IsController, Params, Uid, Serialize, Deserialize)]
 pub struct Arpeggiator {
     uid: Uid,
     midi_channel_out: MidiChannel,

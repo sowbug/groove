@@ -1,17 +1,14 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     fmt::Display,
     ops::{Add, Mul},
 };
 
-#[cfg(feature = "serialization")]
-use serde::{Deserialize, Serialize};
-
 // A way to specify a time unit that Clock tracks.
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub enum ClockTimeUnit {
     #[default]
     Seconds,
@@ -26,8 +23,7 @@ pub enum ClockTimeUnit {
 #[cfg(obsolete)]
 mod obsolete {
     /// A timekeeper that operates in terms of sample rate.
-    #[derive(Debug, Control, Uid)]
-    #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+    #[derive(Debug, Control, Uid, Serialize, Deserialize)]
     pub struct Clock {
         #[control]
         bpm: ParameterType,
@@ -39,19 +35,19 @@ mod obsolete {
         time_signature: TimeSignature,
 
         /// The number of frames per second. Usually 44.1KHz for CD-quality audio.
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         sample_rate: ensnare::time::SampleRate,
 
         /// Samples since clock creation. It's called "frames" because tick() was
         /// already being used as a verb by the Ticks trait, and "samples" is a very
         /// overloaded term in digital audio. A synonymous term is "time slices,"
         /// used when the emphasis is on division of work into small parts.
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         frames: usize,
 
         /// Seconds elapsed since clock creation. Derived from sample rate and
         /// elapsed frames.
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         seconds: ParameterType,
 
         /// The number of measures that have elapsed according to the time
@@ -60,24 +56,24 @@ mod obsolete {
         ///
         /// TODO: is it actually useful for beats to be a float? Check and see
         /// whether the fractional use cases were actually using seconds.
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         measures: usize,
 
         /// Beats elapsed since clock creation. Derived from seconds and BPM.
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         beats: ParameterType,
 
         /// MIDI ticks since clock creation. Derived from seconds and
         /// midi_ticks_per_second. Typically 960 ticks per second
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         midi_ticks: usize,
 
         // True if anything unusual happened since the last tick, or there was no
         // last tick because this is the first.
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         was_reset: bool,
 
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         uid: Uid,
     }
     impl Default for Clock {
@@ -262,8 +258,7 @@ mod obsolete {
 ///
 /// TODO: look into MMA's time representation that uses a 32-bit integer with
 /// some math that stretches it out usefully.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PerfectTimeUnit(pub f64);
 
 impl Display for PerfectTimeUnit {

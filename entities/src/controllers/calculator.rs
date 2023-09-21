@@ -23,16 +23,13 @@ use ensnare::{
 };
 use ensnare_proc_macros::{Control, IsControllerInstrument, Uid};
 use groove_utils::Paths;
+use serde::{Deserialize, Serialize};
 use std::{ops::Range, path::Path, sync::Arc};
 use strum_macros::Display;
 use strum_macros::FromRepr;
 
-#[cfg(feature = "serialization")]
-use serde::{Deserialize, Serialize};
-
 /// Tempo is a u8 that ranges from 60..=240
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct TempoValue(u8);
 impl From<f32> for TempoValue {
     fn from(value: f32) -> Self {
@@ -46,8 +43,7 @@ impl Into<f32> for TempoValue {
 }
 
 /// Percentage is a u8 that ranges from 0..=100
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 struct Percentage(u8);
 impl From<u8> for Percentage {
     fn from(value: u8) -> Self {
@@ -78,16 +74,14 @@ impl Percentage {
     }
 }
 
-#[derive(Debug, Default, PartialEq)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
 enum EngineState {
     #[default]
     Idle,
     Playing,
 }
 
-#[derive(Debug)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Serialize, Deserialize)]
 struct Chains {
     indexes: Vec<u8>,
 }
@@ -129,8 +123,7 @@ impl Chains {
 }
 
 /// [Engine] contains the musical data other than the samples.
-#[derive(Debug)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Serialize, Deserialize)]
 struct Engine {
     swing: Percentage,
     tempo: CalculatorTempo,
@@ -429,8 +422,7 @@ enum UiState {
     Fx,      // press a pad to punch in effect
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub enum CalculatorTempo {
     HipHop,
     #[default]
@@ -441,8 +433,7 @@ pub enum CalculatorTempo {
 /// [Calculator] is the top-level musical instrument. It contains an [Engine]
 /// that has the song data, as well as a sampler synth that can generate digital
 /// audio. It draws the GUI and handles user input.
-#[derive(Control, IsControllerInstrument, Debug, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Control, IsControllerInstrument, Debug, Uid, Serialize, Deserialize)]
 pub struct Calculator {
     /// Required for the [groove_core::traits::HasUid] trait.
     uid: Uid,
@@ -459,29 +450,29 @@ pub struct Calculator {
     tempo: Tempo,
 
     /// Generates audio data.
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     inner_synth: Synthesizer<SamplerVoice>,
 
     /// Which mode the UI is in.
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     ui_state: UiState,
 
     /// Whether write is enabled.
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     is_write_enabled: bool,
 
     /// Controls LED blinking.
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     blink_counter: u8,
 
     /// Whether the pattern is used anywhere in the current chain. Used for
     /// chaining UI.
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     pattern_usages: [bool; 16],
 
     /// The last step we handled during playback. Used to tell whether it's time
     /// to process a new step.
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     last_handled_step: usize,
 
     #[serde(skip)]
@@ -829,8 +820,7 @@ impl Calculator {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 struct Pattern {
     steps: [Step; 16],
 }
@@ -979,8 +969,7 @@ impl Pattern {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 struct Step {
     sounds: [bool; 16],
     a: [Percentage; 16],

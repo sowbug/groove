@@ -37,8 +37,7 @@ pub enum LoadError {
     FormatError,
 }
 
-#[derive(Debug)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum DeviceSettings {
     Instrument(DeviceId, InstrumentSettings),
@@ -46,8 +45,7 @@ pub enum DeviceSettings {
     Effect(DeviceId, EffectSettings),
 }
 
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct PatternSettings {
     pub id: DeviceId,
@@ -79,8 +77,7 @@ impl PatternSettings {
     }
 }
 
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct TrackSettings {
     pub id: DeviceId,
@@ -90,8 +87,7 @@ pub struct TrackSettings {
     pub pattern_ids: Vec<DeviceId>,
 }
 
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct ControlSettings {
     pub id: DeviceId,
@@ -99,8 +95,7 @@ pub struct ControlSettings {
     pub target: ControlTargetSettings,
 }
 
-#[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct TimeSignatureSettings {
     pub top: usize,

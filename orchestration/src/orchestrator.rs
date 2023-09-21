@@ -20,14 +20,11 @@ use groove_entities::{
     effects::Mixer,
 };
 use rustc_hash::{FxHashMap, FxHashSet};
-
+use serde::{Deserialize, Serialize};
 use std::{
     io::{self, Write},
     ops::Range,
 };
-
-#[cfg(feature = "serialization")]
-use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "metrics")]
 use {dipstick::InputScope, metrics::DipstickWrapper};
@@ -59,10 +56,9 @@ impl Performance {
 /// with it.
 #[cfg(obsolete)]
 mod obsolete {
-    #[derive(Debug, Uid)]
-    #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+    #[derive(Debug, Uid, Serialize, Deserialize)]
     pub struct Orchestrator {
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         uid: Uid,
 
         title: Option<String>,
@@ -72,36 +68,35 @@ mod obsolete {
         // This is the master clock.
         clock: Clock,
 
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         is_performing: bool,
 
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         main_mixer_uid: Uid,
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         pattern_manager_uid: Uid,
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         sequencer_uid: Uid,
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         metronome_uid: Uid,
 
         #[cfg(feature = "metrics")]
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         metrics: DipstickWrapper,
 
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         should_output_perf: bool,
 
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         main_mixer_source_uids: FxHashSet<Uid>,
 
         loop_range: Option<Range<PerfectTimeUnit>>,
         is_loop_enabled: bool,
 
-        #[cfg(feature = "egui-framework")]
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         gui: OrchestratorGui,
 
-        #[cfg_attr(feature = "serialization", serde(skip))]
+        #[serde(skip)]
         last_time_range: Range<MusicalTime>,
     }
     impl Orchestrator {
@@ -543,7 +538,6 @@ mod obsolete {
                 is_loop_enabled: Default::default(),
                 last_time_range: Default::default(),
 
-                #[cfg(feature = "egui-framework")]
                 gui: Default::default(),
             };
             r.main_mixer_uid = r.add_with_uvid(
@@ -1027,7 +1021,7 @@ mod obsolete {
             self.store.update_sample_rate(sample_rate);
         }
     }
-    #[cfg(feature = "egui-framework")]
+
     mod gui {
         use crate::Orchestrator;
         use eframe::{
@@ -1189,8 +1183,7 @@ mod obsolete {
 }
 /// Keeps all [EntityObsolete] in one place, and manages their relationships, such as
 /// patch cables.
-#[derive(Debug, Default)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub(crate) struct Store {
     last_uid: Uid,
     uid_to_item: FxHashMap<Uid, EntityObsolete>,

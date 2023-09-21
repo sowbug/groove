@@ -2,7 +2,7 @@
 
 use crate::mini::{widgets::core::transport, Transport};
 use eframe::egui::Ui;
-use groove_core::traits::gui::Displays;
+use ensnare::traits::Displays;
 use std::path::PathBuf;
 
 /// Actions the user might take via the control panel.

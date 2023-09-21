@@ -1,19 +1,18 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::delay::{AllPassDelayLine, Delays, RecirculatingDelayLine};
-use eframe::egui::{DragValue, Slider, Ui};
-use ensnare::{instruments::Synthesizer, prelude::*, traits::prelude::*};
+use eframe::egui::Ui;
+use ensnare::{prelude::*, traits::prelude::*};
 use ensnare_proc_macros::{Control, IsEffect, Params, Uid};
 use serde::{Deserialize, Serialize};
 
 /// Schroeder reverb. Uses four parallel recirculating delay lines feeding into
 /// a series of two all-pass delay lines.
-#[derive(Debug, Control, IsEffect, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Control, IsEffect, Params, Uid, Serialize, Deserialize)]
 pub struct Reverb {
     uid: Uid,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     sample_rate: SampleRate,
 
     /// How much the effect should attenuate the input.
@@ -25,7 +24,7 @@ pub struct Reverb {
     #[params]
     seconds: ParameterType,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     channels: [ReverbChannel; 2],
 }
 impl Serializable for Reverb {}

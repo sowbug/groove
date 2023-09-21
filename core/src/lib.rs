@@ -5,8 +5,6 @@
 use eframe::egui::Slider;
 use ensnare::{prelude::*, traits::prelude::*};
 use ensnare_proc_macros::{Control, Params};
-
-#[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
 /// This struct doesn't do anything. It exists only to let the doc system know
@@ -22,8 +20,6 @@ pub mod generators;
 pub mod midi;
 /// Handles digital-audio, wall-clock, and musical time.
 pub mod time;
-/// Describes major public interfaces.
-pub mod traits;
 /// Contains various helper functions that keep different parts of the system
 /// consistent.
 pub mod util;
@@ -34,8 +30,7 @@ pub const SAMPLE_BUFFER_SIZE: usize = 64;
 /// of synths.
 ///
 /// See DSSPC++, Section 7.9 for requirements. TODO: implement
-#[derive(Debug, Default, Control, Params)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Default, Control, Params, Serialize, Deserialize)]
 pub struct Dca {
     #[control]
     #[params]

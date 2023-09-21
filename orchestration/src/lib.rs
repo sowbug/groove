@@ -25,12 +25,11 @@ mod tests {
         use ensnare_proc_macros::{Control, Params, Uid};
         use strum::EnumCount;
         use strum_macros::{EnumCount as EnumCountMacro, FromRepr};
-
-        #[cfg(feature = "serialization")]
         use serde::{Deserialize, Serialize};
 
-        #[derive(Clone, Copy, Debug, Default, EnumCountMacro, FromRepr, PartialEq)]
-        #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+        #[derive(
+            Clone, Copy, Debug, Default, EnumCountMacro, FromRepr, PartialEq, Serialize, Deserialize,
+        )]
         pub enum Abnormal {
             #[default]
             Foo,
@@ -47,8 +46,9 @@ mod tests {
             }
         }
 
-        #[derive(Clone, Copy, Debug, Default, EnumCountMacro, FromRepr, PartialEq)]
-        #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+        #[derive(
+            Clone, Copy, Debug, Default, EnumCountMacro, FromRepr, PartialEq, Serialize, Deserialize,
+        )]
         pub enum Cherry {
             #[default]
             Bing,

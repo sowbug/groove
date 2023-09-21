@@ -8,17 +8,17 @@ publish = false
 anyhow = "1.0"
 btreemultimap = "0.1"
 convert_case = "0.6"
-eframe = { version = "0.22", optional = true }
-egui_extras = { version = "0.22", optional = true }
+eframe = { version = "0.22" }
+egui_extras = { version = "0.22" }
 egui_extras_xt = { git = "https://github.com/sowbug/egui_extras_xt", features = [
     "knobs",
     "displays",
-], optional = true }
+] }
 ensnare = { path = "../../ensnare" }
 ensnare-proc-macros = { path = "../../ensnare/proc-macros" }
 float-cmp = "0.9"
-groove-core = { path = "../core", features = ["serialization"] }
-groove-egui = { path = "../egui", optional = true }
+groove-core = { path = "../core" }
+groove-egui = { path = "../egui" }
 groove-proc-macros = { path = "../proc-macros" }
 groove-toys = { path = "../toys" }
 groove-utils = { path = "../utils" }
@@ -30,20 +30,5 @@ oorandom = "11.1"
 rustc-hash = "1.1"
 strum = "0.25"
 strum_macros = "0.25"
-serde = { version = "1.0", features = ["derive"], optional = true }
+serde = { version = "1.0", features = ["derive"] }
 typetag = "0.2"
-
-[features]
-# https://stackoverflow.com/a/62972981/344467
-"serialization" = [
-    "serde",
-    "groove-core/serialization",
-    "groove-egui/serialization",
-]
-"egui-framework" = [
-    "eframe",
-    "egui_extras",
-    "egui_extras_xt",
-    "groove-core/egui-framework",
-    "groove-egui",
-]

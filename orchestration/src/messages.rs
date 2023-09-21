@@ -7,10 +7,8 @@ use ensnare::{
     prelude::*,
     traits::{prelude::*, MessageBounds},
 };
-use std::fmt::Debug;
-
-#[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
 #[derive(Debug)]
 pub enum GrooveInput {
@@ -61,8 +59,7 @@ impl MessageBounds for GrooveEvent {}
 /// implement IsController. The target_uid entity must implement Controllable.
 /// The point_index determines which of the target entity's controllable fields
 /// that this link controls.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct ControlLink {
     pub source_uid: Uid,
     pub target_uid: Uid,

@@ -81,8 +81,7 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
     let core_crate = format_ident!("{}", core_crate_name());
     let (structs, types) = build_lists(items.iter());
     let entity_enum = quote! {
-        #[derive(Debug)]
-        #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+        #[derive(Debug, Serialize, Deserialize)]
         pub enum EntityObsolete {
             #( #structs(Box<#types>) ),*
         }

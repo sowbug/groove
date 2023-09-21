@@ -18,12 +18,10 @@ use groove_core::{
 use serde::{Deserialize, Serialize};
 use strum_macros::{EnumCount as EnumCountMacro, FromRepr};
 
-#[derive(Clone, Copy, Debug, Default, EnumCountMacro, FromRepr, PartialEq)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "lfo-routing", rename_all = "kebab-case")
+#[derive(
+    Clone, Copy, Debug, Default, EnumCountMacro, FromRepr, PartialEq, Serialize, Deserialize,
 )]
+#[serde(rename = "lfo-routing", rename_all = "kebab-case")]
 pub enum LfoRouting {
     #[default]
     None,
@@ -33,8 +31,7 @@ pub enum LfoRouting {
     FilterCutoff,
 }
 
-#[derive(Control, Debug, Default, Params)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Control, Debug, Default, Params, Serialize, Deserialize)]
 pub struct WelshVoice {
     #[control]
     #[params]
@@ -77,16 +74,16 @@ pub struct WelshVoice {
     #[params]
     filter_envelope: Envelope,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     note_on_key: u7,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     note_on_velocity: u7,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     steal_is_underway: bool,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     sample: StereoSample,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     ticks: usize,
 }
 impl IsStereoSampleVoice for WelshVoice {}
@@ -317,12 +314,11 @@ impl WelshVoice {
     }
 }
 
-#[derive(Debug, Control, IsInstrument, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Control, IsInstrument, Params, Uid, Serialize, Deserialize)]
 pub struct WelshSynth {
     uid: Uid,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     inner_synth: Synthesizer<WelshVoice>,
 
     #[control]
@@ -526,22 +522,20 @@ impl WelshVoice {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND};
-    use convert_case::{Case, Casing};
-    use groove_core::util::tests::TestOnlyPaths;
+    // use convert_case::{Case, Casing};
+    // use groove_core::util::tests::TestOnlyPaths;
 
-    // TODO dedup
-    pub fn canonicalize_output_filename_and_path(filename: &str) -> String {
-        let mut path = TestOnlyPaths::data_path();
-        let snake_filename = format!("{}.wav", filename.to_case(Case::Snake)).to_string();
-        path.push(snake_filename);
-        if let Some(path) = path.to_str() {
-            path.to_string()
-        } else {
-            panic!("trouble creating output path")
-        }
-    }
+    // // TODO dedup
+    // pub fn canonicalize_output_filename_and_path(filename: &str) -> String {
+    //     let mut path = TestOnlyPaths::data_path();
+    //     let snake_filename = format!("{}.wav", filename.to_case(Case::Snake)).to_string();
+    //     path.push(snake_filename);
+    //     if let Some(path) = path.to_str() {
+    //         path.to_string()
+    //     } else {
+    //         panic!("trouble creating output path")
+    //     }
+    // }
 
     #[cfg(obsolete)]
     // TODO: refactor out to common test utilities

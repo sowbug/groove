@@ -5,13 +5,10 @@ use eframe::{
     emath,
     epaint::{self, pos2, vec2, Color32, Pos2, Rect, Stroke},
 };
-
 use ensnare::traits::Displays;
-#[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Waveform {}
 impl Displays for Waveform {
     fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {

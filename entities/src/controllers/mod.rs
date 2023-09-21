@@ -4,7 +4,9 @@ use eframe::egui::Ui;
 use ensnare::{midi::prelude::*, prelude::*, traits::prelude::*};
 use ensnare_proc_macros::{Control, IsController, IsControllerEffect, Params, Uid};
 use midly::MidiMessage;
-use std::{collections::VecDeque, ops::Range};
+
+use serde::{Deserialize, Serialize};
+use std::ops::Range;
 
 pub use arpeggiator::{Arpeggiator, ArpeggiatorParams};
 pub use calculator::Calculator;
@@ -19,9 +21,6 @@ mod control_trip;
 mod lfo;
 mod patterns;
 mod sequencers;
-
-#[cfg(feature = "serialization")]
-use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(
@@ -55,20 +54,19 @@ pub struct MidiChannelOutputParams {
 /// [Timer] runs for a specified amount of time, then indicates that it's done.
 /// It is useful when you need something to happen after a certain amount of
 /// wall-clock time, rather than musical time.
-#[derive(Debug, Control, IsController, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Control, IsController, Uid, Serialize, Deserialize)]
 pub struct Timer {
     uid: Uid,
 
     duration: MusicalTime,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     is_performing: bool,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     is_finished: bool,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     end_time: Option<MusicalTime>,
 }
 impl Serializable for Timer {}
@@ -142,8 +140,7 @@ impl Controls for Timer {
 
 // TODO: needs tests!
 /// [Trigger] issues a control signal after a specified amount of time.
-#[derive(Debug, Control, IsController, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Control, IsController, Uid, Serialize, Deserialize)]
 pub struct Trigger {
     uid: Uid,
 
@@ -219,8 +216,7 @@ impl Trigger {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub enum SignalPassthroughType {
     #[default]
     /// Maps -1.0..=1.0 to 0.0..=1.0. Min amplitude becomes 0.0, silence becomes
@@ -239,21 +235,20 @@ pub enum SignalPassthroughType {
 /// Uses an input signal as a control source. Transformation depends on
 /// configuration. Uses the standard Sample::from(StereoSample) methodology of
 /// averaging the two channels to create a single signal.
-#[derive(Control, Debug, Default, IsControllerEffect, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Control, Debug, Default, IsControllerEffect, Params, Uid, Serialize, Deserialize)]
 pub struct SignalPassthroughController {
     uid: Uid,
     passthrough_type: SignalPassthroughType,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     control_value: ControlValue,
 
     // We don't issue consecutive identical events, so we need to remember
     // whether we've sent the current value.
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     has_value_been_issued: bool,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     is_performing: bool,
 }
 impl Serializable for SignalPassthroughController {}
@@ -342,30 +337,29 @@ enum TestControllerAction {
     NoteOff,
 }
 
-// #[cfg(feature = "serialization")]
+//
 // use serde::{Deserialize, Serialize};
 
 /// An [IsController](groove_core::traits::IsController) that emits a MIDI
 /// note-on event on each beat, and a note-off event on each half-beat.
-#[derive(Debug, Default, Control, IsController, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Default, Control, IsController, Params, Uid, Serialize, Deserialize)]
 pub struct ToyController {
     uid: Uid,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     midi_channel_out: MidiChannel,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     is_enabled: bool,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     is_playing: bool,
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     is_performing: bool,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     time_range: Range<MusicalTime>,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     last_time_handled: MusicalTime,
 }
 impl Serializable for ToyController {}
@@ -437,7 +431,7 @@ impl HandlesMidi for ToyController {
     }
 }
 impl ToyController {
-    pub fn new_with(params: &ToyControllerParams, midi_channel_out: MidiChannel) -> Self {
+    pub fn new_with(_params: &ToyControllerParams, midi_channel_out: MidiChannel) -> Self {
         Self {
             midi_channel_out,
             ..Default::default()

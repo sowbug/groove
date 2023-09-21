@@ -7,15 +7,13 @@
 // in tests/entity_validator.rs.
 
 use crate::time::PerfectTimeUnit;
+use eframe::egui;
 use ensnare::{
     midi::{u7, MidiChannel, MidiMessage},
-    prelude::*,
     traits::HandlesMidi,
     uid::Uid,
 };
 use std::ops::Range;
-
-pub use self::gui::Displays;
 
 pub trait MessageBounds: std::fmt::Debug + Send {}
 
@@ -385,9 +383,6 @@ pub trait Entity: HasUid + Displays + Configurable + Serializable + std::fmt::De
 pub trait IsVoice<V>: Generates<V> + PlaysNotes + Send {}
 pub trait IsStereoSampleVoice: IsVoice<StereoSample> {}
 
-#[cfg(not(feature = "egui-framework"))]
-pub trait Shows {}
-
 /// Each app should have a Settings struct that is composed of subsystems having
 /// their own settings. Implementing [HasSettings] helps the composed struct
 /// manage its parts.
@@ -400,32 +395,27 @@ pub trait HasSettings {
     fn mark_clean(&mut self);
 }
 
-#[cfg(feature = "egui-framework")]
-pub mod gui {
-    use eframe::egui;
-    use ensnare::prelude::*;
-
-    /// Something that can be called during egui rendering to display a view of
-    /// itself.
-    //
-    // Adapted from egui_demo_lib/src/demo/mod.rs
-    pub trait Displays {
-        fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
-            ui.label("Coming soon!")
-        }
-    }
-
-    /// Similar to Displays, but doesn't return a Response.
-    #[deprecated]
-    pub trait DisplaysWithoutResponse {
-        fn ui(&mut self, ui: &mut egui::Ui);
-    }
-
-    /// Something that can display a portion of itself in a timeline view.
-    pub trait DisplaysInTimeline: Displays {
-        fn set_view_range(&mut self, view_range: &std::ops::Range<MusicalTime>);
+/// Something that can be called during egui rendering to display a view of
+/// itself.
+//
+// Adapted from egui_demo_lib/src/demo/mod.rs
+pub trait Displays {
+    fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
+        ui.label("Coming soon!")
     }
 }
+
+/// Similar to Displays, but doesn't return a Response.
+#[deprecated]
+pub trait DisplaysWithoutResponse {
+    fn ui(&mut self, ui: &mut egui::Ui);
+}
+
+/// Something that can display a portion of itself in a timeline view.
+pub trait DisplaysInTimeline: Displays {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<MusicalTime>);
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use ensnare::traits::Ticks;

@@ -19,8 +19,7 @@ use std::{cmp, fmt::Debug, ops::Range};
 
 /// A [Note] represents a key-down and key-up event pair that lasts for a
 /// specified duration.
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Note {
     pub key: u8,
     pub velocity: u8,
@@ -91,36 +90,31 @@ impl PatternManager {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct NewNote {
     key: u8,
     velocity: u8,
     //    duration: PerfectTimeUnit,
     range: Range<f32>,
 
-    #[cfg(feature = "egui-framework")]
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     ui_state: NewNoteUiState,
 }
 
 //pub type NewPatternEventsMap = BTreeMultiMap<PerfectTimeUnit, NewNote>;
 
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NewPattern {
     //    notes: NewPatternEventsMap,
     notes: Vec<NewNote>,
 
-    #[cfg(feature = "egui-framework")]
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     dragged_note: Option<NewNote>,
 
-    #[cfg(feature = "egui-framework")]
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     drag_from_start: bool,
-    #[cfg(feature = "egui-framework")]
-    #[cfg_attr(feature = "serialization", serde(skip))]
+
+    #[serde(skip)]
     drag_from_end: bool,
 }
 impl NewPattern {
@@ -153,7 +147,7 @@ impl Default for NewPattern {
                         start: 0.0,
                         end: 1.0,
                     },
-                    #[cfg(feature = "egui-framework")]
+
                     ui_state: Default::default(),
                 },
                 NewNote {
@@ -163,22 +157,21 @@ impl Default for NewPattern {
                         start: 3.0,
                         end: 4.0,
                     },
-                    #[cfg(feature = "egui-framework")]
+
                     ui_state: Default::default(),
                 },
             ],
-            #[cfg(feature = "egui-framework")]
+
             dragged_note: Default::default(),
-            #[cfg(feature = "egui-framework")]
+
             drag_from_start: Default::default(),
-            #[cfg(feature = "egui-framework")]
+
             drag_from_end: Default::default(),
         }
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub(crate) enum NewNoteUiState {
     #[default]
     Normal,
@@ -602,7 +595,6 @@ impl PatternProgrammer {
 mod tests {
     use super::*;
     use crate::controllers::SequencerParams;
-    use ensnare::prelude::*;
 
     #[test]
     fn pattern_mainline() {

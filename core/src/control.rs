@@ -2,20 +2,17 @@
 
 use crate::{BipolarNormal, Normal};
 use ensnare::prelude::*;
-#[cfg(feature = "serialization")]
+
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ControlName(pub String);
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ControlIndex(pub usize);
 
 /// A [ControlValue] is a standardized value range (0..=1.0) for
 /// Controls/Controllable.
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 pub struct ControlValue(pub f64);
 impl ControlValue {
     pub const MIN: Self = Self(0.0);

@@ -1,15 +1,14 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::delay::{DelayLine, Delays};
-use eframe::egui::{DragValue, Ui};
+use eframe::egui::Ui;
 use ensnare::{prelude::*, traits::prelude::*};
 use ensnare_proc_macros::{Control, IsEffect, Params, Uid};
 use serde::{Deserialize, Serialize};
 
 /// Schroeder reverb. Uses four parallel recirculating delay lines feeding into
 /// a series of two all-pass delay lines.
-#[derive(Debug, Default, Control, IsEffect, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Default, Control, IsEffect, Params, Uid, Serialize, Deserialize)]
 pub struct Chorus {
     uid: Uid,
 
@@ -21,7 +20,7 @@ pub struct Chorus {
     #[params]
     delay_seconds: ParameterType,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     delay: DelayLine,
 }
 impl Serializable for Chorus {}
