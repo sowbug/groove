@@ -68,10 +68,11 @@ mod tests {
     use super::*;
     use crate::mini::entity_factory::EntityStore;
     use ensnare::prelude::*;
-    use groove_core::traits::{
-        gui::Displays, Configurable, Controllable, Generates, HandlesMidi, Serializable, Ticks,
+    use ensnare::traits::{
+        Configurable, ControlEventsFn, Controllable, Controls, Displays, DisplaysInTimeline,
+        Entity, EntityEvent, Generates, HandlesMidi, Serializable, Ticks,
     };
-    use groove_proc_macros::{IsInstrument, Uid};
+    use ensnare_proc_macros::{IsInstrument, Uid};
     use std::sync::{Arc, RwLock};
 
     #[derive(Debug, Default, IsInstrument, Uid, Serialize, Deserialize)]

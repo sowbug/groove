@@ -1,10 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use eframe::egui::Ui;
 use ensnare::prelude::*;
-use groove_core::traits::{Configurable, Serializable, TransformsAudio};
-use groove_proc_macros::{Control, IsEffect, Params, Uid};
-
-#[cfg(feature = "serialization")]
+use ensnare::traits::prelude::*;
+use ensnare_proc_macros::{Control, IsEffect, Params, Uid};
 use serde::{Deserialize, Serialize};
 
 pub(super) trait Delays {
@@ -193,8 +192,7 @@ impl Configurable for AllPassDelayLine {
     }
 }
 
-#[derive(Debug, Default, Control, IsEffect, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Default, Control, IsEffect, Params, Uid, Serialize, Deserialize)]
 pub struct Delay {
     uid: Uid,
 
@@ -238,17 +236,9 @@ impl Delay {
         self.delay.set_delay_seconds(seconds);
     }
 }
-
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use super::Delay;
-    use eframe::egui::Ui;
-    use groove_core::traits::{gui::Displays, HasUid};
-
-    impl Displays for Delay {
-        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            ui.label(self.name())
-        }
+impl Displays for Delay {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        ui.label(self.name())
     }
 }
 

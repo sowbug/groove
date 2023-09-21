@@ -6,8 +6,12 @@ use eframe::{
     emath::RectTransform,
     epaint::{pos2, RectShape, Shape},
 };
-use ensnare::prelude::*;
-use groove_core::{midi::MidiNote, traits::gui::Displays};
+use ensnare::traits::{
+    Configurable, ControlEventsFn, Controllable, Controls, Displays, DisplaysInTimeline, Entity,
+    EntityEvent, Generates, GeneratesToInternalBuffer, HandlesMidi, HasSettings, HasUid,
+    Serializable, Ticks,
+};
+use ensnare::{midi::MidiNote, prelude::*};
 use std::collections::HashMap;
 
 use super::MIDI_NOTE_F32_RANGE;

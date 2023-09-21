@@ -1,11 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::delay::{DelayLine, Delays};
-use ensnare::prelude::*;
-use groove_core::traits::{Configurable, Serializable, TransformsAudio};
-use groove_proc_macros::{Control, IsEffect, Params, Uid};
-
-#[cfg(feature = "serialization")]
+use eframe::egui::{DragValue, Ui};
+use ensnare::{prelude::*, traits::prelude::*};
+use ensnare_proc_macros::{Control, IsEffect, Params, Uid};
 use serde::{Deserialize, Serialize};
 
 /// Schroeder reverb. Uses four parallel recirculating delay lines feeding into
@@ -74,17 +72,9 @@ impl Chorus {
         self.delay_seconds = delay_seconds;
     }
 }
-
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use super::Chorus;
-    use eframe::egui::Ui;
-    use groove_core::traits::{gui::Displays, HasUid};
-
-    impl Displays for Chorus {
-        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            ui.label(self.name())
-        }
+impl Displays for Chorus {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        ui.label(self.name())
     }
 }
 

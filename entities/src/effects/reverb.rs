@@ -1,11 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::delay::{AllPassDelayLine, Delays, RecirculatingDelayLine};
-use ensnare::prelude::*;
-use groove_core::traits::{Configurable, Serializable, TransformsAudio};
-use groove_proc_macros::{Control, IsEffect, Params, Uid};
-
-#[cfg(feature = "serialization")]
+use eframe::egui::{DragValue, Slider, Ui};
+use ensnare::{instruments::Synthesizer, prelude::*, traits::prelude::*};
+use ensnare_proc_macros::{Control, IsEffect, Params, Uid};
 use serde::{Deserialize, Serialize};
 
 /// Schroeder reverb. Uses four parallel recirculating delay lines feeding into
@@ -170,17 +168,9 @@ impl ReverbChannel {
         ]
     }
 }
-
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use super::Reverb;
-    use eframe::egui::Ui;
-    use groove_core::traits::{gui::Displays, HasUid};
-
-    impl Displays for Reverb {
-        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            ui.label(self.name())
-        }
+impl Displays for Reverb {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        ui.label(self.name())
     }
 }
 
@@ -188,8 +178,7 @@ mod gui {
 mod tests {
     use super::Reverb;
     use crate::{effects::ReverbParams, tests::DEFAULT_SAMPLE_RATE};
-    use ensnare::prelude::*;
-    use groove_core::traits::{Configurable, TransformsAudio};
+    use ensnare::{prelude::*, traits::prelude::*};
 
     #[test]
     fn reverb_does_anything_at_all() {

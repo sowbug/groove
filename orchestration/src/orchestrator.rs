@@ -8,6 +8,7 @@ use anyhow::anyhow;
 use core::fmt::Debug;
 use crossbeam::deque::Worker;
 use ensnare::{prelude::*, uid::IsUid};
+use ensnare_proc_macros::Uid;
 use groove_core::{
     control::{ControlIndex, ControlValue},
     midi::{MidiChannel, MidiMessage},
@@ -18,7 +19,6 @@ use groove_entities::{
     controllers::{PatternManager, Sequencer, SequencerParams},
     effects::Mixer,
 };
-use groove_proc_macros::Uid;
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use std::{
@@ -1037,7 +1037,7 @@ mod obsolete {
         };
         use egui_extras::{Size, StripBuilder};
         use ensnare::prelude::*;
-        use groove_core::traits::gui::Displays;
+
         use groove_entities::controllers::NewPattern;
         use num_derive::FromPrimitive;
         use num_traits::FromPrimitive;

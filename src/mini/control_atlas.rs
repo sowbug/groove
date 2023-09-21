@@ -3,15 +3,12 @@
 use super::rng::Rng;
 use derive_builder::Builder;
 use eframe::egui::Ui;
-use ensnare::{prelude::*, uid::Uid};
-use groove_core::{
-    control::ControlValue,
-    traits::{
-        gui::{Displays, DisplaysInTimeline},
-        Configurable, ControlEventsFn, Controls, EntityEvent, HandlesMidi, Serializable,
-    },
+use ensnare::traits::{
+    Configurable, ControlEventsFn, Controls, Displays, DisplaysInTimeline, EntityEvent,
+    HandlesMidi, Serializable,
 };
-use groove_proc_macros::{IsController, Uid};
+use ensnare::{prelude::*, uid::Uid};
+use ensnare_proc_macros::{IsController, Uid};
 use serde::{Deserialize, Serialize};
 use std::{
     ops::{Range, RangeInclusive},

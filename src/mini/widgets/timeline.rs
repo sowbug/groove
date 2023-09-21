@@ -11,7 +11,11 @@ use eframe::{
     epaint::{pos2, FontId, Rect, RectShape, Shape},
 };
 use ensnare::prelude::*;
-use groove_core::traits::gui::{Displays, DisplaysInTimeline};
+use ensnare::traits::{
+    Configurable, ControlEventsFn, Controllable, Controls, Displays, DisplaysInTimeline, Entity,
+    EntityEvent, Generates, GeneratesToInternalBuffer, HandlesMidi, HasSettings, HasUid,
+    Serializable, Ticks,
+};
 use std::ops::Range;
 use strum::EnumCount;
 use strum_macros::{EnumCount as EnumCountMacro, FromRepr};
@@ -68,9 +72,7 @@ impl<'a> Legend<'a> {
         Self { view_range }
     }
 
-    fn steps(
-        view_range: &std::ops::Range<MusicalTime>,
-    ) -> std::iter::StepBy<Range<usize>> {
+    fn steps(view_range: &std::ops::Range<MusicalTime>) -> std::iter::StepBy<Range<usize>> {
         let beat_count = view_range.end.total_beats() - view_range.start.total_beats();
         let step = (beat_count as f32).log10().round() as usize;
         (view_range.start.total_beats()..view_range.end.total_beats()).step_by(step * 2)

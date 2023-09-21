@@ -14,15 +14,13 @@ use eframe::{
     emath::{self, lerp},
     epaint::{pos2, vec2, Color32, Pos2, Rect, Rounding, Stroke, Vec2},
 };
-use ensnare::{prelude::*, uid::IsUid};
-use groove_core::{
+use ensnare::{
     midi::{new_note_off, new_note_on, MidiChannel, MidiMessage},
-    traits::{
-        gui::{Displays, DisplaysInTimeline},
-        Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable,
-    },
+    prelude::*,
+    traits::prelude::*,
+    uid::IsUid,
 };
-use groove_proc_macros::{Control, IsController, Params, Uid};
+use ensnare_proc_macros::{Control, IsController, Uid};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -130,7 +128,7 @@ pub struct SequencerEphemerals {
 /// [Sequencer] converts a chain of [Pattern]s into MIDI notes according to a
 /// given [Tempo] and [TimeSignature]. It is read-only with respect to
 /// [Pattern]s; the smallest unit of music it works with is a [Pattern].
-#[derive(Debug, Default, Control, IsController, Params, Uid, Serialize, Deserialize, Builder)]
+#[derive(Debug, Default, Control, IsController, Uid, Serialize, Deserialize, Builder)]
 pub struct Sequencer {
     #[builder(default)]
     uid: Uid,
@@ -578,10 +576,7 @@ impl Controls for Sequencer {
     fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
         let events = self.e.events.range(self.e.range.start..self.e.range.end);
         for event in events {
-            control_events_fn(
-                self.uid,
-                groove_core::traits::EntityEvent::Midi(MidiChannel(0), *event.1),
-            );
+            control_events_fn(self.uid, EntityEvent::Midi(MidiChannel(0), *event.1));
         }
     }
 

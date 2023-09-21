@@ -1,5 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use ensnare::midi::MidiNote;
+
 /// Contains widgets that help visualize audio.
 pub mod audio;
 
@@ -29,8 +31,8 @@ pub mod track;
 /// this is in reverse order, because vertically-oriented piano rolls show the
 /// highest notes at the top of the screen.
 pub const MIDI_NOTE_F32_RANGE: std::ops::RangeInclusive<f32> =
-    groove_core::midi::MidiNote::MAX as u8 as f32..=groove_core::midi::MidiNote::MIN as u8 as f32;
+    MidiNote::MAX as u8 as f32..=MidiNote::MIN as u8 as f32;
 
 /// A range that covers all MIDI note values in ascending order.
 pub const MIDI_NOTE_U8_RANGE: std::ops::RangeInclusive<u8> =
-    groove_core::midi::MidiNote::MIN as u8..=groove_core::midi::MidiNote::MAX as u8;
+    MidiNote::MIN as u8..=MidiNote::MAX as u8;

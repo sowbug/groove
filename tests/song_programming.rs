@@ -1,11 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use ensnare::prelude::*;
+use ensnare::traits::Configurable;
 use groove::{
     mini::{register_factory_entities, Key, OrchestratorBuilder, PatternBuilder},
     EntityFactory, Orchestrator,
 };
-use groove_core::traits::Configurable;
 use std::path::PathBuf;
 
 fn set_up_drum_track(o: &mut Orchestrator, factory: &EntityFactory) {

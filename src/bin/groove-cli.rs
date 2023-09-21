@@ -2,155 +2,157 @@
 
 //! The CLI (command-line interface) tool renders project files.
 
-use anyhow::Ok;
-use clap::Parser;
-use ensnare::prelude::*;
-use groove::{app_version, DEFAULT_BPM};
-use groove_core::{
-    time::{ClockParams, SampleRate, TimeSignatureParams},
-    traits::Configurable,
-    SAMPLE_BUFFER_SIZE,
-};
-use groove_orchestration::{helpers::IOHelper, Orchestrator};
-use groove_settings::SongSettings;
-use groove_utils::Paths;
-use regex::Regex;
-use std::{
-    path::{Path, PathBuf},
-    time::Instant,
-};
+#[cfg(obsolete)]
+mod obsolete {
+    use anyhow::Ok;
+    use clap::Parser;
+    use ensnare::prelude::*;
+    use groove::{app_version, DEFAULT_BPM};
+    use groove_core::SAMPLE_BUFFER_SIZE;
+    use groove_orchestration::{helpers::IOHelper, Orchestrator};
+    use groove_settings::SongSettings;
+    use groove_utils::Paths;
+    use regex::Regex;
+    use std::{
+        path::{Path, PathBuf},
+        time::Instant,
+    };
 
-#[cfg(feature = "scripting")]
-use groove::ScriptEngine;
+    #[cfg(feature = "scripting")]
+    use groove::ScriptEngine;
 
-#[derive(Parser, Debug, Default)]
-#[clap(author, about, long_about = None)]
-struct Args {
-    /// Names of files to process. Can be JSON, JSON5, MIDI, or scripts.
-    input: Vec<String>,
+    #[derive(Parser, Debug, Default)]
+    #[clap(author, about, long_about = None)]
+    struct Args {
+        /// Names of files to process. Can be JSON, JSON5, MIDI, or scripts.
+        input: Vec<String>,
 
-    /// Render as WAVE file(s) (file will appear next to source file)
-    #[clap(short = 'w', long, value_parser)]
-    wav: bool,
+        /// Render as WAVE file(s) (file will appear next to source file)
+        #[clap(short = 'w', long, value_parser)]
+        wav: bool,
 
-    /// Render as MP3 file(s) (not yet implemented)
-    #[clap(short = 'm', long, value_parser)]
-    mp3: bool,
+        /// Render as MP3 file(s) (not yet implemented)
+        #[clap(short = 'm', long, value_parser)]
+        mp3: bool,
 
-    /// Enable debug mode
-    #[clap(short = 'd', long, value_parser)]
-    debug: bool,
+        /// Enable debug mode
+        #[clap(short = 'd', long, value_parser)]
+        debug: bool,
 
-    /// Print perf information
-    #[clap(short = 'p', long, value_parser)]
-    perf: bool,
+        /// Print perf information
+        #[clap(short = 'p', long, value_parser)]
+        perf: bool,
 
-    /// Suppress status updates while processing
-    #[clap(short = 'q', long, value_parser)]
-    quiet: bool,
+        /// Suppress status updates while processing
+        #[clap(short = 'q', long, value_parser)]
+        quiet: bool,
 
-    /// Print version and exit
-    #[clap(short = 'v', long, value_parser)]
-    version: bool,
+        /// Print version and exit
+        #[clap(short = 'v', long, value_parser)]
+        version: bool,
+    }
 }
 
 fn main() -> anyhow::Result<()> {
-    let args = Args::parse();
+    #[cfg(obsolete)]
+    if true {
+        let args = Args::parse();
 
-    // TODO: output this information into any generated files (WAV, MP3, etc.)
-    // so that we can reproduce them when the code later changes.
-    if args.version {
-        println!("groove-cli {}", app_version());
-        return Ok(());
-    }
-
-    for input_filename in args.input {
-        if input_filename == "-" {
-            // This is a separator for cases like
-            //
-            // `cargo run --bin groove-cli - x.json5`
-            continue;
+        // TODO: output this information into any generated files (WAV, MP3, etc.)
+        // so that we can reproduce them when the code later changes.
+        if args.version {
+            println!("groove-cli {}", app_version());
+            return Ok(());
         }
-        const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
-        let mut orchestrator = if input_filename.ends_with(".nscr") {
-            #[cfg(feature = "scripting")]
-            let _r = ScriptEngine::new().execute_file(&args.script_in.unwrap());
 
-            // TODO: this is temporary, to return the right type
-            #[cfg(not(feature = "scripting"))]
-            Orchestrator::new_with(&ClockParams {
-                bpm: DEFAULT_BPM,
-                midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-                time_signature: TimeSignatureParams { top: 4, bottom: 4 },
-            })
-        } else if input_filename.ends_with(".json")
-            || input_filename.ends_with(".json5")
-            || input_filename.ends_with(".nsn")
-        {
+        for input_filename in args.input {
+            if input_filename == "-" {
+                // This is a separator for cases like
+                //
+                // `cargo run --bin groove-cli - x.json5`
+                continue;
+            }
+            const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
+            let mut orchestrator = if input_filename.ends_with(".nscr") {
+                #[cfg(feature = "scripting")]
+                let _r = ScriptEngine::new().execute_file(&args.script_in.unwrap());
+
+                // TODO: this is temporary, to return the right type
+                #[cfg(not(feature = "scripting"))]
+                Orchestrator::new_with(&ClockParams {
+                    bpm: DEFAULT_BPM,
+                    midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
+                    time_signature: TimeSignatureParams { top: 4, bottom: 4 },
+                })
+            } else if input_filename.ends_with(".json")
+                || input_filename.ends_with(".json5")
+                || input_filename.ends_with(".nsn")
+            {
+                let start_instant = Instant::now();
+                let paths = Paths::default();
+                let r = SongSettings::new_from_project_file(Path::new(&input_filename))?
+                    .instantiate(&paths, false)?;
+                if args.perf {
+                    println!(
+                        "Orchestrator instantiation time: {:.2?}",
+                        start_instant.elapsed()
+                    );
+                }
+                r
+            } else {
+                Orchestrator::new_with(&ClockParams {
+                    bpm: DEFAULT_BPM,
+                    midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
+                    time_signature: TimeSignatureParams { top: 4, bottom: 4 },
+                })
+            };
+
+            orchestrator.set_should_output_perf(args.perf);
+
+            if !args.quiet {
+                print!("Performing to queue ");
+            }
+            orchestrator.update_sample_rate(if args.wav {
+                SampleRate::DEFAULT
+            } else {
+                IOHelper::get_output_device_sample_rate()
+            });
             let start_instant = Instant::now();
-            let paths = Paths::default();
-            let r = SongSettings::new_from_project_file(Path::new(&input_filename))?
-                .instantiate(&paths, false)?;
+            let mut sample_buffer = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
+            let performance = orchestrator.run_performance(&mut sample_buffer, args.quiet)?;
             if args.perf {
                 println!(
-                    "Orchestrator instantiation time: {:.2?}",
+                    "\n Orchestrator performance time: {:.2?}",
                     start_instant.elapsed()
                 );
+                println!(" Sample count: {:?}", performance.worker.len());
+                println!(
+                    " Samples per msec: {:.2?} (goal >{:.2?})",
+                    performance.worker.len() as f32 / start_instant.elapsed().as_millis() as f32,
+                    performance.sample_rate.value() as f32 / 1000.0
+                );
+                println!(
+                    " usec per sample: {:.2?} (goal <{:.2?})",
+                    start_instant.elapsed().as_micros() as f32 / performance.worker.len() as f32,
+                    1000000.0 / performance.sample_rate.value() as f32
+                );
             }
-            r
-        } else {
-            Orchestrator::new_with(&ClockParams {
-                bpm: DEFAULT_BPM,
-                midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-                time_signature: TimeSignatureParams { top: 4, bottom: 4 },
-            })
-        };
-
-        orchestrator.set_should_output_perf(args.perf);
-
-        if !args.quiet {
-            print!("Performing to queue ");
-        }
-        orchestrator.update_sample_rate(if args.wav {
-            SampleRate::DEFAULT
-        } else {
-            IOHelper::get_output_device_sample_rate()
-        });
-        let start_instant = Instant::now();
-        let mut sample_buffer = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
-        let performance = orchestrator.run_performance(&mut sample_buffer, args.quiet)?;
-        if args.perf {
-            println!(
-                "\n Orchestrator performance time: {:.2?}",
-                start_instant.elapsed()
-            );
-            println!(" Sample count: {:?}", performance.worker.len());
-            println!(
-                " Samples per msec: {:.2?} (goal >{:.2?})",
-                performance.worker.len() as f32 / start_instant.elapsed().as_millis() as f32,
-                performance.sample_rate.value() as f32 / 1000.0
-            );
-            println!(
-                " usec per sample: {:.2?} (goal <{:.2?})",
-                start_instant.elapsed().as_micros() as f32 / performance.worker.len() as f32,
-                1000000.0 / performance.sample_rate.value() as f32
-            );
-        }
-        if !args.quiet {
-            println!("Rendering queue");
-        }
-        if args.wav {
-            let re = Regex::new(r"\.json5$").unwrap();
-            let output_filename = re.replace(&input_filename, ".wav");
-            if input_filename == output_filename {
-                panic!("would overwrite input file; couldn't generate output filename");
+            if !args.quiet {
+                println!("Rendering queue");
             }
-            IOHelper::send_performance_to_file(
-                &performance,
-                &PathBuf::from(output_filename.to_string()),
-            )?;
-        } else {
-            //  send_performance_to_output_device(&performance)?;
+            if args.wav {
+                let re = Regex::new(r"\.json5$").unwrap();
+                let output_filename = re.replace(&input_filename, ".wav");
+                if input_filename == output_filename {
+                    panic!("would overwrite input file; couldn't generate output filename");
+                }
+                IOHelper::send_performance_to_file(
+                    &performance,
+                    &PathBuf::from(output_filename.to_string()),
+                )?;
+            } else {
+                //  send_performance_to_output_device(&performance)?;
+            }
         }
     }
     Ok(())

@@ -1,11 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::{sequencer::SequencerBuilder, ControlTrip, EntityFactory, Key};
-use ensnare::{
-    core::{FrequencyHz, Normal},
-    time::MusicalTime,
-};
-use groove_core::{generators::Waveform, midi::MidiChannel};
+use ensnare::{midi::MidiChannel, prelude::*};
+use groove_core::generators::Waveform;
 use groove_entities::{
     controllers::{
         Arpeggiator, ArpeggiatorParams, LfoController, LfoControllerParams,
@@ -143,9 +140,7 @@ pub fn register_test_factory_entities(mut factory: EntityFactory) -> EntityFacto
             MidiChannel::from(0),
         ))
     });
-    factory.register_entity(Key::from("effect"), || {
-        Box::new(ToyEffect::new_with(&ToyEffectParams::default()))
-    });
+    factory.register_entity(Key::from("effect"), || Box::new(ToyEffect::default()));
 
     factory.complete_registration();
 

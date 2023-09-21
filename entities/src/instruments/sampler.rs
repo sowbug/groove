@@ -1,16 +1,15 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use anyhow::{anyhow, Result};
-use ensnare::prelude::*;
-use groove_core::{
+use eframe::egui::Ui;
+use ensnare::{
     instruments::Synthesizer,
-    midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
-    traits::{
-        Configurable, Generates, IsStereoSampleVoice, IsVoice, PlaysNotes, Serializable, Ticks,
-    },
+    midi::prelude::*,
+    prelude::*,
+    traits::prelude::*,
     voices::{VoiceCount, VoiceStore},
 };
-use groove_proc_macros::{Control, IsInstrument, Params, Uid};
+use ensnare_proc_macros::{Control, IsInstrument, Params, Uid};
 use groove_utils::Paths;
 use hound::WavReader;
 use std::{fs::File, io::BufReader, path::Path, sync::Arc};
@@ -39,20 +38,20 @@ impl PlaysNotes for SamplerVoice {
     }
 
     #[allow(unused_variables)]
-    fn note_on(&mut self, key: u8, velocity: u8) {
+    fn note_on(&mut self, key: u7, velocity: u7) {
         self.is_playing = true;
         self.sample_pointer = 0.0;
-        self.frequency = note_to_frequency(key);
+        self.frequency = FrequencyHz::from(MidiNote::from_repr(key.as_int() as usize).unwrap());
         self.sample_pointer_delta = (self.frequency / self.root_frequency).into();
     }
 
     #[allow(unused_variables)]
-    fn aftertouch(&mut self, velocity: u8) {
+    fn aftertouch(&mut self, velocity: u7) {
         todo!()
     }
 
     #[allow(unused_variables)]
-    fn note_off(&mut self, velocity: u8) {
+    fn note_off(&mut self, velocity: u7) {
         self.is_playing = false;
         self.sample_pointer = 0.0;
     }
@@ -170,7 +169,7 @@ impl Sampler {
                     let calculated_root_frequency = if params.root().value() > 0.0 {
                         params.root()
                     } else if let Ok(embedded_root_note) = Self::read_riff_metadata(&mut f2) {
-                        note_to_frequency(embedded_root_note)
+                        FrequencyHz::from(u7::from(embedded_root_note))
                     } else {
                         FrequencyHz::from(440.0)
                     };
@@ -336,17 +335,9 @@ impl Sampler {
         self.filename = filename;
     }
 }
-
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use super::Sampler;
-    use eframe::egui::Ui;
-    use groove_core::traits::{gui::Displays, HasUid};
-
-    impl Displays for Sampler {
-        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            ui.label(self.name())
-        }
+impl Displays for Sampler {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        ui.label(self.name())
     }
 }
 
@@ -413,7 +404,7 @@ mod tests {
         eprintln!("calculated {} ", sampler.calculated_root());
         assert_eq!(
             sampler.calculated_root(),
-            note_to_frequency(57),
+            MidiNote::A3.into(),
             "acidized WAV should produce sample with embedded root note"
         );
 
@@ -452,7 +443,7 @@ mod tests {
         );
         assert_eq!(
             sampler.calculated_root(),
-            note_to_frequency(69),
+            MidiNote::A4.into(),
             "If there is neither an acidized WAV nor a provided frequency, sample should have root note A4 (440Hz)"
         );
     }
@@ -469,7 +460,7 @@ mod tests {
         assert!(samples.is_ok());
         let samples = samples.unwrap();
         let mut voice = SamplerVoice::new_with_samples(Arc::new(samples), FrequencyHz::from(440.0));
-        voice.note_on(1, 127);
+        voice.note_on(1.into(), 127.into());
 
         // Skip a few frames in case attack is slow
         voice.tick(5);

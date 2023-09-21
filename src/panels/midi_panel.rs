@@ -2,11 +2,8 @@
 
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{CollapsingHeader, ComboBox, Ui};
-use groove_core::{
-    midi::{MidiChannel, MidiMessage},
-    traits::{gui::Displays, HasSettings},
-};
-use groove_midi::{
+use ensnare::{midi::prelude::*, traits::prelude::*};
+use ensnare_midi_interface::{
     MidiInterfaceEvent, MidiInterfaceInput, MidiInterfaceService, MidiPortDescriptor,
 };
 use serde::{Deserialize, Serialize};
@@ -334,15 +331,15 @@ impl<'a> Displays for MidiSettingsWidget<'a> {
                 let mut cb = ComboBox::from_label("MIDI in");
                 let (mut selected_index, _selected_text) =
                     if let Some(selected) = &self.settings.selected_input {
-                        cb = cb.selected_text(selected.name());
-                        (selected.index(), selected.name())
+                        cb = cb.selected_text(selected.name.clone());
+                        (selected.index, selected.name.as_str())
                     } else {
                         (usize::MAX, "None")
                     };
                 cb.show_ui(ui, |ui| {
                     for port in self.inputs.iter() {
                         if ui
-                            .selectable_value(&mut selected_index, port.index(), port.name())
+                            .selectable_value(&mut selected_index, port.index, port.name.clone())
                             .changed()
                         {
                             self.settings.set_input(Some(port.clone()));
@@ -355,15 +352,15 @@ impl<'a> Displays for MidiSettingsWidget<'a> {
                 let mut cb = ComboBox::from_label("MIDI out");
                 let (mut selected_index, _selected_text) =
                     if let Some(selected) = &self.settings.selected_output {
-                        cb = cb.selected_text(selected.name());
-                        (selected.index(), selected.name())
+                        cb = cb.selected_text(selected.name.clone());
+                        (selected.index, selected.name.as_str())
                     } else {
                         (usize::MAX, "None")
                     };
                 cb.show_ui(ui, |ui| {
                     for port in self.outputs.iter() {
                         if ui
-                            .selectable_value(&mut selected_index, port.index(), port.name())
+                            .selectable_value(&mut selected_index, port.index, port.name.clone())
                             .changed()
                         {
                             self.settings.set_output(Some(port.clone()));

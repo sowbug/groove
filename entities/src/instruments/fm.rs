@@ -1,20 +1,15 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use ensnare::prelude::*;
+use eframe::egui::Ui;
+use ensnare::{
+    instruments::Synthesizer, midi::prelude::*, prelude::*, traits::prelude::*,
+    traits::GeneratesEnvelope, voices::StealingVoiceStore,
+};
+use ensnare_proc_macros::{Control, IsInstrument, Params, Uid};
 use groove_core::{
     generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams, Waveform},
-    instruments::Synthesizer,
-    midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
-    traits::{
-        Configurable, Generates, GeneratesEnvelope, IsStereoSampleVoice, IsVoice, PlaysNotes,
-        Serializable, Ticks,
-    },
-    voices::StealingVoiceStore,
     Dca, DcaParams,
 };
-use groove_proc_macros::{Control, IsInstrument, Params, Uid};
-
-#[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default)]
@@ -42,8 +37,8 @@ pub struct FmVoice {
     modulator_envelope: Envelope,
     dca: Dca,
 
-    note_on_key: u8,
-    note_on_velocity: u8,
+    note_on_key: u7,
+    note_on_velocity: u7,
     steal_is_underway: bool,
 
     sample_rate: SampleRate,
@@ -55,7 +50,7 @@ impl PlaysNotes for FmVoice {
         !self.carrier_envelope.is_idle()
     }
 
-    fn note_on(&mut self, key: u8, velocity: u8) {
+    fn note_on(&mut self, key: u7, velocity: u7) {
         if self.is_playing() {
             self.steal_is_underway = true;
             self.note_on_key = key;
@@ -63,17 +58,17 @@ impl PlaysNotes for FmVoice {
             self.carrier_envelope.trigger_shutdown();
             self.modulator_envelope.trigger_shutdown();
         } else {
-            self.set_frequency_hz(note_to_frequency(key));
+            self.set_frequency_hz(MidiNote::from_repr(key.as_int() as usize).unwrap().into());
             self.carrier_envelope.trigger_attack();
             self.modulator_envelope.trigger_attack();
         }
     }
 
-    fn aftertouch(&mut self, _velocity: u8) {
+    fn aftertouch(&mut self, _velocity: u7) {
         todo!()
     }
 
-    fn note_off(&mut self, _velocity: u8) {
+    fn note_off(&mut self, _velocity: u7) {
         self.carrier_envelope.trigger_release();
         self.modulator_envelope.trigger_release();
     }
@@ -349,16 +344,8 @@ impl FmSynth {
         &self.dca
     }
 }
-
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use super::FmSynth;
-    use eframe::egui::Ui;
-    use groove_core::traits::{gui::Displays, HasUid};
-
-    impl Displays for FmSynth {
-        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            ui.label(self.name())
-        }
+impl Displays for FmSynth {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        ui.label(self.name())
     }
 }

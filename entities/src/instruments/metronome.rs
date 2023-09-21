@@ -1,16 +1,5 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use ensnare::prelude::*;
-use groove_core::{
-    generators::{Oscillator, OscillatorParams, Waveform},
-    midi::HandlesMidi,
-    traits::{Configurable, Generates, Serializable, Ticks},
-};
-use groove_proc_macros::{Control, IsInstrument, Params, Uid};
-
-#[cfg(feature = "serialization")]
-use serde::{Deserialize, Serialize};
-
 #[cfg(obsolete)]
 mod obsolete {
 
@@ -111,7 +100,6 @@ mod obsolete {
     mod gui {
         use super::Metronome;
         use eframe::egui::Ui;
-        use groove_core::traits::gui::Displays;
 
         impl Displays for Metronome {
             fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {

@@ -1,10 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use ensnare::prelude::*;
-use groove_core::traits::{Configurable, Serializable, TransformsAudio};
-use groove_proc_macros::{Control, IsEffect, Params, Uid};
-
-#[cfg(feature = "serialization")]
+use eframe::egui::{DragValue, Slider, Ui};
+use ensnare::{prelude::*, traits::prelude::*};
+use ensnare_proc_macros::{Control, IsEffect, Params, Uid};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Control, IsEffect, Params, Uid)]
@@ -67,45 +65,35 @@ impl Limiter {
         self.minimum = min;
     }
 }
-
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use super::Limiter;
-    use eframe::egui::{Slider, Ui};
-    use ensnare::prelude::*;
-    use groove_core::traits::gui::Displays;
-
-    impl Displays for Limiter {
-        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            let mut min = self.minimum().to_percentage();
-            let mut max = self.maximum().to_percentage();
-            let min_response = ui.add(
-                Slider::new(&mut min, 0.0..=max)
-                    .suffix(" %")
-                    .text("min")
-                    .fixed_decimals(2),
-            );
-            if min_response.changed() {
-                self.set_minimum(min.into());
-            };
-            let max_response = ui.add(
-                Slider::new(&mut max, min..=1.0)
-                    .suffix(" %")
-                    .text("max")
-                    .fixed_decimals(2),
-            );
-            if max_response.changed() {
-                self.set_maximum(Normal::from_percentage(max).into());
-            };
-            min_response | max_response
-        }
+impl Displays for Limiter {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        let mut min = self.minimum().to_percentage();
+        let mut max = self.maximum().to_percentage();
+        let min_response = ui.add(
+            Slider::new(&mut min, 0.0..=max)
+                .suffix(" %")
+                .text("min")
+                .fixed_decimals(2),
+        );
+        if min_response.changed() {
+            self.set_minimum(min.into());
+        };
+        let max_response = ui.add(
+            Slider::new(&mut max, min..=1.0)
+                .suffix(" %")
+                .text("max")
+                .fixed_decimals(2),
+        );
+        if max_response.changed() {
+            self.set_maximum(Normal::from_percentage(max).into());
+        };
+        min_response | max_response
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use groove_core::traits::Generates;
     use groove_toys::{ToyAudioSource, ToyAudioSourceParams};
     use more_asserts::{assert_gt, assert_lt};
 

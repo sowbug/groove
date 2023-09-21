@@ -1,9 +1,14 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use eframe::egui::Ui;
+use ensnare::{midi::prelude::*, prelude::*, traits::prelude::*};
+use ensnare_proc_macros::{Control, IsController, IsControllerEffect, Params, Uid};
+use midly::MidiMessage;
+use std::{collections::VecDeque, ops::Range};
+
 pub use arpeggiator::{Arpeggiator, ArpeggiatorParams};
 pub use calculator::Calculator;
 pub use control_trip::{ControlPath, ControlStep};
-use ensnare::prelude::*;
 pub use lfo::{LfoController, LfoControllerParams};
 pub use patterns::{NewPattern, Note, Pattern, PatternManager, PatternProgrammer};
 pub use sequencers::{Sequencer, SequencerParams};
@@ -14,16 +19,6 @@ mod control_trip;
 mod lfo;
 mod patterns;
 mod sequencers;
-
-use groove_core::{
-    control::ControlValue,
-    midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessagesFn},
-    time::ClockTimeUnit,
-    traits::{Configurable, ControlEventsFn, Controls, EntityEvent, Serializable, TransformsAudio},
-};
-use groove_proc_macros::{Control, IsController, IsControllerEffect, Params, Uid};
-use midly::MidiMessage;
-use std::{collections::VecDeque, ops::Range};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -138,18 +133,6 @@ impl Controls for Timer {
 
     fn skip_to_start(&mut self) {
         // TODO: think how important it is for LFO oscillator to start at zero
-    }
-
-    fn set_loop(&mut self, _range: &Range<groove_core::time::PerfectTimeUnit>) {
-        // TODO
-    }
-
-    fn clear_loop(&mut self) {
-        // TODO
-    }
-
-    fn set_loop_enabled(&mut self, _is_enabled: bool) {
-        // TODO
     }
 
     fn is_performing(&self) -> bool {
@@ -364,7 +347,7 @@ enum TestControllerAction {
 
 /// An [IsController](groove_core::traits::IsController) that emits a MIDI
 /// note-on event on each beat, and a note-off event on each half-beat.
-#[derive(Debug, Control, IsController, Params, Uid)]
+#[derive(Debug, Default, Control, IsController, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ToyController {
     uid: Uid,
@@ -378,15 +361,6 @@ pub struct ToyController {
     is_playing: bool,
     #[cfg_attr(feature = "serialization", serde(skip))]
     is_performing: bool,
-
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    pub checkpoint_values: VecDeque<f32>,
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    pub checkpoint: f32,
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    pub checkpoint_delta: f32,
-    #[cfg_attr(feature = "serialization", serde(skip))]
-    pub time_unit: ClockTimeUnit,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
     time_range: Range<MusicalTime>,
@@ -464,36 +438,9 @@ impl HandlesMidi for ToyController {
 }
 impl ToyController {
     pub fn new_with(params: &ToyControllerParams, midi_channel_out: MidiChannel) -> Self {
-        Self::new_with_test_values(
-            params,
-            midi_channel_out,
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
-        )
-    }
-
-    pub fn new_with_test_values(
-        _params: &ToyControllerParams,
-        midi_channel_out: MidiChannel,
-        values: &[f32],
-        checkpoint: f32,
-        checkpoint_delta: f32,
-        time_unit: ClockTimeUnit,
-    ) -> Self {
         Self {
-            uid: Default::default(),
             midi_channel_out,
-            is_enabled: Default::default(),
-            is_playing: Default::default(),
-            is_performing: false,
-            checkpoint_values: VecDeque::from(Vec::from(values)),
-            checkpoint,
-            checkpoint_delta,
-            time_unit,
-            time_range: MusicalTime::empty_range(),
-            last_time_handled: MusicalTime::TIME_MAX,
+            ..Default::default()
         }
     }
 
@@ -538,42 +485,34 @@ impl ToyController {
 //     }
 // }
 
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use super::{SignalPassthroughController, Timer, ToyController, Trigger};
-    use eframe::egui::Ui;
-    use groove_core::traits::{gui::Displays, HasUid};
-
-    impl Displays for Timer {
-        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            ui.label(self.name())
-        }
+impl Displays for Timer {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        ui.label(self.name())
     }
+}
 
-    impl Displays for Trigger {
-        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            ui.label(self.name())
-        }
+impl Displays for Trigger {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        ui.label(self.name())
     }
+}
 
-    impl Displays for SignalPassthroughController {
-        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            ui.label(self.name())
-        }
+impl Displays for SignalPassthroughController {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        ui.label(self.name())
     }
+}
 
-    impl Displays for ToyController {
-        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            ui.label(self.name())
-        }
+impl Displays for ToyController {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        ui.label(self.name())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::controllers::{Timer, Trigger};
-    use ensnare::prelude::*;
-    use groove_core::traits::{Configurable, Controls};
+    use ensnare::{prelude::*, traits::prelude::*};
     use std::ops::Range;
 
     #[test]
@@ -581,7 +520,7 @@ mod tests {
         let ts = TimeSignature::default();
         let mut trigger = Trigger::new_with(
             Timer::new_with(MusicalTime::new_with_bars(&ts, 1)),
-            groove_core::control::ControlValue::from(0.5),
+            ControlValue::from(0.5),
         );
         trigger.update_sample_rate(SampleRate::DEFAULT);
         trigger.play();

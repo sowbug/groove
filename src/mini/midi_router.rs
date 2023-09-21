@@ -2,8 +2,10 @@
 
 use super::entity_factory::EntityStore;
 use anyhow::anyhow;
-use ensnare::uid::Uid;
-use groove_core::midi::{MidiChannel, MidiMessage};
+use ensnare::{
+    midi::{MidiChannel, MidiMessage},
+    prelude::*,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -86,13 +88,8 @@ impl MidiRouter {
 mod tests {
     use super::MidiRouter;
     use crate::mini::entity_factory::EntityStore;
-    use ensnare::prelude::*;
-    use groove_core::{
-        midi,
-        midi::{MidiChannel, MidiMessage, MidiMessagesFn},
-        traits::{gui::Displays, Configurable, Generates, HandlesMidi, Serializable, Ticks},
-    };
-    use groove_proc_macros::{Control, IsInstrument, Uid};
+    use ensnare::{midi::prelude::*, prelude::*, traits::prelude::*};
+    use ensnare_proc_macros::{Control, IsInstrument, Uid};
     use serde::{Deserialize, Serialize};
     use std::sync::{Arc, RwLock};
 
@@ -174,7 +171,7 @@ mod tests {
         r.connect(Uid(1), MidiChannel(1));
         r.connect(Uid(2), MidiChannel(2));
 
-        let m = midi::new_note_on(1, 1);
+        let m = new_note_on(1, 1);
 
         assert!(r.route(&mut es, MidiChannel(99), m).is_ok());
         if let Ok(t) = tracker.read() {
@@ -232,7 +229,7 @@ mod tests {
         r.connect(Uid(1), MidiChannel(1));
         r.connect(Uid(2), MidiChannel(2));
 
-        let m = midi::new_note_on(1, 1);
+        let m = new_note_on(1, 1);
 
         assert!(r.route(&mut es, MidiChannel(1), m).is_ok());
         if let Ok(t) = tracker.read() {
@@ -252,7 +249,7 @@ mod tests {
                 "produced message should be received"
             );
         };
-        let m = midi::new_note_on(2, 3);
+        let m = new_note_on(2, 3);
         assert!(r.route(&mut es, MidiChannel(2), m).is_ok());
         if let Ok(t) = tracker.read() {
             assert_eq!(
@@ -282,7 +279,7 @@ mod tests {
         let mut r = MidiRouter::default();
         r.connect(Uid(1), MidiChannel(1));
 
-        let m = midi::new_note_on(1, 1);
+        let m = new_note_on(1, 1);
 
         assert!(r.route(&mut es, MidiChannel(1), m).is_err());
     }

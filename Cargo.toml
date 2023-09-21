@@ -25,6 +25,8 @@ eframe = { version = "0.22", optional = true }
 egui-toast = { version = "0.8", optional = true }
 egui_extras = { version = "0.22", optional = true }
 ensnare = { path = "../ensnare" }
+ensnare-midi-interface = { path = "../ensnare/midi-interface" }
+ensnare-proc-macros = { path = "../ensnare/proc-macros" }
 enum-primitive-derive = "0.2"
 env_logger = "0.10"
 futures = "0.3"
@@ -36,7 +38,7 @@ groove-macros = { path = "macros" }
 groove-midi = { path = "midi", optional = true }
 groove-orchestration = { path = "orchestration", features = ["serialization"] }
 groove-proc-macros = { path = "proc-macros" }
-groove-settings = { path = "settings" }
+#groove-settings = { path = "settings" }
 groove-toys = { path = "toys", features = ["serialization", "egui-framework"] }
 groove-utils = { path = "utils" }
 hound = "3.5"
@@ -60,9 +62,9 @@ members = [
     "entities",
     "macros",
     "midi",
-    "orchestration",
+    #"orchestration",
     "proc-macros",
-    "settings",
+    #"settings",
     "toys",
     "utils",
 ]

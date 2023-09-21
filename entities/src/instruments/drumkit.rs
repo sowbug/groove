@@ -2,22 +2,18 @@
 
 use super::{sampler::SamplerVoice, Sampler};
 use anyhow::anyhow;
-use ensnare::prelude::*;
-use groove_core::{
+use eframe::egui::Ui;
+use ensnare::{
     instruments::Synthesizer,
-    midi::{
-        note_to_frequency, u7, GeneralMidiPercussionProgram, HandlesMidi, MidiChannel, MidiMessage,
-        MidiMessagesFn,
-    },
-    traits::{Configurable, Generates, Serializable, Ticks},
+    midi::{prelude::*, GeneralMidiPercussionProgram},
+    prelude::*,
+    traits::prelude::*,
     voices::VoicePerNoteStore,
 };
-use groove_proc_macros::{Control, IsInstrument, Params, Uid};
+use ensnare_proc_macros::{Control, IsInstrument, Params, Uid};
 use groove_utils::Paths;
-use std::{path::Path, sync::Arc};
-
-#[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
+use std::{path::Path, sync::Arc};
 
 #[derive(Debug, Control, IsInstrument, Params, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
@@ -67,7 +63,6 @@ impl HandlesMidi for Drumkit {
             .handle_midi_message(channel, message, midi_messages_fn)
     }
 }
-
 impl Drumkit {
     fn new_from_files(paths: &Paths, kit_name: &str) -> Self {
         let samples = vec![
@@ -107,7 +102,7 @@ impl Drumkit {
                             u7::from(program),
                             SamplerVoice::new_with_samples(
                                 Arc::new(samples),
-                                note_to_frequency(program),
+                                MidiNote::from_repr(program as usize).unwrap().into(),
                             ),
                         ))
                     } else {
@@ -141,17 +136,9 @@ impl Drumkit {
         self.name = name.to_string();
     }
 }
-
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use super::Drumkit;
-    use eframe::egui::Ui;
-    use groove_core::traits::gui::Displays;
-
-    impl Displays for Drumkit {
-        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            ui.label(self.name())
-        }
+impl Displays for Drumkit {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        ui.label(self.name())
     }
 }
 

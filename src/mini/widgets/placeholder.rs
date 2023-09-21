@@ -5,7 +5,7 @@ use eframe::{
     emath,
     epaint::{pos2, vec2, Color32, Pos2, Rect, Shape, Stroke},
 };
-use groove_core::traits::gui::Displays;
+use ensnare::traits::Displays;
 
 /// Wraps a [Wiggler] as a [Widget](eframe::egui::Widget).
 pub fn wiggler() -> impl eframe::egui::Widget {

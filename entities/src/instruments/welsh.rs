@@ -2,23 +2,21 @@
 
 use crate::effects::{BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbParams};
 use core::fmt::Debug;
-use ensnare::prelude::*;
+use eframe::{
+    egui::{CollapsingHeader, Response, Sense, Ui},
+    epaint::{Color32, Stroke, Vec2},
+};
+use ensnare::{
+    instruments::Synthesizer, midi::prelude::*, prelude::*, traits::prelude::*,
+    traits::GeneratesEnvelope, voices::StealingVoiceStore,
+};
+use ensnare_proc_macros::{Control, IsInstrument, Params, Uid};
 use groove_core::{
     generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams},
-    instruments::Synthesizer,
-    midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
-    traits::{
-        Configurable, Generates, GeneratesEnvelope, IsStereoSampleVoice, IsVoice, PlaysNotes,
-        Serializable, Ticks, TransformsAudio,
-    },
-    voices::StealingVoiceStore,
     Dca, DcaParams,
 };
-use groove_proc_macros::{Control, IsInstrument, Params, Uid};
-use strum_macros::{EnumCount as EnumCountMacro, FromRepr};
-
-#[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
+use strum_macros::{EnumCount as EnumCountMacro, FromRepr};
 
 #[derive(Clone, Copy, Debug, Default, EnumCountMacro, FromRepr, PartialEq)]
 #[cfg_attr(
@@ -80,9 +78,9 @@ pub struct WelshVoice {
     filter_envelope: Envelope,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
-    note_on_key: u8,
+    note_on_key: u7,
     #[cfg_attr(feature = "serialization", serde(skip))]
-    note_on_velocity: u8,
+    note_on_velocity: u7,
     #[cfg_attr(feature = "serialization", serde(skip))]
     steal_is_underway: bool,
 
@@ -97,7 +95,7 @@ impl PlaysNotes for WelshVoice {
     fn is_playing(&self) -> bool {
         !self.amp_envelope.is_idle()
     }
-    fn note_on(&mut self, key: u8, velocity: u8) {
+    fn note_on(&mut self, key: u7, velocity: u7) {
         if self.is_playing() {
             self.steal_is_underway = true;
             self.note_on_key = key;
@@ -106,13 +104,13 @@ impl PlaysNotes for WelshVoice {
         } else {
             self.amp_envelope.trigger_attack();
             self.filter_envelope.trigger_attack();
-            self.set_frequency_hz(note_to_frequency(key));
+            self.set_frequency_hz(MidiNote::from_repr(key.as_int() as usize).unwrap().into());
         }
     }
-    fn aftertouch(&mut self, _velocity: u8) {
+    fn aftertouch(&mut self, _velocity: u7) {
         // TODO: do something
     }
-    fn note_off(&mut self, _velocity: u8) {
+    fn note_off(&mut self, _velocity: u7) {
         self.amp_envelope.trigger_release();
         self.filter_envelope.trigger_release();
     }
@@ -440,101 +438,92 @@ impl WelshSynth {
     // }
 }
 
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use super::{WelshSynth, WelshVoice};
-    use eframe::{
-        egui::{CollapsingHeader, Response, Sense, Ui},
-        epaint::{Color32, Stroke, Vec2},
-    };
-    use groove_core::{instruments::Synthesizer, traits::gui::Displays};
-
-    impl Displays for WelshSynth {
-        fn ui(&mut self, ui: &mut Ui) -> Response {
-            // TODO: LED should be a reusable widget
-            const LED_SIZE: Vec2 = Vec2::splat(5.0);
-            let (rect, response) = ui.allocate_exact_size(LED_SIZE, Sense::hover());
-            ui.painter().rect(
-                rect,
-                ui.style().visuals.noninteractive().rounding,
-                if self.inner_synth.is_midi_recently_active() {
-                    Color32::YELLOW
-                } else {
-                    Color32::DARK_GRAY
-                },
-                Stroke::NONE,
-            );
-            self.voice.show(ui, &mut self.inner_synth);
-            response
-        }
-    }
-
-    impl WelshVoice {
-        fn show(&mut self, ui: &mut Ui, synth: &mut Synthesizer<Self>) {
-            CollapsingHeader::new("Oscillator 1")
-                .default_open(true)
-                .id_source(ui.next_auto_id())
-                .show(ui, |ui| {
-                    if let Some(changed) = self.oscillator_1.show(ui).inner {
-                        if changed {
-                            synth.voices_mut().for_each(|v| {
-                                v.oscillator_1.set_waveform(self.oscillator_1.waveform())
-                            })
-                        }
-                    }
-                });
-            CollapsingHeader::new("Oscillator 2")
-                .default_open(true)
-                .id_source(ui.next_auto_id())
-                .show(ui, |ui| {
-                    if let Some(changed) = self.oscillator_2.show(ui).inner {
-                        if changed {
-                            synth.voices_mut().for_each(|v| {
-                                v.oscillator_2.set_waveform(self.oscillator_2.waveform())
-                            })
-                        }
-                    }
-                });
-
-            // TODO: this doesn't get propagated to the voices, because the
-            // single DCA will be responsible for turning mono voice output to
-            // stereo.
-            CollapsingHeader::new("DCA")
-                .default_open(true)
-                .id_source(ui.next_auto_id())
-                .show(ui, |ui| {
-                    if self.dca.ui(ui).changed() {
-                        synth.voices_mut().for_each(|v| {
-                            v.dca.update_from_params(&self.dca.to_params());
-                        })
-                    }
-                });
-            CollapsingHeader::new("Amplitude")
-                .default_open(true)
-                .id_source(ui.next_auto_id())
-                .show(ui, |ui| {
-                    if self.amp_envelope.ui(ui).changed() {
-                        synth.voices_mut().for_each(|v| {
-                            v.amp_envelope_mut()
-                                .update_from_params(&self.amp_envelope.to_params());
-                        })
-                    }
-                });
-            CollapsingHeader::new("LPF")
-                .default_open(true)
-                .id_source(ui.next_auto_id())
-                .show(ui, |ui| {
-                    let filter_changed = self.filter.ui(ui).changed();
-                    let filter_envelope_changed = self.filter_envelope.ui(ui).changed();
-                    if filter_changed || filter_envelope_changed {
-                        synth.voices_mut().for_each(|v| {
-                            v.filter_mut().update_from_params(&self.filter.to_params());
-                        })
-                    }
-                });
-        }
+impl Displays for WelshSynth {
+    fn ui(&mut self, ui: &mut Ui) -> Response {
+        // TODO: LED should be a reusable widget
+        const LED_SIZE: Vec2 = Vec2::splat(5.0);
+        let (rect, response) = ui.allocate_exact_size(LED_SIZE, Sense::hover());
+        ui.painter().rect(
+            rect,
+            ui.style().visuals.noninteractive().rounding,
+            if self.inner_synth.is_midi_recently_active() {
+                Color32::YELLOW
+            } else {
+                Color32::DARK_GRAY
+            },
+            Stroke::NONE,
+        );
+        self.voice.show(ui, &mut self.inner_synth);
+        response
     }
 }
+
+impl WelshVoice {
+    fn show(&mut self, ui: &mut Ui, synth: &mut Synthesizer<Self>) {
+        CollapsingHeader::new("Oscillator 1")
+            .default_open(true)
+            .id_source(ui.next_auto_id())
+            .show(ui, |ui| {
+                if let Some(changed) = self.oscillator_1.show(ui).inner {
+                    if changed {
+                        synth
+                            .voices_mut()
+                            .for_each(|v| v.oscillator_1.set_waveform(self.oscillator_1.waveform()))
+                    }
+                }
+            });
+        CollapsingHeader::new("Oscillator 2")
+            .default_open(true)
+            .id_source(ui.next_auto_id())
+            .show(ui, |ui| {
+                if let Some(changed) = self.oscillator_2.show(ui).inner {
+                    if changed {
+                        synth
+                            .voices_mut()
+                            .for_each(|v| v.oscillator_2.set_waveform(self.oscillator_2.waveform()))
+                    }
+                }
+            });
+
+        // TODO: this doesn't get propagated to the voices, because the
+        // single DCA will be responsible for turning mono voice output to
+        // stereo.
+        CollapsingHeader::new("DCA")
+            .default_open(true)
+            .id_source(ui.next_auto_id())
+            .show(ui, |ui| {
+                if self.dca.ui(ui).changed() {
+                    synth.voices_mut().for_each(|v| {
+                        v.dca.update_from_params(&self.dca.to_params());
+                    })
+                }
+            });
+        CollapsingHeader::new("Amplitude")
+            .default_open(true)
+            .id_source(ui.next_auto_id())
+            .show(ui, |ui| {
+                if self.amp_envelope.ui(ui).changed() {
+                    synth.voices_mut().for_each(|v| {
+                        v.amp_envelope_mut()
+                            .update_from_params(&self.amp_envelope.to_params());
+                    })
+                }
+            });
+        CollapsingHeader::new("LPF")
+            .default_open(true)
+            .id_source(ui.next_auto_id())
+            .show(ui, |ui| {
+                let filter_changed = self.filter.ui(ui).changed();
+                let filter_envelope_changed = self.filter_envelope.ui(ui).changed();
+                if filter_changed || filter_envelope_changed {
+                    synth.voices_mut().for_each(|v| {
+                        v.filter_mut().update_from_params(&self.filter.to_params());
+                    })
+                }
+            });
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

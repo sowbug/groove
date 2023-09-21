@@ -1,10 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use eframe::egui::{DragValue, Ui};
 use ensnare::prelude::*;
-use groove_core::traits::{Configurable, Serializable, TransformsAudio};
-use groove_proc_macros::{Control, IsEffect, Params, Uid};
-
-#[cfg(feature = "serialization")]
+use ensnare::{prelude::*, traits::prelude::*};
+use ensnare_proc_macros::{Control, IsEffect, Params, Uid};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Control, IsEffect, Params, Uid)]
@@ -107,61 +106,53 @@ impl Compressor {
     }
 }
 
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use super::Compressor;
-    use eframe::egui::{DragValue, Ui};
-    use ensnare::prelude::*;
-    use groove_core::traits::gui::Displays;
-
-    impl Displays for Compressor {
-        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            let mut threshold = self.threshold().value();
-            let mut ratio = self.ratio();
-            let mut attack = self.attack();
-            let mut release = self.release();
-            let threshold_response = ui.add(
-                DragValue::new(&mut threshold)
-                    .fixed_decimals(2)
-                    .clamp_range(Normal::range())
-                    .speed(0.01)
-                    .prefix("Threshold: "),
-            );
-            if threshold_response.changed() {
-                self.set_threshold(threshold.into());
-            };
-            let ratio_response = ui.add(
-                DragValue::new(&mut ratio)
-                    .fixed_decimals(2)
-                    .clamp_range(Normal::range())
-                    .speed(0.01)
-                    .prefix("Ratio: "),
-            );
-            if ratio_response.changed() {
-                self.set_ratio(ratio.into());
-            };
-            let attack_response = ui.add(
-                DragValue::new(&mut attack)
-                    .fixed_decimals(2)
-                    .clamp_range(Normal::range())
-                    .speed(0.01)
-                    .prefix("Attack: "),
-            );
-            if attack_response.changed() {
-                self.set_attack(attack.into());
-            };
-            let release_response = ui.add(
-                DragValue::new(&mut release)
-                    .fixed_decimals(2)
-                    .clamp_range(Normal::range())
-                    .speed(0.01)
-                    .prefix("Release: "),
-            );
-            if release_response.changed() {
-                self.set_release(release.into());
-            };
-            threshold_response | ratio_response | attack_response | release_response
-        }
+impl Displays for Compressor {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        let mut threshold = self.threshold().value();
+        let mut ratio = self.ratio();
+        let mut attack = self.attack();
+        let mut release = self.release();
+        let threshold_response = ui.add(
+            DragValue::new(&mut threshold)
+                .fixed_decimals(2)
+                .clamp_range(Normal::range())
+                .speed(0.01)
+                .prefix("Threshold: "),
+        );
+        if threshold_response.changed() {
+            self.set_threshold(threshold.into());
+        };
+        let ratio_response = ui.add(
+            DragValue::new(&mut ratio)
+                .fixed_decimals(2)
+                .clamp_range(Normal::range())
+                .speed(0.01)
+                .prefix("Ratio: "),
+        );
+        if ratio_response.changed() {
+            self.set_ratio(ratio.into());
+        };
+        let attack_response = ui.add(
+            DragValue::new(&mut attack)
+                .fixed_decimals(2)
+                .clamp_range(Normal::range())
+                .speed(0.01)
+                .prefix("Attack: "),
+        );
+        if attack_response.changed() {
+            self.set_attack(attack.into());
+        };
+        let release_response = ui.add(
+            DragValue::new(&mut release)
+                .fixed_decimals(2)
+                .clamp_range(Normal::range())
+                .speed(0.01)
+                .prefix("Release: "),
+        );
+        if release_response.changed() {
+            self.set_release(release.into());
+        };
+        threshold_response | ratio_response | attack_response | release_response
     }
 }
 
@@ -169,7 +160,7 @@ mod gui {
 mod tests {
     use crate::effects::compressor::{Compressor, CompressorParams};
     use ensnare::core::{Normal, Sample, SampleType};
-    use groove_core::traits::TransformsAudio;
+    use ensnare::traits::prelude::*;
 
     #[test]
     fn basic_compressor() {

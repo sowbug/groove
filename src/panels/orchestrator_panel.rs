@@ -5,10 +5,12 @@ use crate::mini::{
 use anyhow::{anyhow, Result};
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::Ui;
+use ensnare::midi::{MidiChannel, MidiMessage};
 use ensnare::prelude::*;
-use groove_core::{
-    midi::{MidiChannel, MidiMessage},
-    traits::{gui::Displays, Configurable, Controls, HandlesMidi, Serializable},
+use ensnare::traits::{
+    Configurable, ControlEventsFn, Controllable, Controls, Displays, DisplaysInTimeline, Entity,
+    EntityEvent, Generates, GeneratesToInternalBuffer, HandlesMidi, HasSettings, HasUid,
+    Serializable, Ticks,
 };
 use std::{
     path::PathBuf,

@@ -4,7 +4,7 @@
 //! generation of audio from all the [Entities](entities::Entity) in the
 //! system.
 
-pub use entities::EntityObsolete;
+//pub use entities::EntityObsolete;
 //pub use orchestrator::Performance;
 
 pub mod helpers;
@@ -20,18 +20,9 @@ mod metrics;
 
 #[cfg(test)]
 mod tests {
-    use ensnare::prelude::*;
-
-    pub const DEFAULT_BPM: ParameterType = 128.0;
-    pub const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
-
     mod params {
-        use ensnare::prelude::*;
-        use groove_core::{
-            control::{ControlIndex, ControlValue},
-            traits::{Configurable, Controllable},
-        };
-        use groove_proc_macros::{Control, Params, Uid};
+        use ensnare::{prelude::*, traits::prelude::*};
+        use ensnare_proc_macros::{Control, Params, Uid};
         use strum::EnumCount;
         use strum_macros::{EnumCount as EnumCountMacro, FromRepr};
 

@@ -3,8 +3,12 @@
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{CollapsingHeader, Ui};
 use ensnare::prelude::*;
+use ensnare::traits::{
+    Configurable, ControlEventsFn, Controllable, Controls, Displays, DisplaysInTimeline, Entity,
+    EntityEvent, Generates, GeneratesToInternalBuffer, HandlesMidi, HasSettings, HasUid,
+    Serializable, Ticks,
+};
 use groove_audio::{AudioInterfaceEvent, AudioInterfaceInput, AudioQueue, AudioStreamService};
-use groove_core::traits::{gui::Displays, HasSettings};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Debug,

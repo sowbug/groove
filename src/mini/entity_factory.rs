@@ -3,8 +3,8 @@
 use anyhow::anyhow;
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use derive_more::Display;
+use ensnare::traits::{Configurable, ControlEventsFn, Controls, Entity, Serializable, Ticks};
 use ensnare::{prelude::*, uid::Uid};
-use groove_core::traits::{Configurable, ControlEventsFn, Controls, Entity, Serializable, Ticks};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::{collections::hash_map, fmt::Debug, option::Option};
@@ -315,8 +315,7 @@ impl Serializable for EntityStore {
 mod tests {
     use super::EntityStore;
     use crate::mini::{register_test_factory_entities, EntityFactory, Key};
-    use ensnare::prelude::*;
-    use groove_core::traits::{Configurable, HasUid};
+    use ensnare::{prelude::*, traits::prelude::*};
     use groove_toys::ToySynth;
     use std::collections::HashSet;
 

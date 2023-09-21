@@ -3,10 +3,12 @@
 use derive_builder::Builder;
 use eframe::egui::Ui;
 use ensnare::prelude::*;
-use groove_core::traits::{
-    gui::Displays, Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable,
+use ensnare::traits::{
+    Configurable, ControlEventsFn, Controllable, Controls, Displays, DisplaysInTimeline, Entity,
+    EntityEvent, Generates, GeneratesToInternalBuffer, HandlesMidi, HasSettings, HasUid,
+    Serializable, Ticks,
 };
-use groove_proc_macros::{Control, IsController, Uid};
+use ensnare_proc_macros::{Control, IsController, Uid};
 use serde::{Deserialize, Serialize};
 use std::ops::Range;
 

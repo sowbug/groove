@@ -4,12 +4,15 @@ use super::{piano_roll::Pattern, rng::Rng, Note};
 use btreemultimap::BTreeMultiMap;
 use derive_builder::Builder;
 use eframe::egui::Ui;
+use ensnare::midi::{MidiChannel, MidiMessage};
 use ensnare::prelude::*;
-use groove_core::{
-    midi::{MidiChannel, MidiMessage},
-    traits::{gui::Displays, Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable},
+use ensnare::traits::{
+    Configurable, ControlEventsFn, Controllable, Controls, Displays, DisplaysInTimeline, Entity,
+    EntityEvent, Generates, GeneratesToInternalBuffer, HandlesMidi, HasSettings, HasUid,
+    Serializable, Ticks,
 };
-use groove_proc_macros::{Control, IsController, Params, Uid};
+
+use ensnare_proc_macros::{Control, IsController, Uid};
 use serde::{Deserialize, Serialize};
 use std::ops::Range;
 
@@ -56,7 +59,7 @@ pub struct ESSequencerEphemerals {
 }
 
 /// [ESSequencer] replays [MidiMessage]s according to [MusicalTime].
-#[derive(Debug, Default, Control, IsController, Params, Uid, Serialize, Deserialize, Builder)]
+#[derive(Debug, Default, Control, IsController, Uid, Serialize, Deserialize, Builder)]
 #[builder(build_fn(private, name = "build_from_builder"))]
 pub struct ESSequencer {
     #[allow(missing_docs)]
@@ -201,10 +204,7 @@ impl Controls for ESSequencer {
     fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
         let events = self.e.events.range(self.e.range.start..self.e.range.end);
         for event in events {
-            control_events_fn(
-                self.uid,
-                groove_core::traits::EntityEvent::Midi(MidiChannel(0), *event.1),
-            );
+            control_events_fn(self.uid, EntityEvent::Midi(MidiChannel(0), *event.1));
         }
     }
 

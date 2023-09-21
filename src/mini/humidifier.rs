@@ -51,7 +51,7 @@ impl Humidifier {
 mod tests {
     use crate::mini::humidifier::Humidifier;
     use ensnare::prelude::*;
-    use groove_core::traits::TransformsAudio;
+    use ensnare::traits::prelude::*;
     use groove_toys::ToyEffect;
 
     #[test]

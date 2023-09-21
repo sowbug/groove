@@ -1,13 +1,13 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::{sequencers::Sequencer, SequencerParams};
-use ensnare::prelude::*;
-use groove_core::{
-    midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
-    time::PerfectTimeUnit,
-    traits::{Configurable, ControlEventsFn, Controls, Serializable},
+use eframe::egui::{self, ComboBox, Ui};
+use ensnare::{
+    midi::{new_note_off, new_note_on, MidiChannel, MidiMessage, MidiMessagesFn},
+    prelude::*,
+    traits::prelude::*,
 };
-use groove_proc_macros::{Control, IsController, Params, Uid};
+use ensnare_proc_macros::{Control, IsController, Params, Uid};
 use std::{ops::Range, option::Option};
 
 #[cfg(feature = "serialization")]
@@ -72,18 +72,6 @@ impl Controls for Arpeggiator {
         self.sequencer.skip_to_start();
     }
 
-    fn set_loop(&mut self, range: &Range<PerfectTimeUnit>) {
-        self.sequencer.set_loop(range);
-    }
-
-    fn clear_loop(&mut self) {
-        self.sequencer.clear_loop();
-    }
-
-    fn set_loop_enabled(&mut self, is_enabled: bool) {
-        self.sequencer.set_loop_enabled(is_enabled);
-    }
-
     fn is_performing(&self) -> bool {
         self.sequencer.is_performing()
     }
@@ -132,7 +120,14 @@ impl HandlesMidi for Arpeggiator {
         }
     }
 }
-
+impl Displays for Arpeggiator {
+    fn ui(&mut self, ui: &mut Ui) -> egui::Response {
+        let alternatives = ["major", "minor"];
+        let mut selected = 1;
+        ComboBox::from_label("Scale")
+            .show_index(ui, &mut selected, alternatives.len(), |i| alternatives[i])
+    }
+}
 impl Arpeggiator {
     pub fn new_with(params: &ArpeggiatorParams, midi_channel_out: MidiChannel) -> Self {
         Self {
@@ -173,21 +168,5 @@ impl Arpeggiator {
 
     pub fn set_bpm(&mut self, bpm: ParameterType) {
         self.bpm = bpm;
-    }
-}
-
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use super::Arpeggiator;
-    use eframe::egui::{self, ComboBox, Ui};
-    use groove_core::traits::gui::Displays;
-
-    impl Displays for Arpeggiator {
-        fn ui(&mut self, ui: &mut Ui) -> egui::Response {
-            let alternatives = ["major", "minor"];
-            let mut selected = 1;
-            ComboBox::from_label("Scale")
-                .show_index(ui, &mut selected, alternatives.len(), |i| alternatives[i])
-        }
     }
 }

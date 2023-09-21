@@ -6,7 +6,11 @@ use eframe::{
     emath::Align,
     epaint::vec2,
 };
-use groove_core::traits::gui::Displays;
+use ensnare::traits::{
+    Configurable, ControlEventsFn, Controllable, Controls, Displays, DisplaysInTimeline, Entity,
+    EntityEvent, Generates, GeneratesToInternalBuffer, HandlesMidi, HasSettings, HasUid,
+    Serializable, Ticks,
+};
 
 /// Wraps a [Transport] as a [Widget](eframe::egui::Widget).
 pub fn transport(transport: &mut Transport) -> impl eframe::egui::Widget + '_ {

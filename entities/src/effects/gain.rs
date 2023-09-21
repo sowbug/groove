@@ -1,10 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use ensnare::prelude::*;
-use groove_core::traits::{Configurable, Serializable, TransformsAudio};
-use groove_proc_macros::{Control, IsEffect, Params, Uid};
-
-#[cfg(feature = "serialization")]
+use eframe::egui::{DragValue, Ui};
+use ensnare::{prelude::*, traits::prelude::*};
+use ensnare_proc_macros::{Control, IsEffect, Params, Uid};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Control, IsEffect, Params, Uid)]
@@ -39,35 +37,25 @@ impl Gain {
         self.ceiling = ceiling;
     }
 }
-
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use super::Gain;
-    use eframe::egui::{DragValue, Ui};
-    use ensnare::prelude::*;
-    use groove_core::traits::gui::Displays;
-
-    impl Displays for Gain {
-        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            let mut ceiling = self.ceiling().to_percentage();
-            let response = ui.add(
-                DragValue::new(&mut ceiling)
-                    .clamp_range(0.0..=100.0)
-                    .fixed_decimals(2)
-                    .suffix(" %"),
-            );
-            if response.changed() {
-                self.set_ceiling(Normal::from_percentage(ceiling));
-            };
-            response
-        }
+impl Displays for Gain {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        let mut ceiling = self.ceiling().to_percentage();
+        let response = ui.add(
+            DragValue::new(&mut ceiling)
+                .clamp_range(0.0..=100.0)
+                .fixed_decimals(2)
+                .suffix(" %"),
+        );
+        if response.changed() {
+            self.set_ceiling(Normal::from_percentage(ceiling));
+        };
+        response
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use groove_core::traits::Generates;
     use groove_toys::{ToyAudioSource, ToyAudioSourceParams};
 
     #[test]

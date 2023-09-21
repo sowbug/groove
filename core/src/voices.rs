@@ -336,16 +336,15 @@ impl<V: IsStereoSampleVoice> VoicePerNoteStore<V> {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use crate::{
-        generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams, Waveform},
-        midi::{note_to_frequency, u7},
-        traits::{GeneratesEnvelope, IsVoice, PlaysNotes, StoresVoices, Ticks},
-        voices::{
-            Configurable, Generates, IsStereoSampleVoice, StealingVoiceStore, VoiceCount,
-            VoiceStore,
-        },
+    use crate::generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams, Waveform};
+    use ensnare::{
+        midi::u7,
+        midi::MidiNote,
+        prelude::*,
+        traits::prelude::*,
+        traits::GeneratesEnvelope,
+        voices::{StealingVoiceStore, VoiceCount, VoiceStore},
     };
-    use ensnare::prelude::*;
     use float_cmp::approx_eq;
     use more_asserts::assert_gt;
 
@@ -357,8 +356,8 @@ pub(crate) mod tests {
 
         sample: StereoSample,
 
-        note_on_key: u8,
-        note_on_velocity: u8,
+        note_on_key: u7,
+        note_on_velocity: u7,
         steal_is_underway: bool,
     }
     impl IsStereoSampleVoice for TestVoice {}
@@ -368,22 +367,22 @@ pub(crate) mod tests {
             !self.envelope.is_idle()
         }
 
-        fn note_on(&mut self, key: u8, velocity: u8) {
+        fn note_on(&mut self, key: u7, velocity: u7) {
             if self.is_playing() {
                 self.steal_is_underway = true;
                 self.note_on_key = key;
                 self.note_on_velocity = velocity;
             } else {
-                self.set_frequency_hz(note_to_frequency(key));
+                self.set_frequency_hz(FrequencyHz::from(key));
                 self.envelope.trigger_attack();
             }
         }
 
-        fn aftertouch(&mut self, _velocity: u8) {
+        fn aftertouch(&mut self, _velocity: u7) {
             todo!()
         }
 
-        fn note_off(&mut self, _velocity: u8) {
+        fn note_off(&mut self, _velocity: u7) {
             self.envelope.trigger_release();
         }
     }
@@ -462,19 +461,19 @@ pub(crate) mod tests {
     #[test]
     fn simple_voice_store_mainline() {
         let mut voice_store =
-            VoiceStore::<TestVoice>::new_with_voice(VoiceCount(2), || TestVoice::new());
+            VoiceStore::<TestVoice>::new_with_voice(VoiceCount::from(2), || TestVoice::new());
         assert_gt!(!voice_store.voice_count(), 0);
         assert_eq!(voice_store.active_voice_count(), 0);
 
         // Request and start the maximum number of voices.
         if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
             assert!(!voice.is_playing());
-            voice.note_on(60, 127);
+            voice.note_on(60.into(), 127.into());
             voice.tick(1); // We must tick() register the trigger.
             assert!(voice.is_playing());
         }
         if let Ok(voice) = voice_store.get_voice(&u7::from(61)) {
-            voice.note_on(61, 127);
+            voice.note_on(61.into(), 127.into());
             voice.tick(1);
         }
 
@@ -485,7 +484,7 @@ pub(crate) mod tests {
         // Request to get back a voice that's already playing.
         if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
             assert!(voice.is_playing());
-            voice.note_off(127);
+            voice.note_off(127.into());
 
             // All TestVoice envelope times are instantaneous, so we know the
             // release completes after asking for the next sample.
@@ -563,7 +562,7 @@ pub(crate) mod tests {
                 approx_eq!(
                     ParameterType,
                     voice.debug_oscillator_frequency().value(),
-                    note_to_frequency(60).value()
+                    FrequencyHz::from(MidiNote::C4).value()
                 ),
                 "we should have gotten back the same voice for the requested note"
             );
@@ -574,7 +573,7 @@ pub(crate) mod tests {
                 approx_eq!(
                     ParameterType,
                     voice.debug_oscillator_frequency().value(),
-                    note_to_frequency(61).value()
+                    FrequencyHz::from(MidiNote::D4).value()
                 ),
                 "we should have gotten back the same voice for the requested note"
             );
@@ -597,7 +596,7 @@ pub(crate) mod tests {
                 approx_eq!(
                     ParameterType,
                     voice.debug_oscillator_frequency().value(),
-                    note_to_frequency(60).value()
+                    FrequencyHz::from(MidiNote::C4).value()
                 ),
                 "we should have gotten back the same voice for the requested note"
             );
@@ -615,7 +614,7 @@ pub(crate) mod tests {
                 approx_eq!(
                     ParameterType,
                     voice.debug_oscillator_frequency().value(),
-                    note_to_frequency(60).value() // 60, not 62!!
+                    FrequencyHz::from(MidiNote::C4).value() // 60, not 62!!
                 ),
                 "we should have gotten the defunct voice for a new note"
             );

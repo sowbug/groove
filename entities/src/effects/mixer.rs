@@ -1,10 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use ensnare::prelude::*;
-use groove_core::traits::{Configurable, Serializable, TransformsAudio};
-use groove_proc_macros::{Control, IsEffect, Params, Uid};
-
-#[cfg(feature = "serialization")]
+use eframe::egui::{DragValue, Slider, Ui};
+use ensnare::{prelude::*, traits::prelude::*};
+use ensnare_proc_macros::{Control, IsEffect, Params, Uid};
 use serde::{Deserialize, Serialize};
 
 // TODO: I don't think Mixer needs to exist.
@@ -31,17 +29,9 @@ impl Mixer {
         }
     }
 }
-
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use super::Mixer;
-    use eframe::egui::Ui;
-    use groove_core::traits::gui::Displays;
-
-    impl Displays for Mixer {
-        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            ui.label("I don't have anything!")
-        }
+impl Displays for Mixer {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        ui.label("I don't have anything!")
     }
 }
 

@@ -1,18 +1,22 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::{
-    control::ControlValue,
-    time::{ClockTimeUnit, Seconds},
-    traits::{Configurable, Generates, GeneratesEnvelope, Ticks},
-    Normal,
+use crate::time::{ClockTimeUnit, Seconds};
+use eframe::{
+    egui::{ComboBox, DragValue, Frame, Sense, Ui},
+    emath,
+    epaint::{pos2, Color32, PathShape, Pos2, Rect, Shape, Stroke, Vec2},
 };
-use ensnare::prelude::*;
-use groove_proc_macros::{Control, Params};
+use ensnare::{
+    prelude::*,
+    traits::{prelude::*, GeneratesEnvelope},
+};
+use ensnare_proc_macros::{Control, Params};
 use kahan::KahanSum;
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use nalgebra::{Matrix3, Matrix3x1};
 use std::{f64::consts::PI, fmt::Debug, ops::Range};
 use strum::EnumCount;
+use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumCount as EnumCountMacro, EnumIter, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
@@ -92,8 +96,7 @@ impl OscillatorParams {
     }
 }
 
-#[derive(Debug, Control, Params)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Control, Params, Serialize, Deserialize)]
 pub struct Oscillator {
     #[control]
     #[params]
@@ -888,212 +891,199 @@ impl Envelope {
     }
 }
 
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use super::{Envelope, Oscillator, Waveform};
-    use crate::traits::gui::Displays;
-    use eframe::{
-        egui::{ComboBox, DragValue, Frame, Sense, Ui},
-        emath,
-        epaint::{pos2, Color32, PathShape, Pos2, Rect, Shape, Stroke, Vec2},
-    };
-    use strum::IntoEnumIterator;
-
-    impl Waveform {
-        pub fn show(&mut self, ui: &mut Ui) -> eframe::egui::InnerResponse<Option<bool>> {
-            let mut waveform = *self;
-            ComboBox::new(ui.next_auto_id(), "Waveform")
-                .selected_text(waveform.to_string())
-                .show_ui(ui, |ui| {
-                    for w in Waveform::iter() {
-                        let s: &'static str = w.into();
-                        if ui.selectable_value(&mut waveform, w, s).clicked() {
-                            *self = waveform;
-                            return true;
-                        }
+impl Waveform {
+    pub fn show(&mut self, ui: &mut Ui) -> eframe::egui::InnerResponse<Option<bool>> {
+        let mut waveform = *self;
+        ComboBox::new(ui.next_auto_id(), "Waveform")
+            .selected_text(waveform.to_string())
+            .show_ui(ui, |ui| {
+                for w in Waveform::iter() {
+                    let s: &'static str = w.into();
+                    if ui.selectable_value(&mut waveform, w, s).clicked() {
+                        *self = waveform;
+                        return true;
                     }
-                    return false;
-                })
-        }
+                }
+                return false;
+            })
     }
+}
 
-    impl Oscillator {
-        pub fn show(&mut self, ui: &mut Ui) -> eframe::egui::InnerResponse<Option<bool>> {
-            self.waveform.show(ui)
-        }
+impl Oscillator {
+    pub fn show(&mut self, ui: &mut Ui) -> eframe::egui::InnerResponse<Option<bool>> {
+        self.waveform.show(ui)
     }
+}
 
-    impl Envelope {
-        pub fn ui_content(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            let (mut response, painter) =
-                ui.allocate_painter(Vec2::new(ui.available_width(), 64.0), Sense::hover());
+impl Envelope {
+    pub fn ui_content(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        let (mut response, painter) =
+            ui.allocate_painter(Vec2::new(ui.available_width(), 64.0), Sense::hover());
 
-            let to_screen = emath::RectTransform::from_to(
-                Rect::from_min_size(Pos2::ZERO, response.rect.size()),
-                response.rect,
-            );
+        let to_screen = emath::RectTransform::from_to(
+            Rect::from_min_size(Pos2::ZERO, response.rect.size()),
+            response.rect,
+        );
 
-            let control_point_radius = 8.0;
+        let control_point_radius = 8.0;
 
-            let x_max = response.rect.size().x;
-            let y_max = response.rect.size().y;
+        let x_max = response.rect.size().x;
+        let y_max = response.rect.size().y;
 
-            let attack_x_scaled = self.attack.0 as f32 * x_max / 4.0;
-            let decay_x_scaled = self.decay.0 as f32 * x_max / 4.0;
-            let sustain_y_scaled = (1.0 - self.sustain.value() as f32) * y_max;
-            let release_x_scaled = self.release.0 as f32 * x_max / 4.0;
-            let mut control_points = vec![
-                pos2(attack_x_scaled, 0.0),
-                pos2(attack_x_scaled + decay_x_scaled, sustain_y_scaled),
-                pos2(
-                    attack_x_scaled
-                        + decay_x_scaled
-                        + (x_max - (attack_x_scaled + decay_x_scaled + release_x_scaled)) / 2.0,
-                    sustain_y_scaled,
-                ),
-                pos2(x_max - release_x_scaled, sustain_y_scaled),
-            ];
+        let attack_x_scaled = self.attack.0 as f32 * x_max / 4.0;
+        let decay_x_scaled = self.decay.0 as f32 * x_max / 4.0;
+        let sustain_y_scaled = (1.0 - self.sustain.value() as f32) * y_max;
+        let release_x_scaled = self.release.0 as f32 * x_max / 4.0;
+        let mut control_points = vec![
+            pos2(attack_x_scaled, 0.0),
+            pos2(attack_x_scaled + decay_x_scaled, sustain_y_scaled),
+            pos2(
+                attack_x_scaled
+                    + decay_x_scaled
+                    + (x_max - (attack_x_scaled + decay_x_scaled + release_x_scaled)) / 2.0,
+                sustain_y_scaled,
+            ),
+            pos2(x_max - release_x_scaled, sustain_y_scaled),
+        ];
 
-            let mut which_changed = usize::MAX;
-            let control_point_shapes: Vec<Shape> = control_points
-                .iter_mut()
-                .enumerate()
-                .map(|(i, point)| {
-                    let size = Vec2::splat(2.0 * control_point_radius);
+        let mut which_changed = usize::MAX;
+        let control_point_shapes: Vec<Shape> = control_points
+            .iter_mut()
+            .enumerate()
+            .map(|(i, point)| {
+                let size = Vec2::splat(2.0 * control_point_radius);
 
-                    let point_in_screen = to_screen.transform_pos(*point);
-                    let point_rect = Rect::from_center_size(point_in_screen, size);
-                    let point_id = response.id.with(i);
-                    let point_response = ui.interact(point_rect, point_id, Sense::drag());
-                    if point_response.drag_delta() != Vec2::ZERO {
-                        which_changed = i;
-                    }
+                let point_in_screen = to_screen.transform_pos(*point);
+                let point_rect = Rect::from_center_size(point_in_screen, size);
+                let point_id = response.id.with(i);
+                let point_response = ui.interact(point_rect, point_id, Sense::drag());
+                if point_response.drag_delta() != Vec2::ZERO {
+                    which_changed = i;
+                }
 
-                    // Restrict change to only the dimension we care about, so
-                    // it looks less janky.
-                    let mut drag_delta = point_response.drag_delta();
-                    match which_changed {
-                        0 => drag_delta.y = 0.0,
-                        1 => drag_delta.y = 0.0,
-                        2 => drag_delta.x = 0.0,
-                        3 => drag_delta.y = 0.0,
-                        usize::MAX => {}
-                        _ => unreachable!(),
-                    }
-
-                    *point += drag_delta;
-                    *point = to_screen.from().clamp(*point);
-
-                    let point_in_screen = to_screen.transform_pos(*point);
-                    let stroke = ui.style().interact(&point_response).fg_stroke;
-
-                    Shape::circle_stroke(point_in_screen, control_point_radius, stroke)
-                })
-                .collect();
-
-            if which_changed != usize::MAX {
+                // Restrict change to only the dimension we care about, so
+                // it looks less janky.
+                let mut drag_delta = point_response.drag_delta();
                 match which_changed {
-                    0 => {
-                        self.set_attack((control_points[0].x / (x_max / 4.0)).into());
-                    }
-                    1 => {
-                        self.set_decay(
-                            ((control_points[1].x - control_points[0].x) / (x_max / 4.0)).into(),
-                        );
-                    }
-                    2 => {
-                        self.set_sustain((1.0 - control_points[2].y / y_max).into());
-                    }
-                    3 => {
-                        self.set_release(((x_max - control_points[3].x) / (x_max / 4.0)).into());
-                    }
+                    0 => drag_delta.y = 0.0,
+                    1 => drag_delta.y = 0.0,
+                    2 => drag_delta.x = 0.0,
+                    3 => drag_delta.y = 0.0,
+                    usize::MAX => {}
                     _ => unreachable!(),
                 }
+
+                *point += drag_delta;
+                *point = to_screen.from().clamp(*point);
+
+                let point_in_screen = to_screen.transform_pos(*point);
+                let stroke = ui.style().interact(&point_response).fg_stroke;
+
+                Shape::circle_stroke(point_in_screen, control_point_radius, stroke)
+            })
+            .collect();
+
+        if which_changed != usize::MAX {
+            match which_changed {
+                0 => {
+                    self.set_attack((control_points[0].x / (x_max / 4.0)).into());
+                }
+                1 => {
+                    self.set_decay(
+                        ((control_points[1].x - control_points[0].x) / (x_max / 4.0)).into(),
+                    );
+                }
+                2 => {
+                    self.set_sustain((1.0 - control_points[2].y / y_max).into());
+                }
+                3 => {
+                    self.set_release(((x_max - control_points[3].x) / (x_max / 4.0)).into());
+                }
+                _ => unreachable!(),
             }
-
-            let control_points = vec![
-                pos2(0.0, y_max),
-                control_points[0],
-                control_points[1],
-                control_points[2],
-                control_points[3],
-                pos2(x_max, y_max),
-            ];
-            let points_in_screen: Vec<Pos2> =
-                control_points.iter().map(|p| to_screen * *p).collect();
-
-            painter.add(PathShape::line(
-                points_in_screen,
-                Stroke {
-                    width: 2.0,
-                    color: Color32::YELLOW,
-                },
-            ));
-            painter.extend(control_point_shapes);
-
-            if which_changed != usize::MAX {
-                response.mark_changed();
-            }
-            response
         }
+
+        let control_points = vec![
+            pos2(0.0, y_max),
+            control_points[0],
+            control_points[1],
+            control_points[2],
+            control_points[3],
+            pos2(x_max, y_max),
+        ];
+        let points_in_screen: Vec<Pos2> = control_points.iter().map(|p| to_screen * *p).collect();
+
+        painter.add(PathShape::line(
+            points_in_screen,
+            Stroke {
+                width: 2.0,
+                color: Color32::YELLOW,
+            },
+        ));
+        painter.extend(control_point_shapes);
+
+        if which_changed != usize::MAX {
+            response.mark_changed();
+        }
+        response
     }
-    impl Displays for Envelope {
-        fn ui(&mut self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
-            let mut attack = self.attack();
-            let mut decay = self.decay();
-            let mut sustain = self.sustain().to_percentage();
-            let mut release = self.release();
+}
+impl Displays for Envelope {
+    fn ui(&mut self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
+        let mut attack = self.attack();
+        let mut decay = self.decay();
+        let mut sustain = self.sustain().to_percentage();
+        let mut release = self.release();
 
-            let canvas_response = Frame::canvas(ui.style())
-                .show(ui, |ui| self.ui_content(ui))
-                .inner;
-            let attack_response = ui.add(
-                DragValue::new(&mut attack.0)
-                    .speed(0.1)
-                    .prefix("Attack: ")
-                    .clamp_range(0.0..=100.0)
-                    .suffix(" s"),
-            );
-            if attack_response.changed() {
-                self.set_attack(attack);
-            }
-            ui.end_row();
-            let decay_response = ui.add(
-                DragValue::new(&mut decay.0)
-                    .speed(0.1)
-                    .prefix("Decay: ")
-                    .clamp_range(0.0..=100.0)
-                    .suffix(" s"),
-            );
-            if decay_response.changed() {
-                self.set_decay(decay);
-            }
-            ui.end_row();
-            let sustain_response = ui.add(
-                DragValue::new(&mut sustain)
-                    .speed(0.1)
-                    .prefix("Sustain: ")
-                    .clamp_range(0.0..=100.0)
-                    .fixed_decimals(2)
-                    .suffix("%"),
-            );
-            if sustain_response.changed() {
-                self.set_sustain((sustain / 100.0).into());
-            }
-            ui.end_row();
-            let release_response = ui.add(
-                DragValue::new(&mut release.0)
-                    .speed(0.1)
-                    .prefix("Release: ")
-                    .clamp_range(0.0..=100.0)
-                    .suffix(" s"),
-            );
-            if release_response.changed() {
-                self.set_release(release);
-            }
-            ui.end_row();
-            canvas_response | attack_response | decay_response | sustain_response | release_response
+        let canvas_response = Frame::canvas(ui.style())
+            .show(ui, |ui| self.ui_content(ui))
+            .inner;
+        let attack_response = ui.add(
+            DragValue::new(&mut attack.0)
+                .speed(0.1)
+                .prefix("Attack: ")
+                .clamp_range(0.0..=100.0)
+                .suffix(" s"),
+        );
+        if attack_response.changed() {
+            self.set_attack(attack);
         }
+        ui.end_row();
+        let decay_response = ui.add(
+            DragValue::new(&mut decay.0)
+                .speed(0.1)
+                .prefix("Decay: ")
+                .clamp_range(0.0..=100.0)
+                .suffix(" s"),
+        );
+        if decay_response.changed() {
+            self.set_decay(decay);
+        }
+        ui.end_row();
+        let sustain_response = ui.add(
+            DragValue::new(&mut sustain)
+                .speed(0.1)
+                .prefix("Sustain: ")
+                .clamp_range(0.0..=100.0)
+                .fixed_decimals(2)
+                .suffix("%"),
+        );
+        if sustain_response.changed() {
+            self.set_sustain((sustain / 100.0).into());
+        }
+        ui.end_row();
+        let release_response = ui.add(
+            DragValue::new(&mut release.0)
+                .speed(0.1)
+                .prefix("Release: ")
+                .clamp_range(0.0..=100.0)
+                .suffix(" s"),
+        );
+        if release_response.changed() {
+            self.set_release(release);
+        }
+        ui.end_row();
+        canvas_response | attack_response | decay_response | sustain_response | release_response
     }
 }
 
@@ -1233,15 +1223,8 @@ impl SteppedEnvelope {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use crate::{
-        midi::{note_type_to_frequency, MidiNote},
-        traits::{
-            tests::DebugTicks, Configurable as OldConfigurable, Generates, GeneratesEnvelope, Ticks,
-        },
-        util::tests::TestOnlyPaths,
-        Normal, Sample, SampleType, SAMPLE_BUFFER_SIZE,
-    };
-    use ensnare::{time::Transport, traits::Configurable};
+    use crate::{traits::tests::DebugTicks, util::tests::TestOnlyPaths, SAMPLE_BUFFER_SIZE};
+    use ensnare::{midi::MidiNote, time::Transport, traits::Configurable, traits::Ticks};
     use float_cmp::approx_eq;
     use more_asserts::{assert_gt, assert_lt};
     use std::path::PathBuf;
@@ -1257,7 +1240,7 @@ pub mod tests {
     fn create_oscillator(waveform: Waveform, tune: Ratio, note: MidiNote) -> Oscillator {
         let mut oscillator = Oscillator::new_with(&OscillatorParams {
             waveform,
-            frequency: note_type_to_frequency(note),
+            frequency: FrequencyHz::from(note),
             ..Default::default()
         });
         oscillator.set_frequency_tune(tune);
@@ -1582,35 +1565,35 @@ pub mod tests {
         // Default
         assert_eq!(
             oscillator.adjusted_frequency(),
-            note_type_to_frequency(MidiNote::C4)
+            FrequencyHz::from(MidiNote::C4)
         );
 
         // Explicitly zero (none)
         oscillator.set_frequency_modulation(BipolarNormal::from(0.0));
         assert_eq!(
             oscillator.adjusted_frequency(),
-            note_type_to_frequency(MidiNote::C4)
+            FrequencyHz::from(MidiNote::C4)
         );
 
         // Max
         oscillator.set_frequency_modulation(BipolarNormal::from(1.0));
         assert_eq!(
             oscillator.adjusted_frequency(),
-            note_type_to_frequency(MidiNote::C5)
+            FrequencyHz::from(MidiNote::C5)
         );
 
         // Min
         oscillator.set_frequency_modulation(BipolarNormal::from(-1.0));
         assert_eq!(
             oscillator.adjusted_frequency(),
-            note_type_to_frequency(MidiNote::C3)
+            FrequencyHz::from(MidiNote::C3)
         );
 
         // Halfway between zero and max
         oscillator.set_frequency_modulation(BipolarNormal::from(0.5));
         assert_eq!(
             oscillator.adjusted_frequency(),
-            note_type_to_frequency(MidiNote::C4) * 2.0f64.sqrt()
+            FrequencyHz::from(MidiNote::C4) * 2.0f64.sqrt()
         );
     }
 

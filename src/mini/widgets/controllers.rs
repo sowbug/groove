@@ -7,7 +7,11 @@ use eframe::{
     epaint::{pos2, vec2, Rect, RectShape, Shape},
 };
 use ensnare::prelude::*;
-use groove_core::traits::gui::{Displays, DisplaysInTimeline};
+use ensnare::traits::{
+    Configurable, ControlEventsFn, Controllable, Controls, Displays, DisplaysInTimeline, Entity,
+    EntityEvent, Generates, GeneratesToInternalBuffer, HandlesMidi, HasSettings, HasUid,
+    Serializable, Ticks,
+};
 use std::ops::Range;
 
 /// Wraps an [ESSequencer] as a [Widget](eframe::egui::Widget).

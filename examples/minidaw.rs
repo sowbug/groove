@@ -18,6 +18,8 @@ use eframe::{
     CreationContext,
 };
 use egui_toast::{Toast, ToastOptions, Toasts};
+use ensnare::traits::prelude::*;
+use ensnare_midi_interface::{MidiInterfaceInput, MidiPortDescriptor};
 use groove::{
     app_version,
     mini::{register_factory_entities, DragDropManager, EntityFactory, Key, Orchestrator},
@@ -27,8 +29,6 @@ use groove::{
         OrchestratorEvent, OrchestratorInput, OrchestratorPanel, PaletteAction, PalettePanel,
     },
 };
-use groove_core::traits::{gui::Displays, Configurable, EntityEvent, HasSettings};
-use groove_midi::{MidiInterfaceInput, MidiPortDescriptor};
 use serde::{Deserialize, Serialize};
 use std::{
     io::{Read, Write},

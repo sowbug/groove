@@ -2,12 +2,7 @@
 
 //! The [messages](crate::messages) module defines the app's messages.
 
-use ensnare::prelude::*;
-use groove_core::{
-    control::ControlIndex,
-    midi::{MidiChannel, MidiMessage},
-    traits::{EntityEvent, MessageBounds},
-};
+use ensnare::{midi::prelude::*, prelude::*, traits::{prelude::*, MessageBounds}};
 use std::fmt::Debug;
 
 #[cfg(feature = "serialization")]

@@ -12,11 +12,11 @@ use eframe::{
     emath::RectTransform,
     epaint::{pos2, Color32, Pos2, Rect, RectShape, Rounding, Shape, Stroke},
 };
-use ensnare::prelude::*;
-use ensnare::uid::IsUid;
-use groove_core::{
-    midi::MidiNote,
-    traits::{gui::Displays, Serializable},
+use ensnare::{
+    midi::{new_note_off, new_note_on, MidiChannel, MidiMessage, MidiNote},
+    prelude::*,
+    traits::prelude::*,
+    uid::IsUid,
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display, ops::Range};
@@ -494,7 +494,6 @@ impl Displays for PianoRoll {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use groove_core::midi::MidiNote;
 
     impl Note {
         /// half-note

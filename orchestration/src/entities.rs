@@ -3,7 +3,6 @@
 //! An [EntityObsolete] wraps a musical device, giving it the ability to be managed by
 //! [crate::Orchestrator] and automated by other devices in the system.
 
-use groove_core::traits::HasUid;
 use groove_entities::{
     controllers::{
         Arpeggiator, Calculator, LfoController, PatternManager, Sequencer,
@@ -17,128 +16,125 @@ use groove_entities::{
     },
     instruments::{Drumkit, FmSynth, Sampler, WelshSynth},
 };
-use groove_proc_macros::Everything;
+//use groove_proc_macros::Everything;
 use groove_toys::{DebugSynth, ToyAudioSource, ToyEffect, ToyInstrument, ToySynth};
-
-#[cfg(feature = "serialization")]
-use serde::{Deserialize, Serialize};
 
 // PRO TIP: use `cargo expand --lib entities` to see what's being generated
 
 /// The #[derive] macro uses [Everything] to generate a lot of boilerplate code.
 /// The enum itself is otherwise unused.
 #[allow(dead_code)]
-#[derive(Everything)]
+//#[derive(Everything)]
 enum Everything {
-    #[everything(controller, midi, controllable)]
+    //#[everything(controller, midi, controllable)]
     Arpeggiator(Arpeggiator),
 
-    #[everything(effect, controllable)]
+    //#[everything(effect, controllable)]
     BiQuadFilterAllPass(BiQuadFilterAllPass),
 
-    #[everything(effect, controllable)]
+    //#[everything(effect, controllable)]
     BiQuadFilterBandPass(BiQuadFilterBandPass),
 
-    #[everything(effect, controllable)]
+    //#[everything(effect, controllable)]
     BiQuadFilterBandStop(BiQuadFilterBandStop),
 
-    #[everything(effect, controllable)]
+    //#[everything(effect, controllable)]
     BiQuadFilterHighPass(BiQuadFilterHighPass),
 
-    #[everything(effect, controllable)]
+    //#[everything(effect, controllable)]
     BiQuadFilterHighShelf(BiQuadFilterHighShelf),
 
-    #[everything(effect, controllable)]
+    //#[everything(effect, controllable)]
     BiQuadFilterLowPass12db(BiQuadFilterLowPass12db),
 
-    #[everything(effect, controllable)]
+    //#[everything(effect, controllable)]
     BiQuadFilterLowPass24db(BiQuadFilterLowPass24db),
 
-    #[everything(effect, controllable)]
+    //#[everything(effect, controllable)]
     BiQuadFilterLowShelf(BiQuadFilterLowShelf),
 
-    #[everything(effect, controllable)]
+    //#[everything(effect, controllable)]
     BiQuadFilterNone(BiQuadFilterNone),
 
-    #[everything(effect, controllable)]
+    //#[everything(effect, controllable)]
     BiQuadFilterPeakingEq(BiQuadFilterPeakingEq),
 
-    #[everything(effect, controllable)]
+    //#[everything(effect, controllable)]
     Bitcrusher(Bitcrusher),
 
-    #[everything(effect, controllable)]
+    //#[everything(effect, controllable)]
     Chorus(Chorus),
 
-    #[everything(effect, controllable)]
+    //#[everything(effect, controllable)]
     Compressor(Compressor),
 
-    // #[everything(controller, midi)]
+    // //#[everything(controller, midi)]
     // ControlTrip(ControlTrip),
-    #[everything(instrument, midi, controllable)]
+    //#[everything(instrument, midi, controllable)]
     DebugSynth(DebugSynth),
 
-    #[everything(effect, controllable)]
+    //#[everything(effect, controllable)]
     Delay(Delay),
 
-    #[everything(instrument, midi)]
+    //#[everything(instrument, midi)]
     Drumkit(Drumkit),
 
-    #[everything(instrument, midi, controllable)]
+    //#[everything(instrument, midi, controllable)]
     FmSynth(FmSynth),
 
-    #[everything(effect, controllable)]
+    //#[everything(effect, controllable)]
     Gain(Gain),
 
-    #[everything(instrument, controller)]
+    //#[everything(instrument, controller)]
     Integrated(Calculator),
 
-    #[everything(controller, midi)]
+    //#[everything(controller, midi)]
     LfoController(LfoController),
 
-    #[everything(effect, controllable)]
+    //#[everything(effect, controllable)]
     Limiter(Limiter),
 
-    // #[everything(controllable, instrument, midi)]
+    // //#[everything(controllable, instrument, midi)]
     // Metronome(Metronome),
-    #[everything(effect)]
+    //#[everything(effect)]
     Mixer(Mixer),
 
-    #[everything(controller, midi)]
+    //#[everything(controller, midi)]
     PatternManager(PatternManager),
 
-    #[everything(effect, controllable)]
+    //#[everything(effect, controllable)]
     Reverb(Reverb),
 
-    #[everything(instrument, midi)]
+    //#[everything(instrument, midi)]
     Sampler(Sampler),
 
-    #[everything(controller, midi)]
+    //#[everything(controller, midi)]
     Sequencer(Sequencer),
 
-    #[everything(controller, effect, midi)]
+    //#[everything(controller, effect, midi)]
     SignalPassthroughController(SignalPassthroughController),
 
-    #[everything(controller, midi)]
+    //#[everything(controller, midi)]
     Timer(Timer),
 
-    #[everything(instrument, midi)]
+    //#[everything(instrument, midi)]
     ToyAudioSource(ToyAudioSource),
 
-    #[everything(controller, midi)]
+    //#[everything(controller, midi)]
     ToyController(ToyController),
 
-    #[everything(effect, controllable)]
+    //#[everything(effect, controllable)]
     ToyEffect(ToyEffect),
 
-    #[everything(instrument, midi, controllable)]
+    //#[everything(instrument, midi, controllable)]
     ToyInstrument(ToyInstrument),
 
-    #[everything(instrument, midi, controllable)]
+    //#[everything(instrument, midi, controllable)]
     ToySynth(ToySynth),
 
-    #[everything(controller)]
+    //#[everything(controller)]
     Trigger(Trigger),
 
-    #[everything(instrument, midi, controllable)]
+    //#[everything(instrument, midi, controllable)]
     WelshSynth(WelshSynth),
 }

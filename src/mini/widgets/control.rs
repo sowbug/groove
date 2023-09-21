@@ -13,9 +13,10 @@ use eframe::{
     epaint::{pos2, vec2, Color32, Rect, Stroke},
 };
 use ensnare::prelude::*;
-use groove_core::traits::{
-    gui::{Displays, DisplaysInTimeline},
-    HasUid,
+use ensnare::traits::{
+    Configurable, ControlEventsFn, Controllable, Controls, Displays, DisplaysInTimeline, Entity,
+    EntityEvent, Generates, GeneratesToInternalBuffer, HandlesMidi, HasSettings, HasUid,
+    Serializable, Ticks,
 };
 use std::ops::Range;
 

@@ -5,9 +5,9 @@
 //! to exchange [MidiHandlerInput] and [MidiHandlerEvent] messages.
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
-use groove_core::midi::{u4, LiveEvent, MidiChannel, MidiMessage};
+use ensnare::midi::{u4, LiveEvent, MidiChannel, MidiMessage};
+use ensnare_midi_interface::MidiPortDescriptor;
 use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
-use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, thread::JoinHandle};
 
 /// The client sends requests to the MIDI interface through [MidiInterfaceInput] messages.
@@ -138,29 +138,6 @@ impl MidiInterfaceService {
 
     pub fn receiver(&self) -> &Receiver<MidiInterfaceEvent> {
         &self.event_receiver
-    }
-}
-
-/// Provides user-friendly strings for displaying available MIDI ports.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct MidiPortDescriptor {
-    index: usize,
-    name: String,
-}
-impl MidiPortDescriptor {
-    /// The port descriptor's index.
-    pub fn index(&self) -> usize {
-        self.index
-    }
-
-    /// The port descriptor's human-readable name.
-    pub fn name(&self) -> &str {
-        self.name.as_ref()
-    }
-}
-impl std::fmt::Display for MidiPortDescriptor {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.name)
     }
 }
 

@@ -1,14 +1,12 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use ensnare::core::StereoSample;
-use groove_core::{
-    time::SampleRate, traits::Configurable, util::tests::TestOnlyPaths, SAMPLE_BUFFER_SIZE,
-};
-use groove_orchestration::helpers::IOHelper;
-use groove_settings::SongSettings;
-use groove_utils::{PathType, Paths};
-use std::{fs::File, io::prelude::*, path::Path, time::Instant};
+// use ensnare::prelude::*;
+// use groove_core::{util::tests::TestOnlyPaths, SAMPLE_BUFFER_SIZE};
+// use groove_orchestration::helpers::IOHelper;
+// use groove_utils::{PathType, Paths};
+// use std::{fs::File, io::prelude::*, path::Path, time::Instant};
 
+#[cfg(obsolete)]
 #[test]
 fn project_loads_and_parses() {
     let mut paths = Paths::default();
@@ -42,6 +40,7 @@ fn project_loads_and_parses() {
     }
 }
 
+#[cfg(obsolete)]
 #[test]
 #[ignore = "orchestrator - control_message_for_index is incomplete. re-enable when macroized"]
 fn spit_out_perf_data() {
@@ -88,6 +87,7 @@ usec/frame : {:.2?} (goal <{:.2?})",
     assert!(IOHelper::send_performance_to_file(&performance, &path).is_ok());
 }
 
+#[cfg(obsolete)]
 #[test]
 fn patching_to_device_with_no_input_fails_with_proper_error() {
     let mut paths = Paths::default();

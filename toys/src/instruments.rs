@@ -1,18 +1,22 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use ensnare::{prelude::*, uid::Uid};
+use eframe::{
+    egui::{self, Layout, Ui},
+    emath::Align,
+    epaint::{pos2, Color32, Rect, Rounding, Stroke},
+};
+use ensnare::{
+    instruments::Synthesizer,
+    midi::prelude::*,
+    prelude::*,
+    traits::{prelude::*, GeneratesEnvelope},
+    voices::{VoiceCount, VoiceStore},
+};
+use ensnare_proc_macros::{Control, IsInstrument, Params, Uid};
 use groove_core::{
     generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams, Waveform},
-    instruments::Synthesizer,
-    midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
-    traits::{
-        Configurable, Generates, GeneratesEnvelope, IsStereoSampleVoice, IsVoice, PlaysNotes,
-        Serializable, Ticks,
-    },
-    voices::{VoiceCount, VoiceStore},
     Dca, DcaParams,
 };
-use groove_proc_macros::{Control, IsInstrument, Params, Uid};
 use std::{
     fmt::Debug,
     sync::{Arc, Mutex},
@@ -33,8 +37,7 @@ pub struct ToyInstrumentEphemerals {
 /// Oscillator to produce sound. Its "envelope" is just a boolean that responds
 /// to MIDI NoteOn/NoteOff. [Controllable](groove_core::traits::Controllable) by
 /// two parameters: Oscillator waveform and frequency.
-#[derive(Debug, Control, IsInstrument, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Debug, Control, IsInstrument, Params, Uid, Serialize, Deserialize)]
 pub struct ToyInstrument {
     uid: Uid,
 
@@ -48,7 +51,7 @@ pub struct ToyInstrument {
     #[params]
     dca: Dca,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     e: ToyInstrumentEphemerals,
 }
 impl Generates<StereoSample> for ToyInstrument {
@@ -98,8 +101,7 @@ impl HandlesMidi for ToyInstrument {
         match message {
             MidiMessage::NoteOn { key, vel: _ } => {
                 self.e.is_playing = true;
-                self.oscillator
-                    .set_frequency(note_to_frequency(key.as_int()));
+                self.oscillator.set_frequency(key.into());
             }
             MidiMessage::NoteOff { key: _, vel: _ } => {
                 self.e.is_playing = false;
@@ -157,7 +159,7 @@ pub struct DebugSynth {
     #[params]
     fake_value: Normal,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     sample: StereoSample,
 
     // #[controllable]
@@ -207,8 +209,7 @@ impl HandlesMidi for DebugSynth {
             }
             MidiMessage::NoteOn { key, vel } => {
                 self.envelope.trigger_attack();
-                self.oscillator
-                    .set_frequency(note_to_frequency(key.as_int()));
+                self.oscillator.set_frequency(key.into());
             }
             _ => todo!(),
         }
@@ -225,16 +226,6 @@ impl DebugSynth {
             envelope,
         }
     }
-
-    // pub fn oscillator_modulation(&self) -> BipolarNormal {
-    //     self.oscillator.frequency_modulation()
-    // }
-
-    // pub fn set_oscillator_modulation(&mut self, oscillator_modulation: BipolarNormal) {
-    //     self.oscillator_modulation = oscillator_modulation;
-    //     self.oscillator
-    //         .set_frequency_modulation(oscillator_modulation);
-    // }
 
     pub fn new() -> Self {
         Self::new_with_components(
@@ -278,10 +269,10 @@ pub struct ToySynth {
     // serialize everything, or manually reconstitute everything. Maybe the
     // right answer is to expect that every struct gets serialized, but everyone
     // should be #[serde(skip)]ing at the leaf-field level.
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     inner: Synthesizer<ToyVoice>,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     max_signal: Normal,
 }
 impl Serializable for ToySynth {}
@@ -392,16 +383,16 @@ impl PlaysNotes for ToyVoice {
         !self.envelope.is_idle()
     }
 
-    fn note_on(&mut self, key: u8, _velocity: u8) {
+    fn note_on(&mut self, key: u7, _velocity: u7) {
         self.envelope.trigger_attack();
-        self.oscillator.set_frequency(note_to_frequency(key));
+        self.oscillator.set_frequency(key.into());
     }
 
-    fn aftertouch(&mut self, _velocity: u8) {
+    fn aftertouch(&mut self, _velocity: u7) {
         todo!()
     }
 
-    fn note_off(&mut self, _velocity: u8) {
+    fn note_off(&mut self, _velocity: u7) {
         self.envelope.trigger_release()
     }
 }
@@ -458,7 +449,7 @@ pub struct ToyAudioSource {
     #[params]
     level: ParameterType,
 
-    #[cfg_attr(feature = "serialization", serde(skip))]
+    #[serde(skip)]
     sample_rate: SampleRate,
 }
 impl Serializable for ToyAudioSource {}
@@ -525,126 +516,111 @@ impl ToyAudioSource {
     }
 }
 
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use super::{DebugSynth, ToyAudioSource, ToyInstrument, ToySynth};
-    use eframe::{
-        egui::{self, Layout, Ui},
-        emath::Align,
-        epaint::{pos2, Color32, Rect, Rounding, Stroke},
-    };
-    use ensnare::prelude::*;
-    use groove_core::traits::{gui::Displays, HasUid};
+fn indicator(value: Normal) -> impl egui::Widget + 'static {
+    move |ui: &mut egui::Ui| indicator_ui(ui, value)
+}
 
-    fn indicator(value: Normal) -> impl egui::Widget + 'static {
-        move |ui: &mut egui::Ui| indicator_ui(ui, value)
+fn indicator_ui(ui: &mut egui::Ui, value: Normal) -> egui::Response {
+    let desired_size = egui::vec2(2.0, 16.0);
+    let (rect, response) =
+        ui.allocate_exact_size(desired_size, egui::Sense::focusable_noninteractive());
+
+    if ui.is_rect_visible(rect) {
+        ui.painter().rect(
+            rect,
+            Rounding::default(),
+            Color32::BLACK,
+            Stroke {
+                width: 1.0,
+                color: Color32::DARK_GRAY,
+            },
+        );
+        let sound_rect = Rect::from_two_pos(
+            rect.left_bottom(),
+            pos2(
+                rect.right(),
+                rect.bottom() - rect.height() * value.value_as_f32(),
+            ),
+        );
+        ui.painter().rect(
+            sound_rect,
+            Rounding::default(),
+            Color32::YELLOW,
+            Stroke {
+                width: 1.0,
+                color: Color32::YELLOW,
+            },
+        );
     }
 
-    fn indicator_ui(ui: &mut egui::Ui, value: Normal) -> egui::Response {
-        let desired_size = egui::vec2(2.0, 16.0);
-        let (rect, response) =
-            ui.allocate_exact_size(desired_size, egui::Sense::focusable_noninteractive());
+    response
+}
 
-        if ui.is_rect_visible(rect) {
-            ui.painter().rect(
-                rect,
-                Rounding::default(),
-                Color32::BLACK,
-                Stroke {
-                    width: 1.0,
-                    color: Color32::DARK_GRAY,
-                },
-            );
-            let sound_rect = Rect::from_two_pos(
-                rect.left_bottom(),
-                pos2(
-                    rect.right(),
-                    rect.bottom() - rect.height() * value.value_as_f32(),
-                ),
-            );
-            ui.painter().rect(
-                sound_rect,
-                Rounding::default(),
-                Color32::YELLOW,
-                Stroke {
-                    width: 1.0,
-                    color: Color32::YELLOW,
-                },
-            );
-        }
-
-        response
+impl Displays for ToyInstrument {
+    fn ui(&mut self, ui: &mut Ui) -> egui::Response {
+        ui.label(self.name())
     }
+}
 
-    impl Displays for ToyInstrument {
-        fn ui(&mut self, ui: &mut Ui) -> egui::Response {
-            ui.label(self.name())
-        }
+impl Displays for DebugSynth {
+    fn ui(&mut self, ui: &mut Ui) -> egui::Response {
+        ui.label(self.name())
     }
-
-    impl Displays for DebugSynth {
-        fn ui(&mut self, ui: &mut Ui) -> egui::Response {
-            ui.label(self.name())
-        }
-    }
-    impl Displays for ToySynth {
-        fn ui(&mut self, ui: &mut Ui) -> egui::Response {
-            let height = ui.available_height();
-            ui.set_min_size(ui.available_size());
-            ui.set_max_size(ui.available_size());
-            if height <= 32.0 {
-                self.show_small(ui)
-            } else if height <= 128.0 {
-                self.show_medium(ui)
-            } else {
-                self.show_full(ui)
-            }
+}
+impl Displays for ToySynth {
+    fn ui(&mut self, ui: &mut Ui) -> egui::Response {
+        let height = ui.available_height();
+        ui.set_min_size(ui.available_size());
+        ui.set_max_size(ui.available_size());
+        if height <= 32.0 {
+            self.show_small(ui)
+        } else if height <= 128.0 {
+            self.show_medium(ui)
+        } else {
+            self.show_full(ui)
         }
     }
-    impl ToySynth {
-        fn show_small(&mut self, ui: &mut Ui) -> egui::Response {
-            let response = ui
-                .horizontal(|ui| {
-                    ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                        ui.label("ToySynth")
+}
+impl ToySynth {
+    fn show_small(&mut self, ui: &mut Ui) -> egui::Response {
+        let response = ui
+            .horizontal(|ui| {
+                ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                    ui.label("ToySynth")
+                })
+                .inner
+                    | ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.add(indicator(self.max_signal))
                     })
                     .inner
-                        | ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            ui.add(indicator(self.max_signal))
-                        })
-                        .inner
-                })
-                .inner;
-            self.degrade_max(0.95);
-            response
-        }
-        fn show_medium(&mut self, ui: &mut Ui) -> egui::Response {
-            ui.label("ToySynth MEDIUM!");
-            let value = Normal::from(0.5);
-            ui.add(indicator(value))
-        }
-        fn show_full(&mut self, ui: &mut Ui) -> egui::Response {
-            ui.label("ToySynth LARGE!!!!");
-            let value = Normal::from(0.8);
-            ui.add(indicator(value))
-        }
+            })
+            .inner;
+        self.degrade_max(0.95);
+        response
     }
+    fn show_medium(&mut self, ui: &mut Ui) -> egui::Response {
+        ui.label("ToySynth MEDIUM!");
+        let value = Normal::from(0.5);
+        ui.add(indicator(value))
+    }
+    fn show_full(&mut self, ui: &mut Ui) -> egui::Response {
+        ui.label("ToySynth LARGE!!!!");
+        let value = Normal::from(0.8);
+        ui.add(indicator(value))
+    }
+}
 
-    impl Displays for ToyAudioSource {
-        fn ui(&mut self, ui: &mut Ui) -> egui::Response {
-            ui.label(self.name())
-        }
+impl Displays for ToyAudioSource {
+    fn ui(&mut self, ui: &mut Ui) -> egui::Response {
+        ui.label(self.name())
     }
 }
 
 #[cfg(test)]
 pub mod tests {
     use crate::{instruments::ToyInstrumentParams, ToyInstrument};
-    use ensnare::prelude::*;
-    use groove_core::{
-        traits::{Generates, Ticks},
-        DcaParams,
-    };
+    use ensnare::{prelude::*, traits::prelude::*};
+    use groove_core::DcaParams;
 
     // TODO: restore tests that test basic trait behavior, then figure out how
     // to run everyone implementing those traits through that behavior. For now,

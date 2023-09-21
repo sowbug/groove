@@ -17,16 +17,7 @@ use eframe::{
     emath::Align,
     epaint::{vec2, Color32, Stroke, Vec2},
 };
-use ensnare::{prelude::*, uid::IsUid};
-use groove_core::{
-    control::ControlValue,
-    midi::MidiChannel,
-    traits::{
-        gui::{Displays, DisplaysInTimeline},
-        Configurable, ControlEventsFn, Controls, Entity, EntityEvent, GeneratesToInternalBuffer,
-        Serializable, Ticks,
-    },
-};
+use ensnare::{midi::prelude::*, prelude::*, traits::prelude::*, uid::IsUid};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Display,
@@ -519,11 +510,7 @@ impl Track {
     }
 
     #[allow(missing_docs)]
-    pub fn route_midi_message(
-        &mut self,
-        channel: MidiChannel,
-        message: groove_core::midi::MidiMessage,
-    ) {
+    pub fn route_midi_message(&mut self, channel: MidiChannel, message: MidiMessage) {
         if let Err(e) = self
             .midi_router
             .route(&mut self.entity_store, channel, message)
@@ -916,7 +903,6 @@ impl Displays for Track {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use groove_core::traits::HasUid;
     use groove_toys::{
         ToyControllerAlwaysSendsMidiMessage, ToyEffect, ToyInstrument, ToyInstrumentParams,
     };

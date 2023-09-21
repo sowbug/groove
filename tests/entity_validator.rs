@@ -1,13 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use ensnare::prelude::*;
+use ensnare::{prelude::*, traits::prelude::*};
 use groove::{
     mini::{register_factory_entities, Key},
     EntityFactory,
-};
-use groove_core::{
-    time::{SampleRate, TimeSignature},
-    traits::{Entity, IsController, IsEffect, IsInstrument},
 };
 
 #[test]

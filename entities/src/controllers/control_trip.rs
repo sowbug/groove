@@ -2,17 +2,7 @@
 
 use core::fmt::Debug;
 use ensnare::prelude::*;
-use groove_core::{
-    generators::{SteppedEnvelope, SteppedEnvelopeFunction, SteppedEnvelopeStep},
-    midi::HandlesMidi,
-    time::{ClockTimeUnit, PerfectTimeUnit},
-    traits::{Configurable, ControlEventsFn, Controls, Serializable},
-};
-use groove_proc_macros::{Control, IsController, Params, Uid};
-use std::{ops::Range, option::Option};
-
-#[cfg(feature = "serialization")]
-use serde::{Deserialize, Serialize};
+use std::option::Option;
 
 #[derive(Clone, Copy, Debug)]
 pub enum ControlStep {
@@ -274,17 +264,11 @@ pub struct ControlPath {
     pub steps: Vec<ControlStep>,
 }
 
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use eframe::egui::{Response, Ui};
-    use groove_core::traits::{gui::Displays, HasUid};
-
-    #[cfg(obsolete)]
-    mod obsolete {
-        impl Displays for ControlTrip {
-            fn ui(&mut self, ui: &mut Ui) -> Response {
-                ui.label(self.name())
-            }
+#[cfg(obsolete)]
+mod obsolete {
+    impl Displays for ControlTrip {
+        fn ui(&mut self, ui: &mut Ui) -> Response {
+            ui.label(self.name())
         }
     }
 }

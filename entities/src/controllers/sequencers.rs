@@ -1,13 +1,14 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use btreemultimap::BTreeMultiMap;
-use ensnare::prelude::*;
-use groove_core::{
-    midi::{HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn, MidiNoteMinder},
-    time::PerfectTimeUnit,
-    traits::{Configurable, ControlEventsFn, Controls, EntityEvent, Serializable},
+use eframe::egui::{RichText, Ui};
+use ensnare::{
+    midi::{MidiChannel, MidiMessage, MidiMessagesFn},
+    prelude::*,
+    traits::prelude::*,
 };
-use groove_proc_macros::{Control, IsController, Params, Uid};
+use ensnare_proc_macros::{Control, IsController, Params, Uid};
+use groove_core::{midi::MidiNoteMinder, time::PerfectTimeUnit};
 use std::{
     fmt::Debug,
     ops::{
@@ -234,41 +235,21 @@ impl Controls for Sequencer {
         self.should_stop_pending_notes = true;
     }
 
-    fn set_loop(&mut self, range: &std::ops::Range<PerfectTimeUnit>) {
-        self.loop_range = Some(range.clone());
-    }
-
-    fn clear_loop(&mut self) {
-        self.loop_range = None;
-    }
-
-    fn set_loop_enabled(&mut self, is_enabled: bool) {
-        self.is_loop_enabled = is_enabled;
-    }
-
     fn is_performing(&self) -> bool {
         self.is_performing
     }
 }
-
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use super::Sequencer;
-    use eframe::egui::{RichText, Ui};
-    use groove_core::traits::gui::Displays;
-
-    impl Displays for Sequencer {
-        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            for (when, (channel, message)) in &self.events {
-                let has_played = when < &self.time_range.start;
-                let mut text = RichText::new(format!("{}: {} -> {:?}", when, channel, message));
-                if has_played {
-                    text = text.italics();
-                }
-                ui.label(text);
+impl Displays for Sequencer {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        for (when, (channel, message)) in &self.events {
+            let has_played = when < &self.time_range.start;
+            let mut text = RichText::new(format!("{}: {} -> {:?}", when, channel, message));
+            if has_played {
+                text = text.italics();
             }
-            ui.label("TODO")
+            ui.label(text);
         }
+        ui.label("TODO")
     }
 }
 
@@ -532,9 +513,7 @@ mod tired {
 mod tests {
     #[cfg(tired)]
     use super::{MidiTickEventsMap, MidiTickSequencer};
-    use crate::tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND};
-    use ensnare::prelude::*;
-    use groove_core::midi::MidiChannel;
+    use ensnare::midi::prelude::*;
     #[cfg(tired)]
     use groove_core::time::MidiTicks;
 

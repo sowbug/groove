@@ -15,6 +15,7 @@ egui_extras_xt = { git = "https://github.com/sowbug/egui_extras_xt", features = 
     "displays",
 ], optional = true }
 ensnare = { path = "../../ensnare" }
+ensnare-proc-macros = { path = "../../ensnare/proc-macros" }
 float-cmp = "0.9"
 groove-core = { path = "../core", features = ["serialization"] }
 groove-egui = { path = "../egui", optional = true }

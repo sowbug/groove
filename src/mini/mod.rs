@@ -11,7 +11,7 @@ pub use even_smaller_sequencer::{ESSequencer, ESSequencerBuilder};
 pub use orchestrator::{Orchestrator, OrchestratorAction, OrchestratorBuilder};
 pub use piano_roll::{Note, Pattern, PatternBuilder, PatternUid, PianoRoll};
 pub use selection_set::SelectionSet;
-pub use sequencer::{ArrangedPattern, ArrangedPatternBuilder, Sequencer, SequencerParams};
+pub use sequencer::{ArrangedPattern, ArrangedPatternBuilder, Sequencer};
 pub use track::{Track, TrackAction, TrackTitle, TrackUid};
 pub use transport::Transport;
 

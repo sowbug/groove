@@ -1,15 +1,10 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use core::fmt::Debug;
-use ensnare::prelude::*;
-use groove_core::{
-    generators::{Oscillator, OscillatorParams, Waveform},
-    midi::HandlesMidi,
-    traits::{
-        Configurable, ControlEventsFn, Controls, EntityEvent, Generates, Serializable, Ticks,
-    },
-};
-use groove_proc_macros::{Control, IsController, Params, Uid};
+use eframe::egui::{Response, Ui};
+use ensnare::{prelude::*, traits::prelude::*};
+use ensnare_proc_macros::{Control, IsController, Params, Uid};
+use groove_core::generators::{Oscillator, OscillatorParams, Waveform};
 use std::{
     ops::{Range, RangeInclusive},
     option::Option,
@@ -107,18 +102,6 @@ impl Controls for LfoController {
         // TODO: think how important it is for LFO oscillator to start at zero
     }
 
-    fn set_loop(&mut self, _range: &Range<groove_core::time::PerfectTimeUnit>) {
-        // TODO
-    }
-
-    fn clear_loop(&mut self) {
-        // TODO
-    }
-
-    fn set_loop_enabled(&mut self, _is_enabled: bool) {
-        // TODO
-    }
-
     fn is_performing(&self) -> bool {
         self.is_performing
     }
@@ -166,23 +149,16 @@ impl LfoController {
     }
 }
 
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use super::LfoController;
-    use eframe::egui::{Response, Ui};
-    use groove_core::traits::gui::Displays;
-
-    impl Displays for LfoController {
-        fn ui(&mut self, ui: &mut Ui) -> Response {
-            // TODO: come up with a better pattern for .changed() to happen at
-            // the same level as whoever called show().
-            if self.frequency.show(ui, Self::frequency_range()) {
-                self.set_frequency(self.frequency);
-            }
-            if self.waveform.show(ui).inner.is_some() {
-                self.set_waveform(self.waveform);
-            }
-            self.waveform_widget.ui(ui)
+impl Displays for LfoController {
+    fn ui(&mut self, ui: &mut Ui) -> Response {
+        // TODO: come up with a better pattern for .changed() to happen at
+        // the same level as whoever called show().
+        if self.frequency.show(ui, Self::frequency_range()) {
+            self.set_frequency(self.frequency);
         }
+        if self.waveform.show(ui).inner.is_some() {
+            self.set_waveform(self.waveform);
+        }
+        self.waveform_widget.ui(ui)
     }
 }

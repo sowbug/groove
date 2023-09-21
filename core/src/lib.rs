@@ -2,8 +2,9 @@
 
 //! Fundamental structs and traits.
 
-use ensnare::prelude::*;
-use groove_proc_macros::{Control, Params};
+use eframe::egui::Slider;
+use ensnare::{prelude::*, traits::prelude::*};
+use ensnare_proc_macros::{Control, Params};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -17,9 +18,6 @@ pub struct Groove;
 pub mod control;
 /// Contains things that generate signals, like oscillators and envelopes.
 pub mod generators;
-/// Building blocks for higher-level musical instruments. Useful if your project
-/// needs Groove's synth voices but not all its baggage.
-pub mod instruments;
 /// Knows about [MIDI](https://en.wikipedia.org/wiki/MIDI).
 pub mod midi;
 /// Handles digital-audio, wall-clock, and musical time.
@@ -29,8 +27,6 @@ pub mod traits;
 /// Contains various helper functions that keep different parts of the system
 /// consistent.
 pub mod util;
-/// Contains things that make up instrument voices.
-pub mod voices;
 
 pub const SAMPLE_BUFFER_SIZE: usize = 64;
 
@@ -88,35 +84,28 @@ impl Dca {
         self.set_pan(params.pan());
     }
 }
+impl Displays for Dca {
+    fn ui(&mut self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
+        let mut gain = self.gain().value();
+        let gain_response = ui.add(
+            Slider::new(&mut gain, Normal::range())
+                .fixed_decimals(2)
+                .text("Gain"),
+        );
+        if gain_response.changed() {
+            self.set_gain(gain.into());
+        };
 
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use crate::{traits::gui::Displays, BipolarNormal, Dca, Normal};
-    use eframe::egui::Slider;
-
-    impl Displays for Dca {
-        fn ui(&mut self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
-            let mut gain = self.gain().value();
-            let gain_response = ui.add(
-                Slider::new(&mut gain, Normal::range())
-                    .fixed_decimals(2)
-                    .text("Gain"),
-            );
-            if gain_response.changed() {
-                self.set_gain(gain.into());
-            };
-
-            let mut pan = self.pan().value();
-            let pan_response = ui.add(
-                Slider::new(&mut pan, BipolarNormal::range())
-                    .fixed_decimals(2)
-                    .text("Pan"),
-            );
-            if pan_response.changed() {
-                self.set_pan(pan.into());
-            };
-            gain_response | pan_response
-        }
+        let mut pan = self.pan().value();
+        let pan_response = ui.add(
+            Slider::new(&mut pan, BipolarNormal::range())
+                .fixed_decimals(2)
+                .text("Pan"),
+        );
+        if pan_response.changed() {
+            self.set_pan(pan.into());
+        };
+        gain_response | pan_response
     }
 }
 

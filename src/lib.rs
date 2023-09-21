@@ -92,8 +92,8 @@
 //! }
 //! ```
 
-#[deprecated]
-pub use groove_orchestration::EntityObsolete;
+// #[deprecated]
+// pub use groove_orchestration::EntityObsolete;
 
 pub use mini::EntityFactory;
 pub use mini::Orchestrator;

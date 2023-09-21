@@ -13,7 +13,7 @@ use eframe::{
     epaint::vec2,
     CreationContext,
 };
-use ensnare::prelude::*;
+use ensnare::{midi::prelude::*, prelude::*, traits::prelude::*};
 use groove::{
     app_version,
     mini::{
@@ -29,14 +29,6 @@ use groove::{
         TrackUid,
     },
     EntityFactory,
-};
-use groove_core::{
-    midi::MidiNote,
-    time::MusicalTime,
-    traits::{
-        gui::{Displays, DisplaysInTimeline},
-        Entity,
-    },
 };
 use std::ops::Range;
 
@@ -92,7 +84,7 @@ struct TimelineSettings {
     focused: timeline::FocusedComponent,
 }
 impl DisplaysInTimeline for TimelineSettings {
-    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<MusicalTime>) {
         self.view_range = view_range.clone();
     }
 }
@@ -391,7 +383,7 @@ impl Default for GridSettings {
     }
 }
 impl DisplaysInTimeline for GridSettings {
-    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<MusicalTime>) {
         self.view_range = view_range.clone();
     }
 }
@@ -472,7 +464,7 @@ impl Displays for ControlAtlasSettings {
     }
 }
 impl DisplaysInTimeline for ControlAtlasSettings {
-    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<MusicalTime>) {
         self.view_range = view_range.clone();
     }
 }
@@ -501,7 +493,7 @@ impl Displays for SequencerSettings {
     }
 }
 impl DisplaysInTimeline for SequencerSettings {
-    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<MusicalTime>) {
         self.sequencer.set_view_range(view_range);
     }
 }
@@ -540,7 +532,7 @@ impl Displays for ESSequencerSettings {
     }
 }
 impl DisplaysInTimeline for ESSequencerSettings {
-    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<MusicalTime>) {
         self.view_range = view_range.clone();
     }
 }

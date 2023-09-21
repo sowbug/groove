@@ -1,7 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use eframe::egui::{CollapsingHeader, Ui};
-use groove_core::traits::{gui::Displays, Configurable};
 use groove_orchestration::Orchestrator;
 use groove_settings::SongSettings;
 use groove_utils::Paths;

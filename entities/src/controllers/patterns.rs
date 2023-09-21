@@ -7,13 +7,13 @@ use eframe::{
     epaint::{Color32, Pos2, Rect, Rounding, Shape, Stroke, Vec2},
 };
 //use btreemultimap::BTreeMultiMap;
-use ensnare::prelude::*;
-use groove_core::{
-    midi::{HandlesMidi, MidiChannel, MidiMessage},
-    time::PerfectTimeUnit,
-    traits::{Configurable, ControlEventsFn, Controls, Displays, Serializable},
+use ensnare::{
+    midi::{MidiChannel, MidiMessage},
+    prelude::*,
+    traits::prelude::*,
 };
-use groove_proc_macros::{Control, IsController, Uid};
+use ensnare_proc_macros::{Control, IsController, Uid};
+use groove_core::time::PerfectTimeUnit;
 use serde::{Deserialize, Serialize};
 use std::{cmp, fmt::Debug, ops::Range};
 
@@ -73,9 +73,6 @@ impl Controls for PatternManager {
     fn play(&mut self) {}
     fn stop(&mut self) {}
     fn skip_to_start(&mut self) {}
-    fn set_loop(&mut self, _range: &Range<PerfectTimeUnit>) {}
-    fn clear_loop(&mut self) {}
-    fn set_loop_enabled(&mut self, _is_enabled: bool) {}
     fn is_performing(&self) -> bool {
         false
     }
@@ -194,7 +191,7 @@ impl Pattern<Note> {
 }
 impl Displays for Pattern<Note> {
     fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-        if let Some(v) = self.note_value.as_mut() {
+        if let Some(_v) = self.note_value.as_mut() {
             // TODO - trait didn't match up during migration
             // v.ui(ui);
         } else {

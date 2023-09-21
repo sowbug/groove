@@ -1,14 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::traits::{Configurable, Ticks};
-use anyhow::{anyhow, Error};
-use derive_more::Display;
-use ensnare::{prelude::*, uid::Uid};
-use groove_proc_macros::{Control, Params, Uid};
 use std::{
     cmp::Ordering,
     fmt::Display,
-    ops::{Add, AddAssign, Div, Mul, Range, Sub, SubAssign},
+    ops::{Add, Mul},
 };
 
 #[cfg(feature = "serialization")]
@@ -403,11 +398,13 @@ impl Eq for MidiTicks {}
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use more_asserts::assert_lt;
+    use ensnare::prelude::*;
 
-    const DEFAULT_BPM: ParameterType = 128.0;
-    const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
+    #[cfg(obsolete)]
+    mod obsolete {
+        const DEFAULT_BPM: ParameterType = 128.0;
+        const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
+    }
 
     #[cfg(obsolete)]
     mod obsolete {

@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use ensnare::prelude::*;
+use ensnare::{prelude::*, traits::prelude::*};
 use groove::{
     mini::{
         register_factory_entities, ControlStepBuilder, ControlTripBuilder, ControlTripPath, Key,
@@ -8,12 +8,7 @@ use groove::{
     },
     EntityFactory,
 };
-use groove_core::{
-    control::ControlValue,
-    generators::Waveform,
-    time::MusicalTime,
-    traits::{Configurable, HasUid},
-};
+use groove_core::generators::Waveform;
 use groove_entities::controllers::{LfoController, LfoControllerParams};
 use std::path::PathBuf;
 

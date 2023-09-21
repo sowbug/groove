@@ -1,12 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use eframe::epaint::FontId;
 use eframe::{
     egui::{Frame, Margin, Sense, TextFormat},
     emath::Align,
-    epaint::{text::LayoutJob, vec2, Color32, Shape, Stroke, TextShape},
+    epaint::{text::LayoutJob, vec2, Color32, FontId, Shape, Stroke, TextShape},
 };
-use groove_core::traits::gui::Displays;
+use ensnare::traits::Displays;
 use std::f32::consts::PI;
 
 /// Wraps a [TitleBar] as a [Widget](eframe::egui::Widget).

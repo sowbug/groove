@@ -1,10 +1,10 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use ensnare::{midi::prelude::*, prelude::*};
 use groove::{
     mini::{register_factory_entities, Key, Note, OrchestratorBuilder, PatternBuilder},
     EntityFactory,
 };
-use groove_core::{midi::MidiNote, time::MusicalTime};
 use std::path::PathBuf;
 
 // Demonstrates sidechaining (which could be considered a kind of automation,

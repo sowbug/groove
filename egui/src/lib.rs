@@ -5,8 +5,8 @@ use eframe::{
     emath,
     epaint::{self, pos2, vec2, Color32, Pos2, Rect, Stroke},
 };
-use groove_core::traits::gui::Displays;
 
+use ensnare::traits::Displays;
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 

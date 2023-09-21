@@ -6,14 +6,13 @@
 // Are you making a change to this file? Consider enforcing new trait behavior
 // in tests/entity_validator.rs.
 
-pub use crate::midi::HandlesMidi;
-use crate::{
-    control::{ControlIndex, ControlValue},
+use crate::time::PerfectTimeUnit;
+use ensnare::{
     midi::{u7, MidiChannel, MidiMessage},
-    time::PerfectTimeUnit,
-    Sample,
+    prelude::*,
+    traits::HandlesMidi,
+    uid::Uid,
 };
-use ensnare::{prelude::*, uid::Uid};
 use std::ops::Range;
 
 pub use self::gui::Displays;
@@ -305,7 +304,7 @@ pub trait PlaysNotes {
     /// Initiates a note-on event. Depending on implementation, might initiate a
     /// steal (tell envelope to go to shutdown state, then do note-on when
     /// that's done).
-    fn note_on(&mut self, key: u8, velocity: u8);
+    fn note_on(&mut self, key: u7, velocity: u7);
 
     /// Initiates an aftertouch event.
     fn aftertouch(&mut self, velocity: u8);
@@ -429,7 +428,7 @@ pub mod gui {
 }
 #[cfg(test)]
 pub(crate) mod tests {
-    use super::Ticks;
+    use ensnare::traits::Ticks;
 
     pub trait DebugTicks: Ticks {
         fn debug_tick_until(&mut self, tick_number: usize);

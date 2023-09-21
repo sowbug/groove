@@ -1,8 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use ensnare::prelude::*;
-use groove_core::traits::{Configurable, Serializable, TransformsAudio};
-use groove_proc_macros::{Control, IsEffect, Params, Uid};
+use eframe::egui::{DragValue, Ui};
+use ensnare::{prelude::*, traits::prelude::*};
+use ensnare_proc_macros::{Control, IsEffect, Params, Uid};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -62,25 +62,18 @@ impl Bitcrusher {
     }
 }
 
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use super::Bitcrusher;
-    use eframe::egui::{DragValue, Ui};
-    use groove_core::traits::gui::Displays;
-
-    impl Displays for Bitcrusher {
-        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            let mut bits = self.bits();
-            let response = ui.add(
-                DragValue::new(&mut bits)
-                    .clamp_range(Bitcrusher::bits_range())
-                    .suffix(" bits"),
-            );
-            if response.changed() {
-                self.set_bits(bits);
-            };
-            response
-        }
+impl Displays for Bitcrusher {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        let mut bits = self.bits();
+        let response = ui.add(
+            DragValue::new(&mut bits)
+                .clamp_range(Bitcrusher::bits_range())
+                .suffix(" bits"),
+        );
+        if response.changed() {
+            self.set_bits(bits);
+        };
+        response
     }
 }
 

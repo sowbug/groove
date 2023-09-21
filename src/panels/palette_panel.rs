@@ -1,5 +1,9 @@
 use eframe::egui::{Id as EguiId, Ui};
-use groove_core::traits::gui::Displays;
+use ensnare::traits::{
+    Configurable, ControlEventsFn, Controllable, Controls, Displays, DisplaysInTimeline, Entity,
+    EntityEvent, Generates, GeneratesToInternalBuffer, HandlesMidi, HasSettings, HasUid,
+    Serializable, Ticks,
+};
 
 use crate::mini::{
     {DragDropManager, DragDropSource}, {EntityFactory, Key},
