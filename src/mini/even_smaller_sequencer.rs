@@ -4,10 +4,9 @@ use super::{piano_roll::Pattern, rng::Rng, Note};
 use btreemultimap::BTreeMultiMap;
 use derive_builder::Builder;
 use eframe::egui::Ui;
-use ensnare::uid::Uid;
+use ensnare::prelude::*;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
-    time::{MusicalTime, TimeSignature},
     traits::{gui::Displays, Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable},
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};

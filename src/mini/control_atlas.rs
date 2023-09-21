@@ -6,7 +6,6 @@ use eframe::egui::Ui;
 use ensnare::{prelude::*, uid::Uid};
 use groove_core::{
     control::ControlValue,
-    time::MusicalTime,
     traits::{
         gui::{Displays, DisplaysInTimeline},
         Configurable, ControlEventsFn, Controls, EntityEvent, HandlesMidi, Serializable,
@@ -234,7 +233,7 @@ impl ControlTrip {
     }
 }
 impl DisplaysInTimeline for ControlTrip {
-    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<MusicalTime>) {
         self.e.view_range = view_range.clone();
     }
 }
@@ -389,7 +388,7 @@ impl Controls for ControlAtlas {
 }
 impl Serializable for ControlAtlas {}
 impl Configurable for ControlAtlas {
-    fn update_sample_rate(&mut self, sample_rate: groove_core::time::SampleRate) {
+    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.trips
             .iter_mut()
             .for_each(|t| t.update_sample_rate(sample_rate));
@@ -399,7 +398,7 @@ impl Configurable for ControlAtlas {
         self.trips.iter_mut().for_each(|t| t.update_tempo(tempo));
     }
 
-    fn update_time_signature(&mut self, time_signature: groove_core::time::TimeSignature) {
+    fn update_time_signature(&mut self, time_signature: TimeSignature) {
         self.trips
             .iter_mut()
             .for_each(|t| t.update_time_signature(time_signature));

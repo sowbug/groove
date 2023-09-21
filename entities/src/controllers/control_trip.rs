@@ -5,10 +5,7 @@ use ensnare::prelude::*;
 use groove_core::{
     generators::{SteppedEnvelope, SteppedEnvelopeFunction, SteppedEnvelopeStep},
     midi::HandlesMidi,
-    time::{
-        BeatValue, Clock, ClockParams, ClockTimeUnit, MusicalTime, PerfectTimeUnit, SampleRate,
-        TimeSignature, TimeSignatureParams,
-    },
+    time::{ClockTimeUnit, PerfectTimeUnit},
     traits::{Configurable, ControlEventsFn, Controls, Serializable},
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
@@ -38,228 +35,233 @@ pub enum ControlStep {
     },
 }
 
-/// ControlTrip, ControlPath, and ControlStep help with
-/// [automation](https://en.wikipedia.org/wiki/Track_automation). Briefly, a
-/// ControlTrip consists of ControlSteps stamped out of ControlPaths, and
-/// ControlSteps are generic EnvelopeSteps that SteppedEnvelope uses.
-///
-/// A ControlTrip is one automation track, which can run as long as the whole
-/// song. For now, it controls one parameter of one target.
-#[derive(Debug, Control, IsController, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct ControlTrip {
-    uid: Uid,
-    #[control]
-    #[params]
-    time_signature_top: usize,
-    #[control]
-    #[params]
-    time_signature_bottom: usize,
-    #[control]
-    #[params]
-    bpm: ParameterType,
+#[cfg(obsolete)]
+mod obsolete {
+    /// ControlTrip, ControlPath, and ControlStep help with
+    /// [automation](https://en.wikipedia.org/wiki/Track_automation). Briefly, a
+    /// ControlTrip consists of ControlSteps stamped out of ControlPaths, and
+    /// ControlSteps are generic EnvelopeSteps that SteppedEnvelope uses.
+    ///
+    /// A ControlTrip is one automation track, which can run as long as the whole
+    /// song. For now, it controls one parameter of one target.
+    #[derive(Debug, Control, IsController, Params, Uid)]
+    #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+    pub struct ControlTrip {
+        uid: Uid,
+        #[control]
+        #[params]
+        time_signature_top: usize,
+        #[control]
+        #[params]
+        time_signature_bottom: usize,
+        #[control]
+        #[params]
+        bpm: ParameterType,
 
-    time_signature: TimeSignature,
+        time_signature: TimeSignature,
 
-    clock: Clock,
-    cursor_beats: f64,
-    current_value: SignalType,
-    envelope: SteppedEnvelope,
-    is_finished: bool,
-    is_performing: bool,
-}
-impl Serializable for ControlTrip {}
-impl HandlesMidi for ControlTrip {}
-impl ControlTrip {
-    const CURSOR_BEGIN: f64 = 0.0;
+        clock: Clock,
+        cursor_beats: f64,
+        current_value: SignalType,
+        envelope: SteppedEnvelope,
+        is_finished: bool,
+        is_performing: bool,
+    }
+    impl Serializable for ControlTrip {}
+    impl HandlesMidi for ControlTrip {}
+    impl ControlTrip {
+        const CURSOR_BEGIN: f64 = 0.0;
 
-    pub fn new_with(params: &ControlTripParams) -> Self {
-        Self {
-            uid: Default::default(),
-            time_signature_top: params.time_signature_top,
-            time_signature_bottom: params.time_signature_bottom,
-            time_signature: TimeSignature {
-                top: params.time_signature_top,
-                bottom: params.time_signature_bottom,
-            },
-            bpm: params.bpm(),
-            clock: Clock::new_with(&ClockParams {
+        pub fn new_with(params: &ControlTripParams) -> Self {
+            Self {
+                uid: Default::default(),
+                time_signature_top: params.time_signature_top,
+                time_signature_bottom: params.time_signature_bottom,
+                time_signature: TimeSignature {
+                    top: params.time_signature_top,
+                    bottom: params.time_signature_bottom,
+                },
                 bpm: params.bpm(),
-                midi_ticks_per_second: 0,
-                time_signature: TimeSignatureParams {
-                    top: params.time_signature_top(),
-                    bottom: params.time_signature_bottom(),
-                },
-            }),
-            cursor_beats: Self::CURSOR_BEGIN,
-            current_value: f64::MAX, // TODO we want to make sure we set the target's value at start
-            envelope: SteppedEnvelope::new_with_time_unit(ClockTimeUnit::Beats),
-            is_finished: true,
-            is_performing: false,
+                clock: Clock::new_with(&ClockParams {
+                    bpm: params.bpm(),
+                    midi_ticks_per_second: 0,
+                    time_signature: TimeSignatureParams {
+                        top: params.time_signature_top(),
+                        bottom: params.time_signature_bottom(),
+                    },
+                }),
+                cursor_beats: Self::CURSOR_BEGIN,
+                current_value: f64::MAX, // TODO we want to make sure we set the target's value at start
+                envelope: SteppedEnvelope::new_with_time_unit(ClockTimeUnit::Beats),
+                is_finished: true,
+                is_performing: false,
+            }
         }
-    }
 
-    #[allow(dead_code)]
-    pub fn reset_cursor(&mut self) {
-        self.cursor_beats = Self::CURSOR_BEGIN;
-    }
+        #[allow(dead_code)]
+        pub fn reset_cursor(&mut self) {
+            self.cursor_beats = Self::CURSOR_BEGIN;
+        }
 
-    // TODO: assert that these are added in time order, as SteppedEnvelope
-    // currently isn't smart enough to handle out-of-order construction
-    //
-    // TODO - can the time_signature argument be optional, now that we have the one in self?
-    pub fn add_path(&mut self, time_signature: &TimeSignature, path: &ControlPath) {
-        // TODO: this is duplicated in programmers.rs. Refactor.
-        let path_note_value = if path.note_value.is_some() {
-            path.note_value.as_ref().unwrap().clone()
-        } else {
-            time_signature.beat_value()
-        };
-
-        // If the time signature is 4/4 and the path is also quarter-notes, then
-        // the multiplier is 1.0 because no correction is needed.
+        // TODO: assert that these are added in time order, as SteppedEnvelope
+        // currently isn't smart enough to handle out-of-order construction
         //
-        // If it's 4/4 and eighth notes, for example, the multiplier is 0.5,
-        // because each path step represents only a half-beat.
-        let path_multiplier =
-            BeatValue::divisor(time_signature.beat_value()) / BeatValue::divisor(path_note_value);
-        for step in path.steps.clone() {
-            let (start_value, end_value, step_function) = match step {
-                ControlStep::Flat { value } => (value, value, SteppedEnvelopeFunction::Linear),
-                ControlStep::Slope { start, end } => (start, end, SteppedEnvelopeFunction::Linear),
-                ControlStep::Logarithmic { start, end } => {
-                    (start, end, SteppedEnvelopeFunction::Logarithmic)
-                }
-                ControlStep::Exponential { start, end } => {
-                    (start, end, SteppedEnvelopeFunction::Exponential)
-                }
-                ControlStep::Triggered {} => todo!(),
+        // TODO - can the time_signature argument be optional, now that we have the one in self?
+        pub fn add_path(&mut self, time_signature: &TimeSignature, path: &ControlPath) {
+            // TODO: this is duplicated in programmers.rs. Refactor.
+            let path_note_value = if path.note_value.is_some() {
+                path.note_value.as_ref().unwrap().clone()
+            } else {
+                time_signature.beat_value()
             };
-            // Beware: there's an O(N) debug validlity check in push_step(), so
-            // this loop is O(N^2).
-            self.envelope.push_step(SteppedEnvelopeStep {
-                interval: Range {
-                    start: self.cursor_beats,
-                    end: self.cursor_beats + path_multiplier,
-                },
-                start_value,
-                end_value,
-                step_function,
-            });
-            self.cursor_beats += path_multiplier;
+
+            // If the time signature is 4/4 and the path is also quarter-notes, then
+            // the multiplier is 1.0 because no correction is needed.
+            //
+            // If it's 4/4 and eighth notes, for example, the multiplier is 0.5,
+            // because each path step represents only a half-beat.
+            let path_multiplier = BeatValue::divisor(time_signature.beat_value())
+                / BeatValue::divisor(path_note_value);
+            for step in path.steps.clone() {
+                let (start_value, end_value, step_function) = match step {
+                    ControlStep::Flat { value } => (value, value, SteppedEnvelopeFunction::Linear),
+                    ControlStep::Slope { start, end } => {
+                        (start, end, SteppedEnvelopeFunction::Linear)
+                    }
+                    ControlStep::Logarithmic { start, end } => {
+                        (start, end, SteppedEnvelopeFunction::Logarithmic)
+                    }
+                    ControlStep::Exponential { start, end } => {
+                        (start, end, SteppedEnvelopeFunction::Exponential)
+                    }
+                    ControlStep::Triggered {} => todo!(),
+                };
+                // Beware: there's an O(N) debug validlity check in push_step(), so
+                // this loop is O(N^2).
+                self.envelope.push_step(SteppedEnvelopeStep {
+                    interval: Range {
+                        start: self.cursor_beats,
+                        end: self.cursor_beats + path_multiplier,
+                    },
+                    start_value,
+                    end_value,
+                    step_function,
+                });
+                self.cursor_beats += path_multiplier;
+            }
+            self.is_finished = false;
         }
-        self.is_finished = false;
-    }
 
-    pub fn time_signature(&self) -> &TimeSignature {
-        &self.time_signature
-    }
+        pub fn time_signature(&self) -> &TimeSignature {
+            &self.time_signature
+        }
 
-    pub fn set_time_signature(&mut self, time_signature: TimeSignature) {
-        self.time_signature = time_signature;
-    }
+        pub fn set_time_signature(&mut self, time_signature: TimeSignature) {
+            self.time_signature = time_signature;
+        }
 
-    pub fn bpm(&self) -> f64 {
-        self.bpm
-    }
+        pub fn bpm(&self) -> f64 {
+            self.bpm
+        }
 
-    pub fn set_bpm(&mut self, bpm: ParameterType) {
-        self.bpm = bpm;
-    }
+        pub fn set_bpm(&mut self, bpm: ParameterType) {
+            self.bpm = bpm;
+        }
 
-    pub fn time_signature_top(&self) -> usize {
-        self.time_signature_top
-    }
+        pub fn time_signature_top(&self) -> usize {
+            self.time_signature_top
+        }
 
-    pub fn set_time_signature_top(&mut self, time_signature_top: usize) {
-        self.time_signature_top = time_signature_top;
-    }
+        pub fn set_time_signature_top(&mut self, time_signature_top: usize) {
+            self.time_signature_top = time_signature_top;
+        }
 
-    pub fn time_signature_bottom(&self) -> usize {
-        self.time_signature_bottom
-    }
+        pub fn time_signature_bottom(&self) -> usize {
+            self.time_signature_bottom
+        }
 
-    pub fn set_time_signature_bottom(&mut self, time_signature_bottom: usize) {
-        self.time_signature_bottom = time_signature_bottom;
-    }
-}
-impl Configurable for ControlTrip {
-    fn sample_rate(&self) -> SampleRate {
-        self.clock.sample_rate()
-    }
-    fn update_sample_rate(&mut self, sample_rate: SampleRate) {
-        self.clock.update_sample_rate(sample_rate);
-    }
-}
-impl Controls for ControlTrip {
-    fn update_time(&mut self, _range: &Range<MusicalTime>) {}
-
-    fn work(&mut self, _messages_fn: &mut ControlEventsFn) {
-        if self.is_performing {
-            // #[cfg(tired)] TODO not sure if this should survive
-            // for i in 0..tick_count {
-            //     self.clock.tick(1);
-            //     let has_value_changed = {
-            //         let time = self.envelope.time_for_unit(&self.clock);
-            //         let step = self.envelope.step_for_time(time);
-            //         if step.interval.contains(&time) {
-            //             let value = self.envelope.value_for_step_at_time(step, time);
-
-            //             let last_value = self.current_value;
-            //             self.current_value = value;
-            //             self.is_finished = time >= step.interval.end;
-            //             self.current_value != last_value
-            //         } else {
-            //             // This is a drastic response to a tick that's out of range. It
-            //             // might be better to limit it to times that are later than the
-            //             // covered range. We're likely to hit ControlTrips that start beyond
-            //             // time zero.
-            //             self.is_finished = true;
-            //             false
-            //         }
-            //     };
-            //     if self.is_finished {
-            //         ticks_completed = i;
-            //         break;
-            //     }
-            //     if has_value_changed {
-            //         // our value has changed, so let's tell the world about that.
-            //         v.push(EntityMessage::ControlF32(self.current_value as f32));
-            //     }
-            // }
+        pub fn set_time_signature_bottom(&mut self, time_signature_bottom: usize) {
+            self.time_signature_bottom = time_signature_bottom;
         }
     }
-
-    fn is_finished(&self) -> bool {
-        true
+    impl Configurable for ControlTrip {
+        fn sample_rate(&self) -> SampleRate {
+            self.clock.sample_rate()
+        }
+        fn update_sample_rate(&mut self, sample_rate: SampleRate) {
+            self.clock.update_sample_rate(sample_rate);
+        }
     }
+    impl Controls for ControlTrip {
+        fn update_time(&mut self, _range: &Range<MusicalTime>) {}
 
-    fn play(&mut self) {
-        self.is_performing = true;
-    }
+        fn work(&mut self, _messages_fn: &mut ControlEventsFn) {
+            if self.is_performing {
+                // #[cfg(tired)] TODO not sure if this should survive
+                // for i in 0..tick_count {
+                //     self.clock.tick(1);
+                //     let has_value_changed = {
+                //         let time = self.envelope.time_for_unit(&self.clock);
+                //         let step = self.envelope.step_for_time(time);
+                //         if step.interval.contains(&time) {
+                //             let value = self.envelope.value_for_step_at_time(step, time);
 
-    fn stop(&mut self) {
-        self.is_performing = false;
-    }
+                //             let last_value = self.current_value;
+                //             self.current_value = value;
+                //             self.is_finished = time >= step.interval.end;
+                //             self.current_value != last_value
+                //         } else {
+                //             // This is a drastic response to a tick that's out of range. It
+                //             // might be better to limit it to times that are later than the
+                //             // covered range. We're likely to hit ControlTrips that start beyond
+                //             // time zero.
+                //             self.is_finished = true;
+                //             false
+                //         }
+                //     };
+                //     if self.is_finished {
+                //         ticks_completed = i;
+                //         break;
+                //     }
+                //     if has_value_changed {
+                //         // our value has changed, so let's tell the world about that.
+                //         v.push(EntityMessage::ControlF32(self.current_value as f32));
+                //     }
+                // }
+            }
+        }
 
-    fn skip_to_start(&mut self) {
-        self.clock.seek(0);
-    }
+        fn is_finished(&self) -> bool {
+            true
+        }
 
-    fn set_loop(&mut self, _range: &Range<PerfectTimeUnit>) {
-        // TODO
-    }
+        fn play(&mut self) {
+            self.is_performing = true;
+        }
 
-    fn clear_loop(&mut self) {
-        // TODO
-    }
+        fn stop(&mut self) {
+            self.is_performing = false;
+        }
 
-    fn set_loop_enabled(&mut self, _is_enabled: bool) {
-        // TODO
-    }
+        fn skip_to_start(&mut self) {
+            self.clock.seek(0);
+        }
 
-    fn is_performing(&self) -> bool {
-        self.is_performing
+        fn set_loop(&mut self, _range: &Range<PerfectTimeUnit>) {
+            // TODO
+        }
+
+        fn clear_loop(&mut self) {
+            // TODO
+        }
+
+        fn set_loop_enabled(&mut self, _is_enabled: bool) {
+            // TODO
+        }
+
+        fn is_performing(&self) -> bool {
+            self.is_performing
+        }
     }
 }
 
@@ -274,13 +276,15 @@ pub struct ControlPath {
 
 #[cfg(feature = "egui-framework")]
 mod gui {
-    use super::ControlTrip;
     use eframe::egui::{Response, Ui};
     use groove_core::traits::{gui::Displays, HasUid};
 
-    impl Displays for ControlTrip {
-        fn ui(&mut self, ui: &mut Ui) -> Response {
-            ui.label(self.name())
+    #[cfg(obsolete)]
+    mod obsolete {
+        impl Displays for ControlTrip {
+            fn ui(&mut self, ui: &mut Ui) -> Response {
+                ui.label(self.name())
+            }
         }
     }
 }

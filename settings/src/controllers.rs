@@ -3,9 +3,9 @@
 use super::{BeatValueSettings, DeviceId, MidiChannel};
 use ensnare::prelude::*;
 use groove_entities::controllers::{
-    Arpeggiator, ArpeggiatorParams, Calculator, CalculatorParams, ControlPath, ControlStep,
-    LfoController, LfoControllerParams, MidiChannelParams, SignalPassthroughController,
-    ToyController, ToyControllerParams,
+    Arpeggiator, ArpeggiatorParams, Calculator, ControlPath, ControlStep, LfoController,
+    LfoControllerParams, MidiChannelParams, SignalPassthroughController, ToyController,
+    ToyControllerParams,
 };
 use groove_orchestration::EntityObsolete;
 use serde::{Deserialize, Serialize};
@@ -113,8 +113,6 @@ pub enum ControllerSettings {
     LfoController(MidiChannelParams, LfoControllerParams),
     #[serde(rename_all = "kebab-case", rename = "signal-passthrough-controller")]
     SignalPassthroughController(MidiChannelParams),
-    #[serde(rename_all = "kebab-case", rename = "calculator")]
-    Calculator(MidiChannelParams, CalculatorParams),
 }
 
 impl ControllerSettings {
@@ -146,13 +144,6 @@ impl ControllerSettings {
                     ..,
                 )
                 | ControllerSettings::SignalPassthroughController(
-                    MidiChannelParams {
-                        midi_in: midi_input_channel,
-                        midi_out: midi_output_channel,
-                    },
-                    ..,
-                ) => (midi_input_channel, midi_output_channel),
-                ControllerSettings::Calculator(
                     MidiChannelParams {
                         midi_in: midi_input_channel,
                         midi_out: midi_output_channel,
@@ -197,11 +188,6 @@ impl ControllerSettings {
                 EntityObsolete::SignalPassthroughController(Box::new(
                     SignalPassthroughController::new(),
                 )),
-            ),
-            ControllerSettings::Calculator(midi, _params) => (
-                midi.midi_in,
-                midi.midi_out,
-                EntityObsolete::Integrated(Box::new(Calculator::default())),
             ),
         }
     }

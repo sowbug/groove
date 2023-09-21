@@ -2,7 +2,7 @@
 
 use ensnare::{prelude::*, uid::Uid};
 use groove_core::{
-    time::{ClockTimeUnit, SampleRate},
+    time::ClockTimeUnit,
     traits::{Configurable, Serializable, TransformsAudio},
 };
 use groove_proc_macros::{Control, IsEffect, Params, Uid};

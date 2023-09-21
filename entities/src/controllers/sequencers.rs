@@ -4,7 +4,7 @@ use btreemultimap::BTreeMultiMap;
 use ensnare::prelude::*;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn, MidiNoteMinder},
-    time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, TimeSignatureParams},
+    time::PerfectTimeUnit,
     traits::{Configurable, ControlEventsFn, Controls, EntityEvent, Serializable},
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};
@@ -47,6 +47,7 @@ pub struct Sequencer {
     loop_range: Option<Range<PerfectTimeUnit>>,
     is_loop_enabled: bool,
 
+    #[cfg(obsolete)]
     temp_hack_clock: Clock,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
@@ -70,11 +71,12 @@ impl Sequencer {
             active_notes: Default::default(),
             loop_range: Default::default(),
             is_loop_enabled: Default::default(),
-            temp_hack_clock: Clock::new_with(&ClockParams {
-                bpm: params.bpm(),
-                midi_ticks_per_second: 0,
-                time_signature: TimeSignatureParams { top: 4, bottom: 4 }, // TODO
-            }),
+            #[cfg(obsolete)]
+            temp_hack_clock: Clock::new_with(
+                params.bpm(),
+                0,
+                TimeSignature::default(), // TODO
+            ),
             time_range: Default::default(),
             time_range_handled: Default::default(),
         }
@@ -174,6 +176,7 @@ impl Sequencer {
     }
 }
 impl Configurable for Sequencer {
+    #[cfg(obsolete)]
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
         self.temp_hack_clock.update_sample_rate(sample_rate);
 
@@ -225,6 +228,7 @@ impl Controls for Sequencer {
     }
 
     fn skip_to_start(&mut self) {
+        #[cfg(obsolete)]
         self.temp_hack_clock.seek(0);
         self.next_instant = PerfectTimeUnit::default();
         self.should_stop_pending_notes = true;
@@ -529,12 +533,10 @@ mod tests {
     #[cfg(tired)]
     use super::{MidiTickEventsMap, MidiTickSequencer};
     use crate::tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND};
+    use ensnare::prelude::*;
+    use groove_core::midi::MidiChannel;
     #[cfg(tired)]
     use groove_core::time::MidiTicks;
-    use groove_core::{
-        midi::MidiChannel,
-        time::{Clock, ClockParams, TimeSignatureParams},
-    };
 
     #[cfg(tired)]
     impl MidiTickSequencer {
@@ -586,11 +588,12 @@ mod tests {
     #[test]
     fn sequencer_mainline() {
         const DEVICE_MIDI_CHANNEL: MidiChannel = MidiChannel(7);
-        let clock = Clock::new_with(&ClockParams {
-            bpm: DEFAULT_BPM,
-            midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
-        });
+        #[cfg(obsolete)]
+        let clock = Clock::new_with(
+            DEFAULT_BPM,
+            DEFAULT_MIDI_TICKS_PER_SECOND,
+            TimeSignature::default(),
+        );
         // let mut o = Orchestrator::new_with(DEFAULT_BPM);
         // let mut sequencer = Box::new(MidiTickSequencer::new_with(
         //     DEFAULT_SAMPLE_RATE,

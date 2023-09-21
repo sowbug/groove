@@ -16,13 +16,13 @@ use ensnare::prelude::*;
 use groove_core::{
     instruments::Synthesizer,
     midi::{note_to_frequency, MidiChannel, MidiMessage, MidiMessagesFn},
-    time::{Clock, ClockParams, MusicalTime, PerfectTimeUnit, SampleRate, TimeSignatureParams},
+    time::PerfectTimeUnit,
     traits::{
         Configurable, ControlEventsFn, Controls, Generates, HandlesMidi, Serializable, Ticks,
     },
     voices::VoicePerNoteStore,
 };
-use groove_proc_macros::{Control, IsControllerInstrument, Params, Uid};
+use groove_proc_macros::{Control, IsControllerInstrument, Uid};
 use groove_utils::Paths;
 use std::{ops::Range, path::Path, sync::Arc};
 use strum_macros::Display;
@@ -133,7 +133,7 @@ impl Chains {
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 struct Engine {
     swing: Percentage,
-    tempo: Tempo,
+    tempo: CalculatorTempo,
     tempo_override: Option<TempoValue>,
 
     a: Percentage,
@@ -163,7 +163,7 @@ impl Default for Engine {
     fn default() -> Self {
         Self {
             swing: Percentage::from(0),
-            tempo: Tempo::Disco,
+            tempo: CalculatorTempo::Disco,
             tempo_override: None,
             a: Percentage::from(0.5),
             b: Percentage::from(0.5),
@@ -210,7 +210,7 @@ impl Engine {
     }
 
     #[allow(dead_code)]
-    pub fn tempo(&self) -> Option<Tempo> {
+    pub fn tempo(&self) -> Option<CalculatorTempo> {
         if self.tempo_override.is_some() {
             None
         } else {
@@ -235,32 +235,32 @@ impl Engine {
         }
     }
 
-    pub fn set_tempo_by_name(&mut self, tempo: Tempo) {
+    pub fn set_tempo_by_name(&mut self, tempo: CalculatorTempo) {
         self.tempo = tempo;
     }
 
     pub fn advance_tempo(&mut self) {
         self.set_tempo_by_name(match self.tempo {
-            Tempo::HipHop => Tempo::Disco,
-            Tempo::Disco => Tempo::Techno,
-            Tempo::Techno => Tempo::HipHop,
+            CalculatorTempo::HipHop => CalculatorTempo::Disco,
+            CalculatorTempo::Disco => CalculatorTempo::Techno,
+            CalculatorTempo::Techno => CalculatorTempo::HipHop,
         });
         self.tempo_override = None;
     }
 
-    pub fn tempo_to_value(tempo: Tempo) -> TempoValue {
+    pub fn tempo_to_value(tempo: CalculatorTempo) -> TempoValue {
         TempoValue(match tempo {
-            Tempo::HipHop => 80,
-            Tempo::Disco => 120,
-            Tempo::Techno => 160,
+            CalculatorTempo::HipHop => 80,
+            CalculatorTempo::Disco => 120,
+            CalculatorTempo::Techno => 160,
         })
     }
 
-    fn value_to_tempo(value: &TempoValue) -> Option<Tempo> {
+    fn value_to_tempo(value: &TempoValue) -> Option<CalculatorTempo> {
         match value.0 {
-            80 => Some(Tempo::HipHop),
-            120 => Some(Tempo::Disco),
-            160 => Some(Tempo::Techno),
+            80 => Some(CalculatorTempo::HipHop),
+            120 => Some(CalculatorTempo::Disco),
+            160 => Some(CalculatorTempo::Techno),
             _ => None,
         }
     }
@@ -420,7 +420,7 @@ impl Configurable for Engine {
 
     fn update_tempo(&mut self, _tempo: ensnare::time::Tempo) {}
 
-    fn update_time_signature(&mut self, _time_signature: groove_core::time::TimeSignature) {}
+    fn update_time_signature(&mut self, _time_signature: TimeSignature) {}
 }
 
 #[derive(Clone, Copy, Debug, Default, Display, PartialEq)]
@@ -436,7 +436,7 @@ enum UiState {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub enum Tempo {
+pub enum CalculatorTempo {
     HipHop,
     #[default]
     Disco,
@@ -446,7 +446,7 @@ pub enum Tempo {
 /// [Calculator] is the top-level musical instrument. It contains an [Engine]
 /// that has the song data, as well as a sampler synth that can generate digital
 /// audio. It draws the GUI and handles user input.
-#[derive(Control, IsControllerInstrument, Params, Debug, Uid)]
+#[derive(Control, IsControllerInstrument, Debug, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Calculator {
     /// Required for the [groove_core::traits::HasUid] trait.
@@ -459,8 +459,9 @@ pub struct Calculator {
     volume: u8,
 
     /// Timekeeper, maps audio-sample time to musical time.
-    #[params]
-    clock: Clock,
+    clock: MusicalTime,
+
+    tempo: Tempo,
 
     /// Generates audio data.
     #[cfg_attr(feature = "serialization", serde(skip))]
@@ -487,6 +488,9 @@ pub struct Calculator {
     /// to process a new step.
     #[cfg_attr(feature = "serialization", serde(skip))]
     last_handled_step: usize,
+
+    #[serde(skip)]
+    sample_rate: SampleRate,
 }
 impl Serializable for Calculator {}
 impl HandlesMidi for Calculator {
@@ -529,7 +533,7 @@ impl Controls for Calculator {
     }
 
     fn skip_to_start(&mut self) {
-        self.clock.seek(0);
+        self.clock = MusicalTime::START;
         self.last_handled_step = usize::MAX;
         self.engine.skip_to_start();
     }
@@ -545,10 +549,14 @@ impl Controls for Calculator {
 }
 impl Configurable for Calculator {
     fn sample_rate(&self) -> SampleRate {
-        self.clock.sample_rate()
+        self.sample_rate
     }
     fn update_sample_rate(&mut self, sample_rate: SampleRate) {
-        self.clock.update_sample_rate(sample_rate);
+        self.sample_rate = sample_rate;
+    }
+
+    fn update_tempo(&mut self, tempo: Tempo) {
+        self.tempo = tempo;
     }
 }
 impl Generates<StereoSample> for Calculator {
@@ -568,24 +576,21 @@ impl Default for Calculator {
             engine: Default::default(),
             volume: 5,
 
-            clock: Clock::new_with(&ClockParams {
-                bpm: e.tempo_by_value().0 as ParameterType,
-                midi_ticks_per_second: 960,
-                time_signature: TimeSignatureParams { top: 4, bottom: 4 },
-            }),
+            clock: MusicalTime::START,
+            tempo: Tempo::default(),
             inner_synth: Self::load_sampler_voices(),
             ui_state: Default::default(),
             blink_counter: Default::default(),
             is_write_enabled: Default::default(),
             pattern_usages: Default::default(),
             last_handled_step: Default::default(),
+            sample_rate: Default::default(),
         }
     }
 }
 impl Calculator {
-    pub fn new_with(params: &CalculatorParams) -> Self {
+    pub fn new() -> Self {
         Self {
-            clock: Clock::new_with(params.clock()),
             ..Default::default()
         }
     }
@@ -679,16 +684,12 @@ impl Calculator {
             self.reset_render_state();
         }
         self.engine.advance_tempo();
-        self.update_bpm();
-        eprintln!("BPM is {}", self.clock.bpm());
+        self.update_tempo(Tempo(self.engine.tempo_by_value().0 as f64));
+        eprintln!("BPM is {}", self.tempo);
     }
 
     fn reset_render_state(&mut self) {
         self.ui_state = UiState::Normal;
-    }
-
-    fn update_bpm(&mut self) {
-        self.clock.set_bpm(self.engine.tempo_by_value().0 as f64);
     }
 
     fn handle_solo_click(&mut self) {
@@ -746,8 +747,7 @@ impl Calculator {
 
     // How many steps we are into the song.
     fn total_steps(&self) -> usize {
-        // TODO: update this to the new global clock in Controls
-        ((self.clock.beats() * 4.0).floor() as i32) as usize
+        self.clock.total_parts() / 4 // TODO: this might not be right; I think a step is a 16th of a bar
     }
 
     // How many steps we are into the current pattern.
@@ -1420,7 +1420,7 @@ mod tests {
     use groove_core::traits::Controls;
 
     use super::{Engine, Pattern, Step};
-    use crate::controllers::calculator::{Percentage, Tempo, TempoValue};
+    use crate::controllers::calculator::{CalculatorTempo, Percentage, TempoValue};
 
     impl Engine {
         fn chain_active_pattern(&mut self) {
@@ -1448,20 +1448,32 @@ mod tests {
         let mut e = Engine::default();
 
         assert_eq!(e.tempo_by_value().0, 120, "should start out as 120");
-        assert_eq!(e.tempo(), Some(Tempo::Disco), "should start out as disco");
+        assert_eq!(
+            e.tempo(),
+            Some(CalculatorTempo::Disco),
+            "should start out as disco"
+        );
         e.advance_tempo();
-        assert_eq!(e.tempo(), Some(Tempo::Techno), "techno follows disco");
+        assert_eq!(
+            e.tempo(),
+            Some(CalculatorTempo::Techno),
+            "techno follows disco"
+        );
         assert_eq!(e.tempo_by_value().0, 160, "techno is 160");
         e.advance_tempo();
-        assert_eq!(e.tempo(), Some(Tempo::HipHop), "hiphop follows techno");
+        assert_eq!(
+            e.tempo(),
+            Some(CalculatorTempo::HipHop),
+            "hiphop follows techno"
+        );
         assert_eq!(e.tempo_by_value().0, 80, "hiphop is 80");
 
         e.set_tempo_by_value(TempoValue(120));
-        assert_eq!(e.tempo(), Some(Tempo::Disco), "120 sets disco");
+        assert_eq!(e.tempo(), Some(CalculatorTempo::Disco), "120 sets disco");
         e.set_tempo_by_value(TempoValue(160));
-        assert_eq!(e.tempo(), Some(Tempo::Techno), "160 sets techno");
+        assert_eq!(e.tempo(), Some(CalculatorTempo::Techno), "160 sets techno");
         e.set_tempo_by_value(TempoValue(80));
-        assert_eq!(e.tempo(), Some(Tempo::HipHop), "80 sets hiphop");
+        assert_eq!(e.tempo(), Some(CalculatorTempo::HipHop), "80 sets hiphop");
 
         e.set_tempo_by_value(TempoValue(121));
         assert_eq!(e.tempo(), None, "other value sets no named tempo");
@@ -1469,7 +1481,7 @@ mod tests {
         e.advance_tempo();
         assert_eq!(
             e.tempo(),
-            Some(Tempo::Disco),
+            Some(CalculatorTempo::Disco),
             "prior named tempo is restored when advance follows other"
         );
 

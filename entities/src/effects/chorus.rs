@@ -2,10 +2,7 @@
 
 use super::delay::{DelayLine, Delays};
 use ensnare::prelude::*;
-use groove_core::{
-    time::SampleRate,
-    traits::{Configurable, Serializable, TransformsAudio},
-};
+use groove_core::traits::{Configurable, Serializable, TransformsAudio};
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
 
 #[cfg(feature = "serialization")]

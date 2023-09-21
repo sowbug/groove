@@ -1,21 +1,21 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::Sequencer;
+use eframe::{
+    egui::{Frame, Grid, ScrollArea, Sense, Ui},
+    emath::{self, RectTransform},
+    epaint::{Color32, Pos2, Rect, Rounding, Shape, Stroke, Vec2},
+};
 //use btreemultimap::BTreeMultiMap;
 use ensnare::prelude::*;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage},
-    time::{BeatValue, MusicalTime, PerfectTimeUnit, TimeSignature, TimeSignatureParams},
-    traits::{Configurable, ControlEventsFn, Controls, Serializable},
+    time::PerfectTimeUnit,
+    traits::{Configurable, ControlEventsFn, Controls, Displays, Serializable},
 };
-use groove_proc_macros::{Control, IsController, Params, Uid};
-use std::{cmp, fmt::Debug, ops::Range};
-
-#[cfg(feature = "egui-framework")]
-use self::gui::NewNoteUiState;
-
-#[cfg(feature = "serialization")]
+use groove_proc_macros::{Control, IsController, Uid};
 use serde::{Deserialize, Serialize};
+use std::{cmp, fmt::Debug, ops::Range};
 
 /// A [Note] represents a key-down and key-up event pair that lasts for a
 /// specified duration.
@@ -29,8 +29,7 @@ pub struct Note {
 
 /// A [Pattern] is a series of [Note] rows that play simultaneously.
 /// [PatternManager] uses [Patterns](Pattern) to program a [Sequencer].
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Pattern<T: Default> {
     pub note_value: Option<BeatValue>,
     pub notes: Vec<Vec<T>>,
@@ -54,8 +53,7 @@ impl<T: Default> Pattern<T> {
 // There is so much paperwork for a vector because this will eventually become a
 // substantial part of the GUI experience.
 /// [PatternManager] stores all the [Patterns] that make up a song.
-#[derive(Clone, Debug, Default, Control, IsController, Params, Uid)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default, Control, IsController, Uid, Serialize, Deserialize)]
 pub struct PatternManager {
     uid: Uid,
     patterns: Vec<Pattern<Note>>,
@@ -182,356 +180,334 @@ impl Default for NewPattern {
     }
 }
 
-#[cfg(feature = "egui-framework")]
-mod gui {
-    use super::{NewPattern, Note, Pattern, PatternManager};
-    use crate::controllers::patterns::NewNote;
-    use eframe::{
-        egui::{Frame, Grid, ScrollArea, Sense, Ui},
-        emath::{self, RectTransform},
-        epaint::{Color32, Pos2, Rect, Rounding, Shape, Stroke, Vec2},
-    };
-    use groove_core::{
-        time::{BeatValue, PerfectTimeUnit},
-        traits::gui::Displays,
-    };
-    use std::ops::Range;
-
-    #[cfg(feature = "serialization")]
-    use serde::{Deserialize, Serialize};
-
-    #[derive(Clone, Debug, Default, PartialEq)]
-    #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-    pub(crate) enum NewNoteUiState {
-        #[default]
-        Normal,
-        Hovered,
-        Selected,
-    }
-
-    impl Pattern<Note> {
-        pub const CELL_WIDTH: f32 = 32.0;
-        pub const CELL_HEIGHT: f32 = 24.0;
-    }
-
-    impl Displays for Pattern<Note> {
-        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            if let Some(v) = self.note_value.as_mut() {
-                v.ui(ui);
-            } else {
-                // We want to inherit the beat value from orchestrator, but we
-                // don't have it! TODO
-                //
-                // TODO again: actually, what does it mean for a pattern to
-                // inherit a beat value? The pattern isn't going to change
-                // automatically if the time signature changes. I don't think
-                // this makes sense to be optional.
-                BeatValue::show_inherited(ui);
-            }
-            Grid::new(ui.next_auto_id())
-                .show(ui, |ui| {
-                    for notes in self.notes.iter_mut() {
-                        for note in notes.iter_mut() {
-                            Frame::none()
-                                .stroke(Stroke::new(1.0, Color32::GRAY))
-                                .fill(Color32::DARK_GRAY)
-                                .show(ui, |ui| {
-                                    let mut text = format!("{}", note.key);
-                                    if ui.text_edit_singleline(&mut text).changed() {
-                                        if let Ok(key) = text.parse() {
-                                            note.key = key;
-                                        }
-                                    };
-                                });
-                        }
-                    }
-                })
-                .response
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub(crate) enum NewNoteUiState {
+    #[default]
+    Normal,
+    Hovered,
+    Selected,
+}
+impl Pattern<Note> {
+    pub const CELL_WIDTH: f32 = 32.0;
+    pub const CELL_HEIGHT: f32 = 24.0;
+}
+impl Displays for Pattern<Note> {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        if let Some(v) = self.note_value.as_mut() {
+            // TODO - trait didn't match up during migration
+            // v.ui(ui);
+        } else {
+            // We want to inherit the beat value from orchestrator, but we
+            // don't have it! TODO
+            //
+            // TODO again: actually, what does it mean for a pattern to
+            // inherit a beat value? The pattern isn't going to change
+            // automatically if the time signature changes. I don't think
+            // this makes sense to be optional.
+            BeatValue::show_inherited(ui);
         }
-    }
-
-    impl Displays for PatternManager {
-        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            ui.set_min_width(16.0 * Pattern::CELL_WIDTH + 8.0); //  8 pixels margin
-            ScrollArea::vertical().show(ui, |ui| {
-                let mut is_first = true;
-                for pattern in self.patterns.iter_mut() {
-                    if is_first {
-                        is_first = false;
-                    } else {
-                        ui.separator();
+        Grid::new(ui.next_auto_id())
+            .show(ui, |ui| {
+                for notes in self.notes.iter_mut() {
+                    for note in notes.iter_mut() {
+                        Frame::none()
+                            .stroke(Stroke::new(1.0, Color32::GRAY))
+                            .fill(Color32::DARK_GRAY)
+                            .show(ui, |ui| {
+                                let mut text = format!("{}", note.key);
+                                if ui.text_edit_singleline(&mut text).changed() {
+                                    if let Ok(key) = text.parse() {
+                                        note.key = key;
+                                    }
+                                };
+                            });
                     }
-                    pattern.ui(ui);
                 }
-            });
-            ui.label("TODO")
-        }
+            })
+            .response
     }
+}
 
-    impl Displays for NewPattern {
-        fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
-            Frame::canvas(ui.style())
-                .show(ui, |ui| {
-                    let notes_vert = 24.0;
-                    let steps_horiz = 16.0;
+impl Displays for PatternManager {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        ui.set_min_width(16.0 * Pattern::CELL_WIDTH + 8.0); //  8 pixels margin
+        ScrollArea::vertical().show(ui, |ui| {
+            let mut is_first = true;
+            for pattern in self.patterns.iter_mut() {
+                if is_first {
+                    is_first = false;
+                } else {
+                    ui.separator();
+                }
+                pattern.ui(ui);
+            }
+        });
+        ui.label("TODO")
+    }
+}
 
-                    let desired_size = ui.available_size_before_wrap();
-                    let desired_size = Vec2::new(desired_size.x, 256.0);
-                    let (mut response, painter) =
-                        ui.allocate_painter(desired_size, Sense::click_and_drag());
+impl Displays for NewPattern {
+    fn ui(&mut self, ui: &mut Ui) -> eframe::egui::Response {
+        Frame::canvas(ui.style())
+            .show(ui, |ui| {
+                let notes_vert = 24.0;
+                let steps_horiz = 16.0;
 
-                    let to_screen = emath::RectTransform::from_to(
-                        Rect::from_min_size(Pos2::ZERO, Vec2::splat(1.0)),
-                        response.rect,
+                let desired_size = ui.available_size_before_wrap();
+                let desired_size = Vec2::new(desired_size.x, 256.0);
+                let (mut response, painter) =
+                    ui.allocate_painter(desired_size, Sense::click_and_drag());
+
+                let to_screen = emath::RectTransform::from_to(
+                    Rect::from_min_size(Pos2::ZERO, Vec2::splat(1.0)),
+                    response.rect,
+                );
+                let from_screen = to_screen.inverse();
+
+                painter.rect_filled(response.rect, Rounding::default(), Color32::GRAY);
+                for i in 0..16 {
+                    let x = i as f32 / steps_horiz;
+                    let lines = [to_screen * Pos2::new(x, 0.0), to_screen * Pos2::new(x, 1.0)];
+                    painter.line_segment(
+                        lines,
+                        Stroke {
+                            width: 1.0,
+                            color: Color32::DARK_GRAY,
+                        },
                     );
-                    let from_screen = to_screen.inverse();
+                }
 
-                    painter.rect_filled(response.rect, Rounding::default(), Color32::GRAY);
-                    for i in 0..16 {
-                        let x = i as f32 / steps_horiz;
-                        let lines = [to_screen * Pos2::new(x, 0.0), to_screen * Pos2::new(x, 1.0)];
-                        painter.line_segment(
-                            lines,
-                            Stroke {
-                                width: 1.0,
-                                color: Color32::DARK_GRAY,
-                            },
-                        );
-                    }
-
-                    // Are we over any existing note?
-                    let mut hovered_note = None;
-                    // if yes, are we hovering at a duration adjustment point?
-                    let mut hovering_at_start = false;
-                    let mut hovering_at_end = false;
-                    if let Some(hover_pos) = response.hover_pos() {
-                        for note in &self.notes {
-                            let note_rect = to_screen.transform_rect(self.rect_for_note(note));
-                            if note_rect.contains(hover_pos) {
-                                const SIDE_MARGIN: f32 = 6.0;
-                                hovered_note = Some(note.clone());
-                                let smaller_rect = Rect::from_min_size(
-                                    note_rect.left_top(),
-                                    Vec2::new(SIDE_MARGIN, note_rect.height()),
-                                );
-                                hovering_at_start = smaller_rect.contains(hover_pos);
-                                let smaller_rect = smaller_rect
-                                    .translate(Vec2::new(note_rect.width() - SIDE_MARGIN, 0.0));
-                                hovering_at_end = smaller_rect.contains(hover_pos);
-                                break;
-                            }
-                        }
-                    }
-
-                    if response.clicked() {
-                        if let Some(pointer_pos) = response.interact_pointer_pos() {
-                            let note = self.note_for_position(
-                                &from_screen,
-                                steps_horiz,
-                                notes_vert,
-                                pointer_pos,
+                // Are we over any existing note?
+                let mut hovered_note = None;
+                // if yes, are we hovering at a duration adjustment point?
+                let mut hovering_at_start = false;
+                let mut hovering_at_end = false;
+                if let Some(hover_pos) = response.hover_pos() {
+                    for note in &self.notes {
+                        let note_rect = to_screen.transform_rect(self.rect_for_note(note));
+                        if note_rect.contains(hover_pos) {
+                            const SIDE_MARGIN: f32 = 6.0;
+                            hovered_note = Some(note.clone());
+                            let smaller_rect = Rect::from_min_size(
+                                note_rect.left_top(),
+                                Vec2::new(SIDE_MARGIN, note_rect.height()),
                             );
-
-                            if let Some(hovered) = &hovered_note {
-                                self.remove(hovered.clone(), PerfectTimeUnit::default());
-                            } else {
-                                self.add(note, PerfectTimeUnit::default());
-                            }
-                            response.mark_changed();
+                            hovering_at_start = smaller_rect.contains(hover_pos);
+                            let smaller_rect = smaller_rect
+                                .translate(Vec2::new(note_rect.width() - SIDE_MARGIN, 0.0));
+                            hovering_at_end = smaller_rect.contains(hover_pos);
+                            break;
                         }
                     }
+                }
 
-                    if response.drag_started() {
-                        self.drag_from_start = false;
-                        self.drag_from_end = false;
-                        if hovered_note.is_some() {
-                            if hovering_at_start {
-                                self.drag_from_start = true;
-                            }
-                            if hovering_at_end {
-                                self.drag_from_end = true;
-                            }
-                            self.dragged_note = hovered_note.take();
-                            if let Some(n) = &self.dragged_note {
-                                self.remove(n.clone(), PerfectTimeUnit::default());
-                            }
+                if response.clicked() {
+                    if let Some(pointer_pos) = response.interact_pointer_pos() {
+                        let note = self.note_for_position(
+                            &from_screen,
+                            steps_horiz,
+                            notes_vert,
+                            pointer_pos,
+                        );
+
+                        if let Some(hovered) = &hovered_note {
+                            self.remove(hovered.clone(), PerfectTimeUnit::default());
                         } else {
-                            self.dragged_note = None;
+                            self.add(note, PerfectTimeUnit::default());
                         }
+                        response.mark_changed();
                     }
-                    if response.dragged() {
-                        if let Some(old_note) = &self.dragged_note {
-                            if let Some(pointer_pos) = response.interact_pointer_pos() {
-                                let new_note = if self.drag_from_start || self.drag_from_end {
-                                    let canvas_pos = from_screen * pointer_pos;
-                                    NewNote {
-                                        key: old_note.key,
-                                        velocity: old_note.velocity,
-                                        range: if self.drag_from_start {
-                                            Range {
-                                                start: (canvas_pos.x * steps_horiz * 8.0).floor()
-                                                    / 32.0,
-                                                end: old_note.range.end,
-                                            }
-                                        } else {
-                                            Range {
-                                                start: old_note.range.start,
-                                                end: (canvas_pos.x * steps_horiz * 8.0).floor()
-                                                    / 32.0,
-                                            }
-                                        },
-                                        ui_state: Default::default(),
-                                    }
-                                } else {
-                                    self.note_for_position(
-                                        &from_screen,
-                                        steps_horiz,
-                                        notes_vert,
-                                        pointer_pos,
-                                    )
-                                };
-                                eprintln!("dragged note {:#?}", new_note);
-                                painter.extend(self.make_note_shapes(&new_note, &to_screen, true));
-                            }
+                }
+
+                if response.drag_started() {
+                    self.drag_from_start = false;
+                    self.drag_from_end = false;
+                    if hovered_note.is_some() {
+                        if hovering_at_start {
+                            self.drag_from_start = true;
                         }
-                    }
-                    if response.drag_released() {
-                        if let Some(old_note) = &self.dragged_note {
-                            if let Some(pointer_pos) = response.interact_pointer_pos() {
-                                let new_note = if self.drag_from_start || self.drag_from_end {
-                                    let canvas_pos = from_screen * pointer_pos;
-                                    NewNote {
-                                        key: old_note.key,
-                                        velocity: old_note.velocity,
-                                        range: if self.drag_from_start {
-                                            Range {
-                                                start: (canvas_pos.x * steps_horiz * 8.0).floor()
-                                                    / 32.0,
-                                                end: old_note.range.end,
-                                            }
-                                        } else {
-                                            Range {
-                                                start: old_note.range.start,
-                                                end: (canvas_pos.x * steps_horiz * 8.0).floor()
-                                                    / 32.0,
-                                            }
-                                        },
-                                        ui_state: Default::default(),
-                                    }
-                                } else {
-                                    self.note_for_position(
-                                        &from_screen,
-                                        steps_horiz,
-                                        notes_vert,
-                                        pointer_pos,
-                                    )
-                                };
-                                self.add(new_note, PerfectTimeUnit::default());
-                            }
+                        if hovering_at_end {
+                            self.drag_from_end = true;
                         }
+                        self.dragged_note = hovered_note.take();
+                        if let Some(n) = &self.dragged_note {
+                            self.remove(n.clone(), PerfectTimeUnit::default());
+                        }
+                    } else {
                         self.dragged_note = None;
                     }
+                }
+                if response.dragged() {
+                    if let Some(old_note) = &self.dragged_note {
+                        if let Some(pointer_pos) = response.interact_pointer_pos() {
+                            let new_note = if self.drag_from_start || self.drag_from_end {
+                                let canvas_pos = from_screen * pointer_pos;
+                                NewNote {
+                                    key: old_note.key,
+                                    velocity: old_note.velocity,
+                                    range: if self.drag_from_start {
+                                        Range {
+                                            start: (canvas_pos.x * steps_horiz * 8.0).floor()
+                                                / 32.0,
+                                            end: old_note.range.end,
+                                        }
+                                    } else {
+                                        Range {
+                                            start: old_note.range.start,
+                                            end: (canvas_pos.x * steps_horiz * 8.0).floor() / 32.0,
+                                        }
+                                    },
+                                    ui_state: Default::default(),
+                                }
+                            } else {
+                                self.note_for_position(
+                                    &from_screen,
+                                    steps_horiz,
+                                    notes_vert,
+                                    pointer_pos,
+                                )
+                            };
+                            eprintln!("dragged note {:#?}", new_note);
+                            painter.extend(self.make_note_shapes(&new_note, &to_screen, true));
+                        }
+                    }
+                }
+                if response.drag_released() {
+                    if let Some(old_note) = &self.dragged_note {
+                        if let Some(pointer_pos) = response.interact_pointer_pos() {
+                            let new_note = if self.drag_from_start || self.drag_from_end {
+                                let canvas_pos = from_screen * pointer_pos;
+                                NewNote {
+                                    key: old_note.key,
+                                    velocity: old_note.velocity,
+                                    range: if self.drag_from_start {
+                                        Range {
+                                            start: (canvas_pos.x * steps_horiz * 8.0).floor()
+                                                / 32.0,
+                                            end: old_note.range.end,
+                                        }
+                                    } else {
+                                        Range {
+                                            start: old_note.range.start,
+                                            end: (canvas_pos.x * steps_horiz * 8.0).floor() / 32.0,
+                                        }
+                                    },
+                                    ui_state: Default::default(),
+                                }
+                            } else {
+                                self.note_for_position(
+                                    &from_screen,
+                                    steps_horiz,
+                                    notes_vert,
+                                    pointer_pos,
+                                )
+                            };
+                            self.add(new_note, PerfectTimeUnit::default());
+                        }
+                    }
+                    self.dragged_note = None;
+                }
 
-                    // if response.drag_started() {
-                    //     self.is_dragging = true;
+                // if response.drag_started() {
+                //     self.is_dragging = true;
 
-                    //     if let Some(pointer_pos) = response.interact_pointer_pos() {
-                    //         self.drag_start_point = Some(pointer_pos);
-                    //         self.drag_end_point = Some(pointer_pos);
-                    //     }
-                    //     // let note =
-                    //     //     self.note_for_position(&from_screen, steps_horiz, notes_vert, pointer_pos);
-                    //     // self.is_drag_deleting = self.notes.contains(&note);
-                    // }
-                    // if response.drag_released() {
-                    //     self.is_dragging = false;
+                //     if let Some(pointer_pos) = response.interact_pointer_pos() {
+                //         self.drag_start_point = Some(pointer_pos);
+                //         self.drag_end_point = Some(pointer_pos);
+                //     }
+                //     // let note =
+                //     //     self.note_for_position(&from_screen, steps_horiz, notes_vert, pointer_pos);
+                //     // self.is_drag_deleting = self.notes.contains(&note);
+                // }
+                // if response.drag_released() {
+                //     self.is_dragging = false;
 
-                    //     if let Some(pointer_pos) = response.interact_pointer_pos() {
-                    //         self.drag_end_point = Some(pointer_pos);
-                    //         let note = self.note_for_position(
-                    //             &from_screen,
-                    //             steps_horiz,
-                    //             notes_vert,
-                    //             self.drag_start_point,
-                    //             Some(pointer_pos),
-                    //         );
-                    //         self.drag_start_point = None;
-                    //     }
-                    // }
+                //     if let Some(pointer_pos) = response.interact_pointer_pos() {
+                //         self.drag_end_point = Some(pointer_pos);
+                //         let note = self.note_for_position(
+                //             &from_screen,
+                //             steps_horiz,
+                //             notes_vert,
+                //             self.drag_start_point,
+                //             Some(pointer_pos),
+                //         );
+                //         self.drag_start_point = None;
+                //     }
+                // }
 
-                    let shapes = self.notes.iter().fold(Vec::default(), |mut v, note| {
-                        let is_highlighted = if let Some(n) = &hovered_note {
-                            n == note
-                        } else {
-                            false
-                        };
-                        v.extend(self.make_note_shapes(note, &to_screen, is_highlighted));
-                        v
-                    });
+                let shapes = self.notes.iter().fold(Vec::default(), |mut v, note| {
+                    let is_highlighted = if let Some(n) = &hovered_note {
+                        n == note
+                    } else {
+                        false
+                    };
+                    v.extend(self.make_note_shapes(note, &to_screen, is_highlighted));
+                    v
+                });
 
-                    painter.extend(shapes);
+                painter.extend(shapes);
 
-                    response
-                })
-                .inner
-        }
+                response
+            })
+            .inner
     }
-    impl NewPattern {
-        fn make_note_shapes(
-            &self,
-            note: &NewNote,
-            to_screen: &RectTransform,
-            is_highlighted: bool,
-        ) -> Vec<Shape> {
-            let rect = to_screen
-                .transform_rect(self.rect_for_note(note))
-                .shrink(1.0);
-            let color = if note.ui_state == NewNoteUiState::Selected {
-                Color32::LIGHT_GRAY
-            } else if is_highlighted {
-                Color32::WHITE
-            } else {
-                Color32::DARK_BLUE
-            };
-            vec![
-                Shape::rect_stroke(rect, Rounding::default(), Stroke { width: 2.0, color }),
-                Shape::rect_filled(rect.shrink(2.0), Rounding::default(), Color32::LIGHT_BLUE),
-            ]
-        }
+}
+impl NewPattern {
+    fn make_note_shapes(
+        &self,
+        note: &NewNote,
+        to_screen: &RectTransform,
+        is_highlighted: bool,
+    ) -> Vec<Shape> {
+        let rect = to_screen
+            .transform_rect(self.rect_for_note(note))
+            .shrink(1.0);
+        let color = if note.ui_state == NewNoteUiState::Selected {
+            Color32::LIGHT_GRAY
+        } else if is_highlighted {
+            Color32::WHITE
+        } else {
+            Color32::DARK_BLUE
+        };
+        vec![
+            Shape::rect_stroke(rect, Rounding::default(), Stroke { width: 2.0, color }),
+            Shape::rect_filled(rect.shrink(2.0), Rounding::default(), Color32::LIGHT_BLUE),
+        ]
+    }
 
-        fn rect_for_note(&self, note: &NewNote) -> Rect {
-            let notes_vert = 24.0;
-            let ul = Pos2 {
-                x: note.range.start / 4.0,
-                y: (note.key as f32) / notes_vert,
-            };
-            let br = Pos2 {
-                x: note.range.end / 4.0,
-                y: (1.0 + note.key as f32) / notes_vert,
-            };
-            Rect::from_two_pos(ul, br)
-        }
+    fn rect_for_note(&self, note: &NewNote) -> Rect {
+        let notes_vert = 24.0;
+        let ul = Pos2 {
+            x: note.range.start / 4.0,
+            y: (note.key as f32) / notes_vert,
+        };
+        let br = Pos2 {
+            x: note.range.end / 4.0,
+            y: (1.0 + note.key as f32) / notes_vert,
+        };
+        Rect::from_two_pos(ul, br)
+    }
 
-        fn note_for_position(
-            &self,
-            from_screen: &RectTransform,
-            steps_horiz: f32,
-            notes_vert: f32,
-            pointer_pos: Pos2,
-        ) -> NewNote {
-            let canvas_pos = from_screen * pointer_pos;
-            let key = (canvas_pos.y * notes_vert) as u8;
-            let when = (canvas_pos.x * steps_horiz).floor() / 4.0;
+    fn note_for_position(
+        &self,
+        from_screen: &RectTransform,
+        steps_horiz: f32,
+        notes_vert: f32,
+        pointer_pos: Pos2,
+    ) -> NewNote {
+        let canvas_pos = from_screen * pointer_pos;
+        let key = (canvas_pos.y * notes_vert) as u8;
+        let when = (canvas_pos.x * steps_horiz).floor() / 4.0;
 
-            NewNote {
-                key,
-                velocity: 127,
-                range: Range {
-                    start: when,
-                    end: when + 0.25,
-                },
-                ui_state: Default::default(),
-            }
+        NewNote {
+            key,
+            velocity: 127,
+            range: Range {
+                start: when,
+                end: when + 0.25,
+            },
+            ui_state: Default::default(),
         }
     }
 }
@@ -545,12 +521,9 @@ pub struct PatternProgrammer {
     cursor: MusicalTime,
 }
 impl PatternProgrammer {
-    pub fn new_with(time_signature: &TimeSignatureParams) -> Self {
+    pub fn new_with(time_signature: TimeSignature) -> Self {
         Self {
-            time_signature: TimeSignature {
-                top: time_signature.top,
-                bottom: time_signature.bottom,
-            },
+            time_signature,
             cursor: MusicalTime::default(),
         }
     }
@@ -632,13 +605,13 @@ impl PatternProgrammer {
 mod tests {
     use super::*;
     use crate::controllers::SequencerParams;
-    use groove_core::time::BeatValue;
+    use ensnare::prelude::*;
 
     #[test]
     fn pattern_mainline() {
-        let time_signature = TimeSignatureParams { top: 4, bottom: 4 };
+        let time_signature = TimeSignature::default();
         let mut sequencer = Sequencer::new_with(&SequencerParams { bpm: 128.0 });
-        let mut programmer = PatternProgrammer::new_with(&time_signature);
+        let mut programmer = PatternProgrammer::new_with(time_signature);
 
         // note that this is five notes, but the time signature is 4/4. This
         // means that we should interpret this as TWO measures, the first having
@@ -694,10 +667,9 @@ mod tests {
 
     #[test]
     fn multi_pattern_track() {
-        let time_signature_params = TimeSignatureParams { top: 7, bottom: 8 };
-        let ts = TimeSignature::new(&time_signature_params).unwrap();
+        let time_signature = TimeSignature::new_with(7, 8).unwrap();
         let mut sequencer = Sequencer::new_with(&SequencerParams { bpm: 128.0 });
-        let mut programmer = PatternProgrammer::new_with(&time_signature_params);
+        let mut programmer = PatternProgrammer::new_with(time_signature);
 
         // since these patterns are denominated in a quarter notes, but the time
         // signature calls for eighth notes, they last twice as long as they
@@ -736,7 +708,7 @@ mod tests {
         programmer.insert_pattern_at_cursor(&mut sequencer, &MidiChannel::from(0), &pattern);
 
         // expect max of (2, 3) measures
-        let expected = MusicalTime::new(&ts, 3, 0, 0, 0);
+        let expected = MusicalTime::new(&time_signature, 3, 0, 0, 0);
         assert_eq!(
             programmer.cursor(),
             expected,
@@ -749,10 +721,9 @@ mod tests {
 
     #[test]
     fn pattern_default_note_value() {
-        let time_signature_params = TimeSignatureParams { top: 7, bottom: 4 };
-        let ts = TimeSignature::new(&time_signature_params).unwrap();
+        let time_signature = TimeSignature::new_with(7, 4).unwrap();
         let mut sequencer = Sequencer::new_with(&SequencerParams { bpm: 128.0 });
-        let mut programmer = PatternProgrammer::new_with(&time_signature_params);
+        let mut programmer = PatternProgrammer::new_with(time_signature);
         let pattern = Pattern {
             note_value: None,
             notes: vec![vec![Note {
@@ -763,7 +734,7 @@ mod tests {
         };
         programmer.insert_pattern_at_cursor(&mut sequencer, &MidiChannel::from(0), &pattern);
 
-        let expected = MusicalTime::new(&ts, 1, 0, 0, 0);
+        let expected = MusicalTime::new(&time_signature, 1, 0, 0, 0);
         assert_eq!(
             programmer.cursor(),
             expected,

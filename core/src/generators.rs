@@ -2,7 +2,7 @@
 
 use crate::{
     control::ControlValue,
-    time::{Clock, ClockTimeUnit, SampleRate, Seconds},
+    time::{ClockTimeUnit, Seconds},
     traits::{Configurable, Generates, GeneratesEnvelope, Ticks},
     Normal,
 };
@@ -1228,10 +1228,6 @@ impl SteppedEnvelope {
         }
         // TODO same debug_assert_eq!(end_time, f32::MAX);
     }
-
-    pub fn time_for_unit(&self, clock: &Clock) -> f64 {
-        clock.time_for(&self.time_unit)
-    }
 }
 
 #[cfg(test)]
@@ -1239,11 +1235,13 @@ pub mod tests {
     use super::*;
     use crate::{
         midi::{note_type_to_frequency, MidiNote},
-        time::Clock,
-        traits::{tests::DebugTicks, Configurable, Generates, GeneratesEnvelope, Ticks},
+        traits::{
+            tests::DebugTicks, Configurable as OldConfigurable, Generates, GeneratesEnvelope, Ticks,
+        },
         util::tests::TestOnlyPaths,
         Normal, Sample, SampleType, SAMPLE_BUFFER_SIZE,
     };
+    use ensnare::{time::Transport, traits::Configurable};
     use float_cmp::approx_eq;
     use more_asserts::{assert_gt, assert_lt};
     use std::path::PathBuf;
@@ -1716,25 +1714,25 @@ pub mod tests {
 
     // Where possible, we'll erase the envelope type and work only with the
     // Envelope trait, so that we can confirm that the trait alone is useful.
-    fn get_ge_trait_stuff() -> (Clock, impl GeneratesEnvelope) {
-        let clock = Clock::new_test();
+    fn get_ge_trait_stuff() -> (Transport, impl GeneratesEnvelope) {
+        let transport = Transport::default();
         let envelope = Envelope::new_with(&EnvelopeParams::new_with(
             (0.1).into(),
             (0.2).into(),
             Normal::new(0.8),
             (0.3).into(),
         ));
-        (clock, envelope)
+        (transport, envelope)
     }
 
     #[test]
     fn generates_envelope_trait_idle() {
-        let (mut clock, mut e) = get_ge_trait_stuff();
+        let (mut transport, mut e) = get_ge_trait_stuff();
 
         assert!(e.is_idle(), "Envelope should be idle on creation.");
 
         e.tick(1);
-        clock.tick(1);
+        transport.advance(1);
         assert!(e.is_idle(), "Untriggered envelope should remain idle.");
         assert_eq!(
             e.value().value(),
@@ -1745,37 +1743,37 @@ pub mod tests {
 
     fn run_until<F>(
         envelope: &mut impl GeneratesEnvelope,
-        clock: &mut Clock,
-        time_marker: f64,
+        transport: &mut Transport,
+        time_marker: MusicalTime,
         mut test: F,
     ) -> Normal
     where
-        F: FnMut(Normal, &Clock),
+        F: FnMut(Normal, &Transport),
     {
         let mut amplitude: Normal = Normal::new(0.0);
         loop {
             envelope.tick(1);
-            clock.tick(1);
-            let should_continue = clock.seconds() < time_marker;
+            transport.advance(1);
+            let should_continue = transport.current_time() < time_marker;
             if !should_continue {
                 break;
             }
             amplitude = envelope.value();
-            test(amplitude, clock);
+            test(amplitude, transport);
         }
         amplitude
     }
 
     #[test]
     fn generates_envelope_trait_instant_trigger_response() {
-        let (mut clock, mut e) = get_ge_trait_stuff();
+        let (mut transport, mut e) = get_ge_trait_stuff();
 
-        clock.update_sample_rate(SampleRate::DEFAULT);
+        transport.update_sample_rate(SampleRate::DEFAULT);
         e.update_sample_rate(SampleRate::DEFAULT);
 
         e.trigger_attack();
         e.tick(1);
-        clock.tick(1);
+        transport.advance(1);
         assert!(
             !e.is_idle(),
             "Envelope should be active immediately upon trigger"
@@ -1788,7 +1786,7 @@ pub mod tests {
         // samples late!).
         for _ in 0..17 {
             e.tick(1);
-            clock.tick(1);
+            transport.advance(1);
         }
         assert_gt!(
             e.value().value(),
@@ -1799,7 +1797,13 @@ pub mod tests {
 
     #[test]
     fn generates_envelope_trait_attack_decay_duration() {
-        let mut clock = Clock::new_test();
+        let mut transport = Transport::default();
+        // This is an ugly way to get seconds and beats to match up. This
+        // happened because these tests were written for Clock, which worked in
+        // units of wall-clock time, and we migrated to MusicalTime, which is
+        // based on beats.
+        transport.set_tempo(Tempo(60.0));
+
         let attack: Normal = Envelope::from_seconds_to_normal(Seconds(0.1));
         let decay: Normal = Envelope::from_seconds_to_normal(Seconds(0.2));
         const SUSTAIN: Normal = Normal::new_const(0.8);
@@ -1808,10 +1812,11 @@ pub mod tests {
             Envelope::new_with(&EnvelopeParams::new_with(attack, decay, SUSTAIN, release));
 
         // An even sample rate means we can easily calculate how much time was spent in each state.
-        clock.update_sample_rate(SampleRate::from(100));
+        transport.update_sample_rate(SampleRate::from(100));
         envelope.update_sample_rate(SampleRate::from(100));
 
-        let mut time_marker = clock.seconds() + Envelope::from_normal_to_seconds(attack).0;
+        let mut time_marker = transport.current_time()
+            + MusicalTime::new_with_fractional_beats(Envelope::from_normal_to_seconds(attack).0);
         envelope.trigger_attack();
         assert!(
             matches!(envelope.debug_state(), State::Attack),
@@ -1821,17 +1826,17 @@ pub mod tests {
         let mut last_amplitude = envelope.value();
 
         envelope.tick(1);
-        clock.tick(1);
+        transport.advance(1);
 
         let amplitude = run_until(
             &mut envelope,
-            &mut clock,
+            &mut transport,
             time_marker,
-            |amplitude, clock| {
+            |amplitude, transport| {
                 assert_lt!(
                     last_amplitude,
                     amplitude,
-                    "Expected amplitude to rise through attack time ending at {time_marker}, but it didn't at time {}",clock.seconds()
+                    "Expected amplitude to rise through attack time ending at {time_marker}, but it didn't at time {}", transport.current_time().total_beats()
                 );
                 last_amplitude = amplitude;
             },
@@ -1844,10 +1849,11 @@ pub mod tests {
             (1.0 - amplitude.value()).abs()
         );
 
-        time_marker += Envelope::from_normal_to_seconds(decay).0;
+        time_marker +=
+            MusicalTime::new_with_fractional_beats(Envelope::from_normal_to_seconds(decay).0);
         let amplitude = run_until(
             &mut envelope,
-            &mut clock,
+            &mut transport,
             time_marker,
             |_amplitude, _clock| {},
         );
@@ -1871,7 +1877,8 @@ pub mod tests {
 
     #[test]
     fn generates_envelope_trait_sustain_duration_then_release() {
-        let mut clock = Clock::new_test();
+        let mut transport = Transport::default();
+        transport.set_tempo(Tempo(60.0));
         let attack: Normal = Envelope::from_seconds_to_normal(Seconds(0.1));
         let decay: Normal = Envelope::from_seconds_to_normal(Seconds(0.2));
         const SUSTAIN: Normal = Normal::new_const(0.8);
@@ -1881,22 +1888,24 @@ pub mod tests {
 
         envelope.trigger_attack();
         envelope.tick(1);
-        let mut time_marker = clock.seconds()
-            + (Envelope::from_normal_to_seconds(attack) + expected_decay_time(decay, SUSTAIN)).0;
-        clock.tick(1);
+        let mut time_marker = transport.current_time()
+            + MusicalTime::new_with_fractional_beats(
+                Envelope::from_normal_to_seconds(attack).0 + expected_decay_time(decay, SUSTAIN).0,
+            );
+        transport.advance(1);
 
         // Skip past attack/decay.
         run_until(
             &mut envelope,
-            &mut clock,
+            &mut transport,
             time_marker,
             |_amplitude, _clock| {},
         );
 
-        time_marker += 0.5;
+        time_marker += MusicalTime::new_with_fractional_beats(0.5);
         let amplitude = run_until(
             &mut envelope,
-            &mut clock,
+            &mut transport,
             time_marker,
             |amplitude, _clock| {
                 assert_eq!(
@@ -1908,11 +1917,13 @@ pub mod tests {
         .value();
 
         envelope.trigger_release();
-        time_marker += expected_release_time(release, amplitude.into()).0;
+        time_marker += MusicalTime::new_with_fractional_beats(
+            expected_release_time(release, amplitude.into()).0,
+        );
         let mut last_amplitude = amplitude;
         let amplitude = run_until(
             &mut envelope,
-            &mut clock,
+            &mut transport,
             time_marker,
             |inner_amplitude, _clock| {
                 assert_lt!(
@@ -1940,7 +1951,8 @@ pub mod tests {
 
     #[test]
     fn simple_envelope_interrupted_decay_with_second_attack() {
-        let mut clock = Clock::new_test();
+        let mut transport = Transport::default();
+        transport.set_tempo(Tempo(60.0));
 
         // These settings are copied from Welsh Piano's filter envelope, which
         // is where I noticed some unwanted behavior.
@@ -1951,11 +1963,11 @@ pub mod tests {
         let mut envelope =
             Envelope::new_with(&EnvelopeParams::new_with(attack, decay, SUSTAIN, release));
 
-        clock.update_sample_rate(SampleRate::DEFAULT);
+        transport.update_sample_rate(SampleRate::DEFAULT);
         envelope.update_sample_rate(SampleRate::DEFAULT);
 
         envelope.tick(1);
-        clock.tick(1);
+        transport.advance(1);
 
         assert_eq!(
             envelope.value(),
@@ -1967,8 +1979,8 @@ pub mod tests {
         // warning about comparing floats and looking for epsilons.
         envelope.trigger_attack();
         envelope.tick(1);
-        let mut time_marker = clock.seconds();
-        clock.tick(1);
+        let mut time_marker = transport.current_time();
+        transport.advance(1);
         assert!(
             approx_eq!(
                 f64,
@@ -1981,7 +1993,7 @@ pub mod tests {
             envelope.value().value(),
         );
         envelope.tick(1);
-        clock.tick(1);
+        transport.advance(1);
         assert_lt!(
             envelope.value(),
             Normal::maximum(),
@@ -1989,11 +2001,13 @@ pub mod tests {
         );
 
         // Jump to halfway through decay.
-        time_marker += Envelope::from_normal_to_seconds(attack).0
-            + Envelope::from_normal_to_seconds(decay).0 / 2.0;
+        time_marker += MusicalTime::new_with_fractional_beats(
+            Envelope::from_normal_to_seconds(attack).0
+                + Envelope::from_normal_to_seconds(decay).0 / 2.0,
+        );
         let amplitude = run_until(
             &mut envelope,
-            &mut clock,
+            &mut transport,
             time_marker,
             |_amplitude, _clock| {},
         );
@@ -2006,13 +2020,13 @@ pub mod tests {
         // Release the trigger.
         envelope.trigger_release();
         let _amplitude = envelope.tick(1);
-        clock.tick(1);
+        transport.advance(1);
 
         // And hit it again.
         envelope.trigger_attack();
         envelope.tick(1);
-        let mut time_marker = clock.seconds();
-        clock.tick(1);
+        let mut time_marker = transport.current_time();
+        transport.advance(1);
         assert!(
             approx_eq!(
                 f64,
@@ -2027,11 +2041,12 @@ pub mod tests {
         envelope.trigger_release();
 
         // Check that we keep decreasing amplitude to zero, not to sustain.
-        time_marker += Envelope::from_normal_to_seconds(release).0;
+        time_marker +=
+            MusicalTime::new_with_fractional_beats(Envelope::from_normal_to_seconds(release).0);
         let mut last_amplitude = envelope.value().value();
         let _amplitude = run_until(
             &mut envelope,
-            &mut clock,
+            &mut transport,
             time_marker,
             |inner_amplitude, _clock| {
                 assert_lt!(
@@ -2063,7 +2078,8 @@ pub mod tests {
     // envelope can be shorter than its parameters might suggest.
     #[test]
     fn generates_envelope_trait_decay_and_release_based_on_full_amplitude_range() {
-        let mut clock = Clock::new_test();
+        let mut transport = Transport::default();
+        transport.set_tempo(Tempo(60.0));
         const ATTACK: Normal = Normal::minimum();
         let decay: Normal = Envelope::from_seconds_to_normal(Seconds(0.8));
         let sustain = Normal::new_const(0.5);
@@ -2071,15 +2087,16 @@ pub mod tests {
         let mut envelope =
             Envelope::new_with(&EnvelopeParams::new_with(ATTACK, decay, sustain, release));
 
-        clock.update_sample_rate(SampleRate::DEFAULT);
+        transport.update_sample_rate(SampleRate::DEFAULT);
         envelope.update_sample_rate(SampleRate::DEFAULT);
 
         // Decay after note-on should be shorter than the decay value.
         envelope.trigger_attack();
-        let mut time_marker = clock.seconds() + expected_decay_time(decay, sustain).0;
+        let mut time_marker = transport.current_time()
+            + MusicalTime::new_with_fractional_beats(expected_decay_time(decay, sustain).0);
         let amplitude = run_until(
             &mut envelope,
-            &mut clock,
+            &mut transport,
             time_marker,
             |_amplitude, _clock| {},
         )
@@ -2092,23 +2109,24 @@ pub mod tests {
             decay,
             100.0 * (1.0 - sustain.value())
         );
-        clock.tick(1);
+        transport.advance(1);
 
         // Release after note-off should also be shorter than the release value.
         envelope.trigger_release();
         let expected_release_time = expected_release_time(release, envelope.value().into());
-        time_marker += expected_release_time.0 - 0.000000000000001; // I AM SICK OF FP PRECISION ERRORS
+        time_marker +=
+            MusicalTime::new_with_fractional_beats(expected_release_time.0 - 0.000000000000001); // I AM SICK OF FP PRECISION ERRORS
         let amplitude = run_until(
             &mut envelope,
-            &mut clock,
+            &mut transport,
             time_marker,
-            |inner_amplitude, clock| {
+            |inner_amplitude, transport| {
                 assert_gt!(
                     inner_amplitude.value(),
                     0.0,
                     "We should not reach idle before time {}, but we did at time {}.",
                     &time_marker,
-                    clock.seconds()
+                    transport.current_time()
                 )
             },
         );

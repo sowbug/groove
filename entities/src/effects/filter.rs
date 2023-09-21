@@ -1,10 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use ensnare::prelude::*;
-use groove_core::{
-    time::SampleRate,
-    traits::{Configurable, Serializable, TransformsAudio},
-};
+use groove_core::traits::{Configurable, Serializable, TransformsAudio};
 use groove_proc_macros::{Control, IsEffect, Params, Uid};
 use std::f64::consts::PI;
 

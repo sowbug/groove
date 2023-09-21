@@ -17,7 +17,6 @@ use eframe::{
 use ensnare::{prelude::*, uid::IsUid};
 use groove_core::{
     midi::{new_note_off, new_note_on, MidiChannel, MidiMessage},
-    time::{MusicalTime, TimeSignature},
     traits::{
         gui::{Displays, DisplaysInTimeline},
         Configurable, ControlEventsFn, Controls, HandlesMidi, Serializable,
@@ -566,7 +565,7 @@ impl Displays for Sequencer {
     }
 }
 impl DisplaysInTimeline for Sequencer {
-    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<MusicalTime>) {
         self.e.view_range = view_range.clone();
     }
 }

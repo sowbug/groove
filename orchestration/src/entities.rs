@@ -3,10 +3,10 @@
 //! An [EntityObsolete] wraps a musical device, giving it the ability to be managed by
 //! [crate::Orchestrator] and automated by other devices in the system.
 
-use groove_core::{time::Clock, traits::HasUid};
+use groove_core::traits::HasUid;
 use groove_entities::{
     controllers::{
-        Arpeggiator, Calculator, ControlTrip, LfoController, PatternManager, Sequencer,
+        Arpeggiator, Calculator, LfoController, PatternManager, Sequencer,
         SignalPassthroughController, Timer, ToyController, Trigger,
     },
     effects::{
@@ -15,7 +15,7 @@ use groove_entities::{
         BiQuadFilterLowShelf, BiQuadFilterNone, BiQuadFilterPeakingEq, Bitcrusher, Chorus,
         Compressor, Delay, Gain, Limiter, Mixer, Reverb,
     },
-    instruments::{Drumkit, FmSynth, Metronome, Sampler, WelshSynth},
+    instruments::{Drumkit, FmSynth, Sampler, WelshSynth},
 };
 use groove_proc_macros::Everything;
 use groove_toys::{DebugSynth, ToyAudioSource, ToyEffect, ToyInstrument, ToySynth};
@@ -69,15 +69,11 @@ enum Everything {
     #[everything(effect, controllable)]
     Chorus(Chorus),
 
-    #[everything()]
-    Clock(Clock),
-
     #[everything(effect, controllable)]
     Compressor(Compressor),
 
-    #[everything(controller, midi)]
-    ControlTrip(ControlTrip),
-
+    // #[everything(controller, midi)]
+    // ControlTrip(ControlTrip),
     #[everything(instrument, midi, controllable)]
     DebugSynth(DebugSynth),
 
@@ -102,9 +98,8 @@ enum Everything {
     #[everything(effect, controllable)]
     Limiter(Limiter),
 
-    #[everything(controllable, instrument, midi)]
-    Metronome(Metronome),
-
+    // #[everything(controllable, instrument, midi)]
+    // Metronome(Metronome),
     #[everything(effect)]
     Mixer(Mixer),
 

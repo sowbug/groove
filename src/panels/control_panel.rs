@@ -6,7 +6,6 @@ use groove_core::{
     time::PerfectTimeUnit,
     traits::{gui::Displays, Controls},
 };
-use groove_orchestration::Orchestrator;
 use std::{
     ops::Range,
     path::{Path, PathBuf},
@@ -85,9 +84,11 @@ impl Displays for ControlPanel {
     }
 }
 
+#[cfg(obsolete)]
 /// [ControlBar] displays the top bar of controls and global information.
 #[derive(Debug, Default)]
 pub struct ControlBar {}
+#[cfg(obsolete)]
 impl ControlBar {
     /// Draws the bar
     pub fn show(&self, ui: &mut Ui, orchestrator: &mut Orchestrator) {

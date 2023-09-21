@@ -5,11 +5,8 @@ use super::{
     ControlSettings, DeviceId, DeviceSettings, PatternSettings, TrackSettings,
 };
 use anyhow::{anyhow, Result};
-use groove_core::time::{ClockParams, TimeSignature, TimeSignatureParams};
-use groove_entities::controllers::{
-    ControlPath, ControlTrip, ControlTripParams, Note, Pattern, PatternProgrammer,
-};
-use groove_orchestration::{EntityObsolete, Orchestrator};
+use groove_entities::controllers::{ControlPath, Note, Pattern, PatternProgrammer};
+use groove_orchestration::EntityObsolete;
 use groove_utils::Paths;
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
@@ -24,7 +21,7 @@ pub struct SongSettings {
     pub title: Option<String>,
 
     /// Information about timing. BPM, time signature, etc.
-    pub clock: ClockParams,
+    pub clock: Clock, // TODO: this is wrong; blunt-force fix while migrating
 
     /// Controllers, Effects, and Instruments
     pub devices: Vec<DeviceSettings>,
@@ -96,13 +93,13 @@ impl SongSettings {
         paths: &Paths,
         load_only_test_entities: bool,
     ) -> Result<Orchestrator> {
-        let mut o: Orchestrator = Orchestrator::new_with(&self.clock);
+        let mut o: Orchestrator = Orchestrator::new_with(self.clock);
         o.set_title(self.title.clone());
         self.instantiate_devices(paths, &mut o, load_only_test_entities);
         self.instantiate_patch_cables(&mut o)?;
         self.instantiate_controls(&mut o)?;
         self.instantiate_tracks(&mut o);
-        self.instantiate_control_trips(&mut o, &self.clock.time_signature);
+        self.instantiate_control_trips(&mut o, &self.clock.time_signature());
         Ok(o)
     }
 
@@ -237,7 +234,7 @@ impl SongSettings {
 
         let sequencer_uid = orchestrator.sequencer_uid();
         if let Some(EntityObsolete::Sequencer(sequencer)) = orchestrator.get_mut(sequencer_uid) {
-            let mut programmer = PatternProgrammer::new_with(&self.clock.time_signature);
+            let mut programmer = PatternProgrammer::new_with(self.clock.time_signature().clone());
 
             for track in &self.tracks {
                 let channel = track.midi_channel;
@@ -254,7 +251,7 @@ impl SongSettings {
     fn instantiate_control_trips(
         &self,
         orchestrator: &mut Orchestrator,
-        time_signature: &TimeSignatureParams,
+        time_signature: &TimeSignature,
     ) {
         if self.trips.is_empty() {
             // There's no need to instantiate the paths if there are no trips to use them.
@@ -279,8 +276,7 @@ impl SongSettings {
                 }));
                 for path_id in &control_trip_settings.path_ids {
                     if let Some(control_path) = ids_to_paths.get(path_id) {
-                        control_trip
-                            .add_path(&TimeSignature::new(&time_signature).unwrap(), control_path);
+                        control_trip.add_path(time_signature, control_path);
                     } else {
                         eprintln!(
                             "Warning: trip {} refers to nonexistent path {}",

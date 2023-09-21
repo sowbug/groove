@@ -2,7 +2,6 @@
 
 use crate::{
     midi::u7,
-    time::SampleRate,
     traits::{Configurable, Generates, IsStereoSampleVoice, StoresVoices, Ticks},
 };
 use anyhow::{anyhow, Result};
@@ -340,7 +339,6 @@ pub(crate) mod tests {
     use crate::{
         generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams, Waveform},
         midi::{note_to_frequency, u7},
-        time::SampleRate,
         traits::{GeneratesEnvelope, IsVoice, PlaysNotes, StoresVoices, Ticks},
         voices::{
             Configurable, Generates, IsStereoSampleVoice, StealingVoiceStore, VoiceCount,

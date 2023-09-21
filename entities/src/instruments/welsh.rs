@@ -7,7 +7,6 @@ use groove_core::{
     generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams},
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
-    time::SampleRate,
     traits::{
         Configurable, Generates, GeneratesEnvelope, IsStereoSampleVoice, IsVoice, PlaysNotes,
         Serializable, Ticks, TransformsAudio,
@@ -541,10 +540,7 @@ mod tests {
     use super::*;
     use crate::tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND};
     use convert_case::{Case, Casing};
-    use groove_core::{
-        time::{Clock, ClockParams, TimeSignatureParams},
-        util::tests::TestOnlyPaths,
-    };
+    use groove_core::util::tests::TestOnlyPaths;
 
     // TODO dedup
     pub fn canonicalize_output_filename_and_path(filename: &str) -> String {
@@ -558,6 +554,7 @@ mod tests {
         }
     }
 
+    #[cfg(obsolete)]
     // TODO: refactor out to common test utilities
     #[allow(dead_code)]
     fn write_voice(voice: &mut WelshVoice, duration: f64, basename: &str) {

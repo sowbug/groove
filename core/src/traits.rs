@@ -10,14 +10,13 @@ pub use crate::midi::HandlesMidi;
 use crate::{
     control::{ControlIndex, ControlValue},
     midi::{u7, MidiChannel, MidiMessage},
-    time::{MusicalTime, PerfectTimeUnit, SampleRate, TimeSignature},
+    time::PerfectTimeUnit,
     Sample,
 };
 use ensnare::{prelude::*, uid::Uid};
 use std::ops::Range;
 
-#[cfg(feature = "egui-framework")]
-use self::gui::Displays;
+pub use self::gui::Displays;
 
 pub trait MessageBounds: std::fmt::Debug + Send {}
 
@@ -405,6 +404,7 @@ pub trait HasSettings {
 #[cfg(feature = "egui-framework")]
 pub mod gui {
     use eframe::egui;
+    use ensnare::prelude::*;
 
     /// Something that can be called during egui rendering to display a view of
     /// itself.
@@ -424,7 +424,7 @@ pub mod gui {
 
     /// Something that can display a portion of itself in a timeline view.
     pub trait DisplaysInTimeline: Displays {
-        fn set_view_range(&mut self, view_range: &std::ops::Range<crate::time::MusicalTime>);
+        fn set_view_range(&mut self, view_range: &std::ops::Range<MusicalTime>);
     }
 }
 #[cfg(test)]

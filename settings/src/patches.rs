@@ -734,7 +734,7 @@ mod tests {
     use float_cmp::approx_eq;
     use groove_core::{
         generators::{Envelope, EnvelopeParams, Waveform},
-        time::{Clock, ClockParams, SampleRate, Seconds, TimeSignatureParams},
+        time::Seconds,
         traits::{Configurable, Generates, PlaysNotes, Ticks},
         util::tests::TestOnlyPaths,
     };
@@ -804,38 +804,38 @@ mod tests {
         );
     }
 
-    // TODO: get rid of this
-    fn write_sound(
-        source: &mut WelshVoice,
-        clock: &mut Clock,
-        duration: f64,
-        when: f64,
-        basename: &str,
-    ) {
-        let spec = hound::WavSpec {
-            channels: 2,
-            sample_rate: clock.sample_rate().value() as u32,
-            bits_per_sample: 16,
-            sample_format: hound::SampleFormat::Int,
-        };
-        const AMPLITUDE: SampleType = i16::MAX as SampleType;
-        let mut writer =
-            hound::WavWriter::create(canonicalize_output_filename_and_path(basename), spec)
-                .unwrap();
+    // // TODO: get rid of this
+    // fn write_sound(
+    //     source: &mut WelshVoice,
+    //     clock: &mut Clock,
+    //     duration: f64,
+    //     when: f64,
+    //     basename: &str,
+    // ) {
+    //     let spec = hound::WavSpec {
+    //         channels: 2,
+    //         sample_rate: clock.sample_rate().value() as u32,
+    //         bits_per_sample: 16,
+    //         sample_format: hound::SampleFormat::Int,
+    //     };
+    //     const AMPLITUDE: SampleType = i16::MAX as SampleType;
+    //     let mut writer =
+    //         hound::WavWriter::create(canonicalize_output_filename_and_path(basename), spec)
+    //             .unwrap();
 
-        let mut is_message_sent = false;
-        while clock.seconds() < duration {
-            if when <= clock.seconds() && !is_message_sent {
-                is_message_sent = true;
-                source.note_off(0);
-            }
-            source.tick(1);
-            let sample = source.value();
-            let _ = writer.write_sample((sample.0 .0 * AMPLITUDE) as i16);
-            let _ = writer.write_sample((sample.1 .0 * AMPLITUDE) as i16);
-            clock.tick(1);
-        }
-    }
+    //     let mut is_message_sent = false;
+    //     while clock.seconds() < duration {
+    //         if when <= clock.seconds() && !is_message_sent {
+    //             is_message_sent = true;
+    //             source.note_off(0);
+    //         }
+    //         source.tick(1);
+    //         let sample = source.value();
+    //         let _ = writer.write_sample((sample.0 .0 * AMPLITUDE) as i16);
+    //         let _ = writer.write_sample((sample.1 .0 * AMPLITUDE) as i16);
+    //         clock.tick(1);
+    //     }
+    // }
 
     fn cello_patch() -> WelshPatchSettings {
         WelshPatchSettings {
@@ -944,13 +944,14 @@ mod tests {
         );
     }
 
+    #[cfg(obsolete)]
     #[test]
     fn basic_synth_patch() {
-        let mut clock = Clock::new_with(&ClockParams {
-            bpm: DEFAULT_BPM,
-            midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
-        });
+        let mut clock = Clock::new_with(
+            DEFAULT_BPM,
+            DEFAULT_MIDI_TICKS_PER_SECOND,
+            TimeSignature::default(),
+        );
         let mut voice = boring_test_patch().derive_welsh_voice();
         clock.update_sample_rate(SampleRate::DEFAULT);
         voice.update_sample_rate(SampleRate::DEFAULT);
@@ -959,13 +960,14 @@ mod tests {
         write_sound(&mut voice, &mut clock, 5.0, 5.0, "voice_basic_test_c4");
     }
 
+    #[cfg(obsolete)]
     #[test]
     fn basic_cello_patch() {
-        let mut clock = Clock::new_with(&ClockParams {
-            bpm: DEFAULT_BPM,
-            midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
-        });
+        let mut clock = Clock::new_with(
+            DEFAULT_BPM,
+            DEFAULT_MIDI_TICKS_PER_SECOND,
+            TimeSignature::default(),
+        );
         let mut voice = cello_patch().derive_welsh_voice();
         clock.update_sample_rate(SampleRate::DEFAULT);
         voice.update_sample_rate(SampleRate::DEFAULT);

@@ -93,7 +93,7 @@
 //! ```
 
 #[deprecated]
-pub use groove_orchestration::{EntityObsolete, Orchestrator as OldOrchestrator};
+pub use groove_orchestration::EntityObsolete;
 
 pub use mini::EntityFactory;
 pub use mini::Orchestrator;

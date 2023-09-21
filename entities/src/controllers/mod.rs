@@ -1,13 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 pub use arpeggiator::{Arpeggiator, ArpeggiatorParams};
-pub use calculator::{Calculator, CalculatorParams};
-pub use control_trip::{ControlPath, ControlStep, ControlTrip, ControlTripParams};
+pub use calculator::Calculator;
+pub use control_trip::{ControlPath, ControlStep};
 use ensnare::prelude::*;
 pub use lfo::{LfoController, LfoControllerParams};
-pub use patterns::{
-    NewPattern, Note, Pattern, PatternManager, PatternManagerParams, PatternProgrammer,
-};
+pub use patterns::{NewPattern, Note, Pattern, PatternManager, PatternProgrammer};
 pub use sequencers::{Sequencer, SequencerParams};
 
 mod arpeggiator;
@@ -20,7 +18,7 @@ mod sequencers;
 use groove_core::{
     control::ControlValue,
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessagesFn},
-    time::{ClockTimeUnit, MusicalTime, MusicalTimeParams, SampleRate},
+    time::ClockTimeUnit,
     traits::{Configurable, ControlEventsFn, Controls, EntityEvent, Serializable, TransformsAudio},
 };
 use groove_proc_macros::{Control, IsController, IsControllerEffect, Params, Uid};
@@ -62,12 +60,11 @@ pub struct MidiChannelOutputParams {
 /// [Timer] runs for a specified amount of time, then indicates that it's done.
 /// It is useful when you need something to happen after a certain amount of
 /// wall-clock time, rather than musical time.
-#[derive(Debug, Control, IsController, Params, Uid)]
+#[derive(Debug, Control, IsController, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Timer {
     uid: Uid,
 
-    #[params]
     duration: MusicalTime,
 
     #[cfg_attr(feature = "serialization", serde(skip))]
@@ -81,10 +78,10 @@ pub struct Timer {
 }
 impl Serializable for Timer {}
 impl Timer {
-    pub fn new_with(params: &TimerParams) -> Self {
+    pub fn new_with(duration: MusicalTime) -> Self {
         Self {
             uid: Default::default(),
-            duration: MusicalTime::new_with(&params.duration),
+            duration,
             is_performing: false,
             is_finished: false,
             end_time: Default::default(),
@@ -162,16 +159,14 @@ impl Controls for Timer {
 
 // TODO: needs tests!
 /// [Trigger] issues a control signal after a specified amount of time.
-#[derive(Debug, Control, IsController, Params, Uid)]
+#[derive(Debug, Control, IsController, Uid)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Trigger {
     uid: Uid,
 
-    #[params]
     timer: Timer,
 
-    #[params]
-    value: Normal,
+    value: ControlValue,
 
     has_triggered: bool,
     is_performing: bool,
@@ -185,7 +180,7 @@ impl Controls for Trigger {
     fn work(&mut self, control_events_fn: &mut ControlEventsFn) {
         if self.timer.is_finished() && self.is_performing && !self.has_triggered {
             self.has_triggered = true;
-            control_events_fn(self.uid, EntityEvent::Control(self.value().into()));
+            control_events_fn(self.uid, EntityEvent::Control(self.value));
         }
     }
 
@@ -222,21 +217,21 @@ impl Configurable for Trigger {
 }
 impl HandlesMidi for Trigger {}
 impl Trigger {
-    pub fn new_with(params: &TriggerParams) -> Self {
+    pub fn new_with(timer: Timer, value: ControlValue) -> Self {
         Self {
             uid: Default::default(),
-            timer: Timer::new_with(&params.timer),
-            value: params.value(),
+            timer,
+            value,
             has_triggered: false,
             is_performing: false,
         }
     }
 
-    pub fn value(&self) -> Normal {
+    pub fn value(&self) -> ControlValue {
         self.value
     }
 
-    pub fn set_value(&mut self, value: Normal) {
+    pub fn set_value(&mut self, value: ControlValue) {
         self.value = value;
     }
 }
@@ -576,27 +571,18 @@ mod gui {
 
 #[cfg(test)]
 mod tests {
-    use crate::controllers::{TimerParams, Trigger, TriggerParams};
+    use crate::controllers::{Timer, Trigger};
     use ensnare::prelude::*;
-    use groove_core::{
-        time::{MusicalTime, MusicalTimeParams, SampleRate, TimeSignature},
-        traits::{Configurable, Controls},
-    };
+    use groove_core::traits::{Configurable, Controls};
     use std::ops::Range;
 
     #[test]
     fn instantiate_trigger() {
         let ts = TimeSignature::default();
-        let mut trigger = Trigger::new_with(&TriggerParams {
-            timer: TimerParams {
-                duration: {
-                    MusicalTimeParams {
-                        units: MusicalTime::bars_to_units(&ts, 1),
-                    }
-                },
-            },
-            value: Normal::from(0.5),
-        });
+        let mut trigger = Trigger::new_with(
+            Timer::new_with(MusicalTime::new_with_bars(&ts, 1)),
+            groove_core::control::ControlValue::from(0.5),
+        );
         trigger.update_sample_rate(SampleRate::DEFAULT);
         trigger.play();
 

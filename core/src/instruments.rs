@@ -2,10 +2,10 @@
 
 use crate::{
     midi::{HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
-    time::SampleRate,
     traits::{Configurable, Generates, IsStereoSampleVoice, StoresVoices, Ticks},
     BipolarNormal, Normal, StereoSample,
 };
+use ensnare::prelude::*;
 
 /// [Synthesizer] provides the smallest possible functional core of a
 /// synthesizer built around [StoresVoices]. A full
@@ -176,11 +176,11 @@ mod tests {
     use crate::{
         instruments::Synthesizer,
         midi::{new_note_on, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
-        time::SampleRate,
         traits::{Configurable, Generates, Ticks},
         voices::{tests::TestVoice, VoiceCount, VoiceStore},
         StereoSample,
     };
+    use ensnare::prelude::*;
 
     #[derive(Debug)]
     pub struct TestSynthesizer {

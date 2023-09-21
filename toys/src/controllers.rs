@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use ensnare::uid::Uid;
+use ensnare::{time::MusicalTime, uid::Uid};
 use groove_core::{
     midi::{u7, MidiChannel},
     traits::{gui::Displays, Configurable, Controls, HandlesMidi, Serializable},
@@ -21,7 +21,7 @@ pub struct ToyControllerAlwaysSendsMidiMessage {
 impl Displays for ToyControllerAlwaysSendsMidiMessage {}
 impl HandlesMidi for ToyControllerAlwaysSendsMidiMessage {}
 impl Controls for ToyControllerAlwaysSendsMidiMessage {
-    fn update_time(&mut self, _range: &std::ops::Range<groove_core::time::MusicalTime>) {}
+    fn update_time(&mut self, _range: &std::ops::Range<MusicalTime>) {}
 
     fn work(&mut self, control_events_fn: &mut groove_core::traits::ControlEventsFn) {
         if self.is_performing {

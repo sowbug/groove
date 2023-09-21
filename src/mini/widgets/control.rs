@@ -12,14 +12,10 @@ use eframe::{
     emath::RectTransform,
     epaint::{pos2, vec2, Color32, Rect, Stroke},
 };
-use ensnare::uid::Uid;
-use groove_core::{
-    control::{ControlIndex, ControlValue},
-    time::MusicalTime,
-    traits::{
-        gui::{Displays, DisplaysInTimeline},
-        HasUid,
-    },
+use ensnare::prelude::*;
+use groove_core::traits::{
+    gui::{Displays, DisplaysInTimeline},
+    HasUid,
 };
 use std::ops::Range;
 
@@ -52,7 +48,7 @@ impl<'a> Atlas<'a> {
     }
 }
 impl<'a> DisplaysInTimeline for Atlas<'a> {
-    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<MusicalTime>) {
         self.view_range = view_range.clone();
     }
 }

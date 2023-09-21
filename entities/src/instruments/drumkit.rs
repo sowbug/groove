@@ -9,7 +9,6 @@ use groove_core::{
         note_to_frequency, u7, GeneralMidiPercussionProgram, HandlesMidi, MidiChannel, MidiMessage,
         MidiMessagesFn,
     },
-    time::SampleRate,
     traits::{Configurable, Generates, Serializable, Ticks},
     voices::VoicePerNoteStore,
 };

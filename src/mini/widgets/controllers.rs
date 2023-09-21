@@ -6,10 +6,8 @@ use eframe::{
     emath::RectTransform,
     epaint::{pos2, vec2, Rect, RectShape, Shape},
 };
-use groove_core::{
-    time::MusicalTime,
-    traits::gui::{Displays, DisplaysInTimeline},
-};
+use ensnare::prelude::*;
+use groove_core::traits::gui::{Displays, DisplaysInTimeline};
 use std::ops::Range;
 
 /// Wraps an [ESSequencer] as a [Widget](eframe::egui::Widget).
@@ -51,7 +49,7 @@ impl<'a> SequencerWidget<'a> {
     }
 }
 impl<'a> DisplaysInTimeline for SequencerWidget<'a> {
-    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<MusicalTime>) {
         self.view_range = view_range.clone();
     }
 }

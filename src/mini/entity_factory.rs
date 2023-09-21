@@ -4,10 +4,7 @@ use anyhow::anyhow;
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use derive_more::Display;
 use ensnare::{prelude::*, uid::Uid};
-use groove_core::{
-    time::{SampleRate, TimeSignature},
-    traits::{Configurable, ControlEventsFn, Controls, Entity, Serializable, Ticks},
-};
+use groove_core::traits::{Configurable, ControlEventsFn, Controls, Entity, Serializable, Ticks};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::{collections::hash_map, fmt::Debug, option::Option};
@@ -240,7 +237,7 @@ impl Configurable for EntityStore {
     }
 }
 impl Controls for EntityStore {
-    fn update_time(&mut self, range: &std::ops::Range<groove_core::time::MusicalTime>) {
+    fn update_time(&mut self, range: &std::ops::Range<MusicalTime>) {
         self.iter_mut().for_each(|t| {
             if let Some(t) = t.as_controller_mut() {
                 t.update_time(range);
@@ -318,11 +315,8 @@ impl Serializable for EntityStore {
 mod tests {
     use super::EntityStore;
     use crate::mini::{register_test_factory_entities, EntityFactory, Key};
-    use ensnare::uid::Uid;
-    use groove_core::{
-        time::SampleRate,
-        traits::{Configurable, HasUid},
-    };
+    use ensnare::prelude::*;
+    use groove_core::traits::{Configurable, HasUid};
     use groove_toys::ToySynth;
     use std::collections::HashSet;
 

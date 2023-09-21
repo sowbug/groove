@@ -5,8 +5,7 @@ use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{CollapsingHeader, Ui};
 use ensnare::core::StereoSample;
 use groove_audio::{AudioInterfaceEvent, AudioInterfaceInput, AudioQueue, AudioStreamService};
-use groove_core::{time::SampleRate, traits::gui::Displays, SAMPLE_BUFFER_SIZE};
-use groove_orchestration::Orchestrator;
+use groove_core::{traits::gui::Displays, SAMPLE_BUFFER_SIZE};
 use std::{
     fmt::Debug,
     sync::{Arc, Mutex, MutexGuard},

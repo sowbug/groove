@@ -5,12 +5,13 @@
 //! system.
 
 pub use entities::EntityObsolete;
-pub use orchestrator::{Orchestrator, Performance};
+//pub use orchestrator::Performance;
 
 pub mod helpers;
 pub mod messages;
 
 mod entities;
+#[cfg(obsolete)]
 mod orchestrator;
 mod util;
 

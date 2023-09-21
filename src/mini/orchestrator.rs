@@ -19,9 +19,7 @@ use eframe::{
 use ensnare::prelude::*;
 use groove_audio::AudioQueue;
 use groove_core::{
-    control::ControlValue,
     midi::{MidiChannel, MidiMessage, MidiMessagesFn},
-    time::{MusicalTime, SampleRate},
     traits::{
         gui::{Displays, DisplaysInTimeline},
         Configurable, ControlEventsFn, Controllable, Controls, EntityEvent, Generates,
@@ -587,7 +585,7 @@ impl Configurable for Orchestrator {
         // TODO: how do we let the service know this changed?
     }
 
-    fn update_time_signature(&mut self, time_signature: groove_core::time::TimeSignature) {
+    fn update_time_signature(&mut self, time_signature: TimeSignature) {
         self.transport.update_time_signature(time_signature);
     }
 }
@@ -696,7 +694,7 @@ impl Serializable for Orchestrator {
     }
 }
 impl DisplaysInTimeline for Orchestrator {
-    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<MusicalTime>) {
         self.e.view_range = view_range.clone();
     }
 }
@@ -780,12 +778,11 @@ mod tests {
     use ensnare::prelude::*;
     use groove_core::{
         midi::{MidiChannel, MidiMessage},
-        time::{MusicalTime, SampleRate},
         traits::{Configurable, Controls, HandlesMidi, HasUid},
         DcaParams,
     };
     use groove_entities::{
-        controllers::{Timer, TimerParams},
+        controllers::Timer,
         effects::{Gain, GainParams},
     };
     use groove_toys::{
@@ -824,13 +821,8 @@ mod tests {
         let tuid = o.new_midi_track().unwrap();
         let track = o.get_track_mut(&tuid).unwrap();
 
-        // TODO: worst ergonomics ever.
         const TIMER_DURATION: MusicalTime = MusicalTime::new_with_beats(1);
-        let _ = track.append_entity(Box::new(Timer::new_with(&TimerParams {
-            duration: groove_core::time::MusicalTimeParams {
-                units: TIMER_DURATION.total_units(),
-            },
-        })));
+        let _ = track.append_entity(Box::new(Timer::new_with(TIMER_DURATION)));
 
         o.play();
         let mut _prior_start_time = MusicalTime::TIME_ZERO;

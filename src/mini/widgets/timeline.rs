@@ -10,10 +10,8 @@ use eframe::{
     emath::{Align2, RectTransform},
     epaint::{pos2, FontId, Rect, RectShape, Shape},
 };
-use groove_core::{
-    time::MusicalTime,
-    traits::gui::{Displays, DisplaysInTimeline},
-};
+use ensnare::prelude::*;
+use groove_core::traits::gui::{Displays, DisplaysInTimeline};
 use std::ops::Range;
 use strum::EnumCount;
 use strum_macros::{EnumCount as EnumCountMacro, FromRepr};
@@ -66,12 +64,12 @@ pub struct Legend<'a> {
     view_range: &'a mut Range<MusicalTime>,
 }
 impl<'a> Legend<'a> {
-    fn new(view_range: &'a mut std::ops::Range<groove_core::time::MusicalTime>) -> Self {
+    fn new(view_range: &'a mut std::ops::Range<MusicalTime>) -> Self {
         Self { view_range }
     }
 
     fn steps(
-        view_range: &std::ops::Range<groove_core::time::MusicalTime>,
+        view_range: &std::ops::Range<MusicalTime>,
     ) -> std::iter::StepBy<Range<usize>> {
         let beat_count = view_range.end.total_beats() - view_range.start.total_beats();
         let step = (beat_count as f32).log10().round() as usize;
@@ -135,17 +133,17 @@ pub struct Grid {
     view_range: Range<MusicalTime>,
 }
 impl Grid {
-    fn range(mut self, range: std::ops::Range<groove_core::time::MusicalTime>) -> Self {
+    fn range(mut self, range: std::ops::Range<MusicalTime>) -> Self {
         self.range = range.clone();
         self
     }
-    fn view_range(mut self, view_range: std::ops::Range<groove_core::time::MusicalTime>) -> Self {
+    fn view_range(mut self, view_range: std::ops::Range<MusicalTime>) -> Self {
         self.set_view_range(&view_range);
         self
     }
 }
 impl DisplaysInTimeline for Grid {
-    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<MusicalTime>) {
         self.view_range = view_range.clone();
     }
 }
@@ -206,7 +204,7 @@ impl EmptySpace {
     }
 }
 impl DisplaysInTimeline for EmptySpace {
-    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<MusicalTime>) {
         self.view_range = view_range.clone();
     }
 }
@@ -273,7 +271,7 @@ struct Timeline<'a> {
     sequencer: &'a mut ESSequencer,
 }
 impl<'a> DisplaysInTimeline for Timeline<'a> {
-    fn set_view_range(&mut self, view_range: &std::ops::Range<groove_core::time::MusicalTime>) {
+    fn set_view_range(&mut self, view_range: &std::ops::Range<MusicalTime>) {
         self.view_range = view_range.clone();
     }
 }

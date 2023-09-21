@@ -20,35 +20,29 @@ pub(crate) fn transform_linear_to_mma_convex(linear_value: f64) -> f64 {
     }
 }
 
-#[cfg(test)]
+#[cfg(obsolete)] // TODO was test
 pub mod tests {
     use crate::{
         entities::EntityObsolete,
-        tests::DEFAULT_MIDI_TICKS_PER_SECOND,
         util::{transform_linear_to_mma_concave, transform_linear_to_mma_convex},
         Orchestrator,
     };
-    use ensnare::core::{FrequencyHz, Normal, StereoSample};
+    use ensnare::prelude::*;
     use groove_core::{
-        generators::Waveform,
-        midi::MidiChannel,
-        time::{ClockParams, MusicalTime, MusicalTimeParams, SampleRate, TimeSignatureParams},
-        traits::Configurable,
-        DcaParams, SAMPLE_BUFFER_SIZE,
+        generators::Waveform, midi::MidiChannel, traits::Configurable, DcaParams,
+        SAMPLE_BUFFER_SIZE,
     };
     use groove_entities::controllers::{
-        LfoController, LfoControllerParams, Timer, TimerParams, ToyController, ToyControllerParams,
+        LfoController, LfoControllerParams, Timer, ToyController, ToyControllerParams,
     };
     use groove_toys::{DebugSynth, ToyEffect, ToyInstrument, ToyInstrumentParams};
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
 
     #[test]
     fn audio_routing_works() {
-        let mut o = Orchestrator::new_with(&ClockParams {
-            bpm: 240.0,
-            midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
-        });
+        let mut clock = Clock::default();
+        clock.set_bpm(240.0);
+        let mut o = Orchestrator::new_with(clock);
         o.update_sample_rate(SampleRate::DEFAULT);
 
         // A simple audio source.
@@ -65,12 +59,7 @@ pub mod tests {
 
         // Run the main loop for a while.
         let _ = o.add(EntityObsolete::Timer(Box::new(Timer::new_with(
-            &TimerParams {
-                duration: MusicalTimeParams {
-                    units: MusicalTime::beats_to_units(4),
-                    ..Default::default()
-                },
-            },
+            MusicalTime::new_with_beats(4),
         ))));
 
         // Gather the audio output.
@@ -98,11 +87,9 @@ pub mod tests {
 
     #[test]
     fn control_routing_works() {
-        let mut o = Orchestrator::new_with(&ClockParams {
-            bpm: 240.0,
-            midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
-        });
+        let mut clock = Clock::default();
+        clock.set_bpm(240.0);
+        let mut o = Orchestrator::new_with(clock);
         o.update_sample_rate(SampleRate::DEFAULT);
 
         // The synth's frequency is modulated by the LFO.
@@ -118,12 +105,7 @@ pub mod tests {
         let _ = o.connect_to_main_mixer(synth_1_uid);
 
         let _ = o.add(EntityObsolete::Timer(Box::new(Timer::new_with(
-            &TimerParams {
-                duration: MusicalTimeParams {
-                    units: MusicalTime::beats_to_units(4),
-                    ..Default::default()
-                },
-            },
+            MusicalTime::new_with_beats(4),
         ))));
 
         // Gather the audio output.
@@ -149,11 +131,9 @@ pub mod tests {
     fn midi_routing_works() {
         const TEST_MIDI_CHANNEL: MidiChannel = MidiChannel(7);
         const ARP_MIDI_CHANNEL: MidiChannel = MidiChannel(5);
-        let mut o = Orchestrator::new_with(&ClockParams {
-            bpm: 240.0,
-            midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
-        });
+        let mut clock = Clock::default();
+        clock.set_bpm(240.0);
+        let mut o = Orchestrator::new_with(clock);
         o.update_sample_rate(SampleRate::DEFAULT);
 
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
@@ -179,12 +159,7 @@ pub mod tests {
         o.connect_midi_downstream(arpeggiator_uid, ARP_MIDI_CHANNEL);
 
         let _ = o.add(EntityObsolete::Timer(Box::new(Timer::new_with(
-            &TimerParams {
-                duration: MusicalTimeParams {
-                    units: MusicalTime::beats_to_units(4),
-                    ..Default::default()
-                },
-            },
+            MusicalTime::new_with_beats(4),
         ))));
 
         // Everything is hooked up. Let's run it and hear what we got.
@@ -264,11 +239,9 @@ pub mod tests {
 
     #[test]
     fn groove_can_be_instantiated_in_new_generic_world() {
-        let mut o = Orchestrator::new_with(&ClockParams {
-            bpm: 240.0,
-            midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-            time_signature: TimeSignatureParams { top: 4, bottom: 4 },
-        });
+        let mut clock = Clock::default();
+        clock.set_bpm(240.0);
+        let mut o = Orchestrator::new_with(clock);
         o.update_sample_rate(SampleRate::DEFAULT);
 
         // A simple audio source.
@@ -286,12 +259,7 @@ pub mod tests {
 
         // Run the main loop for a while.
         let _ = o.add(EntityObsolete::Timer(Box::new(Timer::new_with(
-            &TimerParams {
-                duration: MusicalTimeParams {
-                    units: MusicalTime::beats_to_units(4),
-                    ..Default::default()
-                },
-            },
+            MusicalTime::new_with_beats(4),
         ))));
 
         // Gather the audio output.

@@ -4,7 +4,7 @@ use super::{sequencers::Sequencer, SequencerParams};
 use ensnare::prelude::*;
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
-    time::{MusicalTime, PerfectTimeUnit, SampleRate},
+    time::PerfectTimeUnit,
     traits::{Configurable, ControlEventsFn, Controls, Serializable},
 };
 use groove_proc_macros::{Control, IsController, Params, Uid};

@@ -1,12 +1,15 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::{sequencer::SequencerBuilder, ControlTrip, EntityFactory, Key};
-use ensnare::core::{FrequencyHz, Normal};
+use ensnare::{
+    core::{FrequencyHz, Normal},
+    time::MusicalTime,
+};
 use groove_core::{generators::Waveform, midi::MidiChannel};
 use groove_entities::{
     controllers::{
         Arpeggiator, ArpeggiatorParams, LfoController, LfoControllerParams,
-        SignalPassthroughController, Timer, TimerParams,
+        SignalPassthroughController, Timer,
     },
     effects::{
         BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbParams, Gain, GainParams, Reverb,
@@ -69,7 +72,7 @@ pub fn register_factory_entities(mut factory: EntityFactory) -> EntityFactory {
         ))
     });
     factory.register_entity(Key::from("timer"), || {
-        Box::new(Timer::new_with(&TimerParams::default()))
+        Box::new(Timer::new_with(MusicalTime::DURATION_QUARTER))
     });
     factory.register_entity(Key::from("toy-synth"), || {
         Box::new(ToySynth::new_with(&ToySynthParams::default()))

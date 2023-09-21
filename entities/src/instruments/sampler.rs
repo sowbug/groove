@@ -5,7 +5,6 @@ use ensnare::prelude::*;
 use groove_core::{
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage, MidiMessagesFn},
-    time::SampleRate,
     traits::{
         Configurable, Generates, IsStereoSampleVoice, IsVoice, PlaysNotes, Serializable, Ticks,
     },

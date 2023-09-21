@@ -8,12 +8,14 @@
 //! set of serialized structs separate from the inner engine helps reduce
 //! file-format churn.
 
-pub use songs::SongSettings;
+use ensnare::time::BeatValue;
+//pub use songs::SongSettings;
 
 pub mod controllers;
 pub(crate) mod effects;
 pub(crate) mod instruments;
 pub(crate) mod patches;
+#[cfg(obsolete)]
 pub(crate) mod songs;
 
 use self::{
@@ -21,10 +23,7 @@ use self::{
     effects::EffectSettings,
     instruments::InstrumentSettings,
 };
-use groove_core::{
-    midi::MidiChannel,
-    time::{BeatValue, PerfectTimeUnit, TimeSignature},
-};
+use groove_core::{midi::MidiChannel, time::PerfectTimeUnit};
 use groove_entities::controllers::{Note, Pattern};
 use serde::{Deserialize, Serialize};
 use strum_macros::FromRepr;
@@ -112,17 +111,17 @@ impl Default for TimeSignatureSettings {
         Self { top: 4, bottom: 4 }
     }
 }
-#[allow(clippy::from_over_into)]
-impl Into<TimeSignature> for TimeSignatureSettings {
-    fn into(self) -> TimeSignature {
-        let r = TimeSignature::new_with(self.top, self.bottom);
-        if let Ok(ts) = r {
-            ts
-        } else {
-            panic!("Failed to instantiate TimeSignature: {}", r.err().unwrap())
-        }
-    }
-}
+// #[allow(clippy::from_over_into)]
+// impl Into<TimeSignature> for TimeSignatureSettings {
+//     fn into(self) -> TimeSignature {
+//         let r = TimeSignature::new_with(self.top, self.bottom);
+//         if let Ok(ts) = r {
+//             ts
+//         } else {
+//             panic!("Failed to instantiate TimeSignature: {}", r.err().unwrap())
+//         }
+//     }
+// }
 
 #[derive(Clone, Debug, Default, Deserialize, FromRepr, Serialize)]
 #[serde(rename_all = "kebab-case")]

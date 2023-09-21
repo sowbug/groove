@@ -6,7 +6,6 @@ use ensnare::prelude::*;
 use groove_core::{
     control::ControlIndex,
     midi::{MidiChannel, MidiMessage},
-    time::SampleRate,
     traits::{EntityEvent, MessageBounds},
 };
 use std::fmt::Debug;
