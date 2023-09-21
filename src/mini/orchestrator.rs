@@ -768,10 +768,9 @@ mod tests {
         orchestrator::Orchestrator, track::TrackBuffer, OrchestratorBuilder, TrackUid,
     };
     use ensnare::{
-        midi::{new_note_off, new_note_on, MidiChannel, MidiMessage, MidiNote},
+        midi::{MidiChannel, MidiMessage},
         prelude::*,
         traits::prelude::*,
-        uid::IsUid,
     };
     use groove_core::DcaParams;
     use groove_entities::{

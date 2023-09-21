@@ -1,9 +1,5 @@
 use eframe::egui::{Id as EguiId, Ui};
-use ensnare::traits::{
-    Configurable, ControlEventsFn, Controllable, Controls, Displays, DisplaysInTimeline, Entity,
-    EntityEvent, Generates, GeneratesToInternalBuffer, HandlesMidi, HasSettings, HasUid,
-    Serializable, Ticks,
-};
+use ensnare::traits::Displays;
 
 use crate::mini::{
     {DragDropManager, DragDropSource}, {EntityFactory, Key},

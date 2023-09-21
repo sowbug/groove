@@ -7,9 +7,7 @@ use eframe::egui::Ui;
 use ensnare::midi::{MidiChannel, MidiMessage};
 use ensnare::prelude::*;
 use ensnare::traits::{
-    Configurable, ControlEventsFn, Controllable, Controls, Displays, DisplaysInTimeline, Entity,
-    EntityEvent, Generates, GeneratesToInternalBuffer, HandlesMidi, HasSettings, HasUid,
-    Serializable, Ticks,
+    Configurable, ControlEventsFn, Controls, Displays, EntityEvent, HandlesMidi, Serializable,
 };
 
 use ensnare_proc_macros::{Control, IsController, Uid};

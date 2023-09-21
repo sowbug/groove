@@ -67,10 +67,8 @@ impl ControlRouter {
 mod tests {
     use super::*;
     use crate::mini::entity_factory::EntityStore;
-    use ensnare::prelude::*;
     use ensnare::traits::{
-        Configurable, ControlEventsFn, Controllable, Controls, Displays, DisplaysInTimeline,
-        Entity, EntityEvent, Generates, HandlesMidi, Serializable, Ticks,
+        Configurable, Controllable, Displays, Generates, HandlesMidi, Serializable, Ticks,
     };
     use ensnare_proc_macros::{IsInstrument, Uid};
     use std::sync::{Arc, RwLock};

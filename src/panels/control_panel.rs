@@ -1,15 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use crate::mini::{widgets::core::transport, Transport};
-use eframe::egui::{DragValue, Ui};
-use groove_core::{
-    time::PerfectTimeUnit,
-    traits::{gui::Displays, Controls},
-};
-use std::{
-    ops::Range,
-    path::{Path, PathBuf},
-};
+use eframe::egui::Ui;
+use groove_core::traits::gui::Displays;
+use std::path::PathBuf;
 
 /// Actions the user might take via the control panel.
 pub enum ControlPanelAction {

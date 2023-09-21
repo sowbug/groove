@@ -6,11 +6,7 @@ use eframe::{
     emath::Align,
     epaint::vec2,
 };
-use ensnare::traits::{
-    Configurable, ControlEventsFn, Controllable, Controls, Displays, DisplaysInTimeline, Entity,
-    EntityEvent, Generates, GeneratesToInternalBuffer, HandlesMidi, HasSettings, HasUid,
-    Serializable, Ticks,
-};
+use ensnare::traits::Displays;
 
 /// Wraps a [Transport] as a [Widget](eframe::egui::Widget).
 pub fn transport(transport: &mut Transport) -> impl eframe::egui::Widget + '_ {

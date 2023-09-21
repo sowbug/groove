@@ -116,7 +116,7 @@ pub fn register_factory_entities(mut factory: EntityFactory) -> EntityFactory {
 #[cfg(test)]
 use {
     groove_entities::controllers::{ToyController, ToyControllerParams},
-    groove_toys::{ToyEffect, ToyEffectParams},
+    groove_toys::ToyEffect,
 };
 
 /// Registers all [EntityFactory]'s entities. Note that the function returns an

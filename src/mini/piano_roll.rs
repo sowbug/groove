@@ -12,12 +12,7 @@ use eframe::{
     emath::RectTransform,
     epaint::{pos2, Color32, Pos2, Rect, RectShape, Rounding, Shape, Stroke},
 };
-use ensnare::{
-    midi::{new_note_off, new_note_on, MidiChannel, MidiMessage, MidiNote},
-    prelude::*,
-    traits::prelude::*,
-    uid::IsUid,
-};
+use ensnare::{midi::MidiNote, prelude::*, traits::prelude::*, uid::IsUid};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display, ops::Range};
 

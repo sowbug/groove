@@ -146,7 +146,7 @@ impl Sequencer {
     ) {
         let range = (Included(range.start), Excluded(range.end));
         self.events.range(range).for_each(|(_when, event)| {
-            self.active_notes[event.0.value() as usize].watch_message(&event.1);
+            self.active_notes[event.0 .0 as usize].watch_message(&event.1);
             midi_messages_fn(event.0, event.1);
         });
     }

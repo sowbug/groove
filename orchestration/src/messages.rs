@@ -2,7 +2,11 @@
 
 //! The [messages](crate::messages) module defines the app's messages.
 
-use ensnare::{midi::prelude::*, prelude::*, traits::{prelude::*, MessageBounds}};
+use ensnare::{
+    midi::prelude::*,
+    prelude::*,
+    traits::{prelude::*, MessageBounds},
+};
 use std::fmt::Debug;
 
 #[cfg(feature = "serialization")]

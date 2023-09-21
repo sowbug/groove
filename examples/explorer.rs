@@ -220,6 +220,7 @@ pub enum DeviceChainAction {
 
 #[derive(Debug)]
 struct DeviceChain<'a> {
+    #[allow(dead_code)]
     track_uid: TrackUid,
     store: &'a mut EntityStore,
     controllers: &'a mut Vec<Uid>,
@@ -250,17 +251,9 @@ impl<'a> DeviceChain<'a> {
         }
     }
 
-    fn is_large_size(mut self, is_large_size: bool) -> Self {
-        self.is_large_size = is_large_size;
-        self
-    }
-
     fn can_accept(&self) -> bool {
         if let Some(source) = DragDropManager::source() {
-            match source {
-                DragDropSource::NewDevice(_) => true,
-                _ => false,
-            }
+            matches!(source, DragDropSource::NewDevice(_))
         } else {
             false
         }
@@ -268,11 +261,8 @@ impl<'a> DeviceChain<'a> {
 
     fn check_drop(&mut self) {
         if let Some(source) = DragDropManager::source() {
-            match source {
-                DragDropSource::NewDevice(key) => {
-                    *self.action = Some(DeviceChainAction::NewDevice(key))
-                }
-                _ => {}
+            if let DragDropSource::NewDevice(key) = source {
+                *self.action = Some(DeviceChainAction::NewDevice(key))
             }
         }
     }
