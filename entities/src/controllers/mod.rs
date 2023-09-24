@@ -1,10 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use eframe::egui::Ui;
-use ensnare_core::{midi::prelude::*, prelude::*, temp_impls::prelude::*, traits::prelude::*};
-use ensnare_proc_macros::{Control, IsController, Uid};
+use ensnare_core::midi::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::ops::Range;
 
 pub use calculator::Calculator;
 pub use control_trip::{ControlPath, ControlStep};

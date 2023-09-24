@@ -3,14 +3,11 @@
 //! The [helpers](crate::helpers) module contains structs and methods that make
 //! it easier to use the Groove engine.
 
-// use crate::orchestrator::Performance;
-use anyhow::anyhow;
 use cpal::{
     traits::{DeviceTrait, HostTrait},
     SupportedStreamConfig,
 };
 use ensnare_core::prelude::*;
-use std::path::PathBuf;
 
 pub struct IOHelper {}
 impl IOHelper {

@@ -1,25 +1,15 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use eframe::{
-    egui::{self, Layout, Ui},
-    emath::Align,
-    epaint::{pos2, Color32, Rect, Rounding, Stroke},
-};
+use eframe::egui::{self, Ui};
 use ensnare_core::{
     generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams, Waveform},
-    instruments::Synthesizer,
     midi::prelude::*,
-    modulators::{Dca, DcaParams},
     prelude::*,
     traits::{prelude::*, GeneratesEnvelope},
-    voices::{VoiceCount, VoiceStore},
 };
 use ensnare_proc_macros::{Control, IsInstrument, Params, Uid};
 use serde::{Deserialize, Serialize};
-use std::{
-    fmt::Debug,
-    sync::{Arc, Mutex},
-};
+use std::fmt::Debug;
 
 /// Another [IsInstrument](groove_core::traits::IsInstrument) that was designed
 /// for black-box debugging.
