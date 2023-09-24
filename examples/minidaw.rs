@@ -19,7 +19,7 @@ use eframe::{
 };
 use egui_toast::{Toast, ToastOptions, Toasts};
 use ensnare::prelude::*;
-use ensnare_core::{drag_drop::DragDropManager, prelude::*, traits::prelude::*};
+use ensnare_core::{drag_drop::DragDropManager, traits::prelude::*};
 use ensnare_midi_interface::{MidiInterfaceInput, MidiPortDescriptor};
 use ensnare_not_core::panels::{
     audio_settings, midi_settings, AudioPanel, AudioPanelEvent, AudioSettings, ControlPanel,
