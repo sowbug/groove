@@ -9,7 +9,7 @@ use cpal::{
     traits::{DeviceTrait, HostTrait},
     SupportedStreamConfig,
 };
-use ensnare::prelude::*;
+use ensnare_core::prelude::*;
 use std::path::PathBuf;
 
 pub struct IOHelper {}

@@ -306,42 +306,6 @@ impl Ord for PerfectTimeUnit {
 }
 impl Eq for PerfectTimeUnit {}
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
-pub struct Seconds(pub f64);
-impl Seconds {
-    pub fn zero() -> Seconds {
-        Seconds(0.0)
-    }
-
-    pub fn infinite() -> Seconds {
-        Seconds(-1.0)
-    }
-}
-impl From<f64> for Seconds {
-    fn from(value: f64) -> Self {
-        Self(value)
-    }
-}
-impl From<f32> for Seconds {
-    fn from(value: f32) -> Self {
-        Self(value as f64)
-    }
-}
-impl Add<f64> for Seconds {
-    type Output = Seconds;
-
-    fn add(self, rhs: f64) -> Self::Output {
-        Seconds(self.0 + rhs)
-    }
-}
-impl Add<Seconds> for Seconds {
-    type Output = Seconds;
-
-    fn add(self, rhs: Seconds) -> Self::Output {
-        Seconds(self.0 + rhs.0)
-    }
-}
-
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct MidiTicks(pub usize);
 
@@ -393,7 +357,7 @@ impl Eq for MidiTicks {}
 
 #[cfg(test)]
 mod tests {
-    use ensnare::prelude::*;
+    use ensnare_core::prelude::*;
 
     #[cfg(obsolete)]
     mod obsolete {

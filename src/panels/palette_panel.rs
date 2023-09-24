@@ -1,15 +1,17 @@
-use eframe::egui::{Id as EguiId, Ui};
-use ensnare::traits::Displays;
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::mini::{
-    {DragDropManager, DragDropSource}, {EntityFactory, Key},
+use eframe::egui::{Id as EguiId, Ui};
+use ensnare_core::{
+    drag_drop::{DragDropManager, DragDropSource},
+    prelude::*,
+    traits::prelude::*,
 };
 
 /// Actions that [PalettePanel] can generate.
 #[derive(Debug)]
 pub enum PaletteAction {
     /// Requests a new entity of type [Key].
-    NewEntity(Key),
+    NewEntity(EntityKey),
 }
 
 /// A tree view of devices that can be placed in tracks.

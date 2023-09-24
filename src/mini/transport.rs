@@ -2,8 +2,8 @@
 
 use derive_builder::Builder;
 use eframe::egui::Ui;
-use ensnare::prelude::*;
-use ensnare::traits::{
+use ensnare_core::prelude::*;
+use ensnare_core::traits::{
     Configurable, ControlEventsFn, Controls, Displays, HandlesMidi, Serializable,
 };
 use ensnare_proc_macros::{Control, IsController, Uid};

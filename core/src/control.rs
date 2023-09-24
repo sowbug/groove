@@ -1,8 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::{BipolarNormal, Normal};
-use ensnare::prelude::*;
-
+use ensnare_core::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]

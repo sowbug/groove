@@ -2,7 +2,7 @@
 
 //! The [messages](crate::messages) module defines the app's messages.
 
-use ensnare::{
+use ensnare_core::{
     midi::prelude::*,
     prelude::*,
     traits::{prelude::*, MessageBounds},

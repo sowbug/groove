@@ -17,7 +17,7 @@ use eframe::{
     epaint::{Color32, Stroke, Vec2},
 };
 use egui_extras_xt::displays::SegmentedDisplayWidget;
-use ensnare::{
+use ensnare_core::{
     instruments::Synthesizer, midi::prelude::*, prelude::*, traits::prelude::*,
     voices::VoicePerNoteStore,
 };
@@ -406,7 +406,7 @@ impl Configurable for Engine {
 
     fn update_sample_rate(&mut self, _sample_rate: SampleRate) {}
 
-    fn update_tempo(&mut self, _tempo: ensnare::time::Tempo) {}
+    fn update_tempo(&mut self, _tempo: Tempo) {}
 
     fn update_time_signature(&mut self, _time_signature: TimeSignature) {}
 }
@@ -1385,7 +1385,7 @@ impl Displays for Calculator {
 mod tests {
     use super::{Engine, Pattern, Step};
     use crate::controllers::calculator::{CalculatorTempo, Percentage, TempoValue};
-    use ensnare::traits::prelude::*;
+    use ensnare_core::traits::prelude::*;
 
     impl Engine {
         fn chain_active_pattern(&mut self) {

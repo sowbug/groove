@@ -1,7 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::TrackUid;
-use ensnare::core::Normal;
+use ensnare_core::{core::Normal, track::TrackUid};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -55,7 +54,7 @@ impl BusStation {
 
 #[cfg(test)]
 mod tests {
-    use ensnare::prelude::*;
+    use ensnare_core::prelude::*;
 
     use super::*;
 

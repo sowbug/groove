@@ -17,7 +17,7 @@ mod obsolete {
         CreationContext,
     };
     use egui_toast::{Toast, ToastOptions, Toasts};
-    use ensnare::{midi::prelude::*, prelude::*, traits::prelude::*};
+    use ensnare_core::{midi::prelude::*, prelude::*, traits::prelude::*};
     use groove::{
         app_version,
         panels::{

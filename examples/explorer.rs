@@ -13,23 +13,23 @@ use eframe::{
     epaint::vec2,
     CreationContext,
 };
-use ensnare::{midi::prelude::*, prelude::*, traits::prelude::*};
-use groove::{
-    app_version,
-    mini::{
-        register_factory_entities,
-        widgets::{
-            audio::{self, CircularSampleBuffer},
-            control,
-            controllers::es_sequencer,
-            pattern, placeholder, timeline, track,
-        },
-        ControlAtlas, ControlRouter, DragDropEvent, DragDropManager, DragDropSource, ESSequencer,
-        ESSequencerBuilder, EntityStore, Note, PatternUid, PianoRoll, Sequencer, TrackTitle,
-        TrackUid,
+use ensnare::prelude::*;
+use ensnare_core::{
+    control::{ControlAtlas, ControlRouter},
+    drag_drop::{DragDropEvent, DragDropManager, DragDropSource},
+    entities::EntityStore,
+    midi::prelude::*,
+    piano_roll::{Note, PatternUid, PianoRoll},
+    prelude::*,
+    temp_impls::controllers::{
+        even_smaller_sequencer::{ESSequencer, ESSequencerBuilder},
+        mini_sequencer::Sequencer,
     },
-    EntityFactory,
+    track::{TrackTitle, TrackUid},
+    traits::prelude::*,
+    widgets::{audio::CircularSampleBuffer, prelude::*},
 };
+use groove::app_version;
 use std::ops::Range;
 
 #[derive(Debug)]
@@ -215,7 +215,7 @@ pub fn device_chain<'a>(
 
 #[derive(Debug)]
 pub enum DeviceChainAction {
-    NewDevice(groove::mini::Key),
+    NewDevice(EntityKey),
 }
 
 #[derive(Debug)]
@@ -531,7 +531,10 @@ impl ESSequencerSettings {
 
     fn show(&mut self, ui: &mut Ui) {
         if !self.hide {
-            ui.add(es_sequencer(&mut self.sequencer, self.view_range.clone()));
+            ui.add(controllers::es_sequencer(
+                &mut self.sequencer,
+                self.view_range.clone(),
+            ));
         }
     }
 }

@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use core::fmt::Debug;
-use ensnare::prelude::*;
+use ensnare_core::prelude::*;
 use std::option::Option;
 
 #[derive(Clone, Copy, Debug)]

@@ -4,7 +4,7 @@
 //! [Orchestrator].
 
 use clap::Parser;
-use groove::mini::Orchestrator;
+use ensnare_core::prelude::Orchestrator;
 use regex::Regex;
 use std::{fs::File, io::BufReader, path::PathBuf};
 

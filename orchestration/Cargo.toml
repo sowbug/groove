@@ -11,7 +11,7 @@ crossbeam = "0.8"
 dipstick = { version = "0.9", optional = true }
 eframe = { version = "0.22" }
 egui_extras = { version = "0.22" }
-ensnare = { path = "../../ensnare" }
+ensnare-core = { path = "../../ensnare/core" }
 ensnare-proc-macros = { path = "../../ensnare/proc-macros" }
 groove-core = { path = "../core" }
 groove-entities = { path = "../entities" }

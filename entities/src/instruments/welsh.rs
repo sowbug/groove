@@ -1,20 +1,22 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::effects::{BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbParams};
 use core::fmt::Debug;
 use eframe::{
     egui::{CollapsingHeader, Response, Sense, Ui},
     epaint::{Color32, Stroke, Vec2},
 };
-use ensnare::{
-    instruments::Synthesizer, midi::prelude::*, prelude::*, traits::prelude::*,
-    traits::GeneratesEnvelope, voices::StealingVoiceStore,
+use ensnare_core::{
+    generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams},
+    instruments::Synthesizer,
+    midi::prelude::*,
+    modulators::{Dca, DcaParams},
+    prelude::*,
+    temp_impls::effects::filter::{BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbParams},
+    traits::prelude::*,
+    traits::GeneratesEnvelope,
+    voices::StealingVoiceStore,
 };
 use ensnare_proc_macros::{Control, IsInstrument, Params, Uid};
-use groove_core::{
-    generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams},
-    Dca, DcaParams,
-};
 use serde::{Deserialize, Serialize};
 use strum_macros::{EnumCount as EnumCountMacro, FromRepr};
 

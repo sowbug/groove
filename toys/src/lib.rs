@@ -4,13 +4,8 @@
 //! implement [Entity] traits, usually in a simple fashion. They aren't likely
 //! to be useful in real music prduction.
 
-pub use controllers::ToyControllerAlwaysSendsMidiMessage;
 pub use effects::{ToyEffect, ToyEffectParams};
-pub use instruments::{
-    DebugSynth, DebugSynthParams, ToyAudioSource, ToyAudioSourceParams, ToyInstrument,
-    ToyInstrumentParams, ToySynth, ToySynthParams,
-};
+pub use instruments::{DebugSynth, DebugSynthParams};
 
-mod controllers;
 mod effects;
 mod instruments;

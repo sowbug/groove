@@ -11,7 +11,7 @@ anyhow = "1.0"
 bit-vec = "0.6"
 derive_more = "0.99"
 eframe = { version = "0.22" }
-ensnare = { path = "../../ensnare" }
+ensnare-core = { path = "../../ensnare/core" }
 enum-primitive-derive = "0.2"
 float-cmp = "0.9"
 ensnare-proc-macros = { path = "../../ensnare/proc-macros" }

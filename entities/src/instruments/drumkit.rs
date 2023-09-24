@@ -3,7 +3,7 @@
 use super::{sampler::SamplerVoice, Sampler};
 use anyhow::anyhow;
 use eframe::egui::Ui;
-use ensnare::{
+use ensnare_core::{
     instruments::Synthesizer,
     midi::{prelude::*, GeneralMidiPercussionProgram},
     prelude::*,

@@ -21,11 +21,11 @@ mod metrics;
 #[cfg(test)]
 mod tests {
     mod params {
-        use ensnare::{prelude::*, traits::prelude::*};
+        use ensnare_core::{prelude::*, traits::prelude::*};
         use ensnare_proc_macros::{Control, Params, Uid};
+        use serde::{Deserialize, Serialize};
         use strum::EnumCount;
         use strum_macros::{EnumCount as EnumCountMacro, FromRepr};
-        use serde::{Deserialize, Serialize};
 
         #[derive(
             Clone, Copy, Debug, Default, EnumCountMacro, FromRepr, PartialEq, Serialize, Deserialize,

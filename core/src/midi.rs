@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use bit_vec::BitVec;
-use ensnare::{midi::prelude::*, prelude::*};
+use ensnare_core::{midi::prelude::*, prelude::*};
 use std::fmt::Debug;
 
 pub fn note_description_to_frequency(text: &str) -> Option<FrequencyHz> {
@@ -20,59 +20,13 @@ pub fn note_description_to_frequency(text: &str) -> Option<FrequencyHz> {
     None
 }
 
-/// [MidiNoteMinder] watches a MIDI message stream and remembers which notes are
-/// currently active (we've gotten a note-on without a note-off). Then, when
-/// asked, it produces a list of MIDI message that turn off all active notes.
-///
-/// [MidiNoteMinder] doesn't know about [MidiChannel]s. It's up to the caller to
-/// track channels, or else assume that if we got any message, it's for us, and
-/// that the same is true for recipients of whatever we send.
-#[derive(Debug)]
-pub struct MidiNoteMinder {
-    active_notes: BitVec,
-}
-impl Default for MidiNoteMinder {
-    fn default() -> Self {
-        Self {
-            active_notes: BitVec::from_elem(128, false),
-        }
-    }
-}
-impl MidiNoteMinder {
-    pub fn watch_message(&mut self, message: &MidiMessage) {
-        #[allow(unused_variables)]
-        match message {
-            MidiMessage::NoteOff { key, vel } => {
-                self.active_notes.set(key.as_int() as usize, false);
-            }
-            MidiMessage::NoteOn { key, vel } => {
-                self.active_notes
-                    .set(key.as_int() as usize, *vel != u7::from(0));
-            }
-            _ => {}
-        }
-    }
-
-    pub fn generate_off_messages(&self) -> Vec<MidiMessage> {
-        let mut v = Vec::default();
-        for (i, active_note) in self.active_notes.iter().enumerate() {
-            if active_note {
-                v.push(MidiMessage::NoteOff {
-                    key: u7::from_int_lossy(i as u8),
-                    vel: u7::from(0),
-                })
-            }
-        }
-        v
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{note_description_to_frequency, MidiNoteMinder};
-    use ensnare::{
+    use super::note_description_to_frequency;
+    use ensnare_core::{
         midi::{new_note_off, new_note_on, MidiNote},
-        prelude::FrequencyHz,
+        prelude::*,
+        temp_impls::controllers::old_sequencer::MidiNoteMinder,
     };
     use midly::{num::u7, MidiMessage};
 

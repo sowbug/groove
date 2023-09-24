@@ -8,7 +8,7 @@ publish = false
 
 [dependencies]
 eframe = { version = "0.22" }
-ensnare = { path = "../../ensnare" }
+ensnare-core = { path = "../../ensnare/core" }
 ensnare-proc-macros = { path = "../../ensnare/proc-macros" }
 groove-core = { path = "../core" }
 groove-proc-macros = { path = "../proc-macros" }

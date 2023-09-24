@@ -30,7 +30,7 @@ pub mod instruments;
 
 #[cfg(test)]
 mod tests {
-    use ensnare::core::ParameterType;
+    use ensnare_core::core::ParameterType;
 
     pub(crate) const DEFAULT_SAMPLE_RATE: usize = 44100;
     pub(crate) const DEFAULT_BPM: ParameterType = 128.0;

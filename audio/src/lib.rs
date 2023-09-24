@@ -9,7 +9,7 @@ use cpal::{
 };
 use crossbeam::queue::ArrayQueue;
 use crossbeam_channel::{unbounded, Receiver, Sender};
-use ensnare::prelude::*;
+use ensnare::{prelude::*, AudioQueue};
 use std::{fmt::Debug, result::Result::Ok, sync::Arc, thread::JoinHandle, time::Instant};
 
 pub enum AudioInterfaceInput {
@@ -34,11 +34,6 @@ pub enum AudioInterfaceEvent {
     // the stream.
     Quit,
 }
-
-/// The producer-consumer queue of stereo samples that the audio stream consumes.
-//
-// TODO: why isn't this a ring buffer?
-pub type AudioQueue = Arc<ArrayQueue<StereoSample>>;
 
 #[derive(Debug)]
 pub struct AudioStreamService {

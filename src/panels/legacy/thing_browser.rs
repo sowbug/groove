@@ -78,8 +78,7 @@ impl EntityBrowser {
 }
 
 /// [EntityBrowser] shows assets in a tree view.
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct EntityBrowserNode {
     depth: usize,
     thing_type: EntityType,

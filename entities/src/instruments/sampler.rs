@@ -2,7 +2,7 @@
 
 use anyhow::{anyhow, Result};
 use eframe::egui::Ui;
-use ensnare::{
+use ensnare_core::{
     instruments::Synthesizer,
     midi::prelude::*,
     prelude::*,

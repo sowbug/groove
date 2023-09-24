@@ -1,15 +1,17 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use eframe::egui::Ui;
-use ensnare::{
-    instruments::Synthesizer, midi::prelude::*, prelude::*, traits::prelude::*,
-    traits::GeneratesEnvelope, voices::StealingVoiceStore,
+use ensnare_core::{
+    generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams, Waveform},
+    instruments::Synthesizer,
+    midi::prelude::*,
+    modulators::{Dca, DcaParams},
+    prelude::*,
+    traits::prelude::*,
+    traits::GeneratesEnvelope,
+    voices::StealingVoiceStore,
 };
 use ensnare_proc_macros::{Control, IsInstrument, Params, Uid};
-use groove_core::{
-    generators::{Envelope, EnvelopeParams, Oscillator, OscillatorParams, Waveform},
-    Dca, DcaParams,
-};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default)]

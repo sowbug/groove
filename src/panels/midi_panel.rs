@@ -2,7 +2,7 @@
 
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{CollapsingHeader, ComboBox, Ui};
-use ensnare::{midi::prelude::*, traits::prelude::*};
+use ensnare_core::{midi::prelude::*, traits::prelude::*};
 use ensnare_midi_interface::{
     MidiInterfaceEvent, MidiInterfaceInput, MidiInterfaceService, MidiPortDescriptor,
 };

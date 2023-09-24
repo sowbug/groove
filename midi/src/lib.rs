@@ -5,9 +5,9 @@
 //! to exchange [MidiHandlerInput] and [MidiHandlerEvent] messages.
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
-use ensnare::midi::{u4, LiveEvent, MidiChannel, MidiMessage};
-use ensnare_midi_interface::MidiPortDescriptor;
+use ensnare::prelude::*;
 use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
+use midly::live::LiveEvent;
 use std::{fmt::Debug, thread::JoinHandle};
 
 /// The client sends requests to the MIDI interface through [MidiInterfaceInput] messages.

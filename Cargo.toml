@@ -25,6 +25,8 @@ eframe = { version = "0.22" }
 egui-toast = { version = "0.8" }
 egui_extras = { version = "0.22" }
 ensnare = { path = "../ensnare" }
+ensnare-core = { path = "../ensnare/core" }
+ensnare-not-core = { path = "../ensnare/not-core" }
 ensnare-midi-interface = { path = "../ensnare/midi-interface" }
 ensnare-proc-macros = { path = "../ensnare/proc-macros" }
 enum-primitive-derive = "0.2"

@@ -6,7 +6,7 @@
 mod obsolete {
     use anyhow::Ok;
     use clap::Parser;
-    use ensnare::prelude::*;
+    use ensnare_core::prelude::*;
     use groove::{app_version, DEFAULT_BPM};
     use groove_core::SAMPLE_BUFFER_SIZE;
     use groove_orchestration::{helpers::IOHelper, Orchestrator};

@@ -18,17 +18,15 @@ use eframe::{
     CreationContext,
 };
 use egui_toast::{Toast, ToastOptions, Toasts};
-use ensnare::traits::prelude::*;
+use ensnare::prelude::*;
+use ensnare_core::{drag_drop::DragDropManager, prelude::*, traits::prelude::*};
 use ensnare_midi_interface::{MidiInterfaceInput, MidiPortDescriptor};
-use groove::{
-    app_version,
-    mini::{register_factory_entities, DragDropManager, EntityFactory, Key, Orchestrator},
-    panels::{
-        audio_settings, midi_settings, AudioPanel, AudioPanelEvent, AudioSettings, ControlPanel,
-        ControlPanelAction, MidiPanel, MidiPanelEvent, MidiSettings, NeedsAudioFn,
-        OrchestratorEvent, OrchestratorInput, OrchestratorPanel, PaletteAction, PalettePanel,
-    },
+use ensnare_not_core::panels::{
+    audio_settings, midi_settings, AudioPanel, AudioPanelEvent, AudioSettings, ControlPanel,
+    ControlPanelAction, MidiPanel, MidiPanelEvent, MidiSettings, NeedsAudioFn, OrchestratorEvent,
+    OrchestratorInput, OrchestratorPanel, PaletteAction, PalettePanel,
 };
+use groove::app_version;
 use serde::{Deserialize, Serialize};
 use std::{
     io::{Read, Write},
@@ -222,7 +220,7 @@ enum MenuBarAction {
     TrackDuplicate,
     TrackDelete,
     TrackRemoveSelectedPatterns,
-    TrackAddEntity(Key),
+    TrackAddEntity(EntityKey),
     ComingSoon,
 }
 

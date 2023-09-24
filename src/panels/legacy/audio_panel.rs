@@ -3,7 +3,7 @@
 use crate::panels::{audio_panel::AudioSettings, AudioPanelEvent};
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{CollapsingHeader, Ui};
-use ensnare::core::StereoSample;
+use ensnare_core::core::StereoSample;
 use groove_audio::{AudioInterfaceEvent, AudioInterfaceInput, AudioQueue, AudioStreamService};
 use groove_core::{traits::gui::Displays, SAMPLE_BUFFER_SIZE};
 use std::{

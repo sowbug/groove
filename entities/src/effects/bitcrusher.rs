@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use eframe::egui::{DragValue, Ui};
-use ensnare::{prelude::*, traits::prelude::*};
+use ensnare_core::{prelude::*, traits::prelude::*};
 use ensnare_proc_macros::{Control, IsEffect, Params, Uid};
 use serde::{Deserialize, Serialize};
 

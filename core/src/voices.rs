@@ -9,11 +9,7 @@ use derive_more::{Add, Display, From, Into};
 use ensnare::prelude::*;
 use rustc_hash::FxHashMap;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, From, Into, Add, Display)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(serde::Serialize, serde::Deserialize)
-)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, From, Into, Add, Display, Serialize, Deserialize)]
 pub struct VoiceCount(usize);
 impl Default for VoiceCount {
     fn default() -> Self {

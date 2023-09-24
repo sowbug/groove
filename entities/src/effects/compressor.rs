@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use eframe::egui::{DragValue, Ui};
-use ensnare::{prelude::*, traits::prelude::*};
+use ensnare_core::{prelude::*, traits::prelude::*};
 use ensnare_proc_macros::{Control, IsEffect, Params, Uid};
 use serde::{Deserialize, Serialize};
 
@@ -157,8 +157,10 @@ impl Displays for Compressor {
 #[cfg(test)]
 mod tests {
     use crate::effects::compressor::{Compressor, CompressorParams};
-    use ensnare::core::{Normal, Sample, SampleType};
-    use ensnare::traits::prelude::*;
+    use ensnare_core::{
+        core::{Normal, Sample, SampleType},
+        traits::prelude::*,
+    };
 
     #[test]
     fn basic_compressor() {

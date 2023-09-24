@@ -1,13 +1,18 @@
-use crate::mini::{
-    ChannelPair, EntityFactory, Key, Orchestrator, OrchestratorAction, OrchestratorBuilder,
-    SelectionSet, TrackUid,
-};
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use anyhow::{anyhow, Result};
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::Ui;
-use ensnare::midi::{MidiChannel, MidiMessage};
-use ensnare::prelude::*;
-use ensnare::traits::{Configurable, Controls, Displays, HandlesMidi, Serializable};
+use ensnare_core::{
+    core::ChannelPair,
+    entities::EntityFactory,
+    midi::{MidiChannel, MidiMessage},
+    orchestration::{Orchestrator, OrchestratorAction, OrchestratorBuilder},
+    prelude::*,
+    selection_set::SelectionSet,
+    track::TrackUid,
+    traits::prelude::*,
+};
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex, MutexGuard},
@@ -42,7 +47,7 @@ pub enum OrchestratorInput {
     /// Delete the selected arranged patterns.
     TrackPatternRemoveSelected,
     /// Add a new entity to the selected track.
-    TrackAddEntity(Key),
+    TrackAddEntity(EntityKey),
     /// Sets the tempo.
     Tempo(Tempo),
 
