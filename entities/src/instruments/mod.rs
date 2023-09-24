@@ -5,10 +5,8 @@ pub use fm::{FmSynth, FmSynthParams, FmVoice};
 #[cfg(obsolete)]
 pub use metronome::{Metronome, MetronomeParams};
 pub use sampler::{Sampler, SamplerParams, SamplerVoice};
-pub use welsh::{LfoRouting, WelshSynth, WelshSynthParams, WelshVoice, WelshVoiceParams};
 
 mod drumkit;
 mod fm;
 mod metronome;
 mod sampler;
-mod welsh;
