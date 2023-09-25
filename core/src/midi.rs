@@ -26,7 +26,6 @@ mod tests {
     use ensnare_core::{
         midi::{new_note_off, new_note_on, MidiNote},
         prelude::*,
-        temp_impls::controllers::old_sequencer::MidiNoteMinder,
     };
     use midly::{num::u7, MidiMessage};
 
@@ -102,58 +101,5 @@ mod tests {
             None,
             "Empty string should fail to parse"
         );
-    }
-
-    #[test]
-    fn midi_note_minder() {
-        let mut mnm = MidiNoteMinder::default();
-
-        assert!(mnm.generate_off_messages().is_empty());
-
-        // Unexpected note-off doesn't explode
-        mnm.watch_message(&new_note_off(42, 111));
-        assert!(mnm.generate_off_messages().is_empty());
-
-        // normal
-        mnm.watch_message(&new_note_on(42, 99));
-        let msgs = mnm.generate_off_messages();
-        assert_eq!(msgs.len(), 1);
-        assert_eq!(
-            msgs[0],
-            MidiMessage::NoteOff {
-                key: u7::from(42),
-                vel: u7::from(0)
-            }
-        );
-
-        // duplicate on doesn't explode or add twice
-        mnm.watch_message(&new_note_on(42, 88));
-        let msgs = mnm.generate_off_messages();
-        assert_eq!(msgs.len(), 1);
-        assert_eq!(
-            msgs[0],
-            MidiMessage::NoteOff {
-                key: u7::from(42),
-                vel: u7::from(0)
-            }
-        );
-
-        // normal
-        mnm.watch_message(&new_note_off(42, 77));
-        assert!(mnm.generate_off_messages().is_empty());
-
-        // duplicate off doesn't explode
-        mnm.watch_message(&new_note_off(42, 66));
-        assert!(mnm.generate_off_messages().is_empty());
-
-        // velocity zero treated same as note-off
-        mnm.watch_message(&new_note_on(42, 99));
-        assert_eq!(mnm.generate_off_messages().len(), 1);
-        mnm.watch_message(&new_note_off(42, 99));
-        assert_eq!(mnm.generate_off_messages().len(), 0);
-        mnm.watch_message(&new_note_on(42, 99));
-        assert_eq!(mnm.generate_off_messages().len(), 1);
-        mnm.watch_message(&new_note_on(42, 0));
-        assert_eq!(mnm.generate_off_messages().len(), 0);
     }
 }
