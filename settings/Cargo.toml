@@ -9,7 +9,6 @@ anyhow = "1.0"
 convert_case = "0.6"
 ensnare = { path = "../../ensnare" }
 float-cmp = "0.9"
-groove-core = { path = "../core", features = ["serialization"] }
 groove-entities = { path = "../entities", features = ["serialization"] }
 groove-macros = { path = "../macros" }
 groove-orchestration = { path = "../orchestration" }
@@ -28,6 +27,5 @@ default = ["serialization"]
 # https://stackoverflow.com/a/62972981/344467
 "serialization" = [
     "serde",
-    "groove-core/serialization",
     "groove-entities/serialization",
 ]

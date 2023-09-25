@@ -11,7 +11,6 @@ crossbeam-channel = "0.5"
 crossbeam-utils = "0.8"
 ensnare = { path = "../../ensnare" }
 ensnare-midi-interface = { path = "../../ensnare/midi-interface" }
-groove-core = { path = "../core" }
 midir = "0.9"
 midly = "0.5"
 serde = { version = "1.0", features = ["derive", "rc"] }

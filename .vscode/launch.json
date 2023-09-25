@@ -7,20 +7,16 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Unit tests (core)",
+      "name": "MiniDAW example",
       "cargo": {
         "args": [
-          "test",
-          "--no-run",
-          "--workspace",
-          "--",
-          "--show-output",
-          "--bin=groove",
-          "--package=groove-core",
+          "build",
+          "--example=minidaw",
+          "--package=groove",
         ],
         "filter": {
-          "name": "groove-core",
-          "kind": "lib"
+          "name": "minidaw",
+          "kind": "example"
         }
       },
       "args": [],
@@ -29,37 +25,22 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "MiniDAW example",
-      "cargo": {
-        "args": [
-            "build",
-            "--example=minidaw",
-            "--package=groove",
-        ],
-        "filter": {
-            "name": "minidaw",
-            "kind": "example"
-        }
-    },
-    "args": [],
-      "cwd": "${workspaceFolder}"
-    },
-    {
-      "type": "lldb",
-      "request": "launch",
       "name": "MiniCLI example",
       "cargo": {
         "args": [
-            "build",
-            "--example=minicli",
-            "--package=groove",
+          "build",
+          "--example=minicli",
+          "--package=groove",
         ],
         "filter": {
-            "name": "minicli",
-            "kind": "example"
+          "name": "minicli",
+          "kind": "example"
         }
-    },
-    "args": ["-w", "minicli-work.json"],
+      },
+      "args": [
+        "-w",
+        "minicli-work.json"
+      ],
       "cwd": "${workspaceFolder}"
     },
     {
@@ -68,16 +49,16 @@
       "name": "Explorer example",
       "cargo": {
         "args": [
-            "build",
-            "--example=explorer",
-            "--package=groove",
+          "build",
+          "--example=explorer",
+          "--package=groove",
         ],
         "filter": {
-            "name": "explorer",
-            "kind": "example"
+          "name": "explorer",
+          "kind": "example"
         }
-    },
-    "args": [],
+      },
+      "args": [],
       "cwd": "${workspaceFolder}"
     },
     {
@@ -106,20 +87,20 @@
       "request": "launch",
       "name": "egui app",
       "cargo": {
-          "args": [
-              "build",
-              "--bin=groove-egui",
-              "--package=groove",
-              "--features=egui-framework",
-          ],
-          "filter": {
-              "name": "groove-egui",
-              "kind": "bin"
-          }
+        "args": [
+          "build",
+          "--bin=groove-egui",
+          "--package=groove",
+          "--features=egui-framework",
+        ],
+        "filter": {
+          "name": "groove-egui",
+          "kind": "bin"
+        }
       },
       "args": [],
       "cwd": "${workspaceFolder}"
-  },
+    },
     {
       "type": "lldb",
       "request": "launch",
@@ -409,5 +390,5 @@
       ],
       "cwd": "${workspaceFolder}"
     },
-]
+  ]
 }

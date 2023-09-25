@@ -13,7 +13,6 @@ eframe = { version = "0.22" }
 egui_extras = { version = "0.22" }
 ensnare-core = { path = "../../ensnare/core" }
 ensnare-proc-macros = { path = "../../ensnare/proc-macros" }
-groove-core = { path = "../core" }
 groove-entities = { path = "../entities" }
 groove-macros = { path = "../macros" }
 groove-toys = { path = "../toys" }
