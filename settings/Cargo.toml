@@ -10,7 +10,6 @@ convert_case = "0.6"
 ensnare = { path = "../../ensnare" }
 float-cmp = "0.9"
 groove-entities = { path = "../entities", features = ["serialization"] }
-groove-macros = { path = "../macros" }
 groove-orchestration = { path = "../orchestration" }
 groove-toys = { path = "../toys", features = ["serialization"] }
 groove-utils = { path = "../utils" }

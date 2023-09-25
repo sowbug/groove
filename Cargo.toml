@@ -30,7 +30,6 @@ ensnare-midi-interface = { path = "../ensnare/midi-interface" }
 ensnare-proc-macros = { path = "../ensnare/proc-macros" }
 enum-primitive-derive = "0.2"
 futures = "0.3"
-groove-macros = { path = "macros" }
 groove-midi = { path = "midi" }
 groove-proc-macros = { path = "proc-macros" }
 groove-toys = { path = "toys" }
@@ -48,7 +47,6 @@ typetag = "0.2"
 
 [workspace]
 members = [
-    "macros",
     "midi",
     #"orchestration",
     "proc-macros",
