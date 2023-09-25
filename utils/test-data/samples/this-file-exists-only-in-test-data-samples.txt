@@ -1,1 +1,0 @@
-This file is used by the utils/file_loading() unit test.

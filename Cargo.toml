@@ -32,15 +32,11 @@ enum-primitive-derive = "0.2"
 futures = "0.3"
 groove-audio = { path = "audio" }
 groove-core = { path = "core" }
-groove-egui = { path = "egui" }
-groove-entities = { path = "entities" }
 groove-macros = { path = "macros" }
 groove-midi = { path = "midi" }
-groove-orchestration = { path = "orchestration" }
 groove-proc-macros = { path = "proc-macros" }
 #groove-settings = { path = "settings" }
 groove-toys = { path = "toys" }
-groove-utils = { path = "utils" }
 hound = "3.5"
 once_cell = "1.18.0"
 oorandom = "11.1"
@@ -56,15 +52,12 @@ typetag = "0.2"
 members = [
     "audio",
     "core",
-    "egui",
-    "entities",
     "macros",
     "midi",
     #"orchestration",
     "proc-macros",
     #"settings",
     "toys",
-    "utils",
 ]
 
 [[bin]]
@@ -76,9 +69,6 @@ name = "groove-egui"
 [lib]
 name = "groove"
 path = "src/lib.rs"
-
-[[example]]
-name = "minidaw"
 
 [profile.release]
 strip = true

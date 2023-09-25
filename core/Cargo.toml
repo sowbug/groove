@@ -8,6 +8,7 @@ publish = false
 
 [dependencies]
 anyhow = "1.0"
+app_dirs2 = "2.5"
 bit-vec = "0.6"
 derive_more = "0.99"
 eframe = { version = "0.22" }
