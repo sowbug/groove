@@ -32,7 +32,6 @@ enum-primitive-derive = "0.2"
 futures = "0.3"
 groove-midi = { path = "midi" }
 groove-proc-macros = { path = "proc-macros" }
-groove-toys = { path = "toys" }
 hound = "3.5"
 once_cell = "1.18.0"
 oorandom = "11.1"
@@ -51,7 +50,6 @@ members = [
     #"orchestration",
     "proc-macros",
     #"settings",
-    "toys",
 ]
 
 [[bin]]
