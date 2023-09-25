@@ -37,10 +37,3 @@ pub const DEFAULT_TIME_SIGNATURE: (usize, usize) = (4, 4);
 #[doc(hidden)]
 /// A typical tick-per-second rate for a MIDI file.
 pub const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
-
-// https://stackoverflow.com/a/65972328/344467
-/// A string that's useful for displaying build information to end users.
-pub fn app_version() -> &'static str {
-    option_env!("GIT_DESCRIBE")
-        .unwrap_or(option_env!("GIT_REV_PARSE").unwrap_or(env!("CARGO_PKG_VERSION")))
-}

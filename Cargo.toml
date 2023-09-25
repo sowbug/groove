@@ -22,7 +22,6 @@ derive_builder = "0.12"
 derive_more = "0.99"
 dipstick = { version = "0.9" }
 eframe = { version = "0.22" }
-egui-toast = { version = "0.8" }
 egui_extras = { version = "0.22" }
 ensnare = { path = "../ensnare" }
 ensnare-core = { path = "../ensnare/core" }
@@ -30,7 +29,6 @@ ensnare-not-core = { path = "../ensnare/not-core" }
 ensnare-midi-interface = { path = "../ensnare/midi-interface" }
 ensnare-proc-macros = { path = "../ensnare/proc-macros" }
 enum-primitive-derive = "0.2"
-env_logger = "0.10"
 futures = "0.3"
 groove-audio = { path = "audio" }
 groove-core = { path = "core" }
@@ -48,9 +46,7 @@ once_cell = "1.18.0"
 oorandom = "11.1"
 plotters = { version = "0.3", optional = true, default-features = false }
 rayon = "1.7"
-regex = "1.7"
 serde = { version = "1.0", features = ["derive", "rc"] }
-serde_json = "1.0"
 spectrum-analyzer = { version = "1.2" }
 strum = "0.25"
 strum_macros = "0.25"
