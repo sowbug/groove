@@ -30,7 +30,6 @@ ensnare-midi-interface = { path = "../ensnare/midi-interface" }
 ensnare-proc-macros = { path = "../ensnare/proc-macros" }
 enum-primitive-derive = "0.2"
 futures = "0.3"
-groove-midi = { path = "midi" }
 groove-proc-macros = { path = "proc-macros" }
 hound = "3.5"
 once_cell = "1.18.0"
@@ -45,12 +44,7 @@ strum_macros = "0.25"
 typetag = "0.2"
 
 [workspace]
-members = [
-    "midi",
-    #"orchestration",
-    "proc-macros",
-    #"settings",
-]
+members = ["proc-macros"]
 
 [[bin]]
 name = "groove-cli"
